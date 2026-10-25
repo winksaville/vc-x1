@@ -158,7 +158,7 @@ vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
 vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmark, push
 vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
-vc-x1 squash -s b [--title T --body B]     # Fold the working copies into the unpushed pair
+vc-x1 squash -s b [--title T --body B]     # Fold the working copies into the pair
 vc-x1 merge -s w --target T --from S...    # Add sources to a target's parents, keeping its change
 vc-x1 move-bookmark -s w --bookmark B --target T  # Point an existing bookmark at a commit, locally
 vc-x1 push -s b [BOOKMARK] [OPTS]          # Publish a rung's pair: the work bookmark and the agent main
@@ -1813,10 +1813,10 @@ details.
 
 ### commit
 
-Commit the working copies as a rung's pair: one commit per repo of a dual workspace, each stamped
-with the other's change id, before anything is pushed. The pair is what the per-rung flow reviews,
-description and diff together, by `jj show @-` in either repo, so a fix after the review folds into
-the pair and never rewrites a remote, and `push` publishes what was reviewed. Both change ids are
+Commit the working copies as a rung's pair, one commit per repo of a dual workspace, each stamped
+with the other's change id, and push it in the same invocation. The diff and the description are
+reviewed before the commit, so what is pushed is what was reviewed, and `--no-push` keeps a commit
+local for a look at it by `vc-x1 show -s both @-` before `push`. Both change ids are
 known before either commit is made, since a jj commit keeps the working copy's change id, so each
 trailer is written once.
 
@@ -1833,20 +1833,86 @@ vc-x1 commit -s b --title "feat: a rung" --body "The problem.
 # A plain repo, the description with no trailer
 vc-x1 commit -s p -R ../other --title "..." --body "..."
 
-# The cycle's closing, made as the merge of the trunk and the ladder
-vc-x1 commit -s w --closing --title "feat: a cycle closing" --body @tmp/body.md
+# The cycle's opening, " opening" appended, its bookmark, feat-a-cycle, created at @- and pushed
+vc-x1 commit -s b --opening --title "feat: a cycle" --body @tmp/body.md
+
+# A single-step cycle's closing, its opening finalized in place
+vc-x1 commit -s b --closing
+
+# A multi-step cycle's closing commit onto main, its title and body from the opening and the config
+vc-x1 commit -s b --closing main
 ```
 
-`--closing` first merges `main` and the last rung into `@`, as `merge --target @ --from main
---from @-` does, then commits, which keeps those parents. `main` is wherever it is now, so one
-that moved during the cycle is joined by the merge rather than needing a rebase. The title's
-" closing" or " dead-end closing" suffix is checked against the flag both ways. With no ladder, a
-single-step cycle, `--closing` is refused and a title ending " closing" is just a title.
+`--closing [REV]` closes the cycle, nothing assumed about the branch it is on:
+
+- Bare: a single-step cycle, which has no parent to name. `@-`, its opening, is finalized in place
+  with no new commit: `@` is folded into it and it takes the bare cycle title, its body and trailer
+  kept, so its change id and its partner stand, and the agent `@` is left for `push`. The line's
+  bookmark follows the rewrite. A rung at `@-` is refused, unless `--title` is given.
+- With `REV`, any one commit, a bookmark, a change id, a commit id, or an `@` form: a multi-step
+  cycle's closing commit, `REV` and the last rung merged into `@`, as `merge --target @ --from REV
+  --from @-` does, then committed, which keeps those parents. A bookmark is read where it is now,
+  so one that moved during the cycle is joined by the merge rather than needing a rebase. The
+  opening alone above `REV` is refused, pointing at the bare form, unless `--dead-end`.
+
+`--title` and `--body` are optional with `--closing`. The cycle title is read from the opening, its
+" opening" removed, and " closing" is appended for a closing commit, " dead-end closing" with
+`--dead-end`, which needs a `REV`. A given `--title` is the bare cycle title. The closing commit's
+body defaults to `[closing] body` in `.vc-config.md`, its `{title}` the cycle title, and a
+finalized commit keeps the opening's. Without `--closing` a title ending " closing" is warned
+about, since it may be a closing not asked for.
+
+With `[record] doing` and `closed` set, a closing moves the cycle's record before it commits, so the
+commit carries it: the doing file's `## In Progress` block and its `# References` replace the
+closed file's `## Closed` block and references, and the doing file's `## In Progress` is reset to
+"_No cycle currently in progress._". A finalized commit's kept body gains "See details in
+<closed>.". The move is planned and checked before anything is made, so nothing in progress, or a
+missing heading, is refused with both files as they were.
+
+`--land [TRUNK]` lands the cycle in the same invocation: the closing is made, the trunk is
+fast-forwarded to it and pushed with the agent half as its partner, and the cycle's bookmark is
+deleted locally and on `origin`, `--skip local|remote|both` keeping what it names. The trunk is
+`--land`'s value, or the closing's `REV` when that is a bookmark, so a ladder lands with `commit
+--closing main --land` and a single-step cycle with `commit --closing --land main`. The closing's own
+push to the cycle's bookmark is skipped, the bookmark being deleted. Every check runs first, so a
+refusal leaves everything as it was: the trunk must be a local bookmark at its `origin` position,
+since a trunk that moved stops a Land, the closing must merge onto it, and the branch must descend
+from it, so the tree landed is the one reviewed. A conflicted closing is made but not landed. The
+install stays `vc-x1 install`, after.
+
+```bash
+vc-x1 commit -s b --closing --land main      # a single-step cycle, finalized and landed on main
+vc-x1 commit -s b --closing main --land      # a ladder's closing commit, landed on main
+```
+
+`--opening [BOOKMARK]` makes the cycle's opening: `--title` is the bare cycle title and " opening"
+is appended, a title carrying it already refused. The bookmark is the one named, else the bare
+title's slug, the anchor a heading of the title gets, `feat: a cycle` naming `feat-a-cycle`. The bookmark is created at the work `@-`, where
+the cycle's branch starts, and pushed to `origin`, a name for a commit already public, so nothing
+unreviewed goes out, and the opening itself stays local until the push after its review. `--skip
+local` takes a bookmark already at `@-` and pushes it, `--skip remote` creates it and pushes
+nothing, and `--skip both` only checks it. Every check runs before the commit: a bookmark to create
+must not exist, a push must not move one published elsewhere, and `@-` must already be on a remote.
+
+The line's bookmark advances to the work commit, locally: the nearest bookmark below the work
+`@-`, as `push` resolves it, the one `--bookmark` names, or `--opening`'s. jj moves a bookmark with
+its commit through a later squash or amend, so the advance holds through the review's fixes, and
+the remote moves only at `push`. `--no-advance` leaves the bookmark where it is, and a line with no
+bookmark or several is refused before anything is made. The agent repo's `main` is push's to set.
 
 `--dry-run` prints the descriptions it would write, trailers included, and commits nothing. `-s`
 is required: `b` makes both commits now, `w` makes the work commit now, its trailer naming
 the agent `@` all the same, and leaves the agent half to `push`, which commits the journal as the
-partner, `p` commits a plain repo, and `a` is refused, an agent commit made first being unpaired.
+partner, `a` commits the agent repo alone, unpaired, with no trailer, a fix-up that belongs to no
+rung, and `p` commits a plain repo. An agent `@` that is a work commit's pending partner is
+committed with a warning, its change id kept, so the work commit's trailer still resolves.
+
+The commit is pushed in the same invocation, as `vc-x1 push` would after it: a pair by `push -s
+b`, a plain repo by `push -s p`, and an agent commit by publishing the agent repo's `main`. The diff
+and the description are reviewed before the commit, so what is pushed is what was reviewed.
+`--no-push` keeps one commit local, for a look at it before `vc-x1 push`, `[commit] push = false`
+makes that the default, and `--push` overrides the key. A commit with `--no-advance` pushes only
+with `--push`, since its bookmark was left where it was.
 `-R` is optional and says where. `--body` is the text, or `@PATH` to read it from a file, since a
 body in commit-body form has markers and blank lines a shell quote mangles. The work repo's `@`
 must hold a change, and with `b` the agent repo's `@`, the session's journal, is committed as it
@@ -1854,23 +1920,30 @@ stands. A failure after the first commit restores both repos from `jj op` snapsh
 
 ### squash
 
-Continue a rung: fold the working copies into the pair `commit` made, before it is pushed. A
-review's fix in the work `@` folds into the work commit, and the journal into the agent commit,
-each keeping its change id, so both trailers stay right without being touched.
+Continue a rung: fold the working copies into the pair `commit` made. A review's fix in the work
+`@` folds into the work commit, and the journal into the agent commit, each keeping its change id,
+so both trailers stay right without being touched.
 
 ```
 vc-x1 squash -s b                                    # both sides
-vc-x1 squash -s w                                    # the work side only
+vc-x1 squash -s w                                    # the work side only, a draft too
+vc-x1 squash -s w --yes                              # a commit already on main's remote
 vc-x1 squash -s b --title "feat: ..." --body @tmp/body.md   # and rewrite the descriptions
 vc-x1 squash -s p -R ../other                        # a plain repo's @ into its @-
 ```
 
 `-s` is required and `-R` optional. The agent side goes by where the partner stands: committed by
 `commit -s b`, so the journal folds into it, or pending after `commit -s w`, so the journal already
-is the partner and push commits it. A published side is refused, since folding into it is a remote
-rewrite, and a work `@-` with no trailer is not a pair's. `--title` with `--body` rewrites the
-descriptions and keeps each trailer, the one sanctioned re-describe of a trailer-carrying commit.
-`--dry-run` prints what it would fold and re-describe, and changes nothing.
+is the partner and push commits it. A published side goes by where it was published:
+
+- a draft, published on a topic bookmark only, is rewritten with a warning, since the cycle is not
+  landed and the next push only moves its bookmark
+- a commit on `main`'s remote is history others have, refused without `--yes`
+- a published partner with only the journal to fold is left for push, whose agent half folds it
+
+A work `@-` with no trailer is not a pair's. `--title` with `--body` rewrites the descriptions and
+keeps each trailer, the one sanctioned re-describe of a trailer-carrying commit, warned or refused
+as a fold is. `--dry-run` prints what it would fold and re-describe, and changes nothing.
 
 ### merge
 
@@ -1923,26 +1996,47 @@ commit, a bookmark or a rev. A move backward or sideways, leaving
 commits off the bookmark's line, is refused unless `--allow-backwards`, as `jj` refuses it, and a
 bookmark already at the target is left as it is.
 
+### delete-bookmark
+
+Delete one bookmark locally and on `origin`, the disposal a cycle's bookmark gets at Land, `jj
+bookmark delete` and its push in one invocation. The remote goes first, so a failed push leaves the
+local bookmark, and a side already gone is no error, so a rerun finishes the job. The commits stay,
+and the commit the bookmark was at is printed so it can be recreated.
+
+```bash
+vc-x1 delete-bookmark -s w --bookmark feat-a-cycle                # local and on origin
+vc-x1 delete-bookmark -s w --bookmark feat-a-cycle --skip local   # origin only
+vc-x1 delete-bookmark -s w --bookmark feat-a-cycle --skip remote  # local only
+vc-x1 delete-bookmark -s p -R ../other --bookmark old --dry-run   # print, delete nothing
+```
+
+`-s` is required: `w` the work repo, `a` the agent repo, `b` both, and `p` the repo `-R` names, as
+it is.
+
 ### push
 
-Publish a rung's pair. Push carries no description and writes none, so what was reviewed is what
-goes out: `commit` makes the pair, the work commit and the agent commit each naming the other, or
-the work half alone with its trailer naming the agent `@`, and push completes and publishes it.
+Publish a rung's pair, or a bookmark on a commit already made. Push carries no description and
+writes none, so what was reviewed is what goes out: `commit` makes the pair and pushes it unless
+told not to, and push publishes one it kept local, completing the agent half as its partner. A
+named bookmark off the line `@-` is on, on a commit already made, is published where it is, a name
+and no pair: a bookmark on the working copy is refused, since `commit` is what turns it into a
+commit, and one on the root has nothing to publish.
 
 ```bash
 vc-x1 push -s b                  # the pair, on the bookmark the work @- sits on
 vc-x1 push -s b feature          # the same, the bookmark named as a check
+vc-x1 push -s b side             # a bookmark off the line, on a commit made, published where it is
 vc-x1 push -s w                  # the work half only
 vc-x1 push -s a                  # the agent half only, the remainder of a run that stopped
 vc-x1 push -s p -R ../other      # a plain repo's @- on its bookmark, no trailer asked for
 vc-x1 push -s b --dry-run        # plan and print, move nothing
 ```
 
-What push refuses, with both repos as they were:
+Push publishes the work `@-`, so new work in `@`, the next rung started, is left as it is, and
+push says so. What push refuses, with both repos as they were:
 
-- a work `@` that is not empty: unsquashed work is a fix to fold or the next rung, the user's call
 - a work `@-` with no `ochid:` trailer: not a pair's commit, so `commit` makes one first
-- a named bookmark that is not on the line `@-` is on, or two bookmarks on the line and none named
+- two bookmarks on the line and none named, or a named bookmark on the working copy or the root
 
 The two halves are independent, since each trailer is fixed before push runs, so `push -s b` is
 `push -s a` then `push -s w`, the order the pair is completed in:

@@ -583,6 +583,72 @@ used-by = "vc-x1 install-dev"
 default = "-dev"
 ```
 
+## commit.push
+
+Whether `vc-x1 commit` pushes what it commits in the same invocation, as `vc-x1 push` would after
+it. True is the default, every commit published as soon as it is made: `--no-push` keeps one commit
+local and `--push` pushes one when the key is false. A commit with `--no-advance` pushes only with
+`--push`, since its bookmark was left where it was. Owned by the work side because the commits are
+the work repo's.
+
+```toml
+[commit.push]
+homes = ["workspace-code"]
+kind = "bool"
+doc = "Default for commit: push what it commits, `--no-push` / `--push` override"
+used-by = "vc-x1 commit --push / --no-push"
+default = true
+```
+
+## record.doing
+
+The file holding the running cycle's record, its `## In Progress` block, relative to the config
+file's directory. With [record.closed](#recordclosed) set too, `vc-x1 commit --closing` moves the
+block and its references into the closed file and resets `## In Progress` to "_No cycle currently
+in progress._". Absent, nothing moves. Owned by the work side because the record is the work repo's.
+
+```toml
+[record.doing]
+homes = ["workspace-code"]
+kind = "str"
+doc = "The file whose `## In Progress` block `commit --closing` moves to record.closed"
+used-by = "vc-x1 commit --closing"
+example = "zDOING.md"
+```
+
+## record.closed
+
+The file holding the last finished cycle's record, its `## Closed` block, relative to the config
+file's directory, which `vc-x1 commit --closing` replaces with the block from
+[record.doing](#recorddoing), its references with the block's. A single-step cycle's finalized
+commit, keeping the opening's body, gains the pointer "See details in <closed>.". Owned by the
+work side because the record is the work repo's.
+
+```toml
+[record.closed]
+homes = ["workspace-code"]
+kind = "str"
+doc = "The file whose `## Closed` block `commit --closing` replaces with record.doing's"
+used-by = "vc-x1 commit --closing"
+example = "zCLOSED.md"
+```
+
+## closing.body
+
+The body `vc-x1 commit --closing` writes on a cycle's closing commit when `--body` is left out,
+`{title}` filled with the cycle title read from the opening. Absent, a closing commit needs
+`--body`. A single-step cycle's one commit keeps the opening's body instead, so the key is read
+only for a closing commit. Owned by the work side because the cycle's commits are the work repo's.
+
+```toml
+[closing.body]
+homes = ["workspace-code"]
+kind = "str"
+doc = "The closing commit's default body, `{title}` the cycle title"
+used-by = "vc-x1 commit --closing"
+example = "Closes the cycle {title}. See details in zCLOSED.md."
+```
+
 ## test.fixtures
 
 The directory holding the acceptance-test fixtures, pre-created workspaces with documented

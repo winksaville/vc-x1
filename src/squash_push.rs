@@ -364,12 +364,14 @@ pub(crate) fn current_bookmark(
     match found.len() {
         1 => Ok(found.remove(0)), // OK: len() == 1 checked by this arm
         0 => Err(format!(
-            "no bookmark on this line: nothing at or above '{target}' in '{}' carries one,              so name the bookmark to advance",
+            "no bookmark on this line: nothing at or above '{target}' in '{}' carries one, \
+             so name the bookmark to advance",
             repo.display()
         )
         .into()),
         _ => Err(format!(
-            "several bookmarks on this line at or above '{target}' in '{}': {},              so name the one to advance",
+            "several bookmarks on this line at or above '{target}' in '{}': {}, \
+             so name the one to advance",
             repo.display(),
             found.join(", ")
         )

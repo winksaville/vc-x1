@@ -11,6 +11,7 @@ mod config_cmd;
 mod config_md;
 mod config_schema;
 mod context;
+mod delete_bookmark;
 mod desc;
 mod desc_helpers;
 mod fix_desc;
@@ -592,10 +593,9 @@ pub(crate) enum Commands {
         agent commit on `main`. Push carries no description and writes\n\
         none, so what was reviewed is what goes out.\n\n\
         `commit` makes the pair, both commits now (-s b) or the work\n\
-        half with its trailer naming the agent @ (-s w). Push refuses a\n\
-        work @ that is not empty, unsquashed work being a fix to fold\n\
-        or the next rung, and a work @- with no `ochid:` trailer, which\n\
-        is not a pair's commit.\n\n\
+        half with its trailer naming the agent @ (-s w). Push publishes\n\
+        the work @-, so new work in @ is left as it is, and it refuses\n\
+        a work @- with no `ochid:` trailer, which is not a pair's commit.\n\n\
         The halves are independent, each trailer being fixed before\n\
         push runs, so -s b is -s a then -s w, the order the pair is\n\
         completed in:\n\
@@ -615,32 +615,38 @@ pub(crate) enum Commands {
     )]
     Push(push::PushArgs),
 
-    /// Commit the working copies as a rung's pair, with -s and a title and body
+    /// Commit the working copies as a rung's pair and push it, with -s and a title and body
     #[command(long_about = "\
         Commit the working copies as a rung's pair, one commit per repo of a\n\
-        dual workspace, each stamped with the other's change id, before\n\
-        anything is pushed.\n\n\
-        The pair is what the per-rung flow reviews, description and diff\n\
-        together, by `jj show @-` in either repo. A fix after the review folds\n\
-        into the pair, never a remote rewrite, and `vc-x1 push` publishes what\n\
-        was reviewed.\n\n\
+        dual workspace, each stamped with the other's change id, and push it\n\
+        in the same invocation, as `vc-x1 push` would.\n\n\
+        The diff and the description are reviewed before the commit, so the\n\
+        push publishes what was reviewed. --no-push keeps the commit local,\n\
+        for a look at it by `vc-x1 show -s both @-` before `vc-x1 push`, and\n\
+        `[commit] push = false` makes that the default, --push overriding it.\n\n\
+        --closing [REV] closes the cycle, bare finalizing a single-step cycle's\n\
+        opening, with REV making the closing commit onto it, and --land [TRUNK]\n\
+        lands it: the trunk fast-forwarded and pushed and the cycle's bookmark\n\
+        deleted, every check first.\n\n\
         -s is required: `b` makes both commits now, `w` the work half with\n\
-        the agent half left to push, `p` commits a plain repo with no\n\
-        trailer, and `a` is refused, an agent commit made first being\n\
-        unpaired. -R is optional and says where. --body is the text, or\n\
-        @PATH to read it from a file.")]
+        the agent half left to push, `a` the agent repo alone, unpaired, with\n\
+        no trailer, and `p` a plain repo with no trailer. -R is optional and\n\
+        says where. --body is the text, or @PATH to read it from a file.")]
     Commit(commit::CommitArgs),
 
     /// Fold the working copies into the pair before it is pushed, with -s
     #[command(long_about = "\
         Continue a rung: fold the working copies into the pair `commit`\n\
-        made, before it is pushed. A review's fix in the work @ folds into\n\
+        made. A review's fix in the work @ folds into\n\
         the work commit, and the journal into the agent commit, each\n\
         keeping its change id, so both trailers stay right.\n\n\
         -s is required: `b` both sides, `w` the work side, `a` the agent\n\
         side, `p` a plain repo's @ into its @-. A pending partner, made by\n\
-        `commit -s w`, is left for push. A published side is refused.\n\
-        --title with --body rewrites the descriptions, keeping each trailer.\n\
+        `commit -s w`, is left for push, as is a published partner's\n\
+        journal. A draft, a commit published on a topic bookmark only, is\n\
+        rewritten with a warning, and a commit on main's remote is refused\n\
+        without --yes. --title with --body rewrites the descriptions,\n\
+        keeping each trailer.\n\
         -R is optional and says where.")]
     Squash(squash::SquashArgs),
 
@@ -677,6 +683,18 @@ pub(crate) enum Commands {
         repo checked before any moves. `p` takes the repo from -R, required,\n\
         as it is, with no workspace checks, so careful use is yours.")]
     MoveBookmark(move_bookmark::MoveBookmarkArgs),
+
+    /// Delete a bookmark locally and on origin, with -s
+    #[command(long_about = "\
+        Delete one bookmark locally and on `origin`, the disposal a cycle's\n\
+        bookmark gets at Land, `jj bookmark delete` and its push in one\n\
+        invocation. The remote goes first, so a failed push leaves the local\n\
+        bookmark, and a side already gone is no error, so a rerun finishes\n\
+        the job. The commits stay, and the commit it was at is printed.\n\n\
+        --skip local deletes only the remote, --skip remote only the local.\n\
+        -s is required: `w` the work repo, `a` the agent repo, `b` both, and\n\
+        `p` the repo -R names, as it is.")]
+    DeleteBookmark(delete_bookmark::DeleteBookmarkArgs),
 }
 
 /// Permanent sanity check for the `main`-bookmark tracking state
@@ -900,6 +918,7 @@ fn main() -> ExitCode {
         Commands::Squash(args) => args.dispatch(&mut ctx),
         Commands::Merge(args) => args.dispatch(&mut ctx),
         Commands::MoveBookmark(args) => args.dispatch(&mut ctx),
+        Commands::DeleteBookmark(args) => args.dispatch(&mut ctx),
     }
 }
 

@@ -61,7 +61,8 @@ fn test_params() -> PushParams {
 /// Make a rung's pair in the fixture the way `commit` does: a work
 /// file and a session line, then `commit -s b` (`agent_now`) or
 /// `-s w`. Returns the work and agent `@` change ids read before
-/// the commit, which the commits keep.
+/// the commit, which the commits keep. No bookmark is advanced, so
+/// the line stays as the test arranged it for push to resolve.
 fn make_pair(fx: &Fixture, title: &str, agent_now: bool) -> (String, String) {
     fs::write(fx.work.join(format!("{}.txt", title.len())), title).expect("write work file");
     fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
@@ -72,9 +73,14 @@ fn make_pair(fx: &Fixture, title: &str, agent_now: bool) -> (String, String) {
             pair: pair(fx),
             agent_now,
         },
-        title: title.to_string(),
-        body: "The problem.\n\n* A facet.\n  - Its solution.\n".to_string(),
-        closing: false,
+        title: Some(title.to_string()),
+        body: Some("The problem.\n\n* A facet.\n  - Its solution.\n".to_string()),
+        closing: None,
+        opening: None,
+        advance: crate::commit::Advance::Off,
+        push: Some(false),
+        land: None,
+        skip: None,
         dry_run: false,
     };
     commit(&mut test_ctx(), &params).expect("the pair is made");
@@ -156,21 +162,54 @@ fn push_completes_a_pair_made_in_two_steps() {
     crate::validate_desc::validate_desc(&test_ctx(), &check).expect("both directions valid");
 }
 
-/// Unsquashed work in the work `@` is refused before anything moves.
+/// New work in the work `@` is the next rung's: push publishes the
+/// pair at `@-` and leaves `@` as it is, its change, its file, and its
+/// place above the commit, through a restamp that rewrites `@-`.
 #[test]
-fn push_refuses_unsquashed_work() {
-    let fx = Fixture::new("push-unsquashed");
-    make_pair(&fx, "feat: then more", false);
-    fs::write(fx.work.join("more.txt"), "a fix or the next rung").expect("write");
-    let work_main = cid(&fx.work, "main");
-    let bot_main = cid(&fx.bot, "main");
+fn push_leaves_new_work_in_at() {
+    let fx = Fixture::new("push-new-work");
+    let (work_at, _) = make_pair(&fx, "feat: then more", false);
+    jj_ok(&fx.bot, &["commit", "-m", "an unrelated agent commit"]);
+    fs::write(fx.work.join("more.txt"), "the next rung").expect("write");
+    let next = chid(&fx.work, "@");
 
-    let err = push_in(&mut test_ctx(), &pair(&fx), &both(), &test_params())
-        .expect_err("refused")
-        .to_string();
-    assert!(err.contains("unsquashed work"), "{err}");
+    push_in(&mut test_ctx(), &pair(&fx), &both(), &test_params()).expect("push");
+
+    assert_eq!(chid(&fx.work, "main"), work_at);
+    assert_eq!(cid(&fx.work, "main@origin"), cid(&fx.work, "main"));
+    assert_eq!(chid(&fx.work, "@"), next, "@ keeps its change");
+    assert_eq!(chid(&fx.work, "@-"), work_at, "@ stays above the commit");
+    let files = jj_ok(&fx.work, &["diff", "--name-only", "-r", "@"]);
+    assert!(
+        files.lines().count() == 1 && files.ends_with("more.txt"),
+        "@ keeps its work:\n{files}"
+    );
+    let pushed = jj_ok(&fx.work, &["file", "list", "-r", "main"]);
+    assert!(!pushed.contains("more.txt"), "@ went out:\n{pushed}");
+}
+
+/// A revision named as the bookmark, `@-`, is refused before anything
+/// moves, the error saying push finds the bookmark itself.
+#[test]
+fn push_refuses_a_revision_as_the_bookmark() {
+    let fx = Fixture::new("push-revision");
+    make_pair(&fx, "feat: by revision", true);
+    let work_main = cid(&fx.work, "main");
+    let mut params = test_params();
+    params.bookmark = Some("@-".to_string());
+
+    let err = push(
+        &mut test_ctx(),
+        &PushParams {
+            repo: Some(fx.work.clone()),
+            ..params
+        },
+    )
+    .expect_err("refused")
+    .to_string();
+    assert!(err.contains("is a revision, not a bookmark"), "{err}");
+    assert!(err.contains("leave it out"), "{err}");
     assert_eq!(cid(&fx.work, "main"), work_main);
-    assert_eq!(cid(&fx.bot, "main"), bot_main);
 }
 
 /// A work `@-` with no trailer is not a pair's commit, and the error
@@ -249,6 +288,40 @@ fn push_feature_bookmark_pins_bot_to_main() {
     );
 }
 
+/// A named bookmark off the work `@-`'s line, on a commit already
+/// made, is published where it is, a name and no pair, and one on the
+/// working copy or the root is refused.
+#[test]
+fn push_publishes_a_named_bookmark_off_the_line_where_it_is() {
+    let fx = Fixture::new("push-name");
+    fs::write(fx.work.join("side.txt"), "side\n").expect("write");
+    jj_ok(&fx.work, &["commit", "-m", "feat: a side commit"]);
+    jj_ok(&fx.work, &["bookmark", "create", "side", "-r", "@-"]);
+    let side = jj_ok(
+        &fx.work,
+        &["log", "-r", "side", "--no-graph", "-T", "commit_id"],
+    );
+    jj_ok(&fx.work, &["new", "main"]);
+    let mut params = test_params();
+    params.repo = Some(fx.work.clone());
+    params.bookmark = Some("side".to_string());
+    crate::push::push(&mut test_ctx(), &params).expect("the name is published");
+    assert_eq!(
+        crate::jj::remote_bookmark_targets(&fx.work, "origin")
+            .expect("remote")
+            .get("side"),
+        Some(&side)
+    );
+
+    fs::write(fx.work.join("wip.txt"), "wip\n").expect("write");
+    jj_ok(&fx.work, &["bookmark", "create", "wip", "-r", "@"]);
+    params.bookmark = Some("wip".to_string());
+    let err = crate::push::push(&mut test_ctx(), &params)
+        .expect_err("the working copy")
+        .to_string();
+    assert!(err.contains("`vc-x1 commit`"), "{err}");
+}
+
 /// Two bookmarks on the line and none named is refused, and a named
 /// bookmark that is not on the line is refused too.
 #[test]
@@ -278,6 +351,7 @@ fn completion_run(work_chid: String, agent_chid: String) -> Run {
     Run {
         work: Some(("main".to_string(), work_chid)),
         partner: Some(agent_chid),
+        held: false,
     }
 }
 
@@ -439,7 +513,7 @@ fn push_dry_run_changes_nothing() {
 }
 
 /// `-s p` publishes a plain repo's `@-` on its bookmark, no trailer
-/// asked for.
+/// asked for, and new work in `@` stays there.
 #[test]
 fn push_por_publishes_the_commit_on_its_bookmark() {
     let fx = FixturePor::new("push-por");
@@ -447,12 +521,18 @@ fn push_por_publishes_the_commit_on_its_bookmark() {
     let at = chid(&fx.work, "@");
     let params = CommitParams {
         target: Target::Por(fx.work.clone()),
-        title: "feat: plain".to_string(),
-        body: "A body.".to_string(),
-        closing: false,
+        title: Some("feat: plain".to_string()),
+        body: Some("A body.".to_string()),
+        closing: None,
+        opening: None,
+        advance: crate::commit::Advance::Line,
+        push: Some(false),
+        land: None,
+        skip: None,
         dry_run: false,
     };
     commit(&mut test_ctx(), &params).expect("plain commit");
+    fs::write(fx.work.join("next.txt"), "the next rung").expect("write");
 
     let mut params = test_params();
     params.scope = RepoScope::Por;
@@ -460,4 +540,5 @@ fn push_por_publishes_the_commit_on_its_bookmark() {
     push(&mut test_ctx(), &params).expect("push -s p");
     assert_eq!(chid(&fx.work, "main"), at);
     assert_eq!(cid(&fx.work, "main@origin"), cid(&fx.work, "main"));
+    assert!(!is_empty(&fx.work, "@"), "@ keeps its work");
 }

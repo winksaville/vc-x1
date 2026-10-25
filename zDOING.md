@@ -15,18 +15,7 @@ Where the agent was, for the agent that comes next. Ephemeral, never a record: r
 on, and reset to `_None._` by the reader. Kept here by the trial and no longer in `TODO.md`,
 where [Acquaint](AGENTS.md#acquaint) still says to look.
 
-- 2026-10-22, the closing **feat: vc-x1 install stages, deploys, and runs builds closing** is
-  pushed at 0.85.7, the merge of `main` and the run rung made by `commit -s b --closing`, its
-  record moved to `zCLOSED.md`. Land waits for wink's go.
-- Land, by `jj.md`'s sequence under the bend: sync `-s b`, a moved `main` stopping it; no name to
-  restore and nothing to reshape, the closing being the trapezoid; the fast-forward, `vc-x1
-  move-bookmark -s w --bookmark main --target <closing>` or `jj bookmark set main`, and its push;
-  the install from `main`, `cargo run --locked -- build`, `run -- -V`, and `install`, the
-  acceptance check's last clause, its report to show `main` and `main@origin`, clean, and a bare
-  0.85.7; then the bookmark's deletion, locally and remotely.
-- Binaries: `~/.cargo/bin/vc-x1` is wink's test install of 0.85.7-6 (2026-10-22, 15:03), state
-  `unknown`, and Land's install replaces it with 0.85.7. There is no `~/.cargo/bin/vc-x1-dev`.
-  `cargo run --locked -- <command>` rebuilds `target/debug/vc-x1` when it is missing.
+_None._
 
 ## In Progress
 

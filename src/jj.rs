@@ -433,6 +433,35 @@ pub fn local_bookmarks_at(repo: &Path, revset: &str) -> Result<Vec<String>> {
     Ok(names)
 }
 
+/// The remote bookmarks pointing at any commit `revset` resolves to,
+/// as `(name, remote)` pairs, sorted, the local git repo's pseudo-remote
+/// left out as `remote_bookmarks()` leaves it.
+pub fn remote_bookmarks_at(repo: &Path, revset: &str) -> Result<Vec<(String, String)>> {
+    let (workspace, repo_at_head) = repo_for_read(repo, revset)?;
+    let ids = common::resolve_revset(&workspace, &repo_at_head, revset)?;
+    let mut refs: Vec<(String, String)> = repo_at_head
+        .view()
+        .all_remote_bookmarks()
+        .filter(|(symbol, _)| symbol.remote != jj_lib::git::REMOTE_NAME_FOR_LOCAL_GIT_REPO)
+        .filter(|(_, remote_ref)| {
+            remote_ref
+                .target
+                .adds()
+                .flatten()
+                .any(|id| ids.contains(id))
+        })
+        .map(|(symbol, _)| {
+            (
+                symbol.name.as_str().to_string(),
+                symbol.remote.as_str().to_string(),
+            )
+        })
+        .collect();
+    refs.sort();
+    refs.dedup();
+    Ok(refs)
+}
+
 /// The first non-tracking remote ref of `bookmark`, if any: a
 /// remote ref that exists but is not tracked (the refs the
 /// `jj bookmark list -a` listing showed at column 0 as
