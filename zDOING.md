@@ -107,7 +107,7 @@ rule.
 
 - [feat: vc-x1 commit takes a revision opening][0] (done)
 - [feat: commit describes the commit REV names][1] (done)
-- [feat: commit --bookmark takes any bookmark below REV][2]
+- [feat: commit --bookmark takes any bookmark below REV][2] (done)
 - [feat: commit --closing takes a bookmark or a revision][3]
 - [feat: commit --land deletes by the argument's type][4]
 - [test: the fixture lands by three lines][5]
@@ -148,6 +148,16 @@ with no new commit when it is not `@`, its guards the draft's: unpublished and t
 
 `--bookmark` must name the nearest bookmark below the work commit, so the cycle's bookmark cannot
 follow a rung past a user's own sitting nearer. Any bookmark below REV is accepted and advanced.
+
+* The check was "among the nearest", push's own rule for the bookmark it publishes.
+  - The named bookmark must be on the work commit's line, at or below `@-` for a commit of `@` and
+    at or below the draft for a REV, and a bookmark off the line is refused naming the line's own,
+    so a typo cannot move a branch elsewhere.
+  - Push's check still holds afterwards, since the advance puts the named bookmark on the work
+    commit, where it is the nearest by construction.
+  - The default, the line's bookmark, is still the nearest alone, several refused, since a default
+    that guessed among several would move the wrong one.
+* `main` and `root()` are on every line, so they are nameable, as `main` was when nearest.
 
 ##### feat: commit --closing takes a bookmark or a revision
 

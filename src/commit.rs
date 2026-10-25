@@ -79,7 +79,9 @@
 //!   only checks it is there. Every check runs before the commit.
 //! - The line's bookmark advances to the work commit, locally: the
 //!   nearest bookmark below the work `@-`, as `push` resolves it, or
-//!   the one `--bookmark` names, or `--opening`'s. jj moves a bookmark
+//!   the one `--bookmark` names, any on the line at or below the work
+//!   commit, so the cycle's bookmark follows a rung past a nearer one
+//!   of the user's, or `--opening`'s. jj moves a bookmark
 //!   with its commit through a later squash or amend, so the advance
 //!   holds through the review's fixes, and the remote moves only at
 //!   `push`. `--no-advance` leaves it, and none or several candidates
@@ -182,9 +184,9 @@ pub struct CommitArgs {
     )]
     pub land: Option<Option<String>>,
 
-    /// The bookmark to advance to the work commit, locally, one of the
-    /// nearest below the work `@-` [default: the line's, or
-    /// `--opening`'s]
+    /// The bookmark to advance to the work commit, locally, any on the
+    /// work commit's line, at or below it [default: the line's nearest,
+    /// or `--opening`'s]
     #[arg(long, value_name = "NAME", conflicts_with_all = ["opening", "no_advance"])]
     pub bookmark: Option<String>,
 
@@ -1440,9 +1442,10 @@ struct BookmarkPlan {
 
 /// Resolve the bookmark plan, refusing before anything is made: the
 /// opening's checks, then the bookmark to advance, `--opening`'s, the
-/// one named, which must be among the nearest below the work `@-` as
-/// `push` requires, or the line's, refused when there are none or
-/// several, since a wrong guess moves the wrong branch.
+/// one named, any on the work commit's line, at or below it, so the
+/// cycle's bookmark follows a rung past a nearer one of the user's,
+/// or the line's, the nearest, refused when there are none or several,
+/// since a wrong guess moves the wrong branch.
 fn plan_bookmarks(
     repo: &Path,
     params: &CommitParams,
@@ -1462,14 +1465,17 @@ fn plan_bookmarks(
         (Advance::Off, _) => None,
         (_, Some(o)) => Some(o.bookmark.clone()),
         (Advance::Named(b), None) => {
-            let nearest =
-                jj::local_bookmarks_at(repo, &format!("heads(::({below}) & bookmarks())"))?;
-            if !nearest.contains(b) {
+            let on_line = jj::local_bookmarks_at(repo, &format!("::({below}) & bookmarks()"))?;
+            if !on_line.contains(b) {
                 return Err(format!(
-                    "commit --bookmark: '{b}' is not the nearest bookmark below the work commit \
-                     in {}, the line's own ({})",
+                    "commit --bookmark: '{b}' is not on the work commit's line in {}, at or below \
+                     '{below}', whose bookmarks are {}",
                     repo.display(),
-                    nearest.join(", ")
+                    if on_line.is_empty() {
+                        "none".to_string()
+                    } else {
+                        on_line.join(", ")
+                    }
                 )
                 .into());
             }
@@ -2425,9 +2431,10 @@ mod tests {
 
     /// The line's bookmark advances to the work commit locally, and
     /// stays advanced through a squash into it, while origin's is
-    /// untouched. `--no-advance` leaves it, `--bookmark` names one of
-    /// the nearest, and a line with several is refused before anything
-    /// is committed.
+    /// untouched. `--no-advance` leaves it, `--bookmark` names any on
+    /// the line, nearest or not, one off the line is refused, and a
+    /// line with several nearest is refused before anything is
+    /// committed.
     #[test]
     fn the_lines_bookmark_advances_unless_told_otherwise() {
         let fx = Fixture::new("commit-advance");
@@ -2450,13 +2457,28 @@ mod tests {
         a.bookmark = Some("elsewhere".to_string());
         jj_ok(
             &fx.work,
-            &["bookmark", "create", "elsewhere", "-r", "root()"],
+            &["new", "--no-edit", "root()", "-m", "a side line"],
+        );
+        jj_ok(
+            &fx.work,
+            &[
+                "bookmark",
+                "create",
+                "elsewhere",
+                "-r",
+                "description(substring:\"a side line\")",
+            ],
         );
         let params = CommitParams::try_from(&a).expect("params");
         let err = commit(&mut test_ctx(), &params)
             .expect_err("not on the line")
             .to_string();
-        assert!(err.contains("not the nearest bookmark"), "{err}");
+        assert!(err.contains("not on the work commit's line"), "{err}");
+        assert!(
+            err.contains("main, topic") || err.contains("topic, main"),
+            "{err}"
+        );
+        assert_eq!(chid(&fx.work, "@"), work_at, "nothing was committed");
 
         a.bookmark = Some("topic".to_string());
         let params = CommitParams::try_from(&a).expect("params");
@@ -2467,6 +2489,23 @@ mod tests {
         assert!(
             !crate::pair::is_published(&fx.work, "topic").expect("published"),
             "a bookmark moved only locally publishes nothing"
+        );
+
+        // `main` sits below `topic` now, not the nearest, and is still
+        // the line's to name.
+        fs::write(fx.work.join("main.txt"), "main\n").expect("write");
+        a.bookmark = Some("main".to_string());
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("the commit is made");
+        assert_eq!(
+            commit_id(&fx.work, "main"),
+            commit_id(&fx.work, "@-"),
+            "main, below the nearest, advanced"
+        );
+        assert_eq!(commit_id(&fx.work, "topic"), one, "topic is left");
+        jj_ok(
+            &fx.work,
+            &["bookmark", "set", "main", "-r", &start, "--allow-backwards"],
         );
 
         // The line is `topic` alone now, so it advances by default,
