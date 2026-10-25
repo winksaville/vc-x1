@@ -1890,11 +1890,18 @@ closed file's `## Closed` block and references, and the doing file's `## In Prog
 missing heading, is refused with both files as they were.
 
 `--land [TRUNK]` lands the cycle in the same invocation: the closing is made, the trunk is
-fast-forwarded to it and pushed with the agent half as its partner, and the cycle's bookmark is
+fast-forwarded to it and pushed with the agent half as its partner, and the closing's bookmark is
 deleted locally and on `origin`, `--skip local|remote|both` keeping what it names. The trunk is
 `--land`'s value, else `[cycle] trunk`, else `main`, the closing's first parent either way, so a
 cycle lands with `commit --closing @- --land`. The closing's own push to the cycle's bookmark is
-skipped, the bookmark being deleted. Every check runs first, so a
+skipped, the bookmark being deleted.
+
+The closing's bookmark is the one its commit carries and a Land deletes, and `--closing`'s
+argument decides it. A bookmark named is that one. A revision means the current bookmark on the
+tip, else the nearest parent's above the trunk. Several at that height are refused with the list,
+since naming one of them settles it, and none means the closing carries none, kept local unless
+`--land` lands it, since a push would publish it on the trunk. The branch's other bookmarks are
+merged by the Land and left as they are, each named after it, yours to keep or delete. Every check runs first, so a
 refusal leaves everything as it was: the trunk must be a local bookmark at its `origin` position,
 since a trunk that moved stops a Land, the closing must merge onto it, and the branch must descend
 from it, so the tree landed is the one reviewed. A conflicted closing is made but not landed. The

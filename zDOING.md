@@ -113,7 +113,7 @@ rule.
 - [feat: commit describes the commit REV names][1] (done)
 - [feat: commit --bookmark takes any bookmark below REV][2] (done)
 - [feat: commit --closing takes a bookmark or a revision][3] (done)
-- [feat: commit --land deletes by the argument's type][4]
+- [feat: commit --land deletes by the argument's type][4] (done)
 - [test: the fixture lands by three lines][5]
 - [docs: the v0.3.1 proposal names commit's new surface][6]
 - [feat: vc-x1 commit takes a revision closing][7]
@@ -197,6 +197,22 @@ deleted in the cycle's place or stops the Land. `--land <TRUNK>` is the destinat
 and the deletion follows `--closing`'s argument: a bookmark given, or the current or nearest
 parent bookmark of a revision given, several listed, none said, the branch's others named as
 merged.
+
+* One pick serves two acts, the closing's advance and the Land's deletion.
+  - The advance at a closing merge took the line's nearest bookmark by the rule every rung uses,
+    which refuses two at the tip before Land is reached, so the closing's bookmark is decided once,
+    by the argument's type, and both use it: the bookmark advances to the closing and Land deletes
+    it.
+  - A bookmark named is the one, the trunk excepted. A revision means the bookmarks at the nearest
+    commits carrying any, in the range above the trunk, so a bookmark sitting on the trunk's commit
+    is never taken, several refused with the list, since naming one settles it.
+* A closing with no bookmark had its push publish it on the line's nearest, the trunk, a Land
+  nobody asked for.
+  - It is kept local with a line saying so, a warning and not a refusal, `--land` landing it.
+* The branch's other bookmarks are left where they are and named after the Land as merged, so a
+  user's own bookmark is never deleted unless named.
+* `--land <TRUNK>` as the destination, any bookmark, came with the previous rung, which made the
+  trunk the closing's first parent.
 
 ##### test: the fixture lands by three lines
 

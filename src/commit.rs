@@ -651,7 +651,9 @@ fn commit_pair(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (work, agent) = (pair.work.as_path(), pair.agent.as_path());
     let closing = plan_closing(work, params)?;
-    let land = plan_land(work, params, closing_tip(closing.as_ref()))?;
+    let tip = closing_tip(closing.as_ref()).to_string();
+    let closing_bm = closing_bookmark(work, params, &tip)?;
+    let land = plan_land(work, params, &tip, closing_bm.as_deref())?;
     let record = match &closing {
         Some(_) => RecordMove::plan(work)?,
         None => None,
@@ -670,7 +672,7 @@ fn commit_pair(
             ctx,
             work,
             Publish::Pair,
-            None,
+            closing_bm.as_deref(),
             params,
             params.dry_run,
             land.as_ref(),
@@ -684,7 +686,7 @@ fn commit_pair(
     preflight(agent, "agent", false)?;
     warn_unflagged_closing(params);
     let (text, merge) = description(params, closing)?;
-    let plan = plan_bookmarks(work, params, draft.as_ref())?;
+    let plan = plan_bookmarks(work, params, draft.as_ref(), closing_bm.as_deref())?;
     let work_at = draft.as_ref().map_or("@", |d| d.rev.as_str());
     let work_chid = jj::chid_of(work, work_at)?;
     let agent_chid = jj::chid_of(agent, "@")?;
@@ -908,6 +910,50 @@ struct LandPlan {
     trunk_cid: String,
     topic: Option<String>,
     skip: Option<Skip>,
+    /// The branch's other bookmarks, merged by the Land and left as
+    /// they are, named after it.
+    merged: Vec<String>,
+}
+
+/// The closing's bookmark, the one its commit carries and a Land
+/// deletes, decided by `--closing`'s argument: a bookmark named is
+/// that one; a revision means the current bookmark on the tip, else
+/// the nearest parent's, above the trunk, several at that height
+/// refused with the list, since naming one settles it, and none being
+/// none. The trunk itself is never the closing's.
+fn closing_bookmark(
+    repo: &Path,
+    params: &CommitParams,
+    tip: &str,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let Some(c) = &params.closing else {
+        return Ok(None);
+    };
+    let trunk = trunk_name(repo, params)?;
+    if c.rev != trunk && jj::local_bookmark_exists(repo, &c.rev)? {
+        return Ok(Some(c.rev.clone()));
+    }
+    let base = jj::cid_of(repo, &trunk)?;
+    let mut found =
+        jj::local_bookmarks_at(repo, &format!("heads(({base}..({tip})) & bookmarks())"))?;
+    found.retain(|b| *b != trunk);
+    match found.len() {
+        0 => {
+            info!(
+                "commit --closing: no bookmark on the branch above '{trunk}', so the closing \
+                 carries none"
+            );
+            Ok(None)
+        }
+        1 => Ok(found.pop()),
+        _ => Err(format!(
+            "commit --closing: '{}' has several bookmarks at its nearest, {}, so which is the \
+             cycle's is not known: name it, --closing <BOOKMARK>",
+            c.rev,
+            found.join(", ")
+        )
+        .into()),
+    }
 }
 
 /// The closing's tip, the commit the branch is read up to, `@-` for
@@ -923,12 +969,13 @@ fn closing_tip(closing: Option<&ClosingPlan>) -> &str {
 /// local bookmark, `--land`'s or the configured one, at its `origin`
 /// position, so the sync Land begins with has nothing to bring, and
 /// the branch descends from it, so the tree landed is the reviewed
-/// one. The cycle's own bookmark is the one nearest below the tip
-/// other than the trunk.
+/// one. The bookmark deleted is the closing's, by `--closing`'s
+/// argument, and the branch's others are named as merged.
 fn plan_land(
     repo: &Path,
     params: &CommitParams,
     tip: &str,
+    bookmark: Option<&str>,
 ) -> Result<Option<LandPlan>, Box<dyn std::error::Error>> {
     if params.land.is_none() {
         return Ok(None);
@@ -960,20 +1007,10 @@ fn plan_land(
         )
         .into());
     }
-    let mut on = jj::local_bookmarks_at(repo, &format!("heads(::({tip}) & bookmarks())"))?;
-    on.retain(|b| *b != trunk);
-    let topic = match on.as_slice() {
-        [] => None,
-        [one] => Some(one.clone()),
-        several => {
-            return Err(format!(
-                "commit --land: several bookmarks on the branch, {}, so the cycle's own is not \
-                 known to delete",
-                several.join(", ")
-            )
-            .into());
-        }
-    };
+    let topic = bookmark.map(str::to_string);
+    let mut merged =
+        jj::local_bookmarks_at(repo, &format!("({trunk_cid}..({tip})) & bookmarks()"))?;
+    merged.retain(|b| *b != trunk && Some(b) != topic.as_ref());
     info!(
         "commit --land: land onto '{trunk}' at {trunk_cid}, the cycle's bookmark {}",
         topic
@@ -986,6 +1023,7 @@ fn plan_land(
         trunk_cid,
         topic,
         skip: params.opening.as_ref().map_or(params.skip, |_| None),
+        merged,
     }))
 }
 
@@ -1005,6 +1043,7 @@ fn land_after(
         trunk_cid,
         topic,
         skip,
+        merged,
     } = land;
     let keep = match skip {
         Some(Skip::Both) => None,
@@ -1018,6 +1057,9 @@ fn land_after(
         );
         if let (Some(t), Some(_)) = (topic, keep) {
             info!("commit: [dry-run] then delete '{t}'");
+        }
+        if !merged.is_empty() {
+            info!("commit: [dry-run] and leave, merged: {}", merged.join(", "));
         }
         return Ok(());
     }
@@ -1047,6 +1089,13 @@ fn land_after(
     )?;
     if let (Some(t), Some(keep)) = (topic, keep) {
         crate::delete_bookmark::delete_bookmark(ctx, repo, t, keep, false)?;
+    }
+    if !merged.is_empty() {
+        info!(
+            "commit --land: merged into '{trunk}' and left as they are, yours to keep or \
+             delete: {}",
+            merged.join(", ")
+        );
     }
     info!(
         "commit --land: landed on '{trunk}', the undo being a revert, the trunk having moved \
@@ -1105,6 +1154,13 @@ fn push_after(
 ) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(land) = land {
         return land_after(ctx, repo, publish, land, dry);
+    }
+    if params.closing.is_some() && bookmark.is_none() {
+        info!(
+            "commit: the closing carries no bookmark, and a push would publish it on the line's \
+             nearest, the trunk, so it is kept local: --land lands it"
+        );
+        return Ok(());
     }
     if let Some(rev) = &params.rev
         && !jj::matches(repo, &format!("({rev}) & (@ | @-)"))?
@@ -1507,12 +1563,14 @@ struct BookmarkPlan {
 /// opening's checks, then the bookmark to advance, `--opening`'s, the
 /// one named, any on the work commit's line, at or below it, so the
 /// cycle's bookmark follows a rung past a nearer one of the user's,
-/// or the line's, the nearest, refused when there are none or several,
-/// since a wrong guess moves the wrong branch.
+/// a closing's own, by `--closing`'s argument, or the line's, the
+/// nearest, refused when there are none or several, since a wrong
+/// guess moves the wrong branch.
 fn plan_bookmarks(
     repo: &Path,
     params: &CommitParams,
     draft: Option<&Draft>,
+    closing_bm: Option<&str>,
 ) -> Result<BookmarkPlan, Box<dyn std::error::Error>> {
     let start = match &params.opening {
         Some(o) => Some(check_opening(repo, o)?),
@@ -1544,6 +1602,7 @@ fn plan_bookmarks(
             }
             Some(b.clone())
         }
+        (Advance::Line, None) if params.closing.is_some() => closing_bm.map(str::to_string),
         (Advance::Line, None) => Some(crate::squash_push::current_bookmark(repo, &below).map_err(
             |e| format!("commit: {e} with --bookmark <NAME>, or pass --no-advance to move none"),
         )?),
@@ -1698,7 +1757,9 @@ fn commit_por(
     params: &CommitParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let closing = plan_closing(repo, params)?;
-    let land = plan_land(repo, params, closing_tip(closing.as_ref()))?;
+    let tip = closing_tip(closing.as_ref()).to_string();
+    let closing_bm = closing_bookmark(repo, params, &tip)?;
+    let land = plan_land(repo, params, &tip, closing_bm.as_deref())?;
     let record = match &closing {
         Some(_) => RecordMove::plan(repo)?,
         None => None,
@@ -1717,7 +1778,7 @@ fn commit_por(
             ctx,
             repo,
             Publish::Por,
-            None,
+            closing_bm.as_deref(),
             params,
             params.dry_run,
             land.as_ref(),
@@ -1730,7 +1791,7 @@ fn commit_por(
     }
     warn_unflagged_closing(params);
     let (desc, merge) = description(params, closing)?;
-    let plan = plan_bookmarks(repo, params, draft.as_ref())?;
+    let plan = plan_bookmarks(repo, params, draft.as_ref(), closing_bm.as_deref())?;
     let at = draft.as_ref().map_or("@", |d| d.rev.as_str());
     let chid = jj::chid_of(repo, at)?;
     if params.dry_run {
@@ -3101,6 +3162,115 @@ mod tests {
         assert!(jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("kept"));
     }
 
+    /// Whether `name` is a bookmark on origin.
+    fn on_origin(repo: &Path, name: &str) -> bool {
+        jj::remote_bookmark_targets(repo, "origin")
+            .expect("remote")
+            .contains_key(name)
+    }
+
+    /// With the cycle's bookmark and a user's own both at the tip, a
+    /// revision names no one bookmark, so it is refused listing both
+    /// before anything is made; the bookmark form names the one to
+    /// delete, locally and on origin, and the other is left, merged.
+    #[test]
+    fn a_land_deletes_the_bookmark_named() {
+        let fx = Fixture::new("commit-land-named");
+        open_cycle(&fx);
+        fs::write(fx.work.join("rung.txt"), "rung\n").expect("write");
+        jj_ok(&fx.work, &["commit", "-m", "feat: a rung"]);
+        jj_ok(&fx.work, &["bookmark", "set", "feat-a-cycle", "-r", "@-"]);
+        jj_ok(&fx.work, &["bookmark", "create", "mine", "-r", "@-"]);
+        let rung = commit_id(&fx.work, "@-");
+        let at = chid(&fx.work, "@");
+        let main = commit_id(&fx.work, "main");
+
+        let mut a = closing_args(&fx, "b", "@-");
+        a.body = Some("Closing.".to_string());
+        a.land = Some(None);
+        let params = CommitParams::try_from(&a).expect("params");
+        let err = commit(&mut test_ctx(), &params)
+            .expect_err("several")
+            .to_string();
+        assert!(
+            err.contains("several bookmarks")
+                && err.contains("feat-a-cycle")
+                && err.contains("mine"),
+            "{err}"
+        );
+        assert_eq!(chid(&fx.work, "@"), at, "nothing was committed");
+        assert_eq!(commit_id(&fx.work, "main"), main, "nothing was landed");
+
+        a.closing = Some("feat-a-cycle".to_string());
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("landed");
+        assert_eq!(parents(&fx.work, "main"), [main, rung.clone()]);
+        assert_eq!(
+            commit_id(&fx.work, "main@origin"),
+            commit_id(&fx.work, "main")
+        );
+        assert!(!jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("local"));
+        assert!(!on_origin(&fx.work, "feat-a-cycle"), "deleted on origin");
+        assert_eq!(commit_id(&fx.work, "mine"), rung, "the user's is left");
+    }
+
+    /// A revision with no bookmark on it takes the nearest parent's:
+    /// the cycle's bookmark left on the opening is the one deleted.
+    #[test]
+    fn a_land_takes_the_nearest_parents_bookmark() {
+        let fx = Fixture::new("commit-land-nearest");
+        open_cycle(&fx);
+        fs::write(fx.work.join("rung.txt"), "rung\n").expect("write");
+        jj_ok(&fx.work, &["commit", "-m", "feat: a rung"]);
+        let mut a = closing_args(&fx, "b", "@-");
+        a.body = Some("Closing.".to_string());
+        a.land = Some(None);
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("landed");
+        assert_eq!(parents(&fx.work, "main").len(), 2, "main is the closing");
+        assert!(!jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("local"));
+        assert!(!on_origin(&fx.work, "feat-a-cycle"), "deleted on origin");
+    }
+
+    /// Two rungs on `main` with no bookmark above it, closed with the
+    /// title given.
+    fn unbookmarked_branch(tag: &str) -> (Fixture, CommitArgs) {
+        let fx = Fixture::new(tag);
+        for rung in ["one", "two"] {
+            fs::write(fx.work.join(format!("{rung}.txt")), rung).expect("write");
+            jj_ok(&fx.work, &["commit", "-m", &format!("feat: rung {rung}")]);
+        }
+        let mut a = closing_args(&fx, "b", "@-");
+        a.title = Some("feat: a cycle".to_string());
+        a.body = Some("Closing.".to_string());
+        (fx, a)
+    }
+
+    /// A branch with no bookmark above the trunk lands with nothing
+    /// deleted, and a closing with none and no `--land` is kept local,
+    /// since its push would publish it on the trunk.
+    #[test]
+    fn a_branch_with_no_bookmark_lands_and_deletes_none() {
+        let (fx, mut a) = unbookmarked_branch("commit-close-none");
+        let main = commit_id(&fx.work, "main");
+        a.no_push = false;
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("closed, kept local");
+        assert_eq!(parents(&fx.work, "@-").len(), 2, "the closing is made");
+        assert_eq!(commit_id(&fx.work, "main"), main, "main is not moved");
+        assert_eq!(commit_id(&fx.work, "main@origin"), main, "nothing pushed");
+
+        let (fx, mut a) = unbookmarked_branch("commit-land-none");
+        a.land = Some(None);
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("landed");
+        assert_eq!(parents(&fx.work, "main").len(), 2, "main is the closing");
+        assert_eq!(
+            commit_id(&fx.work, "main@origin"),
+            commit_id(&fx.work, "main")
+        );
+    }
+
     /// Every refusal of `--land` comes before anything is made: a trunk
     /// whose local is not at origin's, and a branch that does not
     /// descend from it, the trunk the default `main` throughout.
@@ -3211,6 +3381,7 @@ mod tests {
             trunk_cid: main.clone(),
             topic: None,
             skip: None,
+            merged: Vec::new(),
         };
 
         let err = land_after(&mut test_ctx(), &fx.work, Publish::Pair, &plan, false)

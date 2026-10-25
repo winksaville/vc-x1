@@ -634,8 +634,9 @@ pub(crate) enum Commands {
         trunk is finalized in place, more get the closing commit, the merge of\n\
         the trunk and the tip. A tip that is not @- is closed by a detour, @\n\
         moving onto it and returning after. --land [TRUNK] lands it: the trunk\n\
-        fast-forwarded and pushed and the cycle's bookmark deleted, every check\n\
-        first.\n\n\
+        fast-forwarded and pushed and the closing's bookmark deleted, every\n\
+        check first: the one named, or for a revision the current or nearest\n\
+        parent bookmark above the trunk, several refused with the list.\n\n\
         -s is required: `b` makes both commits now, `w` the work half with\n\
         the agent half left to push, `a` the agent repo alone, unpaired, with\n\
         no trailer, and `p` a plain repo with no trailer. -R is optional and\n\
