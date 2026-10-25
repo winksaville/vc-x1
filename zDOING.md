@@ -260,12 +260,15 @@ Defaults invite mistakes, and the two undos differ:
 - A waiver, wink's (2026-10-23): "Permission granted to complete this cycle up to but not including
   the closing." It covers rungs `[3]` through `[7]`, their work reviews, description reviews, and
   per-push approvals, so each rung is validated, described, committed, and pushed without a stop.
-  It does not cover the closing, `[10]`, or Land, which take their reviews and goes as usual, and the
+  It does not cover the closing, `[11]`, or Land, which take their reviews and goes as usual, and the
   live testing comes before the closing.
 - A rung inserted from the live testing, wink's call (2026-10-24): push refused a work `@` holding
   new work, so publishing a finished rung after starting the next needed `jj` typed. Pushing
   earlier work after starting new work is ordinary, so the refusal goes with no warning, an info
   line saying `@` is left as it is. The waiver predates the rung and does not cover it.
+- A third rung inserted, wink's call at the closing (2026-10-24): the acceptance check names two
+  `--land` refusals no test reached, a conflicted closing and a trunk that is no local bookmark, so
+  they get their tests before the closing, which had only marked itself and bumped, both undone.
 - A second rung inserted, wink's call (2026-10-24): `prompt.txt`, a draft prompt written at the
   workspace root during `[8]`'s review, went into `[8]`'s commit and its push. Removing it from
   `[8]` with `vc-x1` needs `squash` to fold into a published commit, which it refused.
@@ -341,7 +344,8 @@ installed `vc-x1 -V` a bare 0.85.8.
 - [feat: commit --closing --land lands the cycle][7] (done)
 - [feat: push publishes the commit below new work][8] (done)
 - [feat: squash folds into a draft commit][9] (done)
-- [feat: vc-x1 closing and land closing][10]
+- [test: commit --land tests its conflict and bookmark refusals][10] (done)
+- [feat: vc-x1 closing and land closing][11]
 
 ##### feat: vc-x1 closing and land opening
 
@@ -570,6 +574,19 @@ trunk: a draft is folded into with a warning, and a commit on the trunk's remote
     **push takes a revision, and the remote's name for it**, and paths for `squash` the Todo
     **squash takes paths**.
 
+##### test: commit --land tests its conflict and bookmark refusals
+
+The acceptance check names `--land` refusing a conflict and a revision that is not a bookmark, and
+no test reached either, so each gets one.
+
+* The trunk `--land` moves must be a local bookmark.
+  - A bare `--land` on a closing `REV` that is no bookmark is told to name the trunk, and a `--land`
+    naming no local bookmark is refused, each before anything is made.
+* The conflicted-closing refusal is defensive: `commit` refuses a conflicted repo up front, and a
+  closing onto a trunk the branch descends from takes the tip's tree, so it cannot conflict.
+  - Its test calls the Land step directly on a conflicted `@-` made by hand: the trunk stays, nothing
+    is pushed, and the error names the commands that land it after a resolve.
+
 ##### feat: vc-x1 closing and land closing
 
 Closing out the cycle.
@@ -586,4 +603,5 @@ Closing out the cycle.
 [7]: #feat-commit---closing---land-lands-the-cycle
 [8]: #feat-push-publishes-the-commit-below-new-work
 [9]: #feat-squash-folds-into-a-draft-commit
-[10]: #feat-vc-x1-closing-and-land-closing
+[10]: #test-commit---land-tests-its-conflict-and-bookmark-refusals
+[11]: #feat-vc-x1-closing-and-land-closing

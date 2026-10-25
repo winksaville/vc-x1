@@ -2763,6 +2763,79 @@ mod tests {
         refused(&a, "rebase the branch");
     }
 
+    /// The trunk `--land` moves must be a local bookmark: a bare
+    /// `--land` on a closing `REV` that is no bookmark, and a `--land`
+    /// naming one that does not exist, are refused before anything is
+    /// made.
+    #[test]
+    fn a_land_needs_a_bookmark_for_its_trunk() {
+        let fx = Fixture::new("commit-land-no-bookmark");
+        open_cycle(&fx);
+        fs::write(fx.work.join("rung.txt"), "rung\n").expect("write");
+        jj_ok(&fx.work, &["commit", "-m", "feat: a rung"]);
+        fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
+        let (at, tip) = (chid(&fx.work, "@"), chid(&fx.work, "@-"));
+        let main = commit_id(&fx.work, "main");
+        let refused = |a: &CommitArgs, why: &str| {
+            let params = CommitParams::try_from(a).expect("params");
+            let err = commit(&mut test_ctx(), &params).expect_err(why).to_string();
+            assert!(err.contains(why), "{why}: {err}");
+            assert_eq!(chid(&fx.work, "@"), at, "{why}: nothing was committed");
+            assert_eq!(chid(&fx.work, "@-"), tip, "{why}: the branch is as it was");
+            assert_eq!(commit_id(&fx.work, "main"), main, "{why}: main stays");
+        };
+
+        let mut a = closing_args(&fx, "w", Some(&main));
+        a.body = Some("Closing.".to_string());
+        a.land = Some(None);
+        refused(&a, "name the trunk");
+
+        a.land = Some(Some("no-such-trunk".to_string()));
+        refused(&a, "'no-such-trunk' is not a local bookmark");
+    }
+
+    /// A conflicted closing is not landed: the trunk stays where it is
+    /// and the error names the commands that land it after a resolve.
+    /// `commit` refuses a conflicted repo up front and a closing onto a
+    /// trunk the branch descends from cannot conflict, so the guard is
+    /// reached here directly, on a conflicted `@-` made by hand.
+    #[test]
+    fn a_conflicted_closing_is_not_landed() {
+        let fx = Fixture::new("commit-land-conflicted");
+        fs::write(fx.work.join("a.txt"), "base\n").expect("write");
+        jj_ok(&fx.work, &["commit", "-m", "base"]);
+        let base = chid(&fx.work, "@-");
+        fs::write(fx.work.join("a.txt"), "left\n").expect("write");
+        jj_ok(&fx.work, &["commit", "-m", "left"]);
+        let left = chid(&fx.work, "@-");
+        jj_ok(&fx.work, &["new", &base]);
+        fs::write(fx.work.join("a.txt"), "right\n").expect("write");
+        jj_ok(&fx.work, &["commit", "-m", "right"]);
+        let right = chid(&fx.work, "@-");
+        jj_ok(&fx.work, &["new", &left, &right]);
+        jj_ok(&fx.work, &["new"]);
+        assert!(jj::matches(&fx.work, "@- & conflicts()").expect("matches"));
+        let main = commit_id(&fx.work, "main");
+        let plan = LandPlan {
+            trunk: "main".to_string(),
+            trunk_cid: main.clone(),
+            topic: None,
+            skip: None,
+        };
+
+        let err = land_after(&mut test_ctx(), &fx.work, Publish::Pair, &plan, false)
+            .expect_err("refused")
+            .to_string();
+        assert!(err.contains("the closing is conflicted"), "{err}");
+        assert!(err.contains("vc-x1 move-bookmark --bookmark main"), "{err}");
+        assert_eq!(commit_id(&fx.work, "main"), main, "main stays");
+        assert_eq!(
+            commit_id(&fx.work, "main@origin"),
+            main,
+            "nothing was pushed"
+        );
+    }
+
     /// `-s p` commits a plain repo with the description and no
     /// trailer.
     #[test]
