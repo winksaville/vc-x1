@@ -299,7 +299,7 @@ class Agent:
         self.clock.tick(30)
         before = self._snapshot()
         self._files()
-        self.j.run([VC, "push", bookmark, "--yes", "--title", title, "--body", body], self.work)
+        self.j.run([VC, "commit", "-s", "b", "--bookmark", bookmark, "--title", title, "--body", body], self.work)
         work_chid = self.j.chid(self.work, bookmark)
         agent_chid = self.j.chid(self.agent, "main")
         window = []
@@ -538,7 +538,7 @@ def main():
            "Fold the fix into the rung and re-push the bookmark", "Changes to push to origin:\n  bookmark: fix-the-design-note [move sideways]")
     a.pushes[pC1]["rewritten"] = True
     clock.tick(10)
-    jj.run([VC, "squash-push", "-R", str(agent)], work)
+    jj.run([VC, "squash-push", "-s", "a", "--yes", "-R", str(agent)], work)
     a.pushes[pC1]["predecessor"] = True
     # The amend's lines are now in the partner's amended diff, so the
     # window's end moves to the squash-push.
@@ -586,7 +586,7 @@ def main():
            "The fixture's relationships live only in the build script's\nmemory.\n\n* A reader and a test need them in the tree.\n  - README.md lists them and relationships.json carries them.",
            "single-step")
     a.land_linear("describe-the-fixture")
-    jj.run([VC, "squash-push", "-R", str(agent)], work)
+    jj.run([VC, "squash-push", "-s", "a", "--yes", "-R", str(agent)], work)
     (fixtures / ".early.patch").unlink()
     if not local:
         jj.cfg_path.unlink()

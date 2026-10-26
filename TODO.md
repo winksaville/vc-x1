@@ -170,6 +170,23 @@ commit takes a revision**.
 - `commit --land [TRUNK]` with nothing to commit and a closing at `@-` lands that closing, its
   bookmark by the same rule as `--closing`'s, or a `land` command does it.
 
+### init and clone take --scope por
+
+(wink + agent, 2026-10-26) `init` and `clone` alone spell the single-repo form `--por`, where the
+write commands spell it `-s p|por`, and creating a POR from the docs took four tries:
+`init --por <name>` stops on "no account specified", `--account` is read as a GitHub owner when it
+names an `[account.<name>]` section, and only the URL target, which needs no config, works.
+
+- `init` and `clone` take `-s/--scope`, `both` by default and `por`, `work` and `agent` refused,
+  and `--por` errors naming `--scope por`. The dual-only and POR-only checks (`--config`,
+  `--agent-dir`, `--agent-repo`, `--agent-suffix`, `--use-template`'s `,BOT`) move to the scope.
+- The no-account and unknown-account errors name the URL target as the way that needs no config,
+  the user config's path, and a minimal `[account.<name>]` section.
+- Stale help fixed: init's "Create a new dual-repo project" and `--por`'s "`.claude/` companion",
+  `--use-template`'s `--scope=por` (true once this lands), and `--config`'s `.vc-config.toml`.
+- README: a `--scope por` URL example under init, a scope row in clone's table, and clone's
+  `.claude` / `git submodule` text brought up to date.
+
 ### agent-files(proposal): v0.3.1
 
 (wink + agent, 2026-10-18, restructured 2026-10-20) Small rule fixes learned by running v0.3.0,
@@ -767,8 +784,9 @@ the tests build the fixture in Rust, and the Python builder goes.
     load, the nine pushes are in `relationships.json`, and each push's two change ids resolve.
   - The tests build their fixture: the fixture helper builds it once per test process and stops
     the run with one banner when the build fails, the fourteen `dr1_*` tests lose their
-    `#[ignore]`, and the Python builder goes, with the `[test] fixtures` key, `.fixtures/`, and the
-    README's stale fixture section.
+    `#[ignore]`, and the Python builder goes, with the `[test] fixtures` key, `.fixtures/`, the
+    README's stale fixture section, and `tests/cli_fixture_builder.rs`, which guards the Python
+    builder only until then (**fix: the fixture builder drives commit**).
 - Acceptance: in a fresh `vc-x1 clone` with `python3` off the PATH, `cargo test` runs the
   fourteen `dr1_*` tests, none ignored, and they pass, and a forced build failure prints the
   banner once and stops.

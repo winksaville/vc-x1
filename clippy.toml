@@ -24,7 +24,9 @@
 #    deliberately independent of the facade under test, and never a
 #    substitute for asserting our jj-lib paths directly. The CLI
 #    tests' launcher spawning the built vc-x1 binary is this entry
-#    too: spawning the binary is what a CLI test is.
+#    too: spawning the binary is what a CLI test is. So is
+#    tests/cli_fixture_builder.rs running the dr-1 fixture builder
+#    with that binary, which keeps the builder in step with it.
 # 5. A configured command list (src/command_list.rs): runs the
 #    workspace's `[validate]` commands for validate, its `[build]`
 #    commands for build and build-dev, and its optional `[install]`

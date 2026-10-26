@@ -158,7 +158,7 @@ impl Drop for CliFixture {
 /// Point a child's config at `home`: `HOME` and `XDG_CONFIG_HOME`
 /// set to it, and `JJ_CONFIG`, which overrides both, removed. Set on
 /// the child alone, never on the test process.
-fn isolate_config(cmd: &mut Command, home: &Path) {
+pub fn isolate_config(cmd: &mut Command, home: &Path) {
     cmd.env("HOME", home)
         .env("XDG_CONFIG_HOME", home.join(".config"))
         .env_remove("JJ_CONFIG");
