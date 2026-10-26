@@ -205,6 +205,45 @@ proposal adds it to `agent-data/code.md`:
   steps from earlier results, which a plan made up front would have to simulate, and one form
   everywhere outweighs a neater one in `land` alone.
 
+### docs: each command's -s help names the scopes it takes
+
+(wink + agent, 2026-10-26) Every command's `--scope` help writes the scopes out, `w|work`,
+`a|agent`, `b|both`, `p|por`, and clap then repeats the long names as `[possible values: ...]`,
+since the parser declares them for completion. A command taking a subset reads worse:
+`validate-desc` lists four, says "`p` refused", and clap prints three. `delete-bookmark --skip`
+names its two values and clap repeats them. Found at **feat: vc-x1 land**, whose `land` and
+`merge` `-s` help it fixed, `-h` naming only the scopes taken and `--help` why the others are
+refused.
+
+- A README table of each write command's scopes with the reason for each subset, beside the
+  README's account of `-s`, so the rule is said once.
+- `hide_possible_values` on every `--scope` and on `delete-bookmark --skip`, the help text the one
+  list, being the one with the short forms.
+- `validate-desc`'s `-h` names `w|work`, `a|agent`, or `b|both`, and `--help` says why `p` is
+  refused, in `land`'s and `merge`'s form.
+- `tests/cli_complete.rs` still offers each command's scopes, since the values are hidden from
+  help alone.
+
+### commit and land take the same scopes
+
+(wink + agent, 2026-10-26) A cycle command, one that makes or publishes a cycle's commits, takes
+`w`, `b`, and `p`, and the repo commands keep all four. The rule: a scope is valid when what it
+publishes names nothing it leaves unpublished. Found at **feat: vc-x1 land**, where `commit` takes
+all four and `land` takes `b` and `p`.
+
+- `commit` drops `-s a`. The agent-repo has no cycle, its own publishing is `squash-push`'s, and
+  `commit` already refuses `a` with REV, with a bookend, and on an agent `@` paired to a work
+  commit, while nothing documented uses it.
+- `land` takes `-s w` when no commit in `trunk..tip` carries an `ochid:` trailer, the range
+  `commit -s w` makes, and refuses it naming the first commit that does. A trailer names an agent
+  commit a work-only Land leaves unpublished, and `--no-push` only defers that to the push.
+- `merge` keeps `w` and `p`, a trapezoid being the work-repo's.
+- The repo commands keep `a`: `sync`, `squash`, `squash-push`, `push`, `status`, `move-bookmark`,
+  `delete-bookmark`, and `validate-desc` act on the agent-repo as a repo of its own and link
+  nothing.
+- Goes with **docs: each command's -s help names the scopes it takes**, whose README table these
+  change.
+
 ### init and clone take --scope por
 
 (wink + agent, 2026-10-26) `init` and `clone` alone spell the single-repo form `--por`, where the

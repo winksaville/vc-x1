@@ -88,9 +88,10 @@ bookmarks are gone locally and on origin, and `cargo test` passes with a test pe
 - [feat: vc-x1 land opening][l0] (done)
 - [refactor: land's plan and steps move out of commit][l1] (done)
 - [feat: vc-x1 land lands a source onto a bookmark][l2] (done)
-- [feat: land deletes the intermediate bookmarks][l3]
-- [docs: the README and the v0.3.1 proposal name land][l4]
-- [feat: vc-x1 land closing][l5]
+- [feat: land deletes the intermediate bookmarks][l3] (done)
+- [feat: land keeps a land local and defaults its source][l4]
+- [docs: the README and the v0.3.1 proposal name land][l5]
+- [feat: vc-x1 land closing][l6]
 
 ##### feat: vc-x1 land opening
 
@@ -158,10 +159,33 @@ anything moves.
 `--delete-intermediate-bookmarks`: the bookmarks strictly between `--onto` and `--source` deleted
 locally and on origin, the dry run listing them.
 
+- `land::plan` takes `delete_intermediate` and splits the branch's other bookmarks in two: those
+  strictly between the trunk and the tip, `(trunk..tip) ~ tip`, and those at the tip beside the
+  cycle's. With the flag the first are deleted after the cycle's, each named "between", and
+  without it both are named as merged and kept, as before. A bookmark at the tip besides the
+  cycle's is kept either way, since the user may have put it there.
+- `--skip` applies to them as to the cycle's bookmark, and `--skip both` deletes none.
+- `commit --land` passes no flag: a closing's Land deletes the cycle's bookmark alone, as before.
+- On this series the dry run deletes `feat-vc-x1-land`, `feat-vc-x1-commit-takes-a-revision`, and
+  `fix-the-fixture-builder-drives-commit`, the acceptance check's three.
+- Tests: **the_intermediate_bookmarks_are_deleted_when_asked**, its dry run deleting nothing and
+  the bookmark at the tip kept, and **the_intermediate_bookmarks_are_kept_unless_asked**, without
+  the flag and with `--skip remote`.
+- Filed: **docs: each command's -s help names the scopes it takes**, the scope table the docs rung
+  was to carry moved into it, its own cycle after the Land, wink's call (2026-10-26).
+- Filed: **commit and land take the same scopes**, from the review's question of why `commit`
+  takes `-s a` and `land` refuses `-s w`, wink's call (2026-10-26).
+- Inserted: **feat: land keeps a land local and defaults its source**, from the same review, ahead
+  of the docs rung so the README names the final flags.
+
+##### feat: land keeps a land local and defaults its source
+
+`--push` and `--no-push`, and `--source` defaulting to the one local bookmark besides `--onto`.
+
 ##### docs: the README and the v0.3.1 proposal name land
 
-The README's `land` section and `commit --land`'s pointer to it, a table of each write command's
-scopes beside the README's account of `-s`, and the v0.3.1 proposal's Land naming `land`.
+The README's `land` section and `commit --land`'s pointer to it, and the v0.3.1 proposal's Land
+naming `land`.
 
 ##### feat: vc-x1 land closing
 
@@ -173,5 +197,6 @@ Closing out the cycle.
 [l1]: #refactor-lands-plan-and-steps-move-out-of-commit
 [l2]: #feat-vc-x1-land-lands-a-source-onto-a-bookmark
 [l3]: #feat-land-deletes-the-intermediate-bookmarks
-[l4]: #docs-the-readme-and-the-v031-proposal-name-land
-[l5]: #feat-vc-x1-land-closing
+[l4]: #feat-land-keeps-a-land-local-and-defaults-its-source
+[l5]: #docs-the-readme-and-the-v031-proposal-name-land
+[l6]: #feat-vc-x1-land-closing

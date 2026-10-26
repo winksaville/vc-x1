@@ -25,6 +25,11 @@
 //! - `--onto` is any local bookmark `--source` descends from, so a
 //!   bushy tree lands anywhere. Land only fast-forwards: a merge is
 //!   `commit --closing`'s to make.
+//! - `--delete-intermediate-bookmarks` deletes the bookmarks on the
+//!   commits strictly between `--onto` and `--source`, the earlier
+//!   cycles' of a stack landing together. Without it they are named as
+//!   merged and kept, and a bookmark at the tip besides the cycle's is
+//!   kept either way.
 //! - The publish follows where the target is: the work `@-`, whose pair
 //!   may be unfinished, goes through `push`, which finishes it, and a
 //!   commit below it, whose pair is finished, by its trunk pushed alone
@@ -63,6 +68,12 @@ pub struct LandArgs {
     #[arg(long, value_enum, value_name = "SIDE", hide_possible_values = true)]
     pub skip: Option<Skip>,
 
+    /// Also delete the bookmarks on the commits strictly between `--onto`
+    /// and `--source`, locally and on origin, as `--skip` allows: a stack
+    /// of cycles landing together [default: named as merged and kept]
+    #[arg(long)]
+    pub delete_intermediate_bookmarks: bool,
+
     /// Where: a path in the workspace for `-s b`, or the repo itself for
     /// `-s p` [default: the current directory]
     #[arg(short = 'R', long, value_name = "PATH")]
@@ -96,6 +107,7 @@ pub struct LandParams {
     pub source: String,
     pub onto: String,
     pub skip: Option<Skip>,
+    pub delete_intermediate: bool,
     pub dry_run: bool,
 }
 
@@ -135,6 +147,7 @@ impl TryFrom<&LandArgs> for LandParams {
             source: a.source.clone(),
             onto: a.onto.clone(),
             skip: a.skip,
+            delete_intermediate: a.delete_intermediate_bookmarks,
             dry_run: a.dry_run.value,
         })
     }
@@ -188,6 +201,7 @@ pub fn land(ctx: &mut Context, params: &LandParams) -> Result<(), Box<dyn std::e
         &tip,
         bookmark.as_deref(),
         params.skip,
+        params.delete_intermediate,
     )?;
     run(
         ctx,
@@ -267,13 +281,17 @@ pub(crate) struct LandPlan {
     pub trunk_cid: String,
     pub topic: Option<String>,
     pub skip: Option<Skip>,
+    /// The bookmarks strictly between the trunk and the tip, deleted
+    /// after the cycle's when asked, `skip` keeping the same side.
+    pub intermediate: Vec<String>,
     /// The branch's other bookmarks, merged by the Land and left as
     /// they are, named after it.
     pub merged: Vec<String>,
 }
 
 /// Plan a Land of the branch read up to `tip` onto `trunk`, refusing
-/// before anything is made. `bookmark` is the cycle's, deleted after.
+/// before anything is made. `bookmark` is the cycle's, deleted after,
+/// and with `delete_intermediate` the bookmarks strictly between too.
 pub(crate) fn plan(
     repo: &Path,
     label: &'static str,
@@ -281,6 +299,7 @@ pub(crate) fn plan(
     tip: &str,
     bookmark: Option<&str>,
     skip: Option<Skip>,
+    delete_intermediate: bool,
 ) -> Result<LandPlan, Box<dyn std::error::Error>> {
     if !jj::local_bookmark_exists(repo, &trunk)? {
         return Err(
@@ -308,9 +327,19 @@ pub(crate) fn plan(
         .into());
     }
     let topic = bookmark.map(str::to_string);
-    let mut merged =
-        jj::local_bookmarks_at(repo, &format!("({trunk_cid}..({tip})) & bookmarks()"))?;
-    merged.retain(|b| *b != trunk && Some(b) != topic.as_ref());
+    let others = |revset: &str| -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        let mut found = jj::local_bookmarks_at(repo, revset)?;
+        found.retain(|b| *b != trunk && Some(b) != topic.as_ref());
+        Ok(found)
+    };
+    let between = others(&format!("(({trunk_cid}..({tip})) ~ ({tip})) & bookmarks()"))?;
+    let mut merged = others(&format!("({tip}) & bookmarks()"))?;
+    let intermediate = if delete_intermediate {
+        between
+    } else {
+        merged.splice(0..0, between);
+        Vec::new()
+    };
     info!(
         "{label}: land onto '{trunk}' at {trunk_cid}, the cycle's bookmark {}",
         topic
@@ -324,6 +353,7 @@ pub(crate) fn plan(
         trunk_cid,
         topic,
         skip,
+        intermediate,
         merged,
     })
 }
@@ -348,6 +378,7 @@ pub(crate) fn run(
         trunk_cid,
         topic,
         skip,
+        intermediate,
         merged,
     } = land;
     let keep = match skip {
@@ -420,6 +451,14 @@ pub(crate) fn run(
         info!("{label}:{tag} delete '{t}'");
         if !dry {
             crate::delete_bookmark::delete_bookmark(ctx, repo, t, keep, false)?;
+        }
+    }
+    if let Some(keep) = keep {
+        for b in intermediate {
+            info!("{label}:{tag} delete '{b}', between '{trunk}' and {what}");
+            if !dry {
+                crate::delete_bookmark::delete_bookmark(ctx, repo, b, keep, false)?;
+            }
         }
     }
     if !merged.is_empty() {
@@ -616,6 +655,90 @@ mod tests {
         }
     }
 
+    /// A stack: `earlier` on the opening, between `main` and the tip,
+    /// and `mine` beside `feat-a-cycle` at the tip, both published.
+    fn stacked_cycle(fx: &Fixture) -> String {
+        let tip = pushed_cycle(fx);
+        jj_ok(
+            &fx.work,
+            &["git", "push", "--named", "earlier=feat-a-cycle-"],
+        );
+        jj_ok(&fx.work, &["git", "push", "--named", "mine=feat-a-cycle"]);
+        tip
+    }
+
+    /// `--delete-intermediate-bookmarks` deletes the bookmarks strictly
+    /// between, locally and on origin, its dry run naming them first,
+    /// and keeps one beside the cycle's at the tip.
+    #[test]
+    fn the_intermediate_bookmarks_are_deleted_when_asked() {
+        let fx = Fixture::new("land-intermediate");
+        let tip = stacked_cycle(&fx);
+        let args = [
+            "-s",
+            "b",
+            "--source",
+            "feat-a-cycle",
+            "--onto",
+            "main",
+            "--delete-intermediate-bookmarks",
+        ];
+        let mut dry = args.to_vec();
+        dry.push("--dry-run");
+        land(&mut test_ctx(), &land_params(&fx, &dry)).expect("planned");
+        assert!(on_origin(&fx.work, "earlier"), "a dry run deletes nothing");
+
+        land(&mut test_ctx(), &land_params(&fx, &args)).expect("landed");
+        assert_eq!(commit_id(&fx.work, "main@origin"), tip);
+        for gone in ["feat-a-cycle", "earlier"] {
+            assert!(
+                !jj::local_bookmark_exists(&fx.work, gone).expect("local"),
+                "{gone}"
+            );
+            assert!(!on_origin(&fx.work, gone), "{gone} deleted on origin");
+        }
+        assert_eq!(commit_id(&fx.work, "mine"), tip, "the one at the tip stays");
+        assert!(on_origin(&fx.work, "mine"));
+    }
+
+    /// Without the flag the bookmarks between are named as merged and
+    /// kept, and `--skip remote` keeps the remote side of each deleted.
+    #[test]
+    fn the_intermediate_bookmarks_are_kept_unless_asked() {
+        let fx = Fixture::new("land-intermediate-kept");
+        stacked_cycle(&fx);
+        let p = land_params(
+            &fx,
+            &["-s", "b", "--source", "feat-a-cycle", "--onto", "main"],
+        );
+        land(&mut test_ctx(), &p).expect("landed");
+        assert!(jj::local_bookmark_exists(&fx.work, "earlier").expect("local"));
+        assert!(on_origin(&fx.work, "earlier"));
+
+        let fx = Fixture::new("land-intermediate-skip");
+        stacked_cycle(&fx);
+        let p = land_params(
+            &fx,
+            &[
+                "-s",
+                "b",
+                "--source",
+                "feat-a-cycle",
+                "--onto",
+                "main",
+                "--delete-intermediate-bookmarks",
+                "--skip",
+                "remote",
+            ],
+        );
+        land(&mut test_ctx(), &p).expect("landed");
+        assert!(!jj::local_bookmark_exists(&fx.work, "earlier").expect("local"));
+        assert!(
+            on_origin(&fx.work, "earlier"),
+            "--skip remote keeps origin's"
+        );
+    }
+
     /// A revision takes its nearest bookmark, and a dry run makes the
     /// checks and moves nothing.
     #[test]
@@ -706,6 +829,7 @@ mod tests {
             trunk_cid: main.clone(),
             topic: None,
             skip: None,
+            intermediate: Vec::new(),
             merged: Vec::new(),
         };
         (fx, plan, main)

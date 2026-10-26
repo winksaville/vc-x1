@@ -949,7 +949,7 @@ fn plan_land(
     }
     let skip = params.opening.as_ref().map_or(params.skip, |_| None);
     let trunk = trunk_name(repo, params)?;
-    crate::land::plan(repo, "commit --land", trunk, tip, bookmark, skip).map(Some)
+    crate::land::plan(repo, "commit --land", trunk, tip, bookmark, skip, false).map(Some)
 }
 
 /// Which push publishes a commit.
