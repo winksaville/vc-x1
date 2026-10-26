@@ -160,16 +160,6 @@ than the draft.
 - Push's dry run takes the target the advance would leave, or commit's dry run says the push
   without asking push.
 
-### commit --land lands a closing already made
-
-(agent, 2026-10-25) `commit --land` lands only the closing it makes, so a closing pushed without
-`--land`, for a review or under a waiver that leaves Land out, is landed by four commands typed:
-`move-bookmark`, `push`, `delete-bookmark`, and `install`. Found at the closing of **feat: vc-x1
-commit takes a revision**.
-
-- `commit --land [TRUNK]` with nothing to commit and a closing at `@-` lands that closing, its
-  bookmark by the same rule as `--closing`'s, or a `land` command does it.
-
 ### init and clone take --scope por
 
 (wink + agent, 2026-10-26) `init` and `clone` alone spell the single-repo form `--por`, where the
@@ -2397,6 +2387,30 @@ the cycle **feat: vc-x1 install stages, deploys, and runs builds**.
   their examples to edit. Whether those are commented or left out with a pointer to `config
   --model` is a decision, since a commented table in a fence reads as configuration.
 - The current output, the six lines per key, goes. `config --validate` is unchanged.
+
+### Cycles in a shared repo, by fork and pull request
+
+(wink + agent, 2026-10-26) The cycle assumes its author lands on the trunk and is the one writer
+of the files every cycle edits. In a shared repo, work is pushed to a fork and reaches upstream's
+`main` by a pull request a maintainer merges, so neither holds. Raised while opening **feat: vc-x1
+land**.
+
+- Land splits in two: the handoff, the bookmark pushed to the fork and the pull request opened,
+  and the cleanup after the merge, `main` synced from upstream, the bookmark deleted locally and on
+  the fork, and the install.
+- The project allows merge commits only. GitHub's merge commit is the trapezoid, upstream `main`
+  its first parent and the ladder its second, the commits untouched so every `ochid:` trailer
+  holds, and it may serve as the closing. Squash merging discards the change ids, which the rules
+  forbid, and we think rebase merging drops jj's change-id header, leaving the trailers dangling.
+- The trunk takes a remote as well as a name, a key such as `[cycle] trunk-remote = "upstream"`,
+  read by sync and by `land`'s at-origin check, since `main` follows upstream and the work goes to
+  `origin`.
+- The files every cycle edits, the version in `Cargo.toml`, `TODO.md`, `zDOING.md`, and
+  `zCLOSED.md`, conflict between any two pull requests. The version is set at release or merge,
+  the cycle's record lives in the pull request or the contributor's agent-repo, and `TODO.md` is
+  the maintainer's, changed by proposals.
+- The agent-repo stays each contributor's own, never in the pull request, so a trailer in upstream
+  may point where a reader cannot follow, and the pull request's record stands alone.
 
 ## Ideas
 
