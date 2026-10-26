@@ -904,11 +904,8 @@ impl RecordMove {
 }
 
 /// The closing's bookmark, the one its commit carries and a Land
-/// deletes, decided by `--closing`'s argument: a bookmark named is
-/// that one; a revision means the current bookmark on the tip, else
-/// the nearest parent's, above the trunk, several at that height
-/// refused with the list, since naming one settles it, and none being
-/// none. The trunk itself is never the closing's.
+/// deletes, decided by `--closing`'s argument by the rule
+/// [`crate::land::cycle_bookmark`] states, above the trunk.
 fn closing_bookmark(
     repo: &Path,
     params: &CommitParams,
@@ -918,30 +915,15 @@ fn closing_bookmark(
         return Ok(None);
     };
     let trunk = trunk_name(repo, params)?;
-    if c.rev != trunk && jj::local_bookmark_exists(repo, &c.rev)? {
-        return Ok(Some(c.rev.clone()));
+    let found =
+        crate::land::cycle_bookmark(repo, "commit --closing", "--closing", &c.rev, &trunk, tip)?;
+    if found.is_none() {
+        info!(
+            "commit --closing: no bookmark on the branch above '{trunk}', so the closing \
+             carries none"
+        );
     }
-    let base = jj::cid_of(repo, &trunk)?;
-    let mut found =
-        jj::local_bookmarks_at(repo, &format!("heads(({base}..({tip})) & bookmarks())"))?;
-    found.retain(|b| *b != trunk);
-    match found.len() {
-        0 => {
-            info!(
-                "commit --closing: no bookmark on the branch above '{trunk}', so the closing \
-                 carries none"
-            );
-            Ok(None)
-        }
-        1 => Ok(found.pop()),
-        _ => Err(format!(
-            "commit --closing: '{}' has several bookmarks at its nearest, {}, so which is the \
-             cycle's is not known: name it, --closing <BOOKMARK>",
-            c.rev,
-            found.join(", ")
-        )
-        .into()),
-    }
+    Ok(found)
 }
 
 /// The closing's tip, the commit the branch is read up to, `@-` for
@@ -1029,7 +1011,7 @@ fn push_after(
     land: Option<&LandPlan>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(land) = land {
-        return crate::land::run(ctx, repo, publish.scope(), land, "@-", dry);
+        return crate::land::run(ctx, repo, publish.scope(), land, "@-", "the closing", dry);
     }
     if params.closing.is_some() && bookmark.is_none() {
         info!(
@@ -1214,21 +1196,7 @@ fn plan_closing(
 /// `--closing`'s argument as one commit id, a bookmark or a revision
 /// as jj resolves them, refused unless it names exactly one commit.
 fn resolve_closing(repo: &Path, rev: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let cids = jj::cids_of(repo, rev).map_err(|e| {
-        format!(
-            "commit --closing: '{rev}' does not resolve in {}: {e}",
-            repo.display()
-        )
-    })?;
-    match cids.as_slice() {
-        [one] => Ok(one.clone()),
-        other => Err(format!(
-            "commit --closing: '{rev}' names {} commits in {}, and a cycle's tip is exactly one",
-            other.len(),
-            repo.display()
-        )
-        .into()),
-    }
+    crate::land::resolve_tip(repo, "commit --closing", rev)
 }
 
 /// The cycle title read from the opening, the first commit above

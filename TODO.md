@@ -34,6 +34,25 @@ and promotes what is met ([Opening](AGENTS.md#opening)).
     `rg -i 'ls.remote' src/` in the jj-lib source prints nothing, and its git subprocess layer is
     `pub(crate)`. An upstream feature request, once filed or found, is named here.
   - Place when unblocked: first, being one function.
+- **lookup matches a line to its write by content.** (wink + agent, 2026-10-26) lookup resolves a
+  line through blame to its commit and the commit's `ochid:` trailer to its agent partner, with
+  the agent commits inside a time tolerance as candidates when there is no trailer. In one
+  person's workspace the trailer is exact. In a shared repo it fails: a squash or rebase merge
+  leaves blame on a commit no trailer names, and a trailer that survives may point into an
+  agent-repo the reader cannot reach. Time fails too, many contributors' commits inside any
+  tolerance.
+  - The key that survives squash, rebase, and cherry-pick is the text: each transcript records
+    what every Write and Edit put into a file, so a line is matched to the call that wrote it
+    with no commit between. **dr1_every_committed_line_finds_its_transcript_write** checks a
+    part of it. The layering: the trailer when it resolves, the content when it does not, time
+    last.
+  - What makes it hard: a line changed after the write, by a person or `cargo fmt`, needs a
+    fuzzy match, a common line (`}`, `Ok(())`) needs its hunk for context, and every
+    contributor's transcripts must be reachable and indexed, a privacy question as much as a
+    technical one.
+  - Waits on: **Cycles in a shared repo, by fork and pull request** opening, since the need
+    arises there.
+  - Place when unblocked: directly after it.
 
 ## Todo
 
@@ -2437,6 +2456,7 @@ land**.
   the maintainer's, changed by proposals.
 - The agent-repo stays each contributor's own, never in the pull request, so a trailer in upstream
   may point where a reader cannot follow, and the pull request's record stands alone.
+- lookup's half of this is in `## Waiting`: **lookup matches a line to its write by content**.
 
 ## Ideas
 

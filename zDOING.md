@@ -87,7 +87,7 @@ bookmarks are gone locally and on origin, and `cargo test` passes with a test pe
 
 - [feat: vc-x1 land opening][l0] (done)
 - [refactor: land's plan and steps move out of commit][l1] (done)
-- [feat: vc-x1 land lands a source onto a bookmark][l2]
+- [feat: vc-x1 land lands a source onto a bookmark][l2] (done)
 - [feat: land deletes the intermediate bookmarks][l3]
 - [docs: the README and the v0.3.1 proposal name land][l4]
 - [feat: vc-x1 land closing][l5]
@@ -126,6 +126,33 @@ changes.
 The `land` subcommand: `-s b|p`, `--source`, `--onto`, `--skip`, `--dry-run`, every check before
 anything moves.
 
+- `land -s b|p --source <BM|REV> --onto <BOOKMARK>`, both required, with `--skip` and `--dry-run`.
+  `-s w` and `-s a` are refused. A work-only Land is safe only when the target's pair is
+  finished, and otherwise publishes trailers naming agent commits that are not on origin, which
+  `-s b` finishes first, so nothing is lost. The agent repo alone has no cycle to land. Kept
+  strict, wink's call (2026-10-26), until a work-only Land is needed.
+  The reason is in the error and in `--help`, and the README's in the docs rung.
+- `-h` names only the scopes a command takes, so clap's `[possible values]` agrees with it, and
+  `--help` adds why the others are refused. `merge` had the same wording, all four forms listed
+  and then two refused, and is fixed with it, wink's call (2026-10-26).
+  `--source` resolves to exactly one commit, and `--onto` must be a local bookmark, not already at
+  it, then `land::plan`'s checks: at its origin position and an ancestor of the source.
+- The tip and the cycle's bookmark resolve by `--closing`'s rule, moved from `commit` into
+  `land::resolve_tip` and `land::cycle_bookmark`, the label and the flag passed in, so `commit`'s
+  messages are unchanged and both commands name the same bookmark.
+- The publish follows where the target is, since `push` publishes the work `@-` alone, setting the
+  bookmark there and finishing its pair:
+  - The work `@-`, the closing's case and `land --source @-`: the trunk set there and `push`, as
+    `commit --land` did, which commits a pending agent partner or restamps the trailer.
+  - Below it, whose pair is finished: the trunk set and pushed alone, and the agent `main`
+    published by `squash-push`, the journal folded into the agent `@-`.
+- `run` names its target in messages, "the closing" from `commit` and `'<source>'` from `land`.
+- Filed: **lookup matches a line to its write by content**, in `## Waiting` on the shared-repo
+  Todo, from the scope discussion's question of what a trailer is worth across contributors.
+- Tests: a cycle at the work head lands, a source below it lands with the commit above left where
+  it is, `-s p` lands a plain repo, `-s w` and `-s a` are refused, a dry run moves nothing, and
+  every refusal comes before anything moves.
+
 ##### feat: land deletes the intermediate bookmarks
 
 `--delete-intermediate-bookmarks`: the bookmarks strictly between `--onto` and `--source` deleted
@@ -133,8 +160,8 @@ locally and on origin, the dry run listing them.
 
 ##### docs: the README and the v0.3.1 proposal name land
 
-The README's `land` section and `commit --land`'s pointer to it, and the v0.3.1 proposal's Land
-naming `land`.
+The README's `land` section and `commit --land`'s pointer to it, a table of each write command's
+scopes beside the README's account of `-s`, and the v0.3.1 proposal's Land naming `land`.
 
 ##### feat: vc-x1 land closing
 
