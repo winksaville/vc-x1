@@ -86,7 +86,7 @@ bookmarks are gone locally and on origin, and `cargo test` passes with a test pe
 #### Ladder
 
 - [feat: vc-x1 land opening][l0] (done)
-- [refactor: land's plan and steps move out of commit][l1]
+- [refactor: land's plan and steps move out of commit][l1] (done)
 - [feat: vc-x1 land lands a source onto a bookmark][l2]
 - [feat: land deletes the intermediate bookmarks][l3]
 - [docs: the README and the v0.3.1 proposal name land][l4]
@@ -99,7 +99,27 @@ Opens the cycle: the Todo moved here and rewritten, the version bumped.
 ##### refactor: land's plan and steps move out of commit
 
 `plan_land` and `land_after` move from `src/commit.rs` into `src/land.rs`, taking the tip and the
-trunk as arguments rather than `CommitParams`, and `commit --land` calls them. No behavior changes.
+trunk as arguments rather than `CommitParams`, and `commit --land` calls them. Only the dry run
+changes.
+
+- `land::plan` takes the repo, a label, the trunk, the tip, the cycle's bookmark, and `--skip`.
+  `commit`'s `plan_land` keeps reading its params: `--land`'s trunk or the configured one, and no
+  `--skip` alongside `--opening`.
+- `land::run` takes the push's scope and the target commit, `@-` from `commit`, where `land_after`
+  read `commit`'s `Publish` and hard-coded `@-`. `Publish::scope` now serves both of `commit`'s
+  pushes.
+- `LandPlan` carries the label, so `land`'s messages name the command that ran it, the dry run's
+  lines `commit --land: [dry-run]` where they said `commit: [dry-run]`.
+- The test **a_conflicted_closing_is_not_landed** moves with the code it tests.
+- `land::run`'s dry run is interleaved, wink's call over a plan of steps (2026-10-26): it was an
+  `if dry` branch ahead of the steps that said them apart from the code doing them and skipped the
+  conflict check. Now the check runs in both modes and each step is its line and then the step
+  behind `if !dry`, so a dry run refuses a conflicted closing, tested by
+  **a_dry_run_refuses_a_conflicted_closing**, and says the push as its own line.
+  - Filed: **Dry runs interleave: commit, push, and sync** and **agent-files(proposal): dry runs
+    interleave**.
+- `jj::rev_exists`'s doc comment loses "spawn error" and "either path", left from when jj was
+  also spawned: every revset here resolves in jj-lib.
 
 ##### feat: vc-x1 land lands a source onto a bookmark
 

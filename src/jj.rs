@@ -292,9 +292,9 @@ pub fn matches(repo: &Path, revset: &str) -> Result<bool> {
 
 /// True when `rev` resolves in `repo`.
 ///
-/// Folds jj's unresolvable-revision error (`is_no_such_revision`,
-/// either path) to `Ok(false)`. Other failures (bad repo path,
-/// spawn error) stay `Err`.
+/// Folds jj's unresolvable-revision error (`is_no_such_revision`) to
+/// `Ok(false)`. Other failures (bad repo path, bad revset syntax)
+/// stay `Err`.
 pub fn rev_exists(repo: &Path, rev: &str) -> Result<bool> {
     match matches(repo, rev) {
         Ok(found) => Ok(found),

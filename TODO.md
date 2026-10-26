@@ -160,6 +160,32 @@ than the draft.
 - Push's dry run takes the target the advance would leave, or commit's dry run says the push
   without asking push.
 
+### Dry runs interleave: commit, push, and sync
+
+(wink + agent, 2026-10-26) `commit`, `push`, `sync`, and `squash-push` each run their dry run as a
+branch of its own, an `if dry` that says the steps apart from the code that does them, so a check
+or a step added to the real run is missed by the dry run unless someone remembers it. Found in
+`land::run` while moving it out of `commit` in **feat: vc-x1 land**, whose dry run skipped the
+conflict check, and fixed there.
+
+- Each brought to the form `land::run` has: every check in both modes, and each step its line and
+  then the step behind `if !dry`, no early return. A step that depends on a result a dry run does
+  not make says it from the planned value and calls nothing.
+- Takes **commit's dry run reports the push as the advance leaves it** with it, the same fault.
+
+### agent-files(proposal): dry runs interleave
+
+(wink + agent, 2026-10-26) The dry-run form, wink's call over plan-then-run (2026-10-26), is a
+convention of this codebase written nowhere, so a new command's dry run is shaped by taste. A
+proposal adds it to `agent-data/code.md`:
+
+- Checks never depend on the dry run, so it refuses what the real run refuses.
+- Each change to a repo or remote sits under its own line, `if !dry { ... }`, so a step added
+  brings its dry-run line, and no `if dry { ...; return }` precedes the steps.
+- Why interleaving rather than a plan of steps run or printed: `sync` and `commit` decide later
+  steps from earlier results, which a plan made up front would have to simulate, and one form
+  everywhere outweighs a neater one in `land` alone.
+
 ### init and clone take --scope por
 
 (wink + agent, 2026-10-26) `init` and `clone` alone spell the single-repo form `--por`, where the

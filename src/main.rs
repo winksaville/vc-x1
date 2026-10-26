@@ -21,6 +21,7 @@ mod git_head;
 mod init;
 mod install_cmd;
 mod jj;
+mod land;
 mod legacy_vc_config;
 mod list;
 mod logging;
