@@ -113,7 +113,7 @@ build's banner, `vc-x1-dev show -s both @-` is refused naming `-r @-`, and `vc-x
 #### Ladder
 
 - [feat: the other commands take flags only opening][o0] (done)
-- [feat: the read commands take -r and -n only][o1]
+- [feat: the read commands take -r and -n only][o1] (done)
 - [feat: lookup takes -s and --line][o2]
 - [feat: the file commands take --file][o3]
 - [feat: config and validate-config take -s and --file][o4]
@@ -132,6 +132,20 @@ added, the version bumped.
 
 `chid`, `desc`, `list`, `show`, `validate-desc`, and `fix-desc` lose `[REVISION] [COMMITS]`, kept
 hidden and refused naming `-r` and `-n`, their flags already there.
+
+- `retired_positional::refuse_rev_count`, the pair's refusal, `-r X -n N` or either alone, beside
+  `refusal`, both through one wording. The hidden count is a `String`, so `list @ x` is told
+  `-r @ -n x` rather than clap's parse error.
+- `CommonArgs::refuse_retired`, called first in the four `to_params`, and `validate-desc` and
+  `fix-desc` call the pair's refusal themselves, their args being their own.
+- `common::resolve_spec` takes `-r` and `-n` alone, the flag-over-positional precedence gone with
+  the positionals, and its tests lose the two that tested that precedence and gain a named revision
+  with a count.
+- The README's "Positional shorthand" section is "Revision and count", its examples in the flag
+  form, and its other `list` and `fix-desc` examples follow.
+- `tests/cli_smoke.rs` called `chid @` five times, found by the full validation as the first
+  cycle's `cli_sync` call was, the `.arg("chid").arg("@")` spelling missing the search for the
+  array form. No agent-file and no support script calls a read command with a positional.
 
 ##### feat: lookup takes -s and --line
 

@@ -53,7 +53,7 @@ fn parse_dot_rev_both_changeid() {
 
 #[test]
 fn resolve_spec_defaults() {
-    let s = resolve_spec(None, None, "@", None, "@");
+    let s = resolve_spec("@", None);
     assert_eq!(s.rev, "@");
     assert_eq!(s.desc_count, Some(0));
     assert_eq!(s.anc_count, Some(0));
@@ -61,7 +61,7 @@ fn resolve_spec_defaults() {
 
 #[test]
 fn resolve_spec_bare_with_count() {
-    let s = resolve_spec(Some("@"), Some(5), "@", None, "@");
+    let s = resolve_spec("@", Some(5));
     assert_eq!(s.rev, "@");
     assert_eq!(s.desc_count, Some(0));
     assert_eq!(s.anc_count, Some(4)); // 5 - 1 = 4 ancestors
@@ -69,7 +69,7 @@ fn resolve_spec_bare_with_count() {
 
 #[test]
 fn resolve_spec_ancestors() {
-    let s = resolve_spec(Some("@.."), Some(3), "@", None, "@");
+    let s = resolve_spec("@..", Some(3));
     assert_eq!(s.rev, "@");
     assert_eq!(s.desc_count, Some(0));
     assert_eq!(s.anc_count, Some(2)); // 3 - 1 = 2 ancestors
@@ -77,7 +77,7 @@ fn resolve_spec_ancestors() {
 
 #[test]
 fn resolve_spec_descendants() {
-    let s = resolve_spec(Some("..@"), Some(3), "@", None, "@");
+    let s = resolve_spec("..@", Some(3));
     assert_eq!(s.rev, "@");
     assert_eq!(s.desc_count, Some(2)); // 3 - 1 = 2 descendants
     assert_eq!(s.anc_count, Some(0));
@@ -85,7 +85,7 @@ fn resolve_spec_descendants() {
 
 #[test]
 fn resolve_spec_both() {
-    let s = resolve_spec(Some("..@.."), Some(5), "@", None, "@");
+    let s = resolve_spec("..@..", Some(5));
     assert_eq!(s.rev, "@");
     assert_eq!(s.desc_count, Some(2)); // 4/2 = 2 descendants
     assert_eq!(s.anc_count, Some(2)); // 4-2 = 2 ancestors
@@ -93,34 +93,26 @@ fn resolve_spec_both() {
 
 #[test]
 fn resolve_spec_both_odd() {
-    let s = resolve_spec(Some("..@.."), Some(4), "@", None, "@");
+    let s = resolve_spec("..@..", Some(4));
     assert_eq!(s.rev, "@");
     assert_eq!(s.desc_count, Some(1)); // 3/2 = 1 descendant
     assert_eq!(s.anc_count, Some(2)); // 3-1 = 2 ancestors (extra goes to ancestors)
 }
 
 #[test]
-fn resolve_spec_flag_overrides_positional() {
-    let s = resolve_spec(Some("@.."), Some(5), "@-", None, "@");
-    assert_eq!(s.rev, "@-"); // flag_rev takes precedence
+fn resolve_spec_named_rev_with_count() {
+    let s = resolve_spec("@-", Some(5));
+    assert_eq!(s.rev, "@-");
     assert_eq!(s.desc_count, Some(0));
-    assert_eq!(s.anc_count, Some(4)); // pos_count 5 - 1
+    assert_eq!(s.anc_count, Some(4)); // a bare rev counts ancestors, 5 - 1
 }
 
 #[test]
 fn resolve_spec_ancestors_no_count() {
-    let s = resolve_spec(Some("@.."), None, "@", None, "@");
+    let s = resolve_spec("@..", None);
     assert_eq!(s.rev, "@");
     assert_eq!(s.desc_count, Some(0));
     assert_eq!(s.anc_count, None); // unlimited
-}
-
-#[test]
-fn resolve_spec_flag_limit_overrides_pos_count() {
-    let s = resolve_spec(Some("@.."), Some(5), "@", Some(3), "@");
-    assert_eq!(s.rev, "@");
-    assert_eq!(s.desc_count, Some(0));
-    assert_eq!(s.anc_count, Some(2)); // flag 3 - 1 = 2
 }
 
 #[test]

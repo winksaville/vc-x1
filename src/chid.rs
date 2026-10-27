@@ -73,6 +73,7 @@ impl SubcommandRunner for ChidArgs {
 
     /// Delegate to the existing `TryFrom<&ChidArgs>` impl above.
     fn to_params(&self) -> Result<Self::Params, String> {
+        self.common.refuse_retired("chid")?;
         ChidParams::try_from(self)
     }
 
@@ -188,25 +189,20 @@ mod tests {
         assert!(c.no_label);
     }
 
+    /// The retired positionals parse, hidden, and are refused naming
+    /// `-r` and `-n`.
     #[test]
-    fn positional_rev() {
+    fn positional_rev_and_count_refused() {
         let c = parse(&["vc-x1", "chid", "@-"]);
-        assert_eq!(c.pos_rev, Some("@-".to_string()));
-        assert_eq!(c.pos_count, None);
-    }
-
-    #[test]
-    fn positional_rev_and_count() {
-        let c = parse(&["vc-x1", "chid", "@..", "5"]);
-        assert_eq!(c.pos_rev, Some("@..".to_string()));
-        assert_eq!(c.pos_count, Some(5));
-    }
-
-    #[test]
-    fn positional_both_dots() {
+        let err = c.refuse_retired("chid").unwrap_err();
+        assert!(err.ends_with("`-r @-`"), "{err}");
         let c = parse(&["vc-x1", "chid", "..abcd..", "3"]);
-        assert_eq!(c.pos_rev, Some("..abcd..".to_string()));
-        assert_eq!(c.pos_count, Some(3));
+        let err = c.refuse_retired("chid").unwrap_err();
+        assert!(err.ends_with("`-r ..abcd.. -n 3`"), "{err}");
+        assert_eq!(
+            parse(&["vc-x1", "chid", "-r", "@-"]).refuse_retired("chid"),
+            Ok(())
+        );
     }
 
     #[test]

@@ -239,23 +239,24 @@ source (COMPLETE=fish vc-x1 | psub)
 Completions are generated dynamically by the binary, so they stay in sync with the installed version
 automatically.
 
-### Positional shorthand
+### Revision and count
 
-REVISION and COMMITS can be given as positional arguments, omitting `-r` and `-n`:
+REVISION is `-r`/`--revision` and COMMITS is `-n`/`--commits`, with `..` on either side of the
+revision opening that side to the count:
 
 ```
-vc-x1 list x                # just x (1 commit)
-vc-x1 list x 5              # x.. 5 -> x + 4 ancestors (5 commits)
-vc-x1 list x.. 5            # same as above
-vc-x1 list ..x 3            # 2 descendants + x (3 commits)
-vc-x1 list ..x.. 3          # 1 descendant, x, 1 ancestor (3 commits)
-vc-x1 list ..x.. 1          # just x (1 commit)
+vc-x1 list -r x                # just x (1 commit)
+vc-x1 list -r x -n 5           # x.. 5 -> x + 4 ancestors (5 commits)
+vc-x1 list -r x.. -n 5         # same as above
+vc-x1 list -r ..x -n 3         # 2 descendants + x (3 commits)
+vc-x1 list -r ..x.. -n 3       # 1 descendant, x, 1 ancestor (3 commits)
+vc-x1 list -r ..x.. -n 1       # just x (1 commit)
 ```
 
 **Defaults:** with no arguments, REVISION is `@` and COMMITS is 1 (just the working copy).
 
-Named flags `-r`/`--revision`, `-n`/`--commits`, `-R`/`--repo`, and `-s`/`--scope` take precedence
-over positional arguments.
+Every argument is a flag: the positionals these commands once took, `list x 5`, are refused, naming
+the flag form, `-r x -n 5`.
 
 ### Multi-repo queries
 
@@ -267,7 +268,7 @@ walking up from cwd (the existing `find_workspace_root` rule).
 vc-x1 chid -s work,bot          # both sides of the workspace
 vc-x1 chid -s work              # just the work repo
 vc-x1 chid -s agent             # just the bot repo
-vc-x1 list @.. 3 -s work,bot    # works with chid / desc / list / show
+vc-x1 list -r @.. -n 3 -s work,bot  # works with chid / desc / list / show
 ```
 
 `-R`/`--repo` takes a single path. Used alone it points at one jj repo (workspace lookup is
@@ -303,7 +304,7 @@ $ vc-x1 chid -s work,bot -L
 kwoyvposvsmv
 zzpksklxyrnw
 
-$ vc-x1 list @.. 3 -s work,bot
+$ vc-x1 list -r @.. -n 3 -s work,bot
 === . ===
 kwoyvposvsmv eae175c3c1b5 (no description set)
 pqxtxxpnsmot b0c46930a640 Reorganize notes (0.19.1)
@@ -717,19 +718,19 @@ changes. Reads other repo from `.vc-config.md` by default.
 
 ```
 # Dry-run: show what would be fixed
-vc-x1 fix-desc @..
+vc-x1 fix-desc -r @..
 
 # Actually fix
-vc-x1 fix-desc @.. --no-dry-run
+vc-x1 fix-desc -r @.. --no-dry-run
 
 # Add missing ochid trailers by matching title
-vc-x1 fix-desc @.. --add-missing
+vc-x1 fix-desc -r @.. --add-missing
 
 # Limit fixes
-vc-x1 fix-desc @.. --no-dry-run -m 3
+vc-x1 fix-desc -r @.. --no-dry-run -m 3
 
 # Use a fallback for IDs not found in other repo
-vc-x1 fix-desc @.. --fallback /.claude/lost
+vc-x1 fix-desc -r @.. --fallback /.claude/lost
 ```
 
 | Flag | Description |

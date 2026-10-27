@@ -30,15 +30,15 @@ use crate::subcommand::SubcommandRunner;
 
 #[derive(Args, Debug)]
 pub struct ValidateDescArgs {
-    /// Revision (with optional .. notation)
-    #[arg(value_name = "REVISION")]
-    pub pos_rev: Option<String>,
+    /// Retired: the revision, now `-r`, refused naming it.
+    #[arg(value_name = "RETIRED", hide = true)]
+    pub retired_rev: Option<String>,
 
-    /// Number of commits (per open side)
-    #[arg(value_name = "COMMITS")]
-    pub pos_count: Option<usize>,
+    /// Retired: the count, now `-n`, refused naming it, kept as typed.
+    #[arg(value_name = "RETIRED", hide = true)]
+    pub retired_count: Option<String>,
 
-    /// Revision(s) to scan
+    /// Revision(s) to scan, with optional .. notation
     #[arg(short, long, default_value = "@")]
     pub revision: String,
 
@@ -76,15 +76,13 @@ pub struct ValidateDescArgs {
 
 /// Inputs to the validate-desc op, flat, owned, clap-free.
 ///
-/// Mirrors `ValidateDescArgs`: positional `REVISION` / `COMMITS`
-/// (`pos_rev` / `pos_count`), `--revision` / `--commits`
+/// Mirrors `ValidateDescArgs`: `--revision` / `--commits`
 /// (`revision` / `limit`), `--other-repo`, `--id-len`, and `-s`
 /// with `-R` resolved into `repos`, each side's label and path in
-/// scope order.
+/// scope order. The retired positionals are refused before it is
+/// built.
 #[derive(Debug)]
 pub struct ValidateDescParams {
-    pub pos_rev: Option<String>,
-    pub pos_count: Option<usize>,
     pub revision: String,
     pub limit: Option<usize>,
     pub repos: Vec<(String, PathBuf)>,
@@ -99,6 +97,11 @@ impl TryFrom<&ValidateDescArgs> for ValidateDescParams {
     /// their keywords, and copy the rest over. `-s p` is refused
     /// here, before anything is read.
     fn try_from(a: &ValidateDescArgs) -> Result<Self, String> {
+        crate::options_flags::retired_positional::refuse_rev_count(
+            "validate-desc",
+            a.retired_rev.as_deref(),
+            a.retired_count.as_deref(),
+        )?;
         let sides = match &a.scope {
             RepoScope::Sides(s) => s,
             RepoScope::Por => {
@@ -118,8 +121,6 @@ impl TryFrom<&ValidateDescArgs> for ValidateDescParams {
             .map(|(side, path)| (side_keyword(*side).to_string(), path))
             .collect();
         Ok(Self {
-            pos_rev: a.pos_rev.clone(),
-            pos_count: a.pos_count,
             revision: a.revision.clone(),
             limit: a.limit,
             repos,
@@ -218,13 +219,7 @@ fn validate_side(
     let (other_workspace, other_repo) = common::load_repo(&other_repo_path)?;
     let other_prefix = ochid_prefix_for(&other_repo_path)?;
 
-    let spec = common::resolve_spec(
-        params.pos_rev.as_deref(),
-        params.pos_count,
-        &params.revision,
-        params.limit,
-        "@",
-    );
+    let spec = common::resolve_spec(&params.revision, params.limit);
 
     let (ids, _anchor_index) = common::collect_ids(
         &workspace,

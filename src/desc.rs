@@ -49,6 +49,7 @@ impl SubcommandRunner for DescArgs {
 
     /// Delegate to the existing `TryFrom<&DescArgs>` impl above.
     fn to_params(&self) -> Result<Self::Params, String> {
+        self.common.refuse_retired("desc")?;
         DescParams::try_from(self)
     }
 
@@ -140,25 +141,13 @@ mod tests {
         assert_eq!(c.limit, Some(3));
     }
 
+    /// The retired positionals parse, hidden, and are refused naming
+    /// `-r` and `-n`.
     #[test]
-    fn positional_rev() {
-        let c = parse(&["vc-x1", "desc", "@-"]);
-        assert_eq!(c.pos_rev, Some("@-".to_string()));
-        assert_eq!(c.pos_count, None);
-    }
-
-    #[test]
-    fn positional_rev_and_count() {
+    fn positional_rev_and_count_refused() {
         let c = parse(&["vc-x1", "desc", "@..", "5"]);
-        assert_eq!(c.pos_rev, Some("@..".to_string()));
-        assert_eq!(c.pos_count, Some(5));
-    }
-
-    #[test]
-    fn positional_both_dots() {
-        let c = parse(&["vc-x1", "desc", "..abcd..", "3"]);
-        assert_eq!(c.pos_rev, Some("..abcd..".to_string()));
-        assert_eq!(c.pos_count, Some(3));
+        let err = c.refuse_retired("desc").unwrap_err();
+        assert!(err.ends_with("`-r @.. -n 5`"), "{err}");
     }
 
     #[test]
