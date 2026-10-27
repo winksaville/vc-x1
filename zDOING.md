@@ -120,7 +120,7 @@ build's banner, `vc-x1-dev show -s both @-` is refused naming `-r @-`, and `vc-x
 - [feat: agent-files diff, copy, and size take flags][o5] (done)
 - [feat: init, clone, and symlink take flags and --scope por][o6] (done)
 - [feat: build, install, and run take --dev][o7] (done)
-- [docs: the README states every argument is a flag][o8]
+- [docs: the README states every argument is a flag][o8] (done)
 - [feat: the other commands take flags only closing][o9]
 
 ##### feat: the other commands take flags only opening
@@ -253,6 +253,16 @@ and refused naming `--dev`.
 
 The README's CLI section states the rule and its one exception, `run`'s trailing arguments, and the
 agent-files' `-dev` invocations are told to the v0.3.1 proposal.
+
+- The README's Usage gains "Every argument is a flag": the rule, its why, the shared names in a
+  table, `run`'s trailing arguments as the exception, and the refusal with an example, the `-dev`
+  commands and `--por` included. The Usage summary gains `build`, `install`, and `run`, which it
+  lacked.
+- `agent-data/hooks.sh`'s guard test named `install-dev`, now `install --dev`, the case still a deny
+  and `hooks.sh test` passing its thirteen. The set held no other old form, `versioning.md`'s
+  `agent-files` invocations having changed at their rung.
+- **agent-files(proposal): v0.3.1** records the second cycle's agent-file changes beside the first
+  cycle's.
 
 ##### feat: the other commands take flags only closing
 

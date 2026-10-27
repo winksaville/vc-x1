@@ -150,6 +150,9 @@ vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run def
 vc-x1 validate-todo [--file F]            # Check todo-file entry numbering
 vc-x1 fix-todo [--file F]                 # Renumber todo file (dry-run default)
 vc-x1 validate [--fast] [OPTS]            # Run the workspace's configured validation commands
+vc-x1 build [--dev] [OPTS]                # Build the release, or the dev build, off the PATH
+vc-x1 install [--dev] [OPTS]              # Build, then copy into the install directory
+vc-x1 run [--dev] [OPTS] [-- ARGS]        # Build, then run the binary with ARGS
 vc-x1 validate-agent [OPTS]               # Check the agent repo is published
 vc-x1 config [OPTS]                       # Print / validate settable config keys
 vc-x1 clone --from URL [--name N] [OPTS]  # Clone a project, dual or with -s por plain
@@ -171,6 +174,37 @@ vc-x1 agent-files size [--dir DIR]         # Count the set's lines, and slide th
 vc-x1 --version                            # Print version, with the workspace's agent-files version
 vc-x1 --help                           # Print help
 ```
+
+### Every argument is a flag
+
+Every argument is a flag, the command names aside, so a word on the command line says what it is
+and never reads two ways by its place: in `push -s b feature`, `feature` could have been the
+bookmark to move or the commit it is at, and `push -s b --bookmark feature` is one of them. The
+command line is also what is reviewed before a write runs, and a flag says what each word means.
+The same names mean the same thing everywhere:
+
+| Flag | Means |
+|------|-------|
+| `-s, --scope` | Which repos: `w\|work`, `a\|agent`, `b\|both`, or `p\|por` |
+| `-R, --repo` | Where: a path in the workspace, or a plain repo |
+| `-r, --revision` | A revision, as jj resolves it, `..` notation on the read commands |
+| `-n, --commits` | How many commits a read command shows |
+| `--bookmark` | A bookmark's name, the one to move or a new one to create |
+| `--file`, `--dir` | A file or a directory a command reads |
+| `-d, --dev` | The dev build, on `build`, `install`, and `run` |
+
+The one exception is `run`'s trailing arguments, which are the built binary's, not vc-x1's.
+
+A positional a command once took is kept hidden and refused, naming the flag that replaced it with
+the value in place, so a stale doc or a habit is told its own fix:
+
+```
+$ vc-x1 push -s b @-
+error: push: the positional is retired, every argument is a flag: `-r @-`
+```
+
+`build-dev`, `install-dev`, and `run-dev` are refused the same way, naming `build --dev`, `install
+--dev`, and `run --dev`, and `init --por` and `clone --por` name `--scope por`.
 
 ### jj version gate
 

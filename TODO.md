@@ -245,6 +245,10 @@ description is not rewritten while the work still moves.
   -s a`, and `jj.md`'s vc-x1 push section's opening were brought current in this copy by **feat:
   push, commit, and squash-push take flags only**, the invocations alone, the Committing vs pushing
   rewrite still this proposal's.
+- The rest of the commands too, by **feat: the other commands take flags only**: `versioning.md`'s
+  adoption names `agent-files copy --from` and `diff --from`, and `hooks.sh`'s guard test names
+  `install --dev`, `build-dev`, `install-dev`, and `run-dev` being `build`, `install`, and `run`
+  with `--dev` now. A rule that says `install-dev` says `install --dev`.
 
 ##### Why: the scope flags
 
