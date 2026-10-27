@@ -59,10 +59,14 @@ use crate::subcommand::SubcommandRunner;
 /// the fold-and-publish that asks nothing, and `-s p` a plain repo.
 #[derive(Args, Debug)]
 pub struct SquashPushArgs {
+    /// Retired: the bookmark, now `--bookmark`, refused naming it.
+    #[arg(value_name = "RETIRED", hide = true)]
+    pub retired: Option<String>,
+
     /// Bookmark to advance and push [default: the bookmark of the
     /// line you are on, the nearest one at or above the squash
     /// target]
-    #[arg(value_name = "BOOKMARK")]
+    #[arg(long, value_name = "NAME")]
     pub bookmark: Option<String>,
 
     /// Where: a path in the workspace for `-s w|a|b`, its root or
@@ -172,7 +176,7 @@ fn config_yes(repo: &Path) -> Result<Option<bool>, Box<dyn std::error::Error>> {
 }
 
 /// The params for one resolved repo: the `--squash` default filled
-/// and BOOKMARK mapped straight over, or read from the repo when
+/// and `--bookmark` mapped straight over, or read from the repo when
 /// absent. `repo` is already canonical, the resolver's.
 fn params_for(a: &SquashPushArgs, repo: PathBuf) -> Result<SquashPushParams, String> {
     {
@@ -214,8 +218,16 @@ fn params_for_args(a: &SquashPushArgs) -> Result<Vec<SquashPushParams>, String> 
 impl SubcommandRunner for SquashPushArgs {
     type Params = Vec<SquashPushParams>;
 
-    /// Resolve the scope into repos and build each repo's params.
+    /// Refuse the retired positional, else resolve the scope into repos
+    /// and build each repo's params.
     fn to_params(&self) -> Result<Self::Params, String> {
+        if let Some(value) = &self.retired {
+            return Err(crate::options_flags::retired_positional::refusal(
+                "squash-push",
+                value,
+                "--bookmark",
+            ));
+        }
         params_for_args(self)
     }
 
@@ -656,11 +668,25 @@ mod tests {
         assert!(err.contains("--scope"), "got: {err}");
     }
 
+    /// The bookmark is `--bookmark`, and the retired positional parses,
+    /// hidden, and is refused naming it.
     #[test]
-    fn bookmark_positional() {
-        let args = parse(&["vc-x1", "squash-push", "dev-0.14.0", "-s", "w"]);
+    fn bookmark_flag_and_the_positional_refused() {
+        let args = parse(&[
+            "vc-x1",
+            "squash-push",
+            "--bookmark",
+            "dev-0.14.0",
+            "-s",
+            "w",
+        ]);
         assert_eq!(args.bookmark.as_deref(), Some("dev-0.14.0"));
+        assert_eq!(args.retired, None);
         assert_eq!(args.repo, None);
+        let args = parse(&["vc-x1", "squash-push", "dev-0.14.0", "-s", "w"]);
+        let err = args.to_params().unwrap_err();
+        assert!(err.contains("the positional is retired"), "{err}");
+        assert!(err.contains("`--bookmark dev-0.14.0`"), "{err}");
     }
 
     #[test]
@@ -670,6 +696,7 @@ mod tests {
             "--log",
             "/tmp/test.log",
             "squash-push",
+            "--bookmark",
             "dev-0.14.0",
             "-R",
             ".claude",
@@ -728,6 +755,7 @@ mod tests {
 
         let fx = Fixture::new("sp-try-from");
         let args = SquashPushArgs {
+            retired: None,
             bookmark: None,
             repo: Some(fx.work.clone()),
             scope: RepoScope::Sides(Scope(vec![Side::Bot])),

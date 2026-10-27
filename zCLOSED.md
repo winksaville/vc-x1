@@ -7,107 +7,200 @@ commit's copy of the record.
 
 ## Closed
 
-### feat: a hook enforces the shell rules
+### feat: push, commit, and squash-push take flags only
 
-Not picked from `## Todo`: opened at the acquaint of 2026-10-27, ahead of its top entry, wink's
-call. Single-step, turned from a ladder at the opening's review, nothing yet pushed.
+Picked from `## Todo` as **push takes a revision, and the remote's name for it** (wink + agent,
+2026-10-24), widened at its planning to every argument a flag (wink + agent, 2026-10-27), and split
+in two: this cycle the three commands that publish, the rest **feat: the other commands take flags
+only**.
 
 #### Problem
 
-`AGENTS.md > Working practices` forbids masking a command's exit status and bundling unrelated
-commands into one invocation, and the agent broke both through the session of 2026-10-26, a
-trailing `; echo rc=${PIPESTATUS[0]}` on `sync`, `validate`, `install-dev`, and the pushes, and
-again at the acquaint of 2026-10-27, three invocations joined by `;`. Nothing fails when it slips,
-so the habit holds until the user catches it, and neither rule is in the Rules index, where the
-rules an agent reads as hard are listed. `bash-allow.sh`, the user's `PreToolUse` hook, allows any
-command starting `cargo`, `jj`, or `vc-x1`, so a masked `cargo test` runs with no prompt.
+`push`'s positional is a bookmark, so `push -s b @-` is refused, though git needs only a name on
+the remote: `git push origin HEAD:refs/heads/<name>` publishes any commit under a new name, and `jj
+git push --named <name>=<REV>` does the same and creates the local bookmark that tracks it. Filed
+from the live testing of **feat: vc-x1 closing and land**, whose `[9]` made the refusal say to
+leave the revision out.
+
+A positional means something different from command to command: a bookmark to `push` and
+`squash-push`, a revision to `commit` and the read commands. So `push -s b feature` has two
+readings, the bookmark to move or the commit it is at, and `push` takes its bookmark both as the
+positional and as `--bookmark`, one value under two spellings.
 
 #### Solution
 
 What was done:
 
-- `agent-data/bash-guard.sh`, a `PreToolUse` hook on Bash, two text matches on the command and no
-  parsing, each a deny whose reason is the rule's form:
-  - an `echo` of `$?` or `PIPESTATUS`
-  - a `cargo` or `vc-x1` command, by any path and `vc-x1-dev` included, piped into `tail`, `head`,
-    `grep`, or `rg`, with no `pipefail` in the command
-  - Matching hooks run in parallel and the strictest decision wins, so it overrides
-    `bash-allow.sh`'s `allow`.
-- The set carries the user's two other hooks, `agent-data/bash-allow.sh` and
-  `agent-data/inhibit-sleep.sh`, copied verbatim from `~/.claude/hooks/`, and
-  `agent-data/hooks.sh`:
-  - `check`: each hook in `~/.claude/hooks/` identical to the set's and registered in
-    `~/.claude/settings.json`, else what is missing, different, or unregistered, exit 1
-  - `install`: copies what differs and registers what is missing, the settings file backed up once
-    first, a registration joining the group with its matcher when there is one
-  - `test`: `bash-guard.sh` over thirteen commands it must deny or allow
-  - `HOOKS_DIR` and `SETTINGS` override the destinations, for a trial install
-- In `AGENTS.md`:
-  - Acquaint gains step 2, Hooks, `hooks.sh check`, its findings reported for the user to install,
-    and the steps after it renumber.
-  - Exit status is one form: the command under test bare and last, `set -o pipefail` first when
-    piped, the `|| { rc=$?; ... }` form kept for reporting.
-  - A Hooks bullet names the three hooks, the install, and what the guard denies.
-  - The Rules index lists One command per invocation and Exit status.
-- `rationale.md` gives why under Acquaint and Working practices, and **agent-files(proposal):
-  v0.3.1** gains **The exit-status rule is one form, and hooks guard it**.
-- Carried from the Land of **feat: vc-x1 land** (wink, 2026-10-27):
-  - **Continuation notes leave the work-repo dirty after Land** gains the design from that Land.
-  - The v0.3.1 proposal gains **Continuation notes go in the closing**, provisional.
-  - The v0.3.1 proposal's Land names the candidate, `install --dir`, in place of installing the
-    closing with `vc-x1 install`.
+- Every argument is a flag, the command names aside, and this cycle did `push`, `commit`, and
+  `squash-push`, each old positional kept hidden and refused by one helper,
+  `options_flags::retired_positional::refusal`, naming the flag with the value in place.
+- `push -s b|w|a|p [-r REV] [--bookmark NAME]`:
+  - REV is the commit to publish, `@-` by default, one commit, a REV of several refused with the
+    count. REV is the work `@-` by commit id, however it is spelled, for the pair's path.
+  - At `@-` the pair goes out on the line's bookmark, or `--bookmark`'s, a bookmark on the line or
+    a new name created at `@-` and pushed tracked.
+  - Any other REV is a commit already made, and a name alone goes out for it, no pair: the one
+    bookmark at it, or `--bookmark`'s, at it or new. A bookmark elsewhere is refused naming
+    `move-bookmark`, and the working copy and the root are refused.
+  - `-r` with `-s a` is refused, and so is a `--bookmark` that is a revision, naming `-r`.
+  - The old positional names `--bookmark` when it is a local bookmark, else `-r`.
+- `commit -r, --revision REV`, `@` by default, its rules unchanged, the positional naming `-r`.
+- `squash-push --bookmark NAME`, the positional naming `--bookmark`.
+- The README's sections and summary lines for the three, the help in `main.rs`, `tests/cli_sync.rs`'s
+  one positional call, and the agent-files' four stale invocations, with the v0.3.1 proposal told.
+- The backlog's **vc-x1 push: rework the two bookmark parameters** retired.
 
 #### Acceptance check
 
-`hooks.sh test` passes. `hooks.sh check` fails before the install, naming `bash-guard.sh` missing
-and unregistered, and passes after. With the hooks installed, in a session: `false; echo rc=$?` is
-denied, `cargo test 2>&1 | tail -3` is denied, `jq -n 1 | grep 1` runs, and `cargo --version || {
-rc=$?; echo failed=$rc; exit $rc; }` runs.
+`cargo test` passes with a test per rule: `push -r` publishes the commit named, `push --bookmark`
+with a new name creates it tracked on origin, a REV of several commits is refused, and each
+command's old positional is refused naming its flag. Live, from the rung after push's on: `vc-x1-dev
+push -s b @-` fails naming `-r @-`, and a rung committed with `--no-push` is published by
+`vc-x1-dev push -s b -r @-`.
 
-Result (2026-10-27, 3900x), before the install: `hooks.sh test` passed its thirteen cases, and
-`hooks.sh check` named `bash-guard.sh` missing and its registration absent, the other two hooks and
-their six registrations already in place. A trial install into `tmp/hooks-try` with a copy of the
-settings registered seven entries with one backup, the `Bash` ones joining the existing group, and
-a second run changed nothing. wink ran the install, which put `bash-guard.sh` in and registered it,
-and `hooks.sh check` passed. Live, in this session, with no restart: `false; echo rc=$?` and `cargo
-test 2>&1 | tail -3` were denied, each with its reason and the rule's form, and `jq -n 1 | grep 1`
-and `cargo --version || { rc=$?; echo failed=$rc; exit $rc; }` ran. Passed.
+Result (2026-10-27, at the closing): passed.
+
+- Tests: the full validation passed, 806 unit tests and the CLI suites, and the check's own ran by
+  name, 56 passing, among them `push_takes_the_work_commit_by_revision`,
+  `push_creates_a_new_name_for_the_work_commit` and `push_creates_a_name_for_a_commit_already_made`
+  (each asserting the remote ref tracked), `push_refuses_what_names_no_one_commit_and_name`, and the
+  three positional refusals, push's, `commit`'s, and `squash-push`'s.
+- Live, with `vc-x1-dev` 0.85.13-1: `push -s b @-` failed with "the positional is retired, every
+  argument is a flag: `-r @-`", and `push -s b feat-push-commit-and-squash-push-take-flags-only`
+  named `--bookmark` with the bookmark.
+- Live, with `vc-x1-dev` 0.85.13-2: **feat: commit and squash-push take flags only** was made by
+  `commit -s b --no-push` and published by `push -s b -r @-`, "completed all stages (verified)".
 
 #### Deliberation
 
-- The hooks in the set, in `agent-data/`, wink's call (2026-10-27): the slip is the agent's in
-  every project, so the hook is installed in `~/.claude/hooks/` for all of them, not a `vc-x1
-  guard-bash`, and the set carries its source so it travels with the rule, to fwlaptop on the next
-  sync and to an adopter by `agent-files copy`.
-  - Flat in `agent-data/`, since the set is the plain files directly under it and a subdirectory
-    would not travel.
-  - The other two hooks with it and `hooks.sh` to check and install them, wink's call: one place
-    for a machine's hooks, and acquaint finds a machine that lacks them.
-- Text matches, not a parser, wink's question at the opening's review (2026-10-27): the agent's
-  commands carry heredocs, `jq` and `python -c` programs with `;` inside quotes, and `for` and `if`
-  blocks, so a check of joins by `;` or `&&` needs a shell parser, and without one it would stop
-  legitimate scripts all day. The two denies need none, and a false hit costs a rewrite.
-  - One command per invocation stays a rule alone, indexed and caught at review.
-  - An if/else form, wink's alternative, works, `$?` in `else` being the condition's, but would be
-    a third form for what the rule already has one for, and fails the same way, by not being used.
-    One form, bare, is what the hook checks.
-  - `cmd | tail; exit ${PIPESTATUS[0]}`, which the old rule allowed, is denied: one form.
-  - A command's text is matched, so a search for the pattern itself, `rg 'echo.*\$\?'`, is denied
-    too, and is written another way.
-- Documented at https://code.claude.com/docs/en/hooks: the events and when each fires, the
-  `matcher`, the stdin JSON with `tool_input.command`, and under PreToolUse decision control the
-  precedence `deny` > `defer` > `ask` > `allow` and that a hook's `allow` does not override a deny
-  or ask rule.
-- The install is the user's in practice too: the agent's run of `hooks.sh install` was denied by
-  Claude Code's auto-mode classifier as self-modification, a write to the settings every session
-  reads.
-- Late finding on **feat: vc-x1 land**, landmark `8a2cf954`: its acceptance check passed. After the
-  Land, `tmp/candidate/vc-x1 install` installed commit `8a2cf954d98e`, clean, and `cmp
-  tmp/candidate/vc-x1 ~/.cargo/bin/vc-x1` found no difference, so the binary tested is the one
-  installed (fwlaptop, 2026-10-27, in the agent-repo's session `9b45dc9f`). 3900x found `main` at
-  the closing in both repos and on origin and the three bookmarks gone.
-- `notes/README.md` names no hooks, so it is unchanged.
+- Flags only, the command names aside, wink's call (2026-10-27).
+  - A positional's meaning differs by command, so the same word reads two ways, and a flag has one
+    reading on every command, the reason [Scope is a flag on every command, and push resolves its
+    own bookmarks](TODO.md#scope-is-a-flag-on-every-command-and-push-resolves-its-own-bookmarks)
+    gave for `-s`, and `land`'s for naming `--source` and `--onto`.
+  - jj splits the two the same way: a bookmark name is a revision symbol, and a command that moves
+    a bookmark takes its name apart from the revision, `jj bookmark set NAME -r REV` and `jj git
+    push --named NAME=REV`.
+  - The command line is what the user approves, and a flag says what each word is.
+  - `run` keeps its trailing arguments, which are the built binary's.
+- `-r, --revision` and `--bookmark`: the names the read commands, `lookup`, and `commit` already
+  use, and jj's.
+- An old positional is refused, not dropped, wink's call (2026-10-27): a hidden argument whose error
+  names the flag, so a stale doc or a habit is told its own fix.
+- Two cycles, wink's call (2026-10-27): this one the three commands that publish, which every rung
+  runs and the push Todo is about, and the rest in **feat: the other commands take flags only**,
+  with **build, install, and run take --dev** folded into it, which keeps `install-dev`, run at
+  every rung here, unchanged until this cycle lands, and **init and clone take --scope por**,
+  whose commands it touches.
+- A REV other than `@-` publishes a name alone, the agent's call under the waiver, the question put
+  at planning and not answered: the pair's checks, the trailer, the partner, and the restamp,
+  assume `@-`, and a pair's commit below `@-` was published by its own rung.
+- Push moves a bookmark only along the pair's line, decided at the push rung.
+  - Off the line, `-r REV --bookmark NAME` takes a NAME at REV or a new one, and one elsewhere is
+    refused naming `move-bookmark`, since moving it would be a sideways move push never made.
+  - `push -s b side`, a bookmark off the line published where it is, became `push -s b -r side`,
+    the bookmark found at REV, so `--bookmark` alone always means the line's or a new name at `@-`.
+  - `-s p` took the same rule, its named bookmark checked against the line where it was set
+    sideways before.
+- The agent-files' invocations alone, decided at their rung: the rule prose naming `vc-x1 push` as
+  what commits is **agent-files(proposal): v0.3.1**'s Committing vs pushing rewrite, so this cycle
+  fixed what failed as written and told the proposal.
+- The README states the rule in the other cycle, once it holds for every command.
+- Waiver, wink's "Continue and complete this cycle except for landing on main" (2026-10-27), after
+  the opening's push.
+  - Covers every rung from **feat: push takes --revision and --bookmark** through the closing: the
+    work review, the description review, the per-push approval, and the hard stop after each push.
+  - Does not cover Land: the closing is pushed without `--land`, and the close-out shape is the
+    default, trapezoid, until wink chooses at the Land.
+  - Validation still runs before every push.
 
 #### Ladder
 
-- feat: a hook enforces the shell rules (done)
+- [feat: push, commit, and squash-push take flags only opening][f0] (done)
+- [feat: push takes --revision and --bookmark][f1] (done)
+- [feat: commit and squash-push take flags only][f2] (done)
+- [docs: the agent-files name the flags][f3] (done)
+- [feat: push, commit, and squash-push take flags only closing][f4] (done)
+
+##### feat: push, commit, and squash-push take flags only opening
+
+Opens the cycle: the Todo moved here and widened, the other commands' Todo filed, the version
+bumped.
+
+##### feat: push takes --revision and --bookmark
+
+`push`'s positional goes hidden and refused, `-r` names the commit and `--bookmark` the remote's
+name, a new name created tracked, and the refusal helper the other commands reuse.
+
+- `options_flags::retired_positional::refusal`, the one wording every retired positional gets: the
+  command, "the positional is retired, every argument is a flag", and the flag form with the value
+  in place, so the next two rungs and the other cycle share it.
+- `push`'s refusal names `--bookmark` when the value is a local bookmark in the repo `-R` names,
+  else `-r`, the lookup made in `to_params` and a failed one only losing the hint.
+- Two paths, split on whether REV is the work `@-` by commit id, so `-r @-`, `-r <its chid>`, and
+  `-r <its bookmark>` all take the pair's:
+  - The pair's path is unchanged but for `--bookmark` taking a new name, set at `@-` by the work
+    half's own `bookmark_set` and tracked by its push, the call the opening's bookmark uses.
+  - `publish_elsewhere`, which replaces `publish_name`, publishes a name alone: the one bookmark at
+    REV, or `--bookmark`'s, at REV or new. A bookmark elsewhere is refused naming `move-bookmark`,
+    since push moves a bookmark only along the pair's line.
+- `-s p` resolves its bookmark the pair's way, so a named bookmark off the line is refused there too,
+  where it was moved sideways before.
+- `-r` with `-s a` is refused, and `--bookmark` given a revision names `-r`.
+- The backlog's **vc-x1 push: rework the two bookmark parameters** retires, the two spellings gone.
+- `tests/cli_sync.rs` called `push -s w main`, and the full validation found it, the one CLI caller
+  of the old form.
+
+##### feat: commit and squash-push take flags only
+
+`commit`'s `[REV]` becomes `-r`, and `squash-push`'s `[BOOKMARK]` becomes `--bookmark`, each old
+positional refused by the helper.
+
+- `commit -r, --revision`: the field stays `rev`, so nothing past the parse changes, and its errors
+  say `-r` where they said `REV`. The refusal always names `-r`, the positional having been a
+  revision only.
+- `squash-push --bookmark`: the one flag, the positional having had no flag form, and the refusal
+  always names `--bookmark`.
+- Each refusal is made where the command builds its params, `CommitParams::try_from` and
+  `SquashPushArgs::to_params`, before any repo is touched.
+- No CLI test and no code called either with its positional. The README's examples and tables did,
+  and `support/fixtures/build-dr-1.py`'s `vc-x1 push {bookmark} --title` is left: it is a
+  transcript line the builder synthesizes as history, never run.
+
+##### docs: the agent-files name the flags
+
+The invocations of the three in `AGENTS.md` and `agent-data/`, with the stale `vc-x1 push <bookmark>
+--title` forms brought to what `commit` does now.
+
+- Four invocations were stale, each failing as written: step 9's and `jj.md`'s vc-x1 push section's
+  `vc-x1 push <bookmark> --title`, push having lost `--title` to `commit`, and At rest's and that
+  section's `squash-push -R <agent-dir>`, `-s` being required. They became `vc-x1 commit -s b
+  --title --body`, `squash-push -s a`, and, for a push run that stopped between its halves, `push
+  -s w` or `-s a`.
+- The invocations alone: the rule prose, "a cycle rung is committed by `vc-x1 push`", is left to
+  **agent-files(proposal): v0.3.1**, whose Committing vs pushing rewrite says the same thing in
+  full. The proposal now records that this copy's invocations are current, and its `commit <REV>`
+  reads `commit -r REV`.
+
+##### feat: push, commit, and squash-push take flags only closing
+
+Closing out the cycle.
+
+- Close-out shape: trapezoid, the default, recorded under the waiver, which leaves the choice to
+  wink at the Land. `commit --closing` makes the merge of `main` and the ladder's tip, pushed
+  without `--land`.
+- The agent-files changed, so `notes/agent-files-size.md` gained this cycle's column and row, 1855
+  lines, one more than the last.
+- `notes/README.md`'s per-rung flow names `vc-x1 commit`, as step 9 now does.
+- What closing taught: `tests/cli_sync.rs`'s `push -s w main`, the one CLI caller of an old
+  positional, was found only by the full validation, `--fast` running the binary's unit tests alone
+  and never `tests/`, so a rung that changes a command's arguments runs the full validation before
+  its review, as the `[validate]` config already says a rung's review does.
+
+# References
+
+[f0]: #feat-push-commit-and-squash-push-take-flags-only-opening
+[f1]: #feat-push-takes---revision-and---bookmark
+[f2]: #feat-commit-and-squash-push-take-flags-only
+[f3]: #docs-the-agent-files-name-the-flags
+[f4]: #feat-push-commit-and-squash-push-take-flags-only-closing

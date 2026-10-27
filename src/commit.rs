@@ -114,11 +114,20 @@ use crate::subcommand::SubcommandRunner;
 /// commit, with the given title and body.
 #[derive(Args, Debug)]
 pub struct CommitArgs {
+    /// Retired: the revision, now `-r`, refused naming it.
+    #[arg(value_name = "RETIRED", hide = true)]
+    pub retired: Option<String>,
+
     /// The commit the description is for: `@` by default, committed as
     /// the working copy; `@-` or any draft below it is described in
     /// place with no new commit, its trailer stamped, so a commit made
     /// by hand becomes a rung's. Not with `--opening` or `--closing`
-    #[arg(value_name = "REV", conflicts_with_all = ["opening", "closing"])]
+    #[arg(
+        short = 'r',
+        long = "revision",
+        value_name = "REV",
+        conflicts_with_all = ["opening", "closing"]
+    )]
     pub rev: Option<String>,
 
     /// Where: a path in the workspace for `-s b|w`, its root or
@@ -358,6 +367,11 @@ impl TryFrom<&CommitArgs> for CommitParams {
     /// alone, read the body when it names a file, and check the
     /// description is not blank.
     fn try_from(a: &CommitArgs) -> Result<Self, String> {
+        if let Some(value) = &a.retired {
+            return Err(crate::options_flags::retired_positional::refusal(
+                "commit", value, "-r",
+            ));
+        }
         if a.skip.is_some() && a.opening.is_none() && a.land.is_none() {
             return Err(
                 "commit --skip: it takes --opening or --land, the bookmark it keeps".into(),
@@ -365,14 +379,14 @@ impl TryFrom<&CommitArgs> for CommitParams {
         }
         if a.rev.is_some() && (a.opening.is_some() || a.closing.is_some()) {
             return Err(
-                "commit REV: a bookend is made from `@`, so REV takes neither \
+                "commit -r: a bookend is made from `@`, so -r takes neither \
                         --opening nor --closing"
                     .into(),
             );
         }
         if a.rev.is_some() && matches!(&a.scope, RepoScope::Sides(s) if s.is_bot_only()) {
             return Err(
-                "commit -s a: REV is the work commit's, so the agent repo alone takes none".into(),
+                "commit -s a: -r is the work commit's, so the agent repo alone takes none".into(),
             );
         }
         let body = match &a.body {
@@ -1038,6 +1052,7 @@ fn push_after(
     crate::push::push(
         ctx,
         &crate::push::PushParams {
+            revision: None,
             bookmark: bookmark.map(str::to_string),
             repo: Some(repo.to_path_buf()),
             scope,
@@ -3384,12 +3399,28 @@ mod tests {
         let err = commit(&mut test_ctx(), &params).unwrap_err().to_string();
         assert!(err.contains("nothing to describe"), "{err}");
 
-        let err = parse(&["vc-x1", "commit", "@-", "-s", "b", "--closing", "@-"]).unwrap_err();
+        let err =
+            parse(&["vc-x1", "commit", "-r", "@-", "-s", "b", "--closing", "@-"]).unwrap_err();
         assert!(err.contains("cannot be used with"), "{err}");
         let mut a = args("a", &fx.work);
         a.rev = Some("@-".to_string());
         let err = CommitParams::try_from(&a).unwrap_err();
-        assert!(err.contains("REV is the work commit's"), "{err}");
+        assert!(err.contains("-r is the work commit's"), "{err}");
+    }
+
+    /// `-r` and `--revision` name the commit, and the retired positional
+    /// parses, hidden, and is refused naming `-r`.
+    #[test]
+    fn the_revision_is_a_flag_and_the_positional_is_refused() {
+        let base = ["vc-x1", "commit", "-s", "b", "--title", "t", "--body", "b"];
+        let a = parse(&[&base[..], &["-r", "@-"]].concat()).expect("parses");
+        assert_eq!(a.rev.as_deref(), Some("@-"));
+        let a = parse(&[&base[..], &["--revision", "@--"]].concat()).expect("parses");
+        assert_eq!(a.rev.as_deref(), Some("@--"));
+        let a = parse(&[&base[..], &["@-"]].concat()).expect("parses");
+        let err = CommitParams::try_from(&a).unwrap_err();
+        assert!(err.contains("the positional is retired"), "{err}");
+        assert!(err.contains("`-r @-`"), "{err}");
     }
 
     /// A draft below `@-` is described and paired but kept local,

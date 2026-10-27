@@ -49,6 +49,7 @@ fn both() -> Scope {
 /// Standard test params: the line's bookmark, `-s b`, no gates.
 fn test_params() -> PushParams {
     PushParams {
+        revision: None,
         bookmark: None,
         repo: None,
         scope: RepoScope::Sides(both()),
@@ -189,8 +190,8 @@ fn push_leaves_new_work_in_at() {
     assert!(!pushed.contains("more.txt"), "@ went out:\n{pushed}");
 }
 
-/// A revision named as the bookmark, `@-`, is refused before anything
-/// moves, the error saying push finds the bookmark itself.
+/// A revision given as `--bookmark`, `@-`, is refused before anything
+/// moves, the error naming `-r` for the commit.
 #[test]
 fn push_refuses_a_revision_as_the_bookmark() {
     let fx = Fixture::new("push-revision");
@@ -208,8 +209,109 @@ fn push_refuses_a_revision_as_the_bookmark() {
     )
     .expect_err("refused")
     .to_string();
-    assert!(err.contains("is a revision, not a bookmark"), "{err}");
-    assert!(err.contains("leave it out"), "{err}");
+    assert!(err.contains("is a revision, not a bookmark name"), "{err}");
+    assert!(err.contains("`-r @-`"), "{err}");
+    assert_eq!(cid(&fx.work, "main"), work_main);
+}
+
+/// `-r @-` named is the pair's path, as left out, and the retired
+/// positional naming a bookmark is refused naming `--bookmark`.
+#[test]
+fn push_takes_the_work_commit_by_revision() {
+    let fx = Fixture::new("push-by-revision");
+    let (work_at, agent_at) = make_pair(&fx, "feat: by -r", true);
+    let mut params = test_params();
+    params.repo = Some(fx.work.clone());
+    params.revision = Some("@-".to_string());
+
+    push(&mut test_ctx(), &params).expect("push -r @-");
+
+    assert_eq!(chid(&fx.work, "main"), work_at);
+    assert_eq!(cid(&fx.work, "main@origin"), cid(&fx.work, "main"));
+    assert_eq!(chid(&fx.bot, "main"), agent_at);
+    let refused = retired_refusal(Some(&fx.work), "main");
+    assert!(refused.contains("`--bookmark main`"), "{refused}");
+}
+
+/// A new name at `@-` is created there and pushed tracked, the pair
+/// published on it, and `main` stays where it was.
+#[test]
+fn push_creates_a_new_name_for_the_work_commit() {
+    let fx = Fixture::new("push-new-name");
+    let (work_at, _) = make_pair(&fx, "feat: a new name", true);
+    let work_main = cid(&fx.work, "main");
+    let mut params = test_params();
+    params.bookmark = Some("topic".to_string());
+
+    push_in(&mut test_ctx(), &pair(&fx), &both(), &params).expect("push");
+
+    assert_eq!(chid(&fx.work, "topic"), work_at);
+    assert_eq!(cid(&fx.work, "topic@origin"), cid(&fx.work, "topic"));
+    assert!(crate::jj::has_tracked_remote(&fx.work, "topic", "origin").expect("tracked"));
+    assert_eq!(cid(&fx.work, "main"), work_main, "main is not moved");
+}
+
+/// `-r` naming a commit off the line with a new `--bookmark` creates
+/// it there and pushes it tracked, no pair, and `@-` stays unpublished.
+#[test]
+fn push_creates_a_name_for_a_commit_already_made() {
+    let fx = Fixture::new("push-name-at-rev");
+    fs::write(fx.work.join("side.txt"), "side\n").expect("write");
+    jj_ok(&fx.work, &["commit", "-m", "feat: a side commit"]);
+    let side = cid(&fx.work, "@-");
+    jj_ok(&fx.work, &["new", "main"]);
+    let mut params = test_params();
+    params.repo = Some(fx.work.clone());
+    params.revision = Some(side.clone());
+    params.bookmark = Some("side".to_string());
+
+    push(&mut test_ctx(), &params).expect("the name is created and published");
+
+    assert_eq!(cid(&fx.work, "side"), side);
+    assert_eq!(cid(&fx.work, "side@origin"), side);
+    assert!(crate::jj::has_tracked_remote(&fx.work, "side", "origin").expect("tracked"));
+}
+
+/// A REV of several commits, a bookmark elsewhere named for REV, `-r`
+/// with the agent half alone, and a REV with no bookmark and none named
+/// are each refused before anything moves.
+#[test]
+fn push_refuses_what_names_no_one_commit_and_name() {
+    let fx = Fixture::new("push-rev-refusals");
+    fs::write(fx.work.join("side.txt"), "side\n").expect("write");
+    jj_ok(&fx.work, &["commit", "-m", "feat: a side commit"]);
+    let side = cid(&fx.work, "@-");
+    jj_ok(&fx.work, &["new", "main"]);
+    make_pair(&fx, "feat: refusals", true);
+    let work_main = cid(&fx.work, "main");
+    let mut params = test_params();
+    params.repo = Some(fx.work.clone());
+
+    params.revision = Some("::@-".to_string());
+    let err = push(&mut test_ctx(), &params)
+        .expect_err("several")
+        .to_string();
+    assert!(err.contains("commits, and push publishes one"), "{err}");
+
+    params.revision = Some(side);
+    let err = push(&mut test_ctx(), &params)
+        .expect_err("no bookmark")
+        .to_string();
+    assert!(err.contains("carries no bookmark"), "{err}");
+
+    jj_ok(&fx.work, &["bookmark", "create", "elsewhere", "-r", "@-"]);
+    params.bookmark = Some("elsewhere".to_string());
+    let err = push(&mut test_ctx(), &params)
+        .expect_err("not at REV")
+        .to_string();
+    assert!(err.contains("`vc-x1 move-bookmark`"), "{err}");
+
+    params.scope = RepoScope::Sides(Scope(vec![Side::Bot]));
+    params.bookmark = None;
+    let err = push(&mut test_ctx(), &params)
+        .expect_err("-s a")
+        .to_string();
+    assert!(err.contains("push -s a"), "{err}");
     assert_eq!(cid(&fx.work, "main"), work_main);
 }
 
@@ -289,11 +391,11 @@ fn push_feature_bookmark_pins_bot_to_main() {
     );
 }
 
-/// A named bookmark off the work `@-`'s line, on a commit already
-/// made, is published where it is, a name and no pair, and one on the
-/// working copy or the root is refused.
+/// A bookmark off the work `@-`'s line, on a commit already made and
+/// named by `-r`, is published where it is, a name and no pair, and
+/// the working copy is refused.
 #[test]
-fn push_publishes_a_named_bookmark_off_the_line_where_it_is() {
+fn push_publishes_a_bookmark_off_the_line_where_it_is() {
     let fx = Fixture::new("push-name");
     fs::write(fx.work.join("side.txt"), "side\n").expect("write");
     jj_ok(&fx.work, &["commit", "-m", "feat: a side commit"]);
@@ -305,7 +407,7 @@ fn push_publishes_a_named_bookmark_off_the_line_where_it_is() {
     jj_ok(&fx.work, &["new", "main"]);
     let mut params = test_params();
     params.repo = Some(fx.work.clone());
-    params.bookmark = Some("side".to_string());
+    params.revision = Some("side".to_string());
     crate::push::push(&mut test_ctx(), &params).expect("the name is published");
     assert_eq!(
         crate::jj::remote_bookmark_targets(&fx.work, "origin")
@@ -316,7 +418,7 @@ fn push_publishes_a_named_bookmark_off_the_line_where_it_is() {
 
     fs::write(fx.work.join("wip.txt"), "wip\n").expect("write");
     jj_ok(&fx.work, &["bookmark", "create", "wip", "-r", "@"]);
-    params.bookmark = Some("wip".to_string());
+    params.revision = Some("wip".to_string());
     let err = crate::push::push(&mut test_ctx(), &params)
         .expect_err("the working copy")
         .to_string();

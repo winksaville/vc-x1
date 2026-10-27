@@ -84,7 +84,7 @@ Per-cycle workflow is AGENTS.md's [Cycle protocol](../AGENTS.md#cycle-protocol):
 
 - [Opening](../AGENTS.md#opening): the bookmark, the six provisional items, the ladder.
 - [The per-rung flow](../AGENTS.md#the-per-rung-flow): validation, the work and description
-  review stops, `vc-x1 push`.
+  review stops, `vc-x1 commit`, which commits the pair and pushes it.
 - [Commit description](../AGENTS.md#commit-description): Conventional Commits title, body shape
   per work vs agent repo.
 - [Pushing](../AGENTS.md#pushing): push policy, the at-rest contract.

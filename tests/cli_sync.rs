@@ -96,12 +96,13 @@ fn setup_peer_push(tag: &str) -> PeerPush {
         "--body",
         "add from-a.txt",
     ]));
-    run_ok(
-        fx.cmd()
-            .current_dir(&tr_a)
-            .env("PATH", test_path())
-            .args(["push", "-s", "w", "main"]),
-    );
+    run_ok(fx.cmd().current_dir(&tr_a).env("PATH", test_path()).args([
+        "push",
+        "-s",
+        "w",
+        "--bookmark",
+        "main",
+    ]));
     let pushed = cid(&fx.home, &tr_a, "main");
     assert_ne!(pre_main, pushed, "trA's push should advance the remote");
 

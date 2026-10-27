@@ -106,18 +106,19 @@ repo).
 
 ## vc-x1 push: what it does and does not do
 
-`vc-x1 push <bookmark> --yes --title "..." --body "..."` commits both repos with the approved title
-and body (`--yes` because push's gates need a tty the agent sandbox lacks, and the user's approval
-of the shown title and body already covers them), stamps each new commit's `ochid:` trailer
-([above](#cross-repo-linking-ochid-trailers)), pushes the work bookmark, and squash-pushes the agent
-repo's `main`. Three behaviors to keep in mind:
+`vc-x1 commit -s b --title "..." --body "..."` commits both repos with the approved title and body,
+stamps each new commit's `ochid:` trailer ([above](#cross-repo-linking-ochid-trailers)), and
+publishes the pair as `vc-x1 push -s b` does: it squash-pushes the agent repo's `main` and pushes
+the work bookmark. `--no-push` keeps the pair local, and `vc-x1 push -s b` publishes it later, `-r`
+naming the commit and `--bookmark` its name on the remote when they are not the work `@-` and the
+line's bookmark. Every argument is a flag. Three behaviors to keep in mind:
 
 - **No checks of the project's own.** vc-x1 runs no build or tests. Validation is the per-rung
   flow's job, run *before* the push. The one check that remains is `push-work` verifying the
   bookmark's remote refs are tracked.
 - **Rerunning is safe.** Push keeps no state and cannot resume: every stage no-ops when its work is
-  already done, so a failed run is re-run, not resumed. If push exits after `push-work` but before
-  the agent-repo publish, `vc-x1 squash-push -R <agent-dir>` by hand is the rest of it.
+  already done, so a failed run is re-run, not resumed. If push exits between its halves, `vc-x1
+  push -s w` or `-s a`, the half not yet published, is the rest of it.
 - **`ochid:` trailers are stamped by push** ([No hand-written
   trailers](#cross-repo-linking-ochid-trailers)), never hand-written into `--title` or `--body`.
 - **The agent-repo is a linear journal.**

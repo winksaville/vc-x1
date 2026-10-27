@@ -17,7 +17,7 @@
 //! - the work half checks its trailer names the partner, restamping
 //!   the unpublished work commit when it does not, said out loud,
 //!   then sets and pushes the bookmark `@-` sits on, or the one
-//!   named.
+//!   named, a new name created there.
 //!
 //! Before either: a work `@` that is not empty is refused, being a
 //! fix to fold or the next rung, the user's call, and so is a work
@@ -26,6 +26,10 @@
 //! stage fails before its own push, and from a push on the remote
 //! boundary is crossed. Rerunning is always safe: a half whose work
 //! is done finds nothing to do.
+//!
+//! `-r` names another commit, already made, and only a name goes out
+//! for it, the bookmark at it or a new one: the pair's checks are the
+//! work `@-`'s.
 //!
 //! `-s` is required: `b` both halves, `a` the agent half, `w` the
 //! work half, and `p` a plain repo's `@-` on its bookmark, no
@@ -40,6 +44,7 @@ use crate::common::prompt;
 use crate::context::Context;
 use crate::desc_helpers::with_trailer;
 use crate::jj;
+use crate::options_flags::retired_positional::refusal;
 use crate::options_flags::scope::{
     ALL_REPO_SCOPES, REPO_SCOPE_FORMS, RepoScope, Scope, repo_scope_parser,
 };
@@ -52,16 +57,27 @@ use crate::subcommand::SubcommandRunner;
 /// a work-repo bookmark only.
 const BOT_BOOKMARK: &str = "main";
 
+/// The commit push publishes when `-r` is left out: the work commit of
+/// the pair `commit` made.
+const WORK_COMMIT: &str = "@-";
+
 /// CLI arguments for the `push` subcommand.
 #[derive(Args, Debug)]
 pub struct PushArgs {
-    /// Work-repo bookmark to advance, a check against the line `@-`
-    /// is on [default: the bookmark of that line]
-    #[arg(value_name = "BOOKMARK", conflicts_with = "bookmark")]
-    pub bookmark_pos: Option<String>,
+    /// Retired: the bookmark, now `--bookmark`, or a revision, now
+    /// `-r`, refused naming the one it was.
+    #[arg(value_name = "RETIRED", hide = true)]
+    pub retired: Option<String>,
 
-    /// Bookmark to advance in the work repo (flag form, see positional).
-    #[arg(long, conflicts_with = "bookmark_pos")]
+    /// The commit to publish, one: `@-` publishes the pair, any other
+    /// a name alone [default: `@-`]
+    #[arg(short = 'r', long, value_name = "REV")]
+    pub revision: Option<String>,
+
+    /// The remote's name for it: a bookmark on the line, moved there,
+    /// one already at REV, or a new name, created there [default: the
+    /// line's bookmark, or the one at REV]
+    #[arg(long, value_name = "NAME")]
     pub bookmark: Option<String>,
 
     /// Where: a path in the workspace for `-s b|w|a`, its root or
@@ -95,10 +111,10 @@ pub struct PushArgs {
     pub yes: bool,
 }
 
-/// Inputs to the push op, flat, owned, clap-free: the two clap
-/// bookmark spellings collapsed into `bookmark`, the rest straight
-/// over.
+/// Inputs to the push op, flat, owned, clap-free, straight over from
+/// the flags.
 pub struct PushParams {
+    pub revision: Option<String>,
     pub bookmark: Option<String>,
     pub repo: Option<PathBuf>,
     pub scope: RepoScope,
@@ -119,11 +135,12 @@ struct Run {
 }
 
 impl From<&PushArgs> for PushParams {
-    /// Collapse `bookmark_pos` / `bookmark` (clap enforces they don't
-    /// both appear) into the single `bookmark` field.
+    /// The flags straight over; the retired positional is
+    /// `to_params`'s to refuse.
     fn from(a: &PushArgs) -> Self {
         Self {
-            bookmark: a.bookmark_pos.clone().or_else(|| a.bookmark.clone()),
+            revision: a.revision.clone(),
+            bookmark: a.bookmark.clone(),
             repo: a.repo.clone(),
             scope: a.scope.clone(),
             step: a.step,
@@ -136,8 +153,12 @@ impl From<&PushArgs> for PushParams {
 impl SubcommandRunner for PushArgs {
     type Params = PushParams;
 
-    /// Delegate to the `From<&PushArgs>` impl above (total).
+    /// Refuse the retired positional, else delegate to the
+    /// `From<&PushArgs>` impl above.
     fn to_params(&self) -> Result<Self::Params, String> {
+        if let Some(value) = &self.retired {
+            return Err(retired_refusal(self.repo.as_deref(), value));
+        }
         Ok(PushParams::from(self))
     }
 
@@ -152,6 +173,21 @@ fn is_stdin_tty() -> bool {
     crate::common::is_stdin_tty()
 }
 
+/// The refusal for the retired positional: `--bookmark` when `value`
+/// is a bookmark in the repo push runs in, which is what it meant, else
+/// `-r`, a revision being the other thing it could be.
+fn retired_refusal(repo: Option<&Path>, value: &str) -> String {
+    let repo = repo.unwrap_or(Path::new(".")); // OK: no -R is the current directory
+    // OK: a failed lookup only loses the hint, so it reads as no bookmark
+    let is_bookmark = jj::local_bookmark_exists(repo, value).unwrap_or(false);
+    refusal("push", value, if is_bookmark { "--bookmark" } else { "-r" })
+}
+
+/// The commit push publishes: `-r`'s, else the work `@-`.
+fn revision(params: &PushParams) -> &str {
+    params.revision.as_deref().unwrap_or(WORK_COMMIT) // OK: `-r` left out is the `@-`
+}
+
 /// Entry point for the `push` subcommand: resolve `-s` and `-R` and
 /// publish.
 pub fn push(ctx: &mut Context, params: &PushParams) -> Result<(), Box<dyn std::error::Error>> {
@@ -162,7 +198,7 @@ pub fn push(ctx: &mut Context, params: &PushParams) -> Result<(), Box<dyn std::e
                 return Err(format!("push -s p: expected one repo, got {}", repos.len()).into());
             };
             refuse_a_revision(repo, params)?;
-            if publish_name(ctx, repo, params)? {
+            if publish_elsewhere(ctx, repo, params)? {
                 return Ok(());
             }
             push_por(ctx, repo, params)
@@ -172,7 +208,15 @@ pub fn push(ctx: &mut Context, params: &PushParams) -> Result<(), Box<dyn std::e
             // other repo to find or name its partner.
             let pair = resolve_pair(params.repo.as_deref())?;
             refuse_a_revision(&pair.work, params)?;
-            if sides.has_work() && publish_name(ctx, &pair.work, params)? {
+            if !sides.has_work() {
+                if let Some(rev) = &params.revision {
+                    return Err(format!(
+                        "push -s a: the agent half publishes the agent `main`, so `-r {rev}` names \
+                         nothing. `-s b` or `-s w` publishes a work commit"
+                    )
+                    .into());
+                }
+            } else if publish_elsewhere(ctx, &pair.work, params)? {
                 return Ok(());
             }
             push_in(ctx, &pair, sides, params)
@@ -180,9 +224,8 @@ pub fn push(ctx: &mut Context, params: &PushParams) -> Result<(), Box<dyn std::e
     }
 }
 
-/// Refuse a named bookmark that is no bookmark but a revision, such
-/// as `@-`: push publishes `@-` on the bookmark it sits on, found when
-/// none is named, so a revision is never what the name means.
+/// Refuse a `--bookmark` that is no bookmark but a revision, such as
+/// `@-`: the flag names the remote's name, and `-r` the commit.
 fn refuse_a_revision(repo: &Path, params: &PushParams) -> Result<(), Box<dyn std::error::Error>> {
     let Some(name) = &params.bookmark else {
         return Ok(());
@@ -191,50 +234,99 @@ fn refuse_a_revision(repo: &Path, params: &PushParams) -> Result<(), Box<dyn std
         return Ok(());
     }
     Err(format!(
-        "push: '{name}' is a revision, not a bookmark. Push publishes @- on the bookmark it \
-         sits on, found when none is named, so leave it out or name the bookmark"
+        "push: '{name}' is a revision, not a bookmark name: `-r {name}` names the commit to \
+         publish, and `--bookmark` its name on the remote"
     )
     .into())
 }
 
-/// A named bookmark off the work `@-`'s line, on a commit already
-/// made: publish it where it is, a name and no pair, and say so. True
-/// when it was this case. The working copy, which holds changes not
-/// yet committed, and the root, which has nothing to publish, are
-/// refused, `vc-x1 commit` being what turns the working copy into a
-/// commit. A bookmark on the line goes the pair's way.
-fn publish_name(
+/// A REV other than the work `@-`, a commit already made: publish a
+/// name for it and no pair, since the pair's checks, its trailer, its
+/// partner, and the restamp, are the `@-`'s. True when it was this
+/// case. The name is the one bookmark at REV, or `--bookmark`'s, that
+/// bookmark or a new one created there. REV must be one commit, and
+/// the working copy, which holds changes not yet committed, and the
+/// root, which has nothing to publish, are refused, `vc-x1 commit`
+/// being what turns the working copy into a commit.
+fn publish_elsewhere(
     ctx: &mut Context,
     repo: &Path,
     params: &PushParams,
 ) -> Result<bool, Box<dyn std::error::Error>> {
-    let Some(name) = &params.bookmark else {
-        return Ok(false);
+    let rev = revision(params);
+    let cids = jj::cids_of(repo, rev)?;
+    let at = match cids.as_slice() {
+        [one] => one.clone(),
+        [] => return Err(format!("push: -r '{rev}' resolves to no commit").into()),
+        many => {
+            return Err(format!(
+                "push: -r '{rev}' resolves to {} commits, and push publishes one",
+                many.len()
+            )
+            .into());
+        }
     };
-    if !jj::local_bookmark_exists(repo, name)?
-        || jj::local_bookmarks_at(repo, "heads(::@- & bookmarks())")?.contains(name)
-    {
+    if at == jj::cid_of(repo, WORK_COMMIT)? {
         return Ok(false);
     }
-    if jj::local_bookmarks_at(repo, "@")?.contains(name) {
+    if at == jj::cid_of(repo, "@")? {
         return Err(format!(
-            "push: '{name}' is on the working copy, which is not committed: `vc-x1 commit` \
+            "push: -r '{rev}' is the working copy, which is not committed: `vc-x1 commit` \
              commits it and pushes it"
         )
         .into());
     }
-    if jj::local_bookmarks_at(repo, "root()")?.contains(name) {
+    if at == jj::cid_of(repo, "root()")? {
         return Err(
-            format!("push: '{name}' is on the root commit, which has nothing to publish").into(),
+            format!("push: -r '{rev}' is the root commit, which has nothing to publish").into(),
         );
     }
-    let at = jj::cid_of(repo, name)?;
+    let at_rev = jj::local_bookmarks_at(repo, &at)?;
+    let (name, new) = match &params.bookmark {
+        Some(name) if at_rev.contains(name) => (name.clone(), false),
+        Some(name) if jj::local_bookmark_exists(repo, name)? => {
+            return Err(format!(
+                "push: bookmark '{name}' is not at -r '{rev}': push publishes a name where it \
+                 is, or a new one created there, and `vc-x1 move-bookmark` moves one"
+            )
+            .into());
+        }
+        Some(name) => (name.clone(), true),
+        None => match at_rev.as_slice() {
+            [one] => (one.clone(), false),
+            [] => {
+                return Err(format!(
+                    "push: -r '{rev}' carries no bookmark, so name one with --bookmark, which \
+                     is created there"
+                )
+                .into());
+            }
+            many => {
+                return Err(format!(
+                    "push: -r '{rev}' carries several bookmarks: {}, so name the one with \
+                     --bookmark",
+                    many.join(", ")
+                )
+                .into());
+            }
+        },
+    };
+    let short = jj::cid_short_of(repo, &at)?;
+    let dry = if params.dry_run { "[dry-run] " } else { "" };
+    if new {
+        info!("push: {dry}create '{name}' at {short}, a commit already made, and push it");
+    } else {
+        info!("push: {dry}publish '{name}' where it is, {short}, a commit already made");
+    }
     if params.dry_run {
-        info!("push: [dry-run] publish '{name}' where it is, {at}, a commit already made");
         return Ok(true);
     }
-    info!("push: publish '{name}' where it is, {at}, a commit already made");
-    ctx.session(repo)?.git_push_bookmark(name)?;
+    if new {
+        ctx.session(repo)?.bookmark_set(&name, &at)?;
+    } else {
+        crate::common::verify_tracking(repo, &name)?;
+    }
+    ctx.session(repo)?.git_push_bookmark(&name)?;
     Ok(true)
 }
 
@@ -310,8 +402,9 @@ pub(crate) fn push_in(
     Ok(())
 }
 
-/// The work bookmark: the one named, which must be among the nearest
-/// bookmarks below the work `@-`, else the line's own.
+/// The bookmark `@-` goes out on: the one named, which must be among
+/// the nearest bookmarks below `@-` or a new name, set there by the
+/// push, else the line's own.
 fn resolve_bookmark(
     root: &Path,
     params: &PushParams,
@@ -319,20 +412,23 @@ fn resolve_bookmark(
     match &params.bookmark {
         Some(b) => {
             if !jj::local_bookmark_exists(root, b)? {
-                return Err(format!("push: bookmark '{b}' does not exist in the work repo").into());
+                let dry = if params.dry_run { "[dry-run] " } else { "" };
+                info!("push: {dry}'{b}' is a new name, created at @- and pushed tracked");
+                return Ok(b.clone());
             }
             let nearest = jj::local_bookmarks_at(root, "heads(::@- & bookmarks())")?;
             if !nearest.contains(b) {
                 return Err(format!(
-                    "push: bookmark '{b}' is not the nearest bookmark below the work @-, the \
-                     line's own ({}). Name one of them, or none to use the line's",
+                    "push: bookmark '{b}' is not the nearest bookmark below @-, the line's own \
+                     ({}). Name one of them, a new name to create at @-, or none to use the \
+                     line's, and `-r {b}` publishes it where it is",
                     nearest.join(", ")
                 )
                 .into());
             }
             Ok(b.clone())
         }
-        None => crate::squash_push::current_bookmark(root, "@-"),
+        None => crate::squash_push::current_bookmark(root, WORK_COMMIT),
     }
 }
 
@@ -569,10 +665,7 @@ fn push_por(
     if jj::desc_of(repo, "@-")?.trim().is_empty() {
         return Err("push -s p: @- has no description, so it is not a commit to publish".into());
     }
-    let bookmark = match &params.bookmark {
-        Some(b) => b.clone(),
-        None => crate::squash_push::current_bookmark(repo, "@-")?,
-    };
+    let bookmark = resolve_bookmark(repo, params)?;
     let arg = repo.to_string_lossy();
     if params.dry_run {
         info!(

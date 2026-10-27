@@ -61,96 +61,73 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### feat: vc-x1 repairs and reshapes without jj
+### feat: the other commands take flags only
 
-(wink + agent, 2026-10-23) Cut from **feat: vc-x1 closing and land** at its closing rung's review,
-the ladder having grown to sixteen rungs: that cycle keeps the path from opening to Land with no
-`jj` typed, and the repairs and alternative paths it planned are this cycle, each a step the
-agent-files still do with raw `jj`. Each was a rung there, named and with its intent, and its
-deliberation moved here whole.
+(wink + agent, 2026-10-27) Split from **feat: push, commit, and squash-push take flags only** at its
+planning. Every argument is a flag, the command names aside, and that cycle does the three commands
+that publish. This one does the rest, each old positional kept hidden and refused with the flag
+that replaces it, as there.
 
-- **feat: commit --closing takes a shape, from the flag or the config**: The closing is always the
-  trapezoid, a merge of `REV` and the ladder's tip, so `--shape <trapezoid|linear>` chooses it,
-  linear a plain commit on the ladder, the shape the agent-files call keep separate, `[cycle]
-  closing-shape` sets the project's default, trapezoid when absent, and either shape converts to the
-  other while the closing is a draft.
-- **feat: the closing can be taken back**: A closing made without `--land` and found wrong is undone
-  by hand in two repos, so one invocation takes it back, the work side by its operation and the
-  agent side's content moved back into `@`.
-- **feat: vc-x1 reshapes a draft bookmark**: Reshaping a cycle's bookmark while it is a draft is an
-  amend and a force-push typed by hand, so `vc-x1` does both, refusing a bookmark already landed or
-  one another branch is stacked on.
-- **feat: vc-x1 reparent edits a commit's parents**: A commit's parents are edited by `merge`, which
-  only adds, and by a raw `jj rebase -r` to remove or replace one, so `vc-x1 reparent --target
-  <REV>` takes `--add`, `--remove`, or `--set`, on any committed node, its description, change id,
-  and trailer kept.
-- **feat: vc-x1 re-describes a pair and keeps its trailers**: A coordinated re-describe, as a
-  single-step cycle turning multi-step needs, is a `jj describe` in each repo that must keep the
-  `ochid:` trailer, so `vc-x1` re-describes both commits of a pair at once and keeps their trailers.
-- **feat: vc-x1 runs a local ladder**: A local ladder is `jj commit` for each intermediate and a
-  hand collapse into the rung, so `vc-x1` makes the intermediates and collapses them, validating
-  each with `validate --fast`.
-- **feat: vc-x1 sets a rung's edits aside**: A rung inserted while the working copy holds the next
-  rung's edits sets them aside as a patch by hand and restores them after its push, so `vc-x1` sets
-  them aside and brings them back.
+- `chid`, `desc`, `list`, `show`, `validate-desc`, `fix-desc`: `[REVISION] [COMMITS]` go, since
+  `-r, --revision` and `-n, --commits` are there already.
+- `lookup`: `-s` for the side, which [Scope is a flag on every command, and push resolves its own
+  bookmarks](#scope-is-a-flag-on-every-command-and-push-resolves-its-own-bookmarks) already asks
+  for, and `--line FILE:LINE`.
+- `agent-session`: `--file PATH`. `validate-anchors`: `--file PATH`, repeatable. `validate-todo`
+  and `fix-todo`: `--file PATH`, `TODO.md` by default.
+- `validate-config` and `config`: `[TARGET]`, `work,agent` by default, reads as a scope, so `-s`,
+  settled at its rung.
+- `clone` and `init`: `<TARGET> [NAME]`, the flags named at their rung, `--from` and `--name` the
+  first guess, and `--por` becomes `-s por`, as **init and clone take --scope por** below has it,
+  folded in at the first cycle's opening (wink, 2026-10-27).
+- `symlink`: `--target PATH`.
+- `run` keeps its trailing arguments, which are the built binary's, not vc-x1's.
+- The README's CLI section states the rule once it holds for every command.
+- `build-dev`, `install-dev`, and `run-dev` become `build`, `install`, and `run` with `--dev`, the
+  `-dev` commands kept hidden and refused with the new spelling, as below, folded in at the first
+  cycle's opening (wink, 2026-10-27).
 
-#### Deliberation carried over
+#### build, install, and run take --dev
 
-- The closing's shape, trapezoid or linear, wink's calls (2026-10-23): for those who prefer a
-  straight history, a linear closing is a plain commit on the ladder, and `--land` fast-forwards
-  `REV` to it, the agent-files' keep separate under a clearer name.
-  - `--shape <trapezoid|linear>` chooses it, one valued flag rather than `--linear` and
-    `--trapezoid`, which could both be given, or abbreviations such as `--clse-lin`, which read as
-    typos. The flag's word and the config key's are the same.
-  - `[cycle] closing-shape`, `"trapezoid"` or `"linear"`, is the project's default, a preference
-    that belongs in the committed `.vc-config.md` with `[validate]` and `[build]`, since adopters
-    choose differently. Absent, it is trapezoid, so an adopter who sets nothing sees no change.
-  - The flag, then the key, then trapezoid, and `commit` prints which decided. Close-out step 5
-    still has the user choose, the key only making the usual answer the default, and a stated
-    preference is not the assumption about the current branch that `--closing <REV>` removed.
-  - Either converts to the other while the closing is a draft, before Land, by re-parenting the
-    same closing, which keeps its change id and trailer, and with the trunk unmoved its tree too,
-    `REV` being in the ladder's ancestry. After Land a conversion would rewrite the trunk, so it is
-    refused.
-  - A linear closing cannot join a trunk that moved: the ladder would need a rebase, a rewrite of
-    published commits into a tree no validation saw. `--land` already refuses a moved trunk, so
-    the refusal is the whole answer, and the way out is the reshape rung's command, then a
-    validation, then the closing. A rebase inside a linear closing would be the hidden multi-step
-    operation the cycle removes.
-  - The v0.3.1 proposal said keep separate goes, and its section **The closing is a trapezoid or
-    linear, and converts** now keeps it as the linear shape and names the flag and the key, edited
-    at the closing rung's review when this rung was added, so the proposal leads the flag by one
-    rung.
-  - Its own rung after the closing's shapes, since `--land` lands both.
-- `vc-x1 reparent`, wink's call at the closing rung's review (2026-10-23): parent fix-ups get their
-  own command, since `merge` is the wrong verb for removing one.
-  - `--target <REV>`, any committed node, with `--add`, `--remove`, or `--set`, one jj-lib rebase
-    of it onto its new parent list, its descendants rebased, the list printed before and after,
-    and a failure restored from a snapshot. `merge`'s guards carry over: no cycle, no parent at or
-    below the target, `--ignore-immutable` for a jj-immutable one.
-  - `--remove` changes the tree: the target keeps its own diff, and what the removed parent brought
-    is gone from it, so it prints what was dropped. The last parent is never removed, `--set`
-    being the way to replace it, and a conflicted result is reported and left.
-  - `merge` stays as the short form of `--add`, its tests and `commit --closing`'s use of its
-    primitive unchanged, and may retire into `reparent` later.
-- The closing's undo, the Todo's lean, for a closing made without `--land`, a flag
-  or a sibling command settled at its rung. A Land's undo, after its push, waits for a real mistake.
+(wink + agent, 2026-10-26) `build-dev`, `install-dev`, and `run-dev` are `build`, `install`, and
+`run` with the dev build, each's help saying so, and a suffix reads as a command of its own, so
+`land-dev` seemed a two-step Land. Found at **feat: vc-x1 land**.
 
-### push takes a revision, and the remote's name for it
+- `build`, `install`, and `run` take `-d/--dev`, the config's `release`/`dev` pairs (`[build]
+  release`/`dev`, `release-bin`/`dev-bin`, `[install] release-dir`/`dev-dir`) chosen by it.
+- `-d` is free here, `--dry-run` having no short and `-n` being `--commits`. `-n`, not `-d`, is
+  the common short for a dry run.
+- `run --dev` takes the flag before the binary's arguments, tested, since `run` passes what
+  follows through.
+- The name and the profile split: `--dev` names the binary `<name>-dev` and `--release` builds the
+  release profile, `--dev` alone the debug build as `install-dev` is now. `install --dev --release`
+  is a release candidate's soak, the binary that ships installed beside the landed one for a
+  period of use, the plain name left to what is on `main` (wink + agent, 2026-10-26). The config
+  splits the same way: `[build]`'s `release`/`dev` and `release-bin`/`dev-bin` are the profile's,
+  `[install]`'s `release-dir`/`dev-dir` and `dev-suffix` the name's.
+- Weighed against it: `install --dir DIR`, which already installs the release build under the
+  plain name off the PATH, is a soak when DIR lasts and leads the PATH of the shell it is tried
+  from, as **feat: vc-x1 land**'s closing used it.
+- The `-dev` commands stay as hidden ones erroring with the new spelling, as `bot` names `agent`.
+- The README, `clippy.toml`'s spawn register entry 7, the completion tests, and the agent-files'
+  `install-dev`, the last an `agent-files` proposal.
 
-(wink + agent, 2026-10-24) `push`'s positional is a bookmark, so `push -s b @-` is refused, though
-git needs only a name on the remote: `git push origin HEAD:refs/heads/<name>` publishes any commit
-under a new name, and `jj git push --named <name>=<REV>` does the same and creates the local
-bookmark that tracks it. Filed from the live testing of **feat: vc-x1 closing and land**, whose
-`[9]` made the refusal say to leave the revision out.
+#### init and clone take --scope por
 
-- `push -s b [REV] [--bookmark NAME]`: REV the commit to publish, `@-` by default, and NAME the
-  remote's name for it, the bookmark at or nearest below REV by default.
-- With no bookmark there, NAME is required and created at REV, as `--named` does, so jj tracks it.
-- A REV off the pair's line is today's `publish_name` case, a commit already made, and a name
-  that is both a bookmark and a revision is the bookmark, as in jj's own resolution.
-- The pair's checks assume `@-` throughout, the trailer and the partner, so a REV other than `@-`
-  for `-s b` needs them parameterized or refused.
+(wink + agent, 2026-10-26) `init` and `clone` alone spell the single-repo form `--por`, where the
+write commands spell it `-s p|por`, and creating a POR from the docs took four tries:
+`init --por <name>` stops on "no account specified", `--account` is read as a GitHub owner when it
+names an `[account.<name>]` section, and only the URL target, which needs no config, works.
+
+- `init` and `clone` take `-s/--scope`, `both` by default and `por`, `work` and `agent` refused,
+  and `--por` errors naming `--scope por`. The dual-only and POR-only checks (`--config`,
+  `--agent-dir`, `--agent-repo`, `--agent-suffix`, `--use-template`'s `,BOT`) move to the scope.
+- The no-account and unknown-account errors name the URL target as the way that needs no config,
+  the user config's path, and a minimal `[account.<name>]` section.
+- Stale help fixed: init's "Create a new dual-repo project" and `--por`'s "`.claude/` companion",
+  `--use-template`'s `--scope=por` (true once this lands), and `--config`'s `.vc-config.toml`.
+- README: a `--scope por` URL example under init, a scope row in clone's table, and clone's
+  `.claude` / `git submodule` text brought up to date.
 
 ### squash takes paths
 
@@ -280,48 +257,6 @@ until it lands. **feat: vc-x1 land** found it at its closing, every rung made by
   itself, `cmp` showing the binary tested is the one installed.
 - The rules' Land and Close-out name the sequence, beside the README's `land` section.
 
-### build, install, and run take --dev
-
-(wink + agent, 2026-10-26) `build-dev`, `install-dev`, and `run-dev` are `build`, `install`, and
-`run` with the dev build, each's help saying so, and a suffix reads as a command of its own, so
-`land-dev` seemed a two-step Land. Found at **feat: vc-x1 land**.
-
-- `build`, `install`, and `run` take `-d/--dev`, the config's `release`/`dev` pairs (`[build]
-  release`/`dev`, `release-bin`/`dev-bin`, `[install] release-dir`/`dev-dir`) chosen by it.
-- `-d` is free here, `--dry-run` having no short and `-n` being `--commits`. `-n`, not `-d`, is
-  the common short for a dry run.
-- `run --dev` takes the flag before the binary's arguments, tested, since `run` passes what
-  follows through.
-- The name and the profile split: `--dev` names the binary `<name>-dev` and `--release` builds the
-  release profile, `--dev` alone the debug build as `install-dev` is now. `install --dev --release`
-  is a release candidate's soak, the binary that ships installed beside the landed one for a
-  period of use, the plain name left to what is on `main` (wink + agent, 2026-10-26). The config
-  splits the same way: `[build]`'s `release`/`dev` and `release-bin`/`dev-bin` are the profile's,
-  `[install]`'s `release-dir`/`dev-dir` and `dev-suffix` the name's.
-- Weighed against it: `install --dir DIR`, which already installs the release build under the
-  plain name off the PATH, is a soak when DIR lasts and leads the PATH of the shell it is tried
-  from, as **feat: vc-x1 land**'s closing used it.
-- The `-dev` commands stay as hidden ones erroring with the new spelling, as `bot` names `agent`.
-- The README, `clippy.toml`'s spawn register entry 7, the completion tests, and the agent-files'
-  `install-dev`, the last an `agent-files` proposal.
-
-### init and clone take --scope por
-
-(wink + agent, 2026-10-26) `init` and `clone` alone spell the single-repo form `--por`, where the
-write commands spell it `-s p|por`, and creating a POR from the docs took four tries:
-`init --por <name>` stops on "no account specified", `--account` is read as a GitHub owner when it
-names an `[account.<name>]` section, and only the URL target, which needs no config, works.
-
-- `init` and `clone` take `-s/--scope`, `both` by default and `por`, `work` and `agent` refused,
-  and `--por` errors naming `--scope por`. The dual-only and POR-only checks (`--config`,
-  `--agent-dir`, `--agent-repo`, `--agent-suffix`, `--use-template`'s `,BOT`) move to the scope.
-- The no-account and unknown-account errors name the URL target as the way that needs no config,
-  the user config's path, and a minimal `[account.<name>]` section.
-- Stale help fixed: init's "Create a new dual-repo project" and `--por`'s "`.claude/` companion",
-  `--use-template`'s `--scope=por` (true once this lands), and `--config`'s `.vc-config.toml`.
-- README: a `--scope por` URL example under init, a scope row in clone's table, and clone's
-  `.claude` / `git submodule` text brought up to date.
-
 ### agent-files(proposal): v0.3.1
 
 (wink + agent, 2026-10-18, restructured 2026-10-20) Small rule fixes learned by running v0.3.0,
@@ -353,7 +288,7 @@ commit, and Land step 4 names no command.
   A fix is edited and folded by `vc-x1 squash -s b`, a description fix by `squash -s b --title
   --body`.
 - A commit made by hand, a draft below `@` with no description, is described in place by `vc-x1
-  commit <REV> -s b --title --body`, its trailer stamped and its partner made, never by `jj
+  commit -s b -r REV --title --body`, its trailer stamped and its partner made, never by `jj
   describe`, and `--bookmark` moves the cycle's bookmark onto it past any nearer one.
 - Step 6's work review stays ahead of it.
 - Committing vs pushing is rewritten, `vc-x1 commit` committing both repos, `squash` continuing
@@ -373,6 +308,11 @@ description is not rewritten while the work still moves.
 - Every `vc-x1` invocation in the agent-files carries its scope: `sync -s b` at the sync points,
   `commit -s b`, `squash -s b`, `push -s b` in the per-rung flow, and `squash-push -s a` for the
   user's squash-push, replacing `--scope=both` and `-R <agent-dir>`.
+- Every argument is a flag, no positional: `commit -r REV`, `push -r REV --bookmark NAME`, and
+  `squash-push --bookmark NAME`. Step 9's `vc-x1 commit -s b --title --body`, At rest's `squash-push
+  -s a`, and `jj.md`'s vc-x1 push section's opening were brought current in this copy by **feat:
+  push, commit, and squash-push take flags only**, the invocations alone, the Committing vs pushing
+  rewrite still this proposal's.
 
 ##### Why: the scope flags
 
@@ -2527,14 +2467,29 @@ agent-repo trailer names it, and it stays as it is.
 - The widths live in prose.md, their one home, so the check reads them from there or the two
   copies must be kept in step.
 
-### vc-x1 runs on Windows
+### vc-x1 runs on Windows and macOS
 
-(wink + agent, 2026-10-22) vc-x1 builds and runs on Linux and macOS only. Weighed at the review
-of the rung **feat: vc-x1 install-dev puts the dev build on the PATH**, in the cycle **feat: vc-x1
+(wink + agent, 2026-10-22, macOS and the hooks added 2026-10-27) vc-x1 is built and run on Linux,
+and wink recalls no run on macOS (2026-10-27), so it is untested there. Weighed at the review of
+the rung **feat: vc-x1 install-dev puts the dev build on the PATH**, in the cycle **feat: vc-x1
 install stages, deploys, and runs builds**, when the install lists were written with `cp` and
 `mv`. On Windows the binary is `vc-x1.exe`, run as `vc-x1`, and what follows from that is
 unwritten.
 
+- macOS: the build, `vc-x1 validate`, and a cycle run there first, and what fails is named here.
+  We think the Unix code paths carry over, `symlink` and the install lists included.
+- The hooks, landed by **feat: a hook enforces the shell rules**, were written and tested on Linux
+  alone, and the set carries them to every adopter:
+  - `inhibit-sleep.sh` needs `systemd-inhibit` and `setsid`, so on macOS, and on Windows outside
+    WSL, it fails at every prompt, turn end, and subagent. A hook exiting other than 0 or 2 is a
+    non-blocking error, so nothing is stopped, but `hooks.sh install` registers it
+    unconditionally. Register it only where `systemd-inhibit` exists, or ship a `caffeinate -i`
+    form for macOS.
+  - `bash-guard.sh`, `bash-allow.sh`, and `hooks.sh` need `bash` and `jq`. We think they run on
+    macOS's bash 3.2 and BSD grep, and `jq` may be missing there. `hooks.sh` checks for `jq` first
+    and says so plainly.
+  - Native Windows: which shell Claude Code runs a hook's command with is unchecked. WSL behaves
+    as Linux.
 - The binaries: cargo leaves `target/release/vc-x1.exe`, so `[build] release-bin` and `dev-bin`
   name the `.exe`, or vc-x1 adds `std::env::consts::EXE_SUFFIX` itself, a decision.
 - The `-dev` name goes before the extension, `vc-x1-dev.exe`. `dest_name` in
@@ -2602,6 +2557,81 @@ land**.
 - The agent-repo stays each contributor's own, never in the pull request, so a trailer in upstream
   may point where a reader cannot follow, and the pull request's record stands alone.
 - lookup's half of this is in `## Waiting`: **lookup matches a line to its write by content**.
+
+### feat: vc-x1 repairs and reshapes without jj
+
+(wink + agent, 2026-10-23) Cut from **feat: vc-x1 closing and land** at its closing rung's review,
+the ladder having grown to sixteen rungs: that cycle keeps the path from opening to Land with no
+`jj` typed, and the repairs and alternative paths it planned are this cycle, each a step the
+agent-files still do with raw `jj`. Each was a rung there, named and with its intent, and its
+deliberation moved here whole.
+
+- **feat: commit --closing takes a shape, from the flag or the config**: The closing is always the
+  trapezoid, a merge of `REV` and the ladder's tip, so `--shape <trapezoid|linear>` chooses it,
+  linear a plain commit on the ladder, the shape the agent-files call keep separate, `[cycle]
+  closing-shape` sets the project's default, trapezoid when absent, and either shape converts to the
+  other while the closing is a draft.
+- **feat: the closing can be taken back**: A closing made without `--land` and found wrong is undone
+  by hand in two repos, so one invocation takes it back, the work side by its operation and the
+  agent side's content moved back into `@`.
+- **feat: vc-x1 reshapes a draft bookmark**: Reshaping a cycle's bookmark while it is a draft is an
+  amend and a force-push typed by hand, so `vc-x1` does both, refusing a bookmark already landed or
+  one another branch is stacked on.
+- **feat: vc-x1 reparent edits a commit's parents**: A commit's parents are edited by `merge`, which
+  only adds, and by a raw `jj rebase -r` to remove or replace one, so `vc-x1 reparent --target
+  <REV>` takes `--add`, `--remove`, or `--set`, on any committed node, its description, change id,
+  and trailer kept.
+- **feat: vc-x1 re-describes a pair and keeps its trailers**: A coordinated re-describe, as a
+  single-step cycle turning multi-step needs, is a `jj describe` in each repo that must keep the
+  `ochid:` trailer, so `vc-x1` re-describes both commits of a pair at once and keeps their trailers.
+- **feat: vc-x1 runs a local ladder**: A local ladder is `jj commit` for each intermediate and a
+  hand collapse into the rung, so `vc-x1` makes the intermediates and collapses them, validating
+  each with `validate --fast`.
+- **feat: vc-x1 sets a rung's edits aside**: A rung inserted while the working copy holds the next
+  rung's edits sets them aside as a patch by hand and restores them after its push, so `vc-x1` sets
+  them aside and brings them back.
+
+#### Deliberation carried over
+
+- The closing's shape, trapezoid or linear, wink's calls (2026-10-23): for those who prefer a
+  straight history, a linear closing is a plain commit on the ladder, and `--land` fast-forwards
+  `REV` to it, the agent-files' keep separate under a clearer name.
+  - `--shape <trapezoid|linear>` chooses it, one valued flag rather than `--linear` and
+    `--trapezoid`, which could both be given, or abbreviations such as `--clse-lin`, which read as
+    typos. The flag's word and the config key's are the same.
+  - `[cycle] closing-shape`, `"trapezoid"` or `"linear"`, is the project's default, a preference
+    that belongs in the committed `.vc-config.md` with `[validate]` and `[build]`, since adopters
+    choose differently. Absent, it is trapezoid, so an adopter who sets nothing sees no change.
+  - The flag, then the key, then trapezoid, and `commit` prints which decided. Close-out step 5
+    still has the user choose, the key only making the usual answer the default, and a stated
+    preference is not the assumption about the current branch that `--closing <REV>` removed.
+  - Either converts to the other while the closing is a draft, before Land, by re-parenting the
+    same closing, which keeps its change id and trailer, and with the trunk unmoved its tree too,
+    `REV` being in the ladder's ancestry. After Land a conversion would rewrite the trunk, so it is
+    refused.
+  - A linear closing cannot join a trunk that moved: the ladder would need a rebase, a rewrite of
+    published commits into a tree no validation saw. `--land` already refuses a moved trunk, so
+    the refusal is the whole answer, and the way out is the reshape rung's command, then a
+    validation, then the closing. A rebase inside a linear closing would be the hidden multi-step
+    operation the cycle removes.
+  - The v0.3.1 proposal said keep separate goes, and its section **The closing is a trapezoid or
+    linear, and converts** now keeps it as the linear shape and names the flag and the key, edited
+    at the closing rung's review when this rung was added, so the proposal leads the flag by one
+    rung.
+  - Its own rung after the closing's shapes, since `--land` lands both.
+- `vc-x1 reparent`, wink's call at the closing rung's review (2026-10-23): parent fix-ups get their
+  own command, since `merge` is the wrong verb for removing one.
+  - `--target <REV>`, any committed node, with `--add`, `--remove`, or `--set`, one jj-lib rebase
+    of it onto its new parent list, its descendants rebased, the list printed before and after,
+    and a failure restored from a snapshot. `merge`'s guards carry over: no cycle, no parent at or
+    below the target, `--ignore-immutable` for a jj-immutable one.
+  - `--remove` changes the tree: the target keeps its own diff, and what the removed parent brought
+    is gone from it, so it prints what was dropped. The last parent is never removed, `--set`
+    being the way to replace it, and a conflicted result is reported and left.
+  - `merge` stays as the short form of `--add`, its tests and `commit --closing`'s use of its
+    primitive unchanged, and may retire into `reparent` later.
+- The closing's undo, the Todo's lean, for a closing made without `--land`, a flag
+  or a sibling command settled at its rung. A Land's undo, after its push, waits for a real mistake.
 
 ## Ideas
 

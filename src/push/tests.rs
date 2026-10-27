@@ -23,7 +23,8 @@ fn parse(args: &[&str]) -> Result<PushArgs, String> {
 fn parse_defaults_and_scope_required() {
     let a = parse(&["test", "-s", "b"]).unwrap();
     assert!(a.bookmark.is_none());
-    assert!(a.bookmark_pos.is_none());
+    assert!(a.revision.is_none());
+    assert!(a.retired.is_none());
     assert!(a.repo.is_none());
     assert_eq!(
         a.scope,
@@ -36,14 +37,26 @@ fn parse_defaults_and_scope_required() {
     assert!(err.contains("--scope"), "{err}");
 }
 
-/// The bookmark's two spellings, exclusive, collapse into one param.
+/// `-r` and `--bookmark` are flags, each its own param.
 #[test]
-fn parse_bookmark_forms() {
-    let a = parse(&["test", "main", "-s", "w"]).unwrap();
-    assert_eq!(PushParams::from(&a).bookmark.as_deref(), Some("main"));
-    let a = parse(&["test", "--bookmark", "dev", "-s", "a"]).unwrap();
-    assert_eq!(PushParams::from(&a).bookmark.as_deref(), Some("dev"));
-    assert!(parse(&["test", "main", "--bookmark", "dev", "-s", "b"]).is_err());
+fn parse_revision_and_bookmark() {
+    let a = parse(&["test", "-s", "w", "-r", "@-", "--bookmark", "dev"]).unwrap();
+    let p = PushParams::from(&a);
+    assert_eq!(p.revision.as_deref(), Some("@-"));
+    assert_eq!(p.bookmark.as_deref(), Some("dev"));
+    let a = parse(&["test", "-s", "b", "--revision", "main"]).unwrap();
+    assert_eq!(PushParams::from(&a).revision.as_deref(), Some("main"));
+}
+
+/// The retired positional parses, hidden, and `to_params` refuses it,
+/// naming `-r` for what is no bookmark in the repo.
+#[test]
+fn the_retired_positional_is_refused_naming_its_flag() {
+    let a = parse(&["test", "-s", "b", "@-"]).unwrap();
+    assert_eq!(a.retired.as_deref(), Some("@-"));
+    let err = a.to_params().err().expect("refused");
+    assert!(err.contains("the positional is retired"), "{err}");
+    assert!(err.contains("`-r @-`"), "{err}");
 }
 
 /// The description flags and the stage switch retired with the

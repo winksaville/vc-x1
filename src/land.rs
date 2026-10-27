@@ -443,6 +443,7 @@ pub(crate) fn run(
             crate::push::push(
                 ctx,
                 &crate::push::PushParams {
+                    revision: None,
                     bookmark: Some(trunk.clone()),
                     repo: Some(repo.to_path_buf()),
                     scope,
