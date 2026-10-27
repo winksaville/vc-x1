@@ -143,7 +143,7 @@ vc-x1 desc [-r REVISION] [-n COMMITS]  # Show full description of a commit
 vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
 vc-x1 status [-s SCOPE] [-R PATH]          # Working-copy status by scope, w|a|b|p, and the clean verdict (alias st)
-vc-x1 lookup [SCOPE] FILE:LINE           # The other repo's window for a line in this one
+vc-x1 lookup [-s S] --line FILE:LINE     # The other repo's window for a line in this one
 vc-x1 agent-session <FILE> [OPTS]        # Display a session transcript as a conversation
 vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
@@ -424,19 +424,19 @@ status: dirty: work @ has changes
 
 ### lookup
 
-Show the lines in the other repo that a line in this one relates to. `vc-x1 lookup [SCOPE]
-FILE:LINE` takes a line as an editor, a compiler, or grep prints it, places the file on one side
-of the workspace, and resolves it to the window on the other side, work-to-transcript or
+Show the lines in the other repo that a line in this one relates to. `vc-x1 lookup [-s SCOPE]
+--line FILE:LINE` takes a line as an editor, a compiler, or grep prints it, places the file on one
+side of the workspace, and resolves it to the window on the other side, work-to-transcript or
 transcript-to-work. The requirements are in [What the lookup command
 needs](notes/transcript-write.md#what-the-lookup-command-needs).
 
-- `SCOPE` is the side the line is on, `work` or `agent`, as a positional before `FILE:LINE` or as
-  `-s`/`--scope`. Omitted, it is inferred from the file's path. Named, a `FILE` that does not
-  exist relative to the current directory is taken relative to that side's repo root, so a
-  repo-relative path works from anywhere once the side is said. A named side the path disagrees
-  with is an error, never a hint.
-- `FILE:LINE` splits at its last colon, so a path holding a colon still parses, and the line must
-  exist in the file on disk.
+- `-s`/`--scope` is the side the line is on, `work` or `agent`. Omitted, it is inferred from the
+  file's path. Named, a `FILE` that does not exist relative to the current directory is taken
+  relative to that side's repo root, so a repo-relative path works from anywhere once the side is
+  said. A named side the path disagrees with is an error, never a hint.
+- `--line FILE:LINE` splits at its last colon, so a path holding a colon still parses, and the line
+  must exist in the file on disk. The old `[SCOPE] FILE:LINE` positionals are refused, naming `-s`
+  and `--line`.
 - The workspace is `-R`/`--repo` when given, else found from the file.
 - `-r`/`--revision REV` reads the line from the file as of REV instead of from disk, for a line
   the working copy no longer holds, such as a cycle-record line the next opening deleted.
@@ -475,10 +475,10 @@ window  design.md:3-3
 ```
 
 ```
-vc-x1 lookup TODO.md:53                  # the side inferred from the path
-vc-x1 lookup agent e355f8b2.jsonl:1200   # repo-relative under the agent repo
-vc-x1 lookup work TODO.md:53 -R ../proj  # a workspace elsewhere
-vc-x1 lookup TODO.md:11 -r main-         # the line as of a revision
+vc-x1 lookup --line TODO.md:53                   # the side inferred from the path
+vc-x1 lookup -s agent --line e355f8b2.jsonl:1200  # repo-relative under the agent repo
+vc-x1 lookup -s work --line TODO.md:53 -R ../proj # a workspace elsewhere
+vc-x1 lookup --line TODO.md:11 -r main-          # the line as of a revision
 ```
 
 ### agent-files

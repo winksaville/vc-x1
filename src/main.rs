@@ -241,12 +241,14 @@ pub(crate) enum Commands {
     #[command(
         long_about = "Resolve a line in either repo of a dual workspace to the\n\
         window of lines in the other repo.\n\n\
-        `lookup [SCOPE] FILE:LINE`: SCOPE is the side the line is on,\n\
-        `work` or `agent`, and FILE:LINE is the form editors, compilers,\n\
-        and grep print. SCOPE is inferred from the file's path when\n\
-        omitted, and with SCOPE given a path relative to that side's\n\
+        `lookup [-s SCOPE] --line FILE:LINE`: SCOPE is the side the line\n\
+        is on, `work` or `agent`, and FILE:LINE is the form editors,\n\
+        compilers, and grep print. SCOPE is inferred from the file's path\n\
+        when omitted, and with SCOPE given a path relative to that side's\n\
         repo root works from anywhere. A named SCOPE the path disagrees\n\
-        with is an error. The line must exist in the file on disk."
+        with is an error. The line must exist in the file on disk. Every\n\
+        argument is a flag: the old `[SCOPE] FILE:LINE` positionals are\n\
+        refused, naming -s and --line."
     )]
     Lookup(lookup::LookupArgs),
 

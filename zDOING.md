@@ -114,7 +114,7 @@ build's banner, `vc-x1-dev show -s both @-` is refused naming `-r @-`, and `vc-x
 
 - [feat: the other commands take flags only opening][o0] (done)
 - [feat: the read commands take -r and -n only][o1] (done)
-- [feat: lookup takes -s and --line][o2]
+- [feat: lookup takes -s and --line][o2] (done)
 - [feat: the file commands take --file][o3]
 - [feat: config and validate-config take -s and --file][o4]
 - [feat: agent-files diff, copy, and size take flags][o5]
@@ -150,6 +150,15 @@ hidden and refused naming `-r` and `-n`, their flags already there.
 ##### feat: lookup takes -s and --line
 
 `lookup`'s `SCOPE FILE:LINE` positionals become `-s` and `--line`, the scope-then-target form gone.
+
+- `--line FILE:LINE` is required unless the retired positionals were given, so a bare `lookup`
+  still gets clap's "required" error and an old invocation gets the refusal, `--line X` for one
+  word and `-s S --line X` for two. `-s` was already the side's flag form.
+- `parse_side` went with the positional scope it parsed, `-s`'s own parser being one side only, so
+  "SCOPE given twice" has nothing left to catch.
+- The completion test's two `lookup` cases complete `--line`'s value, which keeps the `FilePath`
+  hint, and the README, the help, and `notes/transcript-write.md`'s two statements of the form
+  name the flags.
 
 ##### feat: the file commands take --file
 
