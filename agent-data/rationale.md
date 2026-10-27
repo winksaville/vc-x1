@@ -83,6 +83,11 @@ to place. Work off `main` gets a suggestion and not a rebase because rebasing a 
 is a remote rewrite at its next push, which takes approval like any push. Conflicts stop the
 acquaint because every later step reads files a conflict may have left holding both sides.
 
+The hooks check (wink, 2026-10-27) comes before the repo check because its guard is on the
+commands the repo check runs. A machine that lacks the hooks, a second one or a fresh clone, is
+found the first time a session starts there, and the install is the user's because it writes their
+settings, which every session on the machine reads.
+
 ## Sync
 
 One section holds the command (wink, 2026-10-13) because it is run at several steps, and a
@@ -341,7 +346,18 @@ command piped into `tail` / `grep` reports the filter's success, not its own. A 
 `; echo "exit=$?"` prints the status while the invocation itself still exits 0, so the failure is
 visible only to whoever reads the text. `failed=$rc` stays unquoted because it has no spaces to
 protect, and the quotes can stop a harness permission rule from matching a command it would
-otherwise allow (wink, 2026-08-05).
+otherwise allow (wink, 2026-08-05). One form, bare and last, since the Bash tool reports a nonzero
+exit itself, so a printed status is never needed, and one form is easier to keep than three
+(wink, 2026-10-27).
+
+**Hooks guard the exit-status rule** (wink, 2026-10-27): the rule held on paper and was broken
+through a whole session by a trailing `; echo rc=${PIPESTATUS[0]}`, because nothing failed when it
+slipped and the user caught it by reading. `bash-guard.sh` makes the slip fail, with two text
+matches, each a deny whose reason is the rule's form. Joins are left to the rule, since the
+agent's commands carry heredocs and quoted programs whose `;` only a shell parser tells apart, and
+a guard that stops legitimate scripts gets removed. Matching hooks run in parallel and `deny` wins
+over `bash-allow.sh`'s `allow` (https://code.claude.com/docs/en/hooks, PreToolUse decision
+control). The hooks are in the set so they travel with the rules they serve.
 
 **Use https remotes, not ssh.** Unconditional rather than "when the agent is sandboxed" because the
 remote is chosen at clone time and whether a sandboxed agent will ever touch the repo is not

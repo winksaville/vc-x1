@@ -91,6 +91,10 @@ silently.
   ([Before any push](#before-any-push)).
 - Hard stop after the final push: after the turn's final push nothing until the user speaks,
   unless an explicit waiver ([At rest](#at-rest-push-stop-squash-push)).
+- One command per invocation: no bundled steps, except a genuine pipeline or a tight pair
+  ([Working practices](#working-practices)).
+- Exit status: the command under test runs bare and last, `set -o pipefail` first when piped, and
+  `bash-guard.sh` denies the masks it can see ([Working practices](#working-practices)).
 - Stop and ask: on ambiguous input, on any deviation from the agreed plan, and when 5+ minutes
   on a simple task has produced no progress ([Stop and ask](#stop-and-ask)).
 - Changing the agent-files: a change to the rules is tried in the local copy, then proposed as one
@@ -115,7 +119,9 @@ in this order ([why](agent-data/rationale.md#acquaint)):
 
 1. custom.md: when there is one, read it, and do what it asks for at acquaint
    ([custom.md](#custommd)).
-2. Repo check: look at each repo of the workspace for the four findings below, and report what is
+2. Hooks: `bash agent-data/hooks.sh check`, and what it finds missing, different, or
+   unregistered is reported for the user to install ([Working practices](#working-practices)).
+3. Repo check: look at each repo of the workspace for the four findings below, and report what is
    found before anything else. Nothing is opened, pushed, rebased, committed, or discarded until
    the user says how to proceed.
    - Not up to date: a repo whose `main` is behind, ahead of, or diverged from its remote's, as
@@ -123,17 +129,17 @@ in this order ([why](agent-data/rationale.md#acquaint)):
      in flight. A look that fails is reported as the check not made.
    - Uncommitted work: a work-repo `@` that is not empty, as `jj st` prints it. What the
      continuation notes account for, the notes themselves or a rung in flight they describe, is
-     theirs to direct at step 3, and any other change is a finding. The agent-repo's `@` holds the
+     theirs to direct at step 4, and any other change is a finding. The agent-repo's `@` holds the
      session's own data and is never one.
    - Work off `main`: commits on a bookmark, a cycle's or any other, that do not descend from the
      remote's `main`. The user is told, and a rebase onto `main` is suggested.
    - Conflicts: a conflicted commit or working copy, as `jj st` and `jj log -r 'conflicts()'` show
      them. The acquaint stops there and the user is informed.
-3. TODO.md: read the acquaint slice ([File
+4. TODO.md: read the acquaint slice ([File
    reads](agent-data/notes.md#file-reads-read-the-slice-you-need)), the continuation notes first,
    each acted on, filed or kept, and the section reset ([Todo
    format](agent-data/notes.md#todo-format)).
-4. Report: say where things stand, the cycle in flight or the top of `## Todo`, and wait.
+5. Report: say where things stand, the cycle in flight or the top of `## Todo`, and wait.
 
 ## Sync
 
@@ -367,9 +373,16 @@ the machine and collapses into the rung before the cycle continues, each validat
 
 - One command per invocation: no bundled steps (`a && b; c`), except a genuine pipeline or a tight
   pair where the join is the point.
-- Exit status: never mask a command's exit status. No piping a validating command into `tail` /
-  `grep` (`${PIPESTATUS[0]}` when a pipe is wanted), no `&&` after a piped stage, no trailing
-  `; echo "exit=$?"`. To report and still fail: `cmd || { rc=$?; echo failed=$rc; exit $rc; }`.
+- Exit status: never mask a command's exit status. The command under test runs bare and last in
+  its invocation, since the Bash tool reports a nonzero exit, with `set -o pipefail` first when it
+  is piped. No `&&` after a piped stage, no trailing `; echo "exit=$?"`. To report and still fail:
+  `cmd || { rc=$?; echo failed=$rc; exit $rc; }`.
+- Hooks: the Claude Code hooks are in `agent-data/` and `bash agent-data/hooks.sh install`, the
+  user's to run, puts them in `~/.claude/hooks/` and registers them in `~/.claude/settings.json`.
+  `bash-guard.sh` denies the two masks it can see, an echo of `$?` or `PIPESTATUS` and a `cargo`
+  or `vc-x1` command piped into `tail`, `head`, `grep`, or `rg` without `pipefail`. `bash-allow.sh`
+  skips the prompt for `cargo`, `jj`, and `vc-x1`, and `inhibit-sleep.sh` keeps the machine awake
+  while a session works.
 - Scratch files: repo-local `tmp/` (gitignored, `mkdir -p tmp` on demand). `/tmp` is for
   out-of-project temporaries.
 - Slice reads: read the slice you need from long notes files. The acquaint read is `TODO.md`

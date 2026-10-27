@@ -396,8 +396,11 @@ lands, so the rules' invocations must carry it or fail.
     same closing: its change id, trailer, and, with the trunk unmoved, its tree are kept.
 - Land is sync, then `commit --closing <BM|REV> --land [TRUNK]`, the fast-forward and the push,
   then `vc-x1 install`. To test the closing before it is published, it is made without `--land`,
-  installed by `vc-x1 install` and tested, and landed by `vc-x1 land -s b --onto <TRUNK>`, the
-  fast-forward landing the tree tested. The bookmark deleted is the one `--closing` names, or for a revision its
+  its release build, the candidate, installed off the PATH by `vc-x1 install --dir <DIR>` and
+  tested by its path, and the candidate lands it, `<DIR>/vc-x1 land -s b --onto <TRUNK>`, and
+  installs itself, `<DIR>/vc-x1 install`. The fast-forward lands the tree tested, so `cmp
+  <DIR>/vc-x1` with the installed binary finds no difference, and the plain `vc-x1` is replaced
+  only by what is on the trunk. The bookmark deleted is the one `--closing` names, or for a revision its
   current or nearest parent bookmark above the trunk, several refused with the list, and the
   branch's other bookmarks are left and named as merged. The trapezoid recipe goes,
   Close-out step 5 keeps the user's choice, the key its default, and carries it out by the flag,
@@ -499,6 +502,37 @@ so dropping the bookmark would leave them naming nothing, and landing keeps ever
 
 We think a refusal of a legitimate shape sends the user to raw `jj`, which the tool exists to
 retire, where a warning names what was done and leaves it reviewable before the push.
+
+#### Continuation notes go in the closing
+
+- Close-out step 7's notes are written before the closing commit, which carries them, so the
+  work-repo is clean from the Land on and At rest's "both `@` empty" holds at the restart. A fact
+  known only after the Land is not written: the note names what the next session checks, `main`
+  at the closing, the bookmarks gone, the installed version's commit, and machine-local evidence,
+  a `cmp` or the Land's output, lives in the agent-repo, published by the user's `squash-push -s
+  a` after `/exit`. Provisional, on trial from **feat: vc-x1 land**.
+
+##### Why: notes in the closing
+
+Notes written after the Land have no clean home: a commit after it puts a non-cycle commit on the
+trunk after the hard stop, and a squash into the closing rewrites the landmark just landed and
+verified. The cost, notes written before the Land they describe, suits a close-out.
+
+#### The exit-status rule is one form, and hooks guard it
+
+- Working practices' Exit status becomes one form, the command under test bare and last, `set -o
+  pipefail` first when piped, and the Rules index lists it and One command per invocation.
+- The set carries its Claude Code hooks, `agent-data/bash-guard.sh`, `bash-allow.sh`, and
+  `inhibit-sleep.sh`, with `agent-data/hooks.sh check|install|test`. Acquaint gains a step 2,
+  Hooks, the check, the install the user's.
+- `bash-allow.sh` names this family's commands and `inhibit-sleep.sh` needs systemd, so an adopter
+  may carry other hooks, and `hooks.sh`'s lists are its own. From **feat: a hook enforces the
+  shell rules**.
+
+##### Why: hooks guard the rule
+
+The rule was broken through a whole session with nothing failing, and a deny at the moment of the
+slip is the one fix that does not rely on remembering it.
 
 #### Not in it
 
@@ -1718,6 +1752,15 @@ allowed to leave, and say so in At rest.
   (2026-09-03), the third candidate: the notes went into the closing commit before its push, and
   the work-repo ended clean and stays clean through Land. The cost is notes written before the
   Land they describe, which suits a close-out and would not suit a mid-cycle stop.
+- The design from the Land of **feat: vc-x1 land** (wink + agent, 2026-10-27), the third
+  candidate again: the notes go in the closing. A fact known only after the Land is not written:
+  the note names what the next session checks, `main` at the closing in both repos and on origin,
+  the cycle's bookmarks gone, and the installed version's commit, and machine-local evidence, a
+  `cmp` or the Land's output, lives in the agent-repo's session, published by the user's
+  `squash-push -s a` after `/exit`. A commit after the Land puts a non-cycle commit on the trunk
+  after the hard stop, and a squash into the closing rewrites the landmark just landed and
+  verified. Carried as **Continuation notes go in the closing** in **agent-files(proposal):
+  v0.3.1**.
 
 ### Land validates and installs before the main push
 
