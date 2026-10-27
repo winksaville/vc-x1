@@ -1038,6 +1038,7 @@ fn push_after(
     crate::push::push(
         ctx,
         &crate::push::PushParams {
+            revision: None,
             bookmark: bookmark.map(str::to_string),
             repo: Some(repo.to_path_buf()),
             scope,

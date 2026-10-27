@@ -162,7 +162,7 @@ vc-x1 land -s b --onto T [--source S]      # Land a made cycle: fast-forward, pu
 vc-x1 squash -s b [--title T --body B]     # Fold the working copies into the pair
 vc-x1 merge -s w --target T --from S...    # Add sources to a target's parents, keeping its change
 vc-x1 move-bookmark -s w --bookmark B --target T  # Point an existing bookmark at a commit, locally
-vc-x1 push -s b [BOOKMARK] [OPTS]          # Publish a rung's pair: the work bookmark and the agent main
+vc-x1 push -s b [-r REV] [--bookmark NAME] # Publish a rung's pair, or a name for a commit made
 vc-x1 version                              # Report vc-x1, agent-files, jj-lib, jj, and jj-data versions
 vc-x1 agent-files version                  # Print the workspace's agent-files set version, bare
 vc-x1 agent-files diff [A] [B] [-c]        # Name the set files that differ between two copies of the set
@@ -2130,28 +2130,39 @@ it is.
 
 ### push
 
-Publish a rung's pair, or a bookmark on a commit already made. Push carries no description and
-writes none, so what was reviewed is what goes out: `commit` makes the pair and pushes it unless
-told not to, and push publishes one it kept local, completing the agent half as its partner. A
-named bookmark off the line `@-` is on, on a commit already made, is published where it is, a name
-and no pair: a bookmark on the working copy is refused, since `commit` is what turns it into a
-commit, and one on the root has nothing to publish.
+Publish a rung's pair, or a name for a commit already made. Push carries no description and writes
+none, so what was reviewed is what goes out: `commit` makes the pair and pushes it unless told not
+to, and push publishes one it kept local, completing the agent half as its partner.
+
+Every argument is a flag. `-r` is the commit to publish, the work `@-` when left out, and
+`--bookmark` is its name on the remote, so the commit and its name are never one word read two
+ways, as jj keeps them apart in `jj bookmark set NAME -r REV`. At `@-` the pair goes out on the
+line's bookmark, or the one named, a new name created at `@-` and pushed tracked. Any other `-r`
+is a commit already made, and a name alone goes out for it, no pair: the one bookmark at it, or
+`--bookmark`'s, that bookmark or a new one created there.
 
 ```bash
-vc-x1 push -s b                  # the pair, on the bookmark the work @- sits on
-vc-x1 push -s b feature          # the same, the bookmark named as a check
-vc-x1 push -s b side             # a bookmark off the line, on a commit made, published where it is
-vc-x1 push -s w                  # the work half only
-vc-x1 push -s a                  # the agent half only, the remainder of a run that stopped
-vc-x1 push -s p -R ../other      # a plain repo's @- on its bookmark, no trailer asked for
-vc-x1 push -s b --dry-run        # plan and print, move nothing
+vc-x1 push -s b                        # the pair, on the bookmark the work @- sits on
+vc-x1 push -s b --bookmark feature     # the same, the bookmark named as a check
+vc-x1 push -s b --bookmark topic       # the pair on a new name, created at @- and pushed tracked
+vc-x1 push -s b -r side                # a bookmark off the line, on a commit made, published where it is
+vc-x1 push -s b -r xyz --bookmark name # a new name for a commit made, created there and pushed
+vc-x1 push -s w                        # the work half only
+vc-x1 push -s a                        # the agent half only, the remainder of a run that stopped
+vc-x1 push -s p -R ../other            # a plain repo's @- on its bookmark, no trailer asked for
+vc-x1 push -s b --dry-run              # plan and print, move nothing
 ```
 
 Push publishes the work `@-`, so new work in `@`, the next rung started, is left as it is, and
 push says so. What push refuses, with both repos as they were:
 
 - a work `@-` with no `ochid:` trailer: not a pair's commit, so `commit` makes one first
-- two bookmarks on the line and none named, or a named bookmark on the working copy or the root
+- two bookmarks on the line and none named, or a named one not on the line
+- a `-r` of several commits, the working copy, which `commit` turns into a commit, or the root,
+  which has nothing to publish, and a `-r` with no bookmark at it and none named, or with a
+  `--bookmark` that is elsewhere, which `move-bookmark` moves
+- `-r` with `-s a`, the agent half publishing the agent `main`
+- the old positional, naming `--bookmark` or `-r`, the one it was
 
 The two halves are independent, since each trailer is fixed before push runs, so `push -s b` is
 `push -s a` then `push -s w`, the order the pair is completed in:
@@ -2174,8 +2185,8 @@ commit and force-updates the remote. See the protocol's
 |------|-------------|
 | `-s, --scope <SCOPE>` | Required: `b|both` the pair, `w|work` the work half, `a|agent` the agent half, `p|por` a plain repo |
 | `-R, --repo <PATH>` | Where: a path in the workspace, or the plain repo [default: the cwd] |
-| `[BOOKMARK]` | Work-repo bookmark to advance, a check against the line `@-` is on [default: that line's bookmark], the positional form of `--bookmark` |
-| `--bookmark <NAME>` | Same as positional (mutually exclusive) |
+| `-r, --revision <REV>` | The commit to publish, one: `@-` the pair, any other a name alone [default: `@-`] |
+| `--bookmark <NAME>` | Its name on the remote: a bookmark on the line, one at REV, or a new name created there [default: the line's, or the one at REV] |
 | `--dry-run` | Plan and print what would run, no side effects |
 | `--step` | Pause after every stage for an extra continue-prompt |
 | `-y, --yes` | Pass the `--step` gates without asking |

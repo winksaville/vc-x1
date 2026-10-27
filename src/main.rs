@@ -609,7 +609,14 @@ pub(crate) enum Commands {
         \x20          <bookmark>\n\n\
         -s is required: `b` both halves, `a` the agent half, `w` the work\n\
         half, `p` a plain repo's @- on its bookmark. -R is optional and\n\
-        says where. The bookmark is the line's unless named as a check.\n\n\
+        says where. --bookmark is the line's unless named, as a check or\n\
+        as a new name created at @- and pushed tracked.\n\n\
+        -r names another commit, already made, and a name alone goes out\n\
+        for it, no pair: the one bookmark at it, or --bookmark's, that\n\
+        bookmark or a new one created there. The working copy and the\n\
+        root are refused, and so is a REV of several commits.\n\n\
+        Every argument is a flag: the old positional is refused, naming\n\
+        --bookmark or -r, the one it was.\n\n\
         Rerunning is always safe: a half whose work is done finds nothing\n\
         to do. A half that fails before its own push restores the repo it\n\
         touched via `jj op restore`."

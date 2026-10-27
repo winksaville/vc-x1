@@ -115,12 +115,6 @@ chores-07.
 ordering across `chores-06`/`-07`/`-08`/`-09` is chronologically coherent and normalize if not. Low
 priority.
 
-### vc-x1 push: rework the two bookmark parameters
-
-`PushArgs` has `bookmark_pos` (positional `BOOKMARK`) + `bookmark` (`--bookmark` flag) for one
-logical value, forcing an `or_else` in `From<&PushArgs>`. Collapse to a single positional with
-`--bookmark` as a true clap alias, or drop one spelling. [[7]]
-
 ### vc-x1 push: `--recheck`, implement or remove
 
 Parsed by `PushArgs`, never read, and mirrored into `PushParams` with `#[allow(dead_code)]`. Either
@@ -396,7 +390,6 @@ which it does.
 [3]: /notes/bot-data-formats.md
 [5]: /notes/chores/chores-08.md#cycle-structure--multi-step
 [6]: /notes/chores/chores-07.md#--scope-enum-refactor-0420
-[7]: /notes/chores/chores-09.md#push-dual-bookmark-parameters
 [8]: /notes/chores/chores-09.md#push-unimplemented-recheck-flag
 [9]: /notes/chores/chores-05.md#capture-squash-mode--scope-design-for-push-0374
 [10]: /notes/chores/chores-06.md#generalize---scope-to-all-commands-design

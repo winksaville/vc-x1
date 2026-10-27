@@ -89,11 +89,18 @@ push -s b @-` fails naming `-r @-`, and a rung committed with `--no-push` is pub
   partner, and the restamp, assume `@-`, and a pair's commit below `@-` was published by its own
   rung.
 - The README states the rule in the other cycle, once it holds for every command.
+- Waiver, wink's "Continue and complete this cycle except for landing on main" (2026-10-27), after
+  the opening's push.
+  - Covers every rung from **feat: push takes --revision and --bookmark** through the closing: the
+    work review, the description review, the per-push approval, and the hard stop after each push.
+  - Does not cover Land: the closing is pushed without `--land`, and the close-out shape is the
+    default, trapezoid, until wink chooses at the Land.
+  - Validation still runs before every push.
 
 #### Ladder
 
 - [feat: push, commit, and squash-push take flags only opening][f0] (done)
-- [feat: push takes --revision and --bookmark][f1]
+- [feat: push takes --revision and --bookmark][f1] (done)
 - [feat: commit and squash-push take flags only][f2]
 - [docs: the agent-files name the flags][f3]
 - [feat: push, commit, and squash-push take flags only closing][f4]
@@ -107,6 +114,25 @@ bumped.
 
 `push`'s positional goes hidden and refused, `-r` names the commit and `--bookmark` the remote's
 name, a new name created tracked, and the refusal helper the other commands reuse.
+
+- `options_flags::retired_positional::refusal`, the one wording every retired positional gets: the
+  command, "the positional is retired, every argument is a flag", and the flag form with the value
+  in place, so the next two rungs and the other cycle share it.
+- `push`'s refusal names `--bookmark` when the value is a local bookmark in the repo `-R` names,
+  else `-r`, the lookup made in `to_params` and a failed one only losing the hint.
+- Two paths, split on whether REV is the work `@-` by commit id, so `-r @-`, `-r <its chid>`, and
+  `-r <its bookmark>` all take the pair's:
+  - The pair's path is unchanged but for `--bookmark` taking a new name, set at `@-` by the work
+    half's own `bookmark_set` and tracked by its push, the call the opening's bookmark uses.
+  - `publish_elsewhere`, which replaces `publish_name`, publishes a name alone: the one bookmark at
+    REV, or `--bookmark`'s, at REV or new. A bookmark elsewhere is refused naming `move-bookmark`,
+    since push moves a bookmark only along the pair's line.
+- `-s p` resolves its bookmark the pair's way, so a named bookmark off the line is refused there too,
+  where it was moved sideways before.
+- `-r` with `-s a` is refused, and `--bookmark` given a revision names `-r`.
+- The backlog's **vc-x1 push: rework the two bookmark parameters** retires, the two spellings gone.
+- `tests/cli_sync.rs` called `push -s w main`, and the full validation found it, the one CLI caller
+  of the old form.
 
 ##### feat: commit and squash-push take flags only
 
