@@ -345,7 +345,7 @@ pub fn install_dir(root: &Path, key: &str) -> Result<PathBuf, String> {
         format!(
             "{}: no `{key}`, so this workspace has nothing to install. Name the \
              directory the build is copied into, such as `~/.cargo/bin` (see `vc-x1 \
-             config work`), or pass --dir",
+             config -s work`), or pass --dir",
             cfg.path.display()
         )
     })?;

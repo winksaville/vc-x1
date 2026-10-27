@@ -288,7 +288,7 @@ pub(crate) enum Commands {
         from the work repo root, printing each before it runs. The\n\
         first failure stops the run, naming the command and its exit\n\
         status, and the subcommand exits non-zero. An empty or missing\n\
-        table is an error, not a pass. See `vc-x1 config work` for the\n\
+        table is an error, not a pass. See `vc-x1 config -s work` for the\n\
         table's shape.")]
     Validate(validate::ValidateArgs),
 
@@ -307,7 +307,7 @@ pub(crate) enum Commands {
         Nothing is checked first: a release may be built from a cycle's\n\
         bookmark to try the release profile. The list runs as `validate`'s\n\
         does, each element one command, the first failure stopping the run.\n\
-        --dry-run prints the list and runs nothing. See `vc-x1 config work`\n\
+        --dry-run prints the list and runs nothing. See `vc-x1 config -s work`\n\
         for the table's keys.")]
     Build(build_cmd::BuildArgs),
 
@@ -318,7 +318,7 @@ pub(crate) enum Commands {
         source code as VC_X1_BUILD_COMMIT and VC_X1_BUILD_STATE, as build's\n\
         and validate's commands get them. After a validation it reuses the test\n\
         build, so it takes under a second. `vc-x1 run-dev` runs it first.\n\
-        --dry-run prints the list and runs nothing. See `vc-x1 config work`\n\
+        --dry-run prints the list and runs nothing. See `vc-x1 config -s work`\n\
         for the table's keys.")]
     BuildDev(build_cmd::BuildDevArgs),
 

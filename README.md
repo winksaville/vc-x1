@@ -1157,11 +1157,11 @@ value:
 vc-x1 config
 
 # Print only the work side's keys
-vc-x1 config work
+vc-x1 config -s work
 
 # Print the whole schema for one file (the user config has no
 # keyword, reach it by path)
-vc-x1 config ~/.config/vc-x1/config.toml
+vc-x1 config --file ~/.config/vc-x1/config.toml
 
 # Check a config file: see validate-config
 vc-x1 validate-config
@@ -1169,7 +1169,11 @@ vc-x1 validate-config
 
 | Flag | Description |
 |------|-------------|
-| `[TARGET]` | `work`, `agent`, `work,agent`, or a config-file path [default: work,bot] |
+| `-s, --scope <SCOPE>` | The side whose config: `work`, `agent`, or `work,agent` [default: work,agent] |
+| `--file <PATH>` | A config file by path, the user config's one spelling, exclusive with `-s` |
+
+The old `[TARGET]` positional is refused, naming `-s` for a side keyword and `--file` for a path.
+`validate-config` takes the same two flags.
 
 ### validate-config
 
@@ -1191,8 +1195,8 @@ which is why the two are separate subcommands. Four checks:
 vc-x1 validate-config
 
 # One side, or one explicit file
-vc-x1 validate-config work
-vc-x1 validate-config ../other/.vc-config.md
+vc-x1 validate-config -s work
+vc-x1 validate-config --file ../other/.vc-config.md
 
 # -v adds per-file counts, -vv a line per site (every key, every
 # link, every required key, with how each resolved)
@@ -1363,16 +1367,16 @@ The `[validate]` lists are `str-list` keys: a TOML array of strings, one element
 on one line or spread to the closing `]`. Each element is one command whose exit status is
 checked, so a command with its own spaces and dashes is one quoted string.
 [`vc-x1 validate`](#validate) (and `--fast`) runs them, `validate-config` checks the tables'
-keys and shapes, and `config work` prints the schema with every key's example:
+keys and shapes, and `config -s work` prints the schema with every key's example:
 
 ```
-vc-x1 validate-config                       # both sides
-vc-x1 validate-config work                  # the work side only
-vc-x1 validate-config agent                 # the agent side only
-vc-x1 validate-config .claude/.vc-config.md # a specific file, checked against every home
-vc-x1 config work                             # the work side's schema, [family], [validate], and [agent-files.*] too
-vc-x1 config agent                            # the agent side's schema
-vc-x1 config .claude/.vc-config.md            # the whole schema, labelled with the path
+vc-x1 validate-config                              # both sides
+vc-x1 validate-config -s work                      # the work side only
+vc-x1 validate-config -s agent                     # the agent side only
+vc-x1 validate-config --file .claude/.vc-config.md # a specific file, checked against every home
+vc-x1 config -s work                    # the work side's schema, [family], [validate], [agent-files.*]
+vc-x1 config -s agent                   # the agent side's schema
+vc-x1 config --file .claude/.vc-config.md # the whole schema, labelled with the path
 ```
 
 ### clone

@@ -32,12 +32,17 @@ fn cli_config_default() {
     );
 }
 
-/// `config work` prints only the Work group: `[repos]` shows up
+/// `config -s work` prints only the Work group: `[repos]` shows up
 /// once. No Bot group, no user-only `[default]` section.
 #[test]
 fn cli_config_work_target() {
     let fx = CliFixture::new("config-work-target");
-    let out = run_ok(fx.cmd().current_dir(&fx.base).arg("config").arg("work"));
+    let out = run_ok(
+        fx.cmd()
+            .current_dir(&fx.base)
+            .arg("config")
+            .args(["-s", "work"]),
+    );
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("# -- work: "), "got: {stdout}");
     assert!(!stdout.contains("# -- agent: "), "got: {stdout}");
@@ -49,7 +54,7 @@ fn cli_config_work_target() {
     assert!(!stdout.contains("[default]"), "got: {stdout}");
 }
 
-/// `config <path>` prints the whole schema: a path carries no
+/// `config --file <path>` prints the whole schema: a path carries no
 /// side information, so every home's keys show under a divider
 /// that is just the path: the user-only `[default]` section and
 /// the workspace `[repos]` section all appear.
@@ -58,7 +63,13 @@ fn cli_config_work_target() {
 fn cli_config_user_path() {
     let fx = CliFixture::new("config-user-path");
     let user_cfg = fx.home.join(".config").join("vc-x1").join("config.toml");
-    let out = run_ok(fx.cmd().current_dir(&fx.base).arg("config").arg(&user_cfg));
+    let out = run_ok(
+        fx.cmd()
+            .current_dir(&fx.base)
+            .arg("config")
+            .arg("--file")
+            .arg(&user_cfg),
+    );
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
         stdout.contains(&format!("# -- {} --", user_cfg.display())),
@@ -129,6 +140,7 @@ fn cli_config_validate_dynamic_ok() {
         fx.cmd()
             .current_dir(&fx.base)
             .arg("validate-config")
+            .arg("--file")
             .arg(&user_cfg),
     );
     let stdout = String::from_utf8_lossy(&out.stdout);

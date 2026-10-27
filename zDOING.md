@@ -116,7 +116,7 @@ build's banner, `vc-x1-dev show -s both @-` is refused naming `-r @-`, and `vc-x
 - [feat: the read commands take -r and -n only][o1] (done)
 - [feat: lookup takes -s and --line][o2] (done)
 - [feat: the file commands take --file][o3] (done)
-- [feat: config and validate-config take -s and --file][o4]
+- [feat: config and validate-config take -s and --file][o4] (done)
 - [feat: agent-files diff, copy, and size take flags][o5]
 - [feat: init, clone, and symlink take flags and --scope por][o6]
 - [feat: build, install, and run take --dev][o7]
@@ -178,6 +178,18 @@ repeatable for `validate-anchors`.
 ##### feat: config and validate-config take -s and --file
 
 `[TARGET]` splits into `-s` for a side and `--file` for a config file's path.
+
+- `config_cmd::ConfigTargetArgs`, one bundle the two commands flatten: the retired positional,
+  `-s` with the `--scope` grammar, and `--file`, exclusive by clap, both sides when neither.
+- Its `target` refuses the retired word by reading it as the positional did, `parse_target`'s
+  keyword-first rule, so `config agent` names `-s agent`, a path names `--file`, and the old `bot`
+  keywords keep their own rejection. A file named `work` needed `./work` before, and `--file work`
+  now says it.
+- `config`'s params became fallible, `TryFrom` over `From`, for the refusal. `validate-config`
+  builds its params in `to_params`, the one field being the target.
+- The error messages and help that pointed at `vc-x1 config work`, in `build`, `install`, and the
+  command lists, say `config -s work`. The CLI tests, the completion cases, and the README's
+  examples and table follow.
 
 ##### feat: agent-files diff, copy, and size take flags
 

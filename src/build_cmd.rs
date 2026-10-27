@@ -239,7 +239,7 @@ fn bin_at(root: &Path, key: &str, what: &str) -> Result<PathBuf, String> {
         .ok_or_else(|| format!("build: no config in '{}'", root.display()))?;
     let value = crate::toml_simple::toml_get(&cfg.map, key).ok_or_else(|| {
         format!(
-            "build: {}: no `{key}`, {what} (see `vc-x1 config work`)",
+            "build: {}: no `{key}`, {what} (see `vc-x1 config -s work`)",
             cfg.path.display()
         )
     })?;
