@@ -714,11 +714,14 @@ pub(crate) enum Commands {
         --closing ... --land` lands the same way, the closing made first.\n\n\
         --source is a bookmark, the cycle's, or a revision, whose current\n\
         bookmark, else its nearest parent's above --onto, is the cycle's,\n\
-        several refused with the list. --onto is a local bookmark at its\n\
+        several refused with the list. Left out, it is the one local\n\
+        bookmark besides --onto. --onto is a local bookmark at its\n\
         `origin` position that --source descends from, so a bushy tree lands\n\
         anywhere, and Land only fast-forwards: a merge is `commit\n\
         --closing`'s. --skip keeps a side of the cycle's bookmark, `local`,\n\
-        `remote`, or `both`. --dry-run makes every check and says each step.\n\n\
+        `remote`, or `both`, and --delete-intermediate-bookmarks deletes the\n\
+        bookmarks strictly between --onto and --source too. --dry-run makes\n\
+        every check and says each step.\n\n\
         -s is required: `b` a dual workspace, the agent `main` published\n\
         with the trunk, and `p` a plain repo. `w` alone could publish\n\
         trailers naming agent commits not yet published, and `a` alone has\n\

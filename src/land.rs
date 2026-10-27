@@ -21,7 +21,8 @@
 //!
 //! - `--source` names the cycle's last commit, a bookmark or a revision,
 //!   and the cycle's bookmark by the rule [`cycle_bookmark`] states,
-//!   `--closing`'s.
+//!   `--closing`'s. Left out, it is the one local bookmark besides
+//!   `--onto`, [`default_source`].
 //! - `--onto` is any local bookmark `--source` descends from, so a
 //!   bushy tree lands anywhere. Land only fast-forwards: a merge is
 //!   `commit --closing`'s to make.
@@ -54,9 +55,9 @@ use crate::subcommand::SubcommandRunner;
 pub struct LandArgs {
     /// The cycle's last commit: a bookmark, the cycle's, or a revision,
     /// whose current bookmark, else its nearest parent's above `--onto`,
-    /// is the cycle's
-    #[arg(long, value_name = "BM|REV", required = true)]
-    pub source: String,
+    /// is the cycle's [default: the one local bookmark besides `--onto`]
+    #[arg(long, value_name = "BM|REV")]
+    pub source: Option<String>,
 
     /// The bookmark landed on, fast-forwarded to `--source`: a local
     /// bookmark at its `origin` position that `--source` descends from
@@ -104,7 +105,8 @@ pub struct LandParams {
     /// The work repo of `-s b`, or the plain repo of `-s p`.
     pub repo: PathBuf,
     pub scope: RepoScope,
-    pub source: String,
+    /// `None` is the one local bookmark besides `onto`.
+    pub source: Option<String>,
     pub onto: String,
     pub skip: Option<Skip>,
     pub delete_intermediate: bool,
@@ -172,7 +174,6 @@ impl SubcommandRunner for LandArgs {
 pub fn land(ctx: &mut Context, params: &LandParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("land: enter {params:?}");
     let repo = params.repo.as_path();
-    let tip = resolve_tip(repo, "land", &params.source)?;
     if !jj::local_bookmark_exists(repo, &params.onto)? {
         return Err(format!(
             "land: '{}' is not a local bookmark, and Land moves one",
@@ -180,14 +181,19 @@ pub fn land(ctx: &mut Context, params: &LandParams) -> Result<(), Box<dyn std::e
         )
         .into());
     }
+    let source = match &params.source {
+        Some(s) => s.clone(),
+        None => default_source(repo, &params.onto)?,
+    };
+    let tip = resolve_tip(repo, "land", &source)?;
     if jj::cid_of(repo, &params.onto)? == tip {
         return Err(format!(
-            "land: '{}' is at '{}' already, so there is nothing to land",
-            params.onto, params.source
+            "land: '{}' is at '{source}' already, so there is nothing to land",
+            params.onto
         )
         .into());
     }
-    let bookmark = cycle_bookmark(repo, "land", "--source", &params.source, &params.onto, &tip)?;
+    let bookmark = cycle_bookmark(repo, "land", "--source", &source, &params.onto, &tip)?;
     if bookmark.is_none() {
         info!(
             "land: no bookmark on the branch above '{}', so none is deleted",
@@ -209,9 +215,35 @@ pub fn land(ctx: &mut Context, params: &LandParams) -> Result<(), Box<dyn std::e
         params.scope.clone(),
         &plan,
         &tip,
-        &format!("'{}'", params.source),
+        &format!("'{source}'"),
         params.dry_run,
     )
+}
+
+/// `--source` left out: the one local bookmark besides `onto`, refused
+/// with the list when there are several, since naming one settles it.
+pub(crate) fn default_source(
+    repo: &Path,
+    onto: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let mut found = jj::local_bookmarks_at(repo, "bookmarks()")?;
+    found.retain(|b| b != onto);
+    match found.as_slice() {
+        [one] => {
+            info!("land: --source is '{one}', the one local bookmark besides '{onto}'");
+            Ok(one.clone())
+        }
+        [] => Err(format!(
+            "land: there is no local bookmark besides '{onto}', so there is nothing to land"
+        )
+        .into()),
+        several => Err(format!(
+            "land: there are several local bookmarks besides '{onto}', {}, so which is the \
+             source is not known: name it, --source <BM|REV>",
+            several.join(", ")
+        )
+        .into()),
+    }
 }
 
 /// The one commit `arg` names, the cycle's tip, refused when it names
@@ -737,6 +769,43 @@ mod tests {
             on_origin(&fx.work, "earlier"),
             "--skip remote keeps origin's"
         );
+    }
+
+    /// `--source` left out is the one local bookmark besides `--onto`,
+    /// and with several it is refused with their names.
+    #[test]
+    fn the_source_defaults_to_the_one_other_bookmark() {
+        let fx = Fixture::new("land-default-source");
+        let tip = pushed_cycle(&fx);
+        land(
+            &mut test_ctx(),
+            &land_params(&fx, &["-s", "b", "--onto", "main"]),
+        )
+        .expect("landed");
+        assert_eq!(commit_id(&fx.work, "main@origin"), tip);
+        assert!(!on_origin(&fx.work, "feat-a-cycle"), "deleted on origin");
+        let err = land(
+            &mut test_ctx(),
+            &land_params(&fx, &["-s", "b", "--onto", "main"]),
+        )
+        .expect_err("refused")
+        .to_string();
+        assert!(err.contains("no local bookmark besides 'main'"), "{err}");
+
+        let fx = Fixture::new("land-default-source-several");
+        stacked_cycle(&fx);
+        let main = commit_id(&fx.work, "main");
+        let err = land(
+            &mut test_ctx(),
+            &land_params(&fx, &["-s", "b", "--onto", "main"]),
+        )
+        .expect_err("refused")
+        .to_string();
+        assert!(
+            err.contains("several local bookmarks besides 'main', earlier, feat-a-cycle, mine"),
+            "{err}"
+        );
+        assert_eq!(commit_id(&fx.work, "main"), main, "main stays");
     }
 
     /// A revision takes its nearest bookmark, and a dry run makes the

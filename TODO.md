@@ -244,6 +244,22 @@ all four and `land` takes `b` and `p`.
 - Goes with **docs: each command's -s help names the scopes it takes**, whose README table these
   change.
 
+### build, install, and run take --dev
+
+(wink + agent, 2026-10-26) `build-dev`, `install-dev`, and `run-dev` are `build`, `install`, and
+`run` with the dev build, each's help saying so, and a suffix reads as a command of its own, so
+`land-dev` seemed a two-step Land. Found at **feat: vc-x1 land**.
+
+- `build`, `install`, and `run` take `-d/--dev`, the config's `release`/`dev` pairs (`[build]
+  release`/`dev`, `release-bin`/`dev-bin`, `[install] release-dir`/`dev-dir`) chosen by it.
+- `-d` is free here, `--dry-run` having no short and `-n` being `--commits`. `-n`, not `-d`, is
+  the common short for a dry run.
+- `run --dev` takes the flag before the binary's arguments, tested, since `run` passes what
+  follows through.
+- The `-dev` commands stay as hidden ones erroring with the new spelling, as `bot` names `agent`.
+- The README, `clippy.toml`'s spawn register entry 7, the completion tests, and the agent-files'
+  `install-dev`, the last an `agent-files` proposal.
+
 ### init and clone take --scope por
 
 (wink + agent, 2026-10-26) `init` and `clone` alone spell the single-repo form `--por`, where the

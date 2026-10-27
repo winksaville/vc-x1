@@ -37,7 +37,8 @@ commit**, two cycles stacked and landing together.
 - `vc-x1 land -s b|p --source <BM|REV> --onto <BM>`: `--onto` fast-forwarded to `--source` and
   pushed with the agent half as its partner, and `--source`'s bookmark deleted locally and on
   origin, `--skip local|remote|both` keeping what it names, `--dry-run` saying each step.
-- `--source` resolves as `--closing`'s argument does. `--onto` is any local bookmark at its origin
+- `--source` resolves as `--closing`'s argument does, and left out is the one local bookmark
+  besides `--onto`. `--onto` is any local bookmark at its origin
   position that is an ancestor of `--source`, so a bushy tree lands anywhere, and one that is not
   is refused: `land` makes no merge.
 - `--delete-intermediate-bookmarks` deletes the bookmarks on the commits strictly between, locally
@@ -46,15 +47,18 @@ commit**, two cycles stacked and landing together.
 
 #### Acceptance check
 
-This series lands by `land` itself, from the work-repo with the closing at `@-`:
+This series lands by `land` itself, from the work-repo with the closing pushed to its bookmark and
+not landed. The closing is installed and tested first, and the installed `vc-x1` then lands it:
 
 ```
-vc-x1-dev land -s b --source feat-vc-x1-land --onto main --delete-intermediate-bookmarks --dry-run
-vc-x1-dev land -s b --source feat-vc-x1-land --onto main --delete-intermediate-bookmarks
 vc-x1 install
+vc-x1 land -s b --source feat-vc-x1-land --onto main --delete-intermediate-bookmarks --dry-run
+vc-x1 land -s b --source feat-vc-x1-land --onto main --delete-intermediate-bookmarks
 ```
 
-The dry run lists the fast-forward and the three bookmarks it would delete,
+Since a Land only fast-forwards, `main` becomes the closing itself, so the tree installed and
+tested is the one landed. The install reports the closing as not yet `main`. The dry run lists the
+fast-forward and the three bookmarks it would delete,
 `feat-vc-x1-commit-takes-a-revision`, `fix-the-fixture-builder-drives-commit`, and
 `feat-vc-x1-land`. Afterwards `main` is at the closing in both repos and on origin, the three
 bookmarks are gone locally and on origin, and `cargo test` passes with a test per rule.
@@ -66,7 +70,8 @@ bookmarks are gone locally and on origin, and `cargo test` passes with a test pe
   - The commit is already made, so `commit` names the wrong act, and Land is the agent-files' word
     for this sequence.
   - `commit --closing ... --land` stays, as `commit` then `land`.
-- `--source` and `--onto`, both required, named rather than positional (wink, 2026-10-26).
+- `--source` and `--onto`, named rather than positional (wink, 2026-10-26), `--source` later
+  defaulted to the one local bookmark besides `--onto`, wink's call at a rung's review.
   - `--onto` over `--dest` and `--trunk`: `--trunk` assumes one line, and a bushy tree lands
     anywhere.
   - Named, as `merge` and `move-bookmark` name theirs: no write command takes two positionals, and
@@ -89,7 +94,7 @@ bookmarks are gone locally and on origin, and `cargo test` passes with a test pe
 - [refactor: land's plan and steps move out of commit][l1] (done)
 - [feat: vc-x1 land lands a source onto a bookmark][l2] (done)
 - [feat: land deletes the intermediate bookmarks][l3] (done)
-- [feat: land keeps a land local and defaults its source][l4]
+- [feat: land defaults its source][l4] (done)
 - [docs: the README and the v0.3.1 proposal name land][l5]
 - [feat: vc-x1 land closing][l6]
 
@@ -175,17 +180,45 @@ locally and on origin, the dry run listing them.
   was to carry moved into it, its own cycle after the Land, wink's call (2026-10-26).
 - Filed: **commit and land take the same scopes**, from the review's question of why `commit`
   takes `-s a` and `land` refuses `-s w`, wink's call (2026-10-26).
-- Inserted: **feat: land keeps a land local and defaults its source**, from the same review, ahead
+- Inserted: **feat: land defaults its source**, from the same review, ahead
   of the docs rung so the README names the final flags.
 
-##### feat: land keeps a land local and defaults its source
+##### feat: land defaults its source
 
-`--push` and `--no-push`, and `--source` defaulting to the one local bookmark besides `--onto`.
+`--source` defaults to the one local bookmark besides `--onto`, from wink's review of the rung
+before (2026-10-26).
+
+- `--source` left out is the one local bookmark besides `--onto`, every bookmark counted, not only
+  the branch's, so a stray one asks for `--source` rather than being guessed past. None, or
+  several, is refused with the names. A stack of cycles has several and names its tip.
+- `land`'s `long_about` names it, and `--delete-intermediate-bookmarks`, which the rung before
+  left out of it.
+- `--no-push` was built here and taken out at review, wink's call (2026-10-26), with no Todo.
+  The want was to land on `main` and test before origin sees it. A Land only fast-forwards, so
+  `main` becomes the source commit itself, and installing and testing the source before `land` is
+  that test: the closing made without `--land`, `vc-x1 install`, the testing, then `land`. A
+  `main` that moved is refused, and the rebase it needs is a new tree, installed and tested again.
+  A Land kept local was a state nothing else knows, which `land` again refused and `push` could
+  not publish where it is, and `commit --land` already refuses `--no-push`.
+- Filed: **build, install, and run take --dev**, from the question of whether a two-step Land is
+  a `land-dev`, the `-dev` commands naming a build rather than a mode.
+- Test: **the_source_defaults_to_the_one_other_bookmark**, landing without `--source`, then refused
+  with none and with a stack's three.
 
 ##### docs: the README and the v0.3.1 proposal name land
 
 The README's `land` section and `commit --land`'s pointer to it, and the v0.3.1 proposal's Land
 naming `land`.
+
+- The README explains `land` as the test-before-publish path: the closing made without `--land`,
+  `vc-x1 install`, the testing, then `land`, the fast-forward landing the tree tested, and
+  `commit --land` the one step when no test pause is wanted (wink, 2026-10-26).
+- A `### Write scopes` section after `### Multi-repo queries`: each command's `-s` scopes in a
+  table, with the rule that a scope is valid when what it publishes names nothing it leaves
+  unpublished, the repo commands taking `a` and the cycle commands refusing or hemming it in
+  (wink, 2026-10-26). The README-table bullet of **docs: each command's -s help names the scopes
+  it takes** moves here, and **commit and land take the same scopes** gains one updating the
+  table's rows.
 
 ##### feat: vc-x1 land closing
 
@@ -197,6 +230,6 @@ Closing out the cycle.
 [l1]: #refactor-lands-plan-and-steps-move-out-of-commit
 [l2]: #feat-vc-x1-land-lands-a-source-onto-a-bookmark
 [l3]: #feat-land-deletes-the-intermediate-bookmarks
-[l4]: #feat-land-keeps-a-land-local-and-defaults-its-source
+[l4]: #feat-land-defaults-its-source
 [l5]: #docs-the-readme-and-the-v031-proposal-name-land
 [l6]: #feat-vc-x1-land-closing
