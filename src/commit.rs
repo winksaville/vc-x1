@@ -104,6 +104,7 @@ use log::{debug, info, warn};
 use crate::context::Context;
 use crate::desc_helpers::{ochid_prefix_for, with_trailer};
 use crate::jj;
+use crate::land::LandPlan;
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, Scope, Side, repo_scope_parser};
 use crate::pair::{Pair, Snapshots, resolve_pair};
@@ -902,25 +903,9 @@ impl RecordMove {
     }
 }
 
-/// A Land planned before anything is made: the trunk and where it is,
-/// and the cycle's own bookmark, deleted after, `skip` keeping a side.
-#[derive(Debug)]
-struct LandPlan {
-    trunk: String,
-    trunk_cid: String,
-    topic: Option<String>,
-    skip: Option<Skip>,
-    /// The branch's other bookmarks, merged by the Land and left as
-    /// they are, named after it.
-    merged: Vec<String>,
-}
-
 /// The closing's bookmark, the one its commit carries and a Land
-/// deletes, decided by `--closing`'s argument: a bookmark named is
-/// that one; a revision means the current bookmark on the tip, else
-/// the nearest parent's, above the trunk, several at that height
-/// refused with the list, since naming one settles it, and none being
-/// none. The trunk itself is never the closing's.
+/// deletes, decided by `--closing`'s argument by the rule
+/// [`crate::land::cycle_bookmark`] states, above the trunk.
 fn closing_bookmark(
     repo: &Path,
     params: &CommitParams,
@@ -930,30 +915,15 @@ fn closing_bookmark(
         return Ok(None);
     };
     let trunk = trunk_name(repo, params)?;
-    if c.rev != trunk && jj::local_bookmark_exists(repo, &c.rev)? {
-        return Ok(Some(c.rev.clone()));
+    let found =
+        crate::land::cycle_bookmark(repo, "commit --closing", "--closing", &c.rev, &trunk, tip)?;
+    if found.is_none() {
+        info!(
+            "commit --closing: no bookmark on the branch above '{trunk}', so the closing \
+             carries none"
+        );
     }
-    let base = jj::cid_of(repo, &trunk)?;
-    let mut found =
-        jj::local_bookmarks_at(repo, &format!("heads(({base}..({tip})) & bookmarks())"))?;
-    found.retain(|b| *b != trunk);
-    match found.len() {
-        0 => {
-            info!(
-                "commit --closing: no bookmark on the branch above '{trunk}', so the closing \
-                 carries none"
-            );
-            Ok(None)
-        }
-        1 => Ok(found.pop()),
-        _ => Err(format!(
-            "commit --closing: '{}' has several bookmarks at its nearest, {}, so which is the \
-             cycle's is not known: name it, --closing <BOOKMARK>",
-            c.rev,
-            found.join(", ")
-        )
-        .into()),
-    }
+    Ok(found)
 }
 
 /// The closing's tip, the commit the branch is read up to, `@-` for
@@ -965,12 +935,9 @@ fn closing_tip(closing: Option<&ClosingPlan>) -> &str {
     }
 }
 
-/// Plan `--land`, refusing before anything is made: the trunk is a
-/// local bookmark, `--land`'s or the configured one, at its `origin`
-/// position, so the sync Land begins with has nothing to bring, and
-/// the branch descends from it, so the tree landed is the reviewed
-/// one. The bookmark deleted is the closing's, by `--closing`'s
-/// argument, and the branch's others are named as merged.
+/// Plan `--land` before anything is made, as [`crate::land::plan`]
+/// does, onto `--land`'s trunk or the configured one. The bookmark
+/// deleted is the closing's, by `--closing`'s argument.
 fn plan_land(
     repo: &Path,
     params: &CommitParams,
@@ -980,128 +947,9 @@ fn plan_land(
     if params.land.is_none() {
         return Ok(None);
     }
+    let skip = params.opening.as_ref().map_or(params.skip, |_| None);
     let trunk = trunk_name(repo, params)?;
-    if !jj::local_bookmark_exists(repo, &trunk)? {
-        return Err(format!(
-            "commit --land: '{trunk}' is not a local bookmark, and Land moves one"
-        )
-        .into());
-    }
-    let trunk_cid = jj::cid_of(repo, &trunk)?;
-    let remote = jj::remote_bookmark_targets(repo, "origin")?
-        .get(&trunk)
-        .cloned();
-    if remote.as_deref() != Some(trunk_cid.as_str()) {
-        return Err(format!(
-            "commit --land: '{trunk}' is at {trunk_cid} locally and {} on origin: sync first, \
-             since a trunk that moved stops a Land",
-            remote.as_deref().unwrap_or("absent")
-        )
-        .into());
-    }
-    if !jj::matches(repo, &format!("{trunk_cid} & ::({tip})"))? {
-        return Err(format!(
-            "commit --land: the branch does not descend from '{trunk}' at {trunk_cid}, so the \
-             trunk moved since the fork and the Land would carry a tree no validation saw: rebase \
-             the branch onto it first"
-        )
-        .into());
-    }
-    let topic = bookmark.map(str::to_string);
-    let mut merged =
-        jj::local_bookmarks_at(repo, &format!("({trunk_cid}..({tip})) & bookmarks()"))?;
-    merged.retain(|b| *b != trunk && Some(b) != topic.as_ref());
-    info!(
-        "commit --land: land onto '{trunk}' at {trunk_cid}, the cycle's bookmark {}",
-        topic
-            .as_deref()
-            .map(|t| format!("'{t}'"))
-            .unwrap_or_else(|| "none".into())
-    );
-    Ok(Some(LandPlan {
-        trunk,
-        trunk_cid,
-        topic,
-        skip: params.opening.as_ref().map_or(params.skip, |_| None),
-        merged,
-    }))
-}
-
-/// Land what the closing made: refuse a conflicted closing, fast-forward
-/// the trunk to it, push the trunk with the agent half as its partner,
-/// and delete the cycle's bookmark, `--skip` keeping a side. A dry run
-/// says each step and does none.
-fn land_after(
-    ctx: &mut Context,
-    repo: &Path,
-    publish: Publish,
-    land: &LandPlan,
-    dry: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let LandPlan {
-        trunk,
-        trunk_cid,
-        topic,
-        skip,
-        merged,
-    } = land;
-    let keep = match skip {
-        Some(Skip::Both) => None,
-        Some(Skip::Local) => Some(Some(crate::delete_bookmark::Keep::Local)),
-        Some(Skip::Remote) => Some(Some(crate::delete_bookmark::Keep::Remote)),
-        None => Some(None),
-    };
-    if dry {
-        info!(
-            "commit: [dry-run] fast-forward '{trunk}' from {trunk_cid} to the closing, and push it"
-        );
-        if let (Some(t), Some(_)) = (topic, keep) {
-            info!("commit: [dry-run] then delete '{t}'");
-        }
-        if !merged.is_empty() {
-            info!("commit: [dry-run] and leave, merged: {}", merged.join(", "));
-        }
-        return Ok(());
-    }
-    if jj::matches(repo, "@- & conflicts()")? {
-        return Err(format!(
-            "commit --land: the closing is conflicted, so it is not landed: resolve it, then \
-             land it with `vc-x1 move-bookmark --bookmark {trunk} --target @-` and `vc-x1 push`"
-        )
-        .into());
-    }
-    info!("commit --land: fast-forward '{trunk}' from {trunk_cid} to the closing");
-    ctx.session(repo)?.bookmark_set(trunk, "@-")?;
-    let scope = match publish {
-        Publish::Pair => RepoScope::Sides(Scope(vec![Side::Work, Side::Bot])),
-        Publish::Por => RepoScope::Por,
-    };
-    crate::push::push(
-        ctx,
-        &crate::push::PushParams {
-            bookmark: Some(trunk.clone()),
-            repo: Some(repo.to_path_buf()),
-            scope,
-            step: false,
-            dry_run: false,
-            yes: true,
-        },
-    )?;
-    if let (Some(t), Some(keep)) = (topic, keep) {
-        crate::delete_bookmark::delete_bookmark(ctx, repo, t, keep, false)?;
-    }
-    if !merged.is_empty() {
-        info!(
-            "commit --land: merged into '{trunk}' and left as they are, yours to keep or \
-             delete: {}",
-            merged.join(", ")
-        );
-    }
-    info!(
-        "commit --land: landed on '{trunk}', the undo being a revert, the trunk having moved \
-         from {trunk_cid}. `vc-x1 install` installs the artifact"
-    );
-    Ok(())
+    crate::land::plan(repo, "commit --land", trunk, tip, bookmark, skip, false).map(Some)
 }
 
 /// Which push publishes a commit.
@@ -1112,6 +960,16 @@ enum Publish {
     Pair,
     /// A plain repo, `push -s p`.
     Por,
+}
+
+impl Publish {
+    /// The push's scope.
+    fn scope(self) -> RepoScope {
+        match self {
+            Publish::Pair => RepoScope::Sides(Scope(vec![Side::Work, Side::Bot])),
+            Publish::Por => RepoScope::Por,
+        }
+    }
 }
 
 /// Whether to push what was committed: the flag given, else the
@@ -1153,7 +1011,7 @@ fn push_after(
     land: Option<&LandPlan>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(land) = land {
-        return land_after(ctx, repo, publish, land, dry);
+        return crate::land::run(ctx, repo, publish.scope(), land, "@-", "the closing", dry);
     }
     if params.closing.is_some() && bookmark.is_none() {
         info!(
@@ -1175,10 +1033,7 @@ fn push_after(
         info!("commit: kept local, `vc-x1 push` publishes it");
         return Ok(());
     }
-    let scope = match publish {
-        Publish::Pair => RepoScope::Sides(Scope(vec![Side::Work, Side::Bot])),
-        Publish::Por => RepoScope::Por,
-    };
+    let scope = publish.scope();
     info!("commit: push what was committed");
     crate::push::push(
         ctx,
@@ -1341,21 +1196,7 @@ fn plan_closing(
 /// `--closing`'s argument as one commit id, a bookmark or a revision
 /// as jj resolves them, refused unless it names exactly one commit.
 fn resolve_closing(repo: &Path, rev: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let cids = jj::cids_of(repo, rev).map_err(|e| {
-        format!(
-            "commit --closing: '{rev}' does not resolve in {}: {e}",
-            repo.display()
-        )
-    })?;
-    match cids.as_slice() {
-        [one] => Ok(one.clone()),
-        other => Err(format!(
-            "commit --closing: '{rev}' names {} commits in {}, and a cycle's tip is exactly one",
-            other.len(),
-            repo.display()
-        )
-        .into()),
-    }
+    crate::land::resolve_tip(repo, "commit --closing", rev)
 }
 
 /// The cycle title read from the opening, the first commit above
@@ -3443,49 +3284,6 @@ mod tests {
         a.land = Some(None);
         set_trunk(&fx, &main);
         refused(&a, "is not a local bookmark");
-    }
-
-    /// A conflicted closing is not landed: the trunk stays where it is
-    /// and the error names the commands that land it after a resolve.
-    /// `commit` refuses a conflicted repo up front and a closing onto a
-    /// trunk the branch descends from cannot conflict, so the guard is
-    /// reached here directly, on a conflicted `@-` made by hand.
-    #[test]
-    fn a_conflicted_closing_is_not_landed() {
-        let fx = Fixture::new("commit-land-conflicted");
-        fs::write(fx.work.join("a.txt"), "base\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "base"]);
-        let base = chid(&fx.work, "@-");
-        fs::write(fx.work.join("a.txt"), "left\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "left"]);
-        let left = chid(&fx.work, "@-");
-        jj_ok(&fx.work, &["new", &base]);
-        fs::write(fx.work.join("a.txt"), "right\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "right"]);
-        let right = chid(&fx.work, "@-");
-        jj_ok(&fx.work, &["new", &left, &right]);
-        jj_ok(&fx.work, &["new"]);
-        assert!(jj::matches(&fx.work, "@- & conflicts()").expect("matches"));
-        let main = commit_id(&fx.work, "main");
-        let plan = LandPlan {
-            trunk: "main".to_string(),
-            trunk_cid: main.clone(),
-            topic: None,
-            skip: None,
-            merged: Vec::new(),
-        };
-
-        let err = land_after(&mut test_ctx(), &fx.work, Publish::Pair, &plan, false)
-            .expect_err("refused")
-            .to_string();
-        assert!(err.contains("the closing is conflicted"), "{err}");
-        assert!(err.contains("vc-x1 move-bookmark --bookmark main"), "{err}");
-        assert_eq!(commit_id(&fx.work, "main"), main, "main stays");
-        assert_eq!(
-            commit_id(&fx.work, "main@origin"),
-            main,
-            "nothing was pushed"
-        );
     }
 
     /// `-s p` commits a plain repo with the description and no

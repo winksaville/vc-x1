@@ -21,6 +21,7 @@ mod git_head;
 mod init;
 mod install_cmd;
 mod jj;
+mod land;
 mod legacy_vc_config;
 mod list;
 mod logging;
@@ -704,6 +705,29 @@ pub(crate) enum Commands {
         -s is required: `w` the work repo, `a` the agent repo, `b` both, and\n\
         `p` the repo -R names, as it is.")]
     DeleteBookmark(delete_bookmark::DeleteBookmarkArgs),
+
+    /// Land a cycle whose last commit is made, with -s
+    #[command(long_about = "\
+        Land a cycle whose last commit is already made: --onto fast-forwarded\n\
+        to --source and pushed, and the cycle's bookmark deleted locally and\n\
+        on `origin`, every check made before anything moves. `commit\n\
+        --closing ... --land` lands the same way, the closing made first.\n\n\
+        --source is a bookmark, the cycle's, or a revision, whose current\n\
+        bookmark, else its nearest parent's above --onto, is the cycle's,\n\
+        several refused with the list. Left out, it is the one local\n\
+        bookmark besides --onto. --onto is a local bookmark at its\n\
+        `origin` position that --source descends from, so a bushy tree lands\n\
+        anywhere, and Land only fast-forwards: a merge is `commit\n\
+        --closing`'s. --skip keeps a side of the cycle's bookmark, `local`,\n\
+        `remote`, or `both`, and --delete-intermediate-bookmarks deletes the\n\
+        bookmarks strictly between --onto and --source too. --dry-run makes\n\
+        every check and says each step.\n\n\
+        -s is required: `b` a dual workspace, the agent `main` published\n\
+        with the trunk, and `p` a plain repo. `w` alone could publish\n\
+        trailers naming agent commits not yet published, and `a` alone has\n\
+        no cycle to land, so both are refused. The install stays `vc-x1\n\
+        install`, after.")]
+    Land(land::LandArgs),
 }
 
 /// Permanent sanity check for the `main`-bookmark tracking state
@@ -928,6 +952,7 @@ fn main() -> ExitCode {
         Commands::Merge(args) => args.dispatch(&mut ctx),
         Commands::MoveBookmark(args) => args.dispatch(&mut ctx),
         Commands::DeleteBookmark(args) => args.dispatch(&mut ctx),
+        Commands::Land(args) => args.dispatch(&mut ctx),
     }
 }
 

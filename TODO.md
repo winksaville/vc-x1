@@ -34,6 +34,25 @@ and promotes what is met ([Opening](AGENTS.md#opening)).
     `rg -i 'ls.remote' src/` in the jj-lib source prints nothing, and its git subprocess layer is
     `pub(crate)`. An upstream feature request, once filed or found, is named here.
   - Place when unblocked: first, being one function.
+- **lookup matches a line to its write by content.** (wink + agent, 2026-10-26) lookup resolves a
+  line through blame to its commit and the commit's `ochid:` trailer to its agent partner, with
+  the agent commits inside a time tolerance as candidates when there is no trailer. In one
+  person's workspace the trailer is exact. In a shared repo it fails: a squash or rebase merge
+  leaves blame on a commit no trailer names, and a trailer that survives may point into an
+  agent-repo the reader cannot reach. Time fails too, many contributors' commits inside any
+  tolerance.
+  - The key that survives squash, rebase, and cherry-pick is the text: each transcript records
+    what every Write and Edit put into a file, so a line is matched to the call that wrote it
+    with no commit between. **dr1_every_committed_line_finds_its_transcript_write** checks a
+    part of it. The layering: the trailer when it resolves, the content when it does not, time
+    last.
+  - What makes it hard: a line changed after the write, by a person or `cargo fmt`, needs a
+    fuzzy match, a common line (`}`, `Ok(())`) needs its hunk for context, and every
+    contributor's transcripts must be reachable and indexed, a privacy question as much as a
+    technical one.
+  - Waits on: **Cycles in a shared repo, by fork and pull request** opening, since the need
+    arises there.
+  - Place when unblocked: directly after it.
 
 ## Todo
 
@@ -160,15 +179,131 @@ than the draft.
 - Push's dry run takes the target the advance would leave, or commit's dry run says the push
   without asking push.
 
-### commit --land lands a closing already made
+### Dry runs interleave: commit, push, and sync
 
-(agent, 2026-10-25) `commit --land` lands only the closing it makes, so a closing pushed without
-`--land`, for a review or under a waiver that leaves Land out, is landed by four commands typed:
-`move-bookmark`, `push`, `delete-bookmark`, and `install`. Found at the closing of **feat: vc-x1
-commit takes a revision**.
+(wink + agent, 2026-10-26) `commit`, `push`, `sync`, and `squash-push` each run their dry run as a
+branch of its own, an `if dry` that says the steps apart from the code that does them, so a check
+or a step added to the real run is missed by the dry run unless someone remembers it. Found in
+`land::run` while moving it out of `commit` in **feat: vc-x1 land**, whose dry run skipped the
+conflict check, and fixed there.
 
-- `commit --land [TRUNK]` with nothing to commit and a closing at `@-` lands that closing, its
-  bookmark by the same rule as `--closing`'s, or a `land` command does it.
+- Each brought to the form `land::run` has: every check in both modes, and each step its line and
+  then the step behind `if !dry`, no early return. A step that depends on a result a dry run does
+  not make says it from the planned value and calls nothing.
+- Takes **commit's dry run reports the push as the advance leaves it** with it, the same fault.
+
+### agent-files(proposal): dry runs interleave
+
+(wink + agent, 2026-10-26) The dry-run form, wink's call over plan-then-run (2026-10-26), is a
+convention of this codebase written nowhere, so a new command's dry run is shaped by taste. A
+proposal adds it to `agent-data/code.md`:
+
+- Checks never depend on the dry run, so it refuses what the real run refuses.
+- Each change to a repo or remote sits under its own line, `if !dry { ... }`, so a step added
+  brings its dry-run line, and no `if dry { ...; return }` precedes the steps.
+- Why interleaving rather than a plan of steps run or printed: `sync` and `commit` decide later
+  steps from earlier results, which a plan made up front would have to simulate, and one form
+  everywhere outweighs a neater one in `land` alone.
+
+### docs: each command's -s help names the scopes it takes
+
+(wink + agent, 2026-10-26) Every command's `--scope` help writes the scopes out, `w|work`,
+`a|agent`, `b|both`, `p|por`, and clap then repeats the long names as `[possible values: ...]`,
+since the parser declares them for completion. A command taking a subset reads worse:
+`validate-desc` lists four, says "`p` refused", and clap prints three. `delete-bookmark --skip`
+names its two values and clap repeats them. Found at **feat: vc-x1 land**, whose `land` and
+`merge` `-s` help it fixed, `-h` naming only the scopes taken and `--help` why the others are
+refused.
+
+- The README's `### Write scopes` table, written by **feat: vc-x1 land**'s docs rung, is the list
+  the help is checked against.
+- `hide_possible_values` on every `--scope` and on `delete-bookmark --skip`, the help text the one
+  list, being the one with the short forms.
+- `validate-desc`'s `-h` names `w|work`, `a|agent`, or `b|both`, and `--help` says why `p` is
+  refused, in `land`'s and `merge`'s form.
+- `tests/cli_complete.rs` still offers each command's scopes, since the values are hidden from
+  help alone.
+
+### commit and land take the same scopes
+
+(wink + agent, 2026-10-26) A cycle command, one that makes or publishes a cycle's commits, takes
+`w`, `b`, and `p`, and the repo commands keep all four. The rule: a scope is valid when what it
+publishes names nothing it leaves unpublished. Found at **feat: vc-x1 land**, where `commit` takes
+all four and `land` takes `b` and `p`.
+
+- `commit` drops `-s a`. The agent-repo has no cycle, its own publishing is `squash-push`'s, and
+  `commit` already refuses `a` with REV, with a bookend, and on an agent `@` paired to a work
+  commit, while nothing documented uses it.
+- `land` takes `-s w` when no commit in `trunk..tip` carries an `ochid:` trailer, the range
+  `commit -s w` makes, and refuses it naming the first commit that does. A trailer names an agent
+  commit a work-only Land leaves unpublished, and `--no-push` only defers that to the push.
+- `merge` keeps `w` and `p`, a trapezoid being the work-repo's.
+- The repo commands keep `a`: `sync`, `squash`, `squash-push`, `push`, `status`, `move-bookmark`,
+  `delete-bookmark`, and `validate-desc` act on the agent-repo as a repo of its own and link
+  nothing.
+- The README's `### Write scopes` table gets `commit`'s and `land`'s new rows, its rule
+  paragraph unchanged.
+- Goes with **docs: each command's -s help names the scopes it takes**, which checks the help
+  against that table.
+
+### commit --closing reads the nearest opening's title
+
+(wink + agent, 2026-10-26) Without `--title`, `commit --closing` takes the cycle title from the
+opening above the trunk, and with cycles stacked on one line it reads the oldest: the closing of
+**feat: vc-x1 land** came out as **feat: vc-x1 commit takes a revision closing**, the stack's first
+cycle, and was made with `--title`.
+
+- The opening read is the nearest below the tip, the cycle's own, so a stack closes its top cycle.
+- A test closes a stack of two cycles without `--title`.
+
+### commit --closing merges onto the cycle's base when it was opened above the trunk
+
+(wink + agent, 2026-10-26) `commit --closing` merges the trunk with the tip, so a cycle opened
+above the trunk, on an unlanded series as **feat: vc-x1 land** was, gets a closing whose first
+parent is the trunk, and the cycles below it leave `main`'s first parents for the second parent's
+ladder. That closing was re-parented by hand onto the fix commit its opening sat on.
+
+- The first parent is the opening's parent, where the cycle's bookmark was created, when that
+  descends from the trunk, and the trunk otherwise, so `git log --first-parent` reads one commit
+  per cycle.
+- A test closes a cycle opened above an unlanded one and checks both parents.
+
+### agent-files(proposal): a cycle is made by its own build
+
+(wink + agent, 2026-10-26) A cycle's rungs are committed by the installed `vc-x1`, which has none
+of the cycle's code, so a change to `commit`, `push`, or `land` is tested by its unit tests alone
+until it lands. **feat: vc-x1 land** found it at its closing, every rung made by `0.85.9`.
+
+- A rung is committed by the cycle's build, the dev build installed after the rung before.
+- The closing is made by a bootstrap, the release build of the working copy off the PATH, and the
+  Land by the candidate, the committed closing's release build off the PATH, which then installs
+  itself, `cmp` showing the binary tested is the one installed.
+- The rules' Land and Close-out name the sequence, beside the README's `land` section.
+
+### build, install, and run take --dev
+
+(wink + agent, 2026-10-26) `build-dev`, `install-dev`, and `run-dev` are `build`, `install`, and
+`run` with the dev build, each's help saying so, and a suffix reads as a command of its own, so
+`land-dev` seemed a two-step Land. Found at **feat: vc-x1 land**.
+
+- `build`, `install`, and `run` take `-d/--dev`, the config's `release`/`dev` pairs (`[build]
+  release`/`dev`, `release-bin`/`dev-bin`, `[install] release-dir`/`dev-dir`) chosen by it.
+- `-d` is free here, `--dry-run` having no short and `-n` being `--commits`. `-n`, not `-d`, is
+  the common short for a dry run.
+- `run --dev` takes the flag before the binary's arguments, tested, since `run` passes what
+  follows through.
+- The name and the profile split: `--dev` names the binary `<name>-dev` and `--release` builds the
+  release profile, `--dev` alone the debug build as `install-dev` is now. `install --dev --release`
+  is a release candidate's soak, the binary that ships installed beside the landed one for a
+  period of use, the plain name left to what is on `main` (wink + agent, 2026-10-26). The config
+  splits the same way: `[build]`'s `release`/`dev` and `release-bin`/`dev-bin` are the profile's,
+  `[install]`'s `release-dir`/`dev-dir` and `dev-suffix` the name's.
+- Weighed against it: `install --dir DIR`, which already installs the release build under the
+  plain name off the PATH, is a soak when DIR lasts and leads the PATH of the shell it is tried
+  from, as **feat: vc-x1 land**'s closing used it.
+- The `-dev` commands stay as hidden ones erroring with the new spelling, as `bot` names `agent`.
+- The README, `clippy.toml`'s spawn register entry 7, the completion tests, and the agent-files'
+  `install-dev`, the last an `agent-files` proposal.
 
 ### init and clone take --scope por
 
@@ -260,7 +395,9 @@ lands, so the rules' invocations must carry it or fail.
   - Either converts to the other while the closing is a draft, before Land, by re-parenting the
     same closing: its change id, trailer, and, with the trunk unmoved, its tree are kept.
 - Land is sync, then `commit --closing <BM|REV> --land [TRUNK]`, the fast-forward and the push,
-  then `vc-x1 install`. The bookmark deleted is the one `--closing` names, or for a revision its
+  then `vc-x1 install`. To test the closing before it is published, it is made without `--land`,
+  installed by `vc-x1 install` and tested, and landed by `vc-x1 land -s b --onto <TRUNK>`, the
+  fast-forward landing the tree tested. The bookmark deleted is the one `--closing` names, or for a revision its
   current or nearest parent bookmark above the trunk, several refused with the list, and the
   branch's other bookmarks are left and named as merged. The trapezoid recipe goes,
   Close-out step 5 keeps the user's choice, the key its default, and carries it out by the flag,
@@ -2397,6 +2534,31 @@ the cycle **feat: vc-x1 install stages, deploys, and runs builds**.
   their examples to edit. Whether those are commented or left out with a pointer to `config
   --model` is a decision, since a commented table in a fence reads as configuration.
 - The current output, the six lines per key, goes. `config --validate` is unchanged.
+
+### Cycles in a shared repo, by fork and pull request
+
+(wink + agent, 2026-10-26) The cycle assumes its author lands on the trunk and is the one writer
+of the files every cycle edits. In a shared repo, work is pushed to a fork and reaches upstream's
+`main` by a pull request a maintainer merges, so neither holds. Raised while opening **feat: vc-x1
+land**.
+
+- Land splits in two: the handoff, the bookmark pushed to the fork and the pull request opened,
+  and the cleanup after the merge, `main` synced from upstream, the bookmark deleted locally and on
+  the fork, and the install.
+- The project allows merge commits only. GitHub's merge commit is the trapezoid, upstream `main`
+  its first parent and the ladder its second, the commits untouched so every `ochid:` trailer
+  holds, and it may serve as the closing. Squash merging discards the change ids, which the rules
+  forbid, and we think rebase merging drops jj's change-id header, leaving the trailers dangling.
+- The trunk takes a remote as well as a name, a key such as `[cycle] trunk-remote = "upstream"`,
+  read by sync and by `land`'s at-origin check, since `main` follows upstream and the work goes to
+  `origin`.
+- The files every cycle edits, the version in `Cargo.toml`, `TODO.md`, `zDOING.md`, and
+  `zCLOSED.md`, conflict between any two pull requests. The version is set at release or merge,
+  the cycle's record lives in the pull request or the contributor's agent-repo, and `TODO.md` is
+  the maintainer's, changed by proposals.
+- The agent-repo stays each contributor's own, never in the pull request, so a trailer in upstream
+  may point where a reader cannot follow, and the pull request's record stands alone.
+- lookup's half of this is in `## Waiting`: **lookup matches a line to its write by content**.
 
 ## Ideas
 
