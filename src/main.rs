@@ -241,12 +241,14 @@ pub(crate) enum Commands {
     #[command(
         long_about = "Resolve a line in either repo of a dual workspace to the\n\
         window of lines in the other repo.\n\n\
-        `lookup [SCOPE] FILE:LINE`: SCOPE is the side the line is on,\n\
-        `work` or `agent`, and FILE:LINE is the form editors, compilers,\n\
-        and grep print. SCOPE is inferred from the file's path when\n\
-        omitted, and with SCOPE given a path relative to that side's\n\
+        `lookup [-s SCOPE] --line FILE:LINE`: SCOPE is the side the line\n\
+        is on, `work` or `agent`, and FILE:LINE is the form editors,\n\
+        compilers, and grep print. SCOPE is inferred from the file's path\n\
+        when omitted, and with SCOPE given a path relative to that side's\n\
         repo root works from anywhere. A named SCOPE the path disagrees\n\
-        with is an error. The line must exist in the file on disk."
+        with is an error. The line must exist in the file on disk. Every\n\
+        argument is a flag: the old `[SCOPE] FILE:LINE` positionals are\n\
+        refused, naming -s and --line."
     )]
     Lookup(lookup::LookupArgs),
 
@@ -286,18 +288,19 @@ pub(crate) enum Commands {
         from the work repo root, printing each before it runs. The\n\
         first failure stops the run, naming the command and its exit\n\
         status, and the subcommand exits non-zero. An empty or missing\n\
-        table is an error, not a pass. See `vc-x1 config work` for the\n\
+        table is an error, not a pass. See `vc-x1 config -s work` for the\n\
         table's shape.")]
     Validate(validate::ValidateArgs),
 
-    /// Build the release, off the PATH
-    #[command(long_about = "Build the release, off the PATH.\n\n\
+    /// Build the release, or with --dev the dev build, off the PATH
+    #[command(
+        long_about = "Build the release, or with --dev the dev build, off the PATH.\n\n\
         Runs `[build] release` from the work repo root, here\n\
         `cargo build --release --locked`, and checks it left\n\
         `[build] release-bin`, the binary the config says the build leaves.\n\
         The commands see the commit `@-` and the state of the source code,\n\
         clean when `@` was empty and dirty when not, as VC_X1_BUILD_COMMIT\n\
-        and VC_X1_BUILD_STATE, as validate's and build-dev's do, so vc-x1's\n\
+        and VC_X1_BUILD_STATE, as validate's do, so vc-x1's\n\
         own banner carries the commit. Cargo decides what to rebuild, so a\n\
         build with nothing changed is quick. The release build is run by\n\
         `vc-x1 run` and copied into the install directory by `vc-x1 install`,\n\
@@ -305,24 +308,24 @@ pub(crate) enum Commands {
         Nothing is checked first: a release may be built from a cycle's\n\
         bookmark to try the release profile. The list runs as `validate`'s\n\
         does, each element one command, the first failure stopping the run.\n\
-        --dry-run prints the list and runs nothing. See `vc-x1 config work`\n\
-        for the table's keys.")]
+        --dry-run prints the list and runs nothing. See `vc-x1 config -s work`\n\
+        for the table's keys.\n\n\
+        --dev, -d runs `[build] dev` instead, here `cargo build --locked`,\n\
+        leaving `[build] dev-bin`, with the same provenance in its\n\
+        environment. After a validation it reuses the test build, so it\n\
+        takes under a second. The old `build-dev` is refused, naming\n\
+        `build --dev`."
+    )]
     Build(build_cmd::BuildArgs),
 
-    /// Build the dev build, off the PATH
-    #[command(long_about = "Build the dev build, off the PATH.\n\n\
-        Runs `[build] dev` from the work repo root, here `cargo build --locked`,\n\
-        leaving `[build] dev-bin`, with the commit and the state of the\n\
-        source code as VC_X1_BUILD_COMMIT and VC_X1_BUILD_STATE, as build's\n\
-        and validate's commands get them. After a validation it reuses the test\n\
-        build, so it takes under a second. `vc-x1 run-dev` runs it first.\n\
-        --dry-run prints the list and runs nothing. See `vc-x1 config work`\n\
-        for the table's keys.")]
+    /// Retired: `build-dev`, now `build --dev`, refused naming it
+    #[command(hide = true)]
     BuildDev(build_cmd::BuildDevArgs),
 
-    /// Build the release if out of date, then copy it into the install directory
+    /// Build the release if out of date, or with --dev the dev build, then copy it into the install directory
     #[command(
-        long_about = "Build the release if out of date, then copy it into the install directory.\n\n\
+        long_about = "Build the release if out of date, or with --dev the dev build, then copy\n\
+        it into the install directory.\n\n\
         It first runs `[build] release`, exactly as `vc-x1 build` does.\n\
         Cargo rebuilds only what changed, so with nothing changed\n\
         the binary already tested is the one copied. The build leaves the\n\
@@ -349,33 +352,26 @@ pub(crate) enum Commands {
         run, so a test of install leaves the PATH alone, a relative DIR taken\n\
         against the current directory. A workspace with no\n\
         `[install] release-dir` and no --dir has nothing to install, and\n\
-        builds nothing."
+        builds nothing.\n\n\
+        --dev, -d builds `[build] dev` and copies `[build] dev-bin` (here\n\
+        `target/debug/vc-x1`) into `[install] dev-dir`, or --dir, with\n\
+        `[install] dev-suffix`, `-dev` when absent, appended to its file name\n\
+        (here `~/.cargo/bin/vc-x1-dev`), an `[install] dev` list running in\n\
+        place of the copy. A copy that would land on the release's own\n\
+        destination is refused before the build. The landed binary and the\n\
+        cycle's dev build then sit side by side on the PATH. The old\n\
+        `install-dev` is refused, naming `install --dev`."
     )]
     Install(install_cmd::InstallArgs),
 
-    /// Build the dev build, then copy it into the install directory as <name>-dev
-    #[command(
-        long_about = "Build the dev build, then copy it into the install directory as <name>-dev.\n\n\
-        It first runs `[build] dev`, exactly as `vc-x1 build-dev` does, then\n\
-        copies `[build] dev-bin` (here `target/debug/vc-x1`) into the\n\
-        directory `[install] dev-dir` names, or --dir, with\n\
-        `[install] dev-suffix`, `-dev` when absent, appended to its file name\n\
-        (here `~/.cargo/bin/vc-x1-dev`). A copy that would land on the\n\
-        release's own destination is refused before the build. The landed binary\n\
-        and the cycle's dev build then sit side by side on the PATH, so the\n\
-        dev build can be tried from any directory, another project's\n\
-        included, where `vc-x1 run-dev` would find that project's dev build\n\
-        instead.\n\n\
-        The report, the refusals, the copy, --dry-run, and --dir are\n\
-        `vc-x1 install`'s, the binary being the dev build's, and an\n\
-        `[install] dev` list runs in place of the copy as `[install] release`\n\
-        does for install."
-    )]
+    /// Retired: `install-dev`, now `install --dev`, refused naming it
+    #[command(hide = true)]
     InstallDev(install_cmd::InstallDevArgs),
 
-    /// Build the release, then run it with the given arguments
+    /// Build the release, or with --dev the dev build, then run it with the given arguments
     #[command(
-        long_about = "Build the release, then run it with the given arguments.\n\n\
+        long_about = "Build the release, or with --dev the dev build, then run it with the\n\
+        given arguments.\n\n\
         It first runs `[build] release`, exactly as `vc-x1 build` does, then\n\
         runs `[build] release-bin` (here `target/release/vc-x1`) in the\n\
         current directory, as `cargo run` builds before it runs, so what\n\
@@ -386,19 +382,16 @@ pub(crate) enum Commands {
         Its -V is read first, and a version other than the manifest's is a\n\
         warning naming `build.release-bin`. --dry-run prints the build's list\n\
         and the command, and runs nothing. Completion of the arguments is\n\
-        the binary's own, asked in clap's completion mode and never built."
+        the binary's own, asked in clap's completion mode and never built.\n\n\
+        --dev, -d builds `[build] dev` and runs `[build] dev-bin` (here\n\
+        `target/debug/vc-x1`), given before the arguments, which are the\n\
+        binary's: `vc-x1 run --dev -- -V`. The old `run-dev` is refused,\n\
+        naming `run --dev`."
     )]
     Run(run_cmd::RunArgs),
 
-    /// Build the dev build, then run it with the given arguments
-    #[command(
-        long_about = "Build the dev build, then run it with the given arguments.\n\n\
-        It first runs `[build] dev`, exactly as `vc-x1 build-dev` does, then\n\
-        runs `[build] dev-bin` (here `target/debug/vc-x1`) in the current\n\
-        directory, so what runs is always the rung's code. The arguments,\n\
-        the version warning, --dry-run, the exit code, and the completion\n\
-        are `vc-x1 run`'s, the binary being the dev build's."
-    )]
+    /// Retired: `run-dev`, now `run --dev`, refused naming it
+    #[command(hide = true)]
     RunDev(run_cmd::RunDevArgs),
 
     /// Check the agent repo is published (main matches main@origin)
@@ -488,10 +481,10 @@ pub(crate) enum Commands {
     )]
     FixTodo(fix_todo::FixTodoArgs),
 
-    /// Clone a dual-repo project
+    /// Clone a project, a dual workspace or a plain repo with -s por
     Clone(clone::CloneArgs),
 
-    /// Create a new dual-repo project
+    /// Create a project, a dual workspace or a plain repo with -s por
     Init(init::InitArgs),
 
     /// Create Claude Code project symlink

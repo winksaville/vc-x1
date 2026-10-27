@@ -23,14 +23,19 @@ use crate::common;
 /// CLI args for `agent-files copy`.
 #[derive(Args, Debug)]
 pub struct CopyArgs {
+    /// Retired: the two directories, now `--from` and `--to`, refused
+    /// naming them.
+    #[arg(value_name = "RETIRED", hide = true, num_args = 0..=2)]
+    pub retired: Vec<String>,
+
     /// The directory to copy the set from [default:
     /// agent-files.copy.dir, else family.template, else an error]
-    #[arg(value_name = "SRC")]
+    #[arg(long = "from", value_name = "DIR")]
     pub src: Option<PathBuf>,
 
     /// The directory whose set becomes the copy [default: this
-    /// workspace, so one operand is SRC]
-    #[arg(value_name = "DST")]
+    /// workspace, so one side is --from]
+    #[arg(long = "to", value_name = "DIR")]
     pub dst: Option<PathBuf>,
 
     /// Copy custom.md with the rest of the set
@@ -152,6 +157,7 @@ impl CopyArgs {
 
     /// Resolve, guard, print the plan, apply it.
     fn copy(&self) -> Result<(), Box<dyn std::error::Error>> {
+        diff::refuse_from_to("agent-files copy", &self.retired)?;
         let root = common::find_workspace_root();
         let cfg = match &root {
             Some(r) => super::config_at(r)?,
@@ -242,12 +248,19 @@ mod tests {
     /// refused.
     #[test]
     fn flags_parse() {
-        let a = T::try_parse_from(["t", "../x", "--custom"]).unwrap().a;
+        let a = T::try_parse_from(["t", "--from", "../x", "--custom"])
+            .unwrap()
+            .a;
         assert_eq!(a.src, Some(PathBuf::from("../x")));
         assert!(a.dst.is_none() && a.custom);
-        let a = T::try_parse_from(["t", "../x", "../y"]).unwrap().a;
+        let a = T::try_parse_from(["t", "--from", "../x", "--to", "../y"])
+            .unwrap()
+            .a;
         assert_eq!(a.dst, Some(PathBuf::from("../y")));
         assert!(T::try_parse_from(["t", "-c", "--no-custom"]).is_err());
+        let a = T::try_parse_from(["t", "../x", "../y"]).unwrap().a;
+        let err = diff::refuse_from_to("agent-files copy", &a.retired).unwrap_err();
+        assert!(err.ends_with("`--from ../x --to ../y`"), "{err}");
     }
 
     /// A copy plan copies what differs or is only in the source,

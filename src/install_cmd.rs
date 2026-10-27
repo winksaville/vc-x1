@@ -1,10 +1,12 @@
-//! The `install` and `install-dev` subcommands: build the release or
-//! the dev build, then copy it into the install directory, the two
-//! commands that touch the PATH, after reporting what they copy.
+//! The `install` subcommand: build the release, or with `--dev` the
+//! dev build, then copy it into the install directory, the command
+//! that touches the PATH, after reporting what it copies. The dev
+//! install was `install-dev`, kept hidden to be refused naming
+//! `install --dev`.
 //!
 //! - `install` runs `[build] release` first, exactly as `vc-x1 build`
-//!   does, and `install-dev` runs `[build] dev` as `vc-x1 build-dev`
-//!   does. Cargo rebuilds only what changed, so with nothing changed
+//!   does, and `install --dev` runs `[build] dev` as `vc-x1 build
+//!   --dev` does. Cargo rebuilds only what changed, so with nothing changed
 //!   the binary already tested is the one copied, and a missing or
 //!   stale one is built rather than refused.
 //! - The binary is `[build] release-bin` or `[build] dev-bin`. The
@@ -60,9 +62,15 @@ use crate::subcommand::SubcommandRunner;
 /// The trunk the report compares the binary's commit with.
 const TRUNK: &str = "main";
 
-/// Copy the release build into the install directory.
+/// Copy the release build, or with `--dev` the dev build, into the
+/// install directory.
 #[derive(Args, Debug)]
 pub struct InstallArgs {
+    /// Install the dev build as `<name>-dev`, by `[build] dev` and
+    /// `[install] dev-dir`, instead of the release
+    #[arg(short = 'd', long)]
+    pub dev: bool,
+
     #[command(flatten)]
     pub dry_run: DryRunFlag,
 
@@ -71,12 +79,14 @@ pub struct InstallArgs {
     #[arg(short = 'R', long, value_name = "DIR")]
     pub repo: Option<PathBuf>,
 
-    /// Copy into DIR instead of `[install] release-dir`, for this run
+    /// Copy into DIR instead of `[install] release-dir`, or `dev-dir`
+    /// with `--dev`, for this run
     #[arg(long, value_name = "DIR")]
     pub dir: Option<PathBuf>,
 }
 
-/// Copy the dev build into the install directory, as `<name>-dev`.
+/// Retired: `install-dev`, now `install --dev`, refused naming it.
+/// Its flags are kept so an old invocation parses and is told the fix.
 #[derive(Args, Debug)]
 pub struct InstallDevArgs {
     #[command(flatten)]
@@ -127,14 +137,14 @@ pub struct Facts {
 /// binary is and where it goes, and whether to copy.
 #[derive(Debug)]
 pub struct InstallParams {
-    /// `install` or `install-dev`, prefixing the run's messages.
+    /// `install` or `install --dev`, prefixing the run's messages.
     pub label: &'static str,
     /// `build.release-bin` or `build.dev-bin`, the key naming the
     /// binary, for a refusal to point at.
     pub bin_key: &'static str,
     /// The work repo root.
     pub root: PathBuf,
-    /// The build, `vc-x1 build`'s or `vc-x1 build-dev`'s, run before
+    /// The build, `vc-x1 build`'s, with `--dev` or not, run before
     /// anything else.
     pub build: BuildParams,
     /// The binary, `[build] release-bin` or `[build] dev-bin`.
@@ -162,18 +172,19 @@ pub struct InstallParams {
 impl TryFrom<&InstallArgs> for InstallParams {
     type Error = String;
 
-    /// The release: see [`install_params`].
+    /// The release, or the dev build with `--dev`: see
+    /// [`install_params`].
     fn try_from(a: &InstallArgs) -> Result<Self, String> {
-        install_params(false, a.repo.as_deref(), a.dir.as_deref(), a.dry_run.value)
+        install_params(a.dev, a.repo.as_deref(), a.dir.as_deref(), a.dry_run.value)
     }
 }
 
 impl TryFrom<&InstallDevArgs> for InstallParams {
     type Error = String;
 
-    /// The dev build: see [`install_params`].
-    fn try_from(a: &InstallDevArgs) -> Result<Self, String> {
-        install_params(true, a.repo.as_deref(), a.dir.as_deref(), a.dry_run.value)
+    /// Refused: `install-dev` is `install --dev`.
+    fn try_from(_: &InstallDevArgs) -> Result<Self, String> {
+        Err(crate::build_cmd::retired_dev("install"))
     }
 }
 
@@ -190,7 +201,7 @@ pub fn install_params(
     dry_run: bool,
 ) -> Result<InstallParams, String> {
     let (label, dir_key, list_key) = if dev {
-        ("install-dev", "install.dev-dir", "install.dev")
+        ("install --dev", "install.dev-dir", "install.dev")
     } else {
         ("install", "install.release-dir", "install.release")
     };
@@ -345,7 +356,7 @@ pub fn install_dir(root: &Path, key: &str) -> Result<PathBuf, String> {
         format!(
             "{}: no `{key}`, so this workspace has nothing to install. Name the \
              directory the build is copied into, such as `~/.cargo/bin` (see `vc-x1 \
-             config work`), or pass --dir",
+             config -s work`), or pass --dir",
             cfg.path.display()
         )
     })?;
@@ -559,7 +570,7 @@ impl SubcommandRunner for InstallDevArgs {
     }
 }
 
-/// Run the build, as `vc-x1 build` or `vc-x1 build-dev` does, then
+/// Run the build, as `vc-x1 build`, with `--dev` or not, does, then
 /// report the binary and copy it unless refused or a dry run. Cargo
 /// rebuilds only what changed, so with nothing changed the binary
 /// already tested is the one copied.
@@ -727,14 +738,21 @@ mod tests {
             Some(Commands::Install(a)) => assert_eq!(a.dir, Some(PathBuf::from("tmp/bin"))),
             _ => panic!("expected Install"),
         }
+        let cli = Cli::try_parse_from(["vc-x1", "install", "--dev", "--dir", "d"]).unwrap();
+        match cli.command {
+            Some(Commands::Install(a)) => {
+                assert!(a.dev);
+                assert_eq!(a.dir, Some(PathBuf::from("d")));
+            }
+            _ => panic!("expected Install"),
+        }
         let cli =
             Cli::try_parse_from(["vc-x1", "install-dev", "--dry-run", "--dir", "d", "-R", "x"])
                 .unwrap();
         match cli.command {
             Some(Commands::InstallDev(a)) => {
-                assert!(a.dry_run.value);
-                assert_eq!(a.dir, Some(PathBuf::from("d")));
-                assert_eq!(a.repo, Some(PathBuf::from("x")));
+                let err = InstallParams::try_from(&a).unwrap_err();
+                assert!(err.ends_with("`install --dev`"), "{err}");
             }
             _ => panic!("expected InstallDev"),
         }
@@ -1028,6 +1046,7 @@ mod tests {
         )
         .unwrap();
         let args = InstallArgs {
+            dev: false,
             dry_run: DryRunFlag { value: true },
             repo: Some(dir.clone()),
             dir: None,

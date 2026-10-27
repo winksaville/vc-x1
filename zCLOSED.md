@@ -7,200 +7,292 @@ commit's copy of the record.
 
 ## Closed
 
-### feat: push, commit, and squash-push take flags only
+### feat: the other commands take flags only
 
-Picked from `## Todo` as **push takes a revision, and the remote's name for it** (wink + agent,
-2026-10-24), widened at its planning to every argument a flag (wink + agent, 2026-10-27), and split
-in two: this cycle the three commands that publish, the rest **feat: the other commands take flags
-only**.
+Picked from `## Todo` as **feat: the other commands take flags only** (wink + agent, 2026-10-27),
+split from **feat: push, commit, and squash-push take flags only**, with **build, install, and run
+take --dev** and **init and clone take --scope por** folded in at that cycle's opening, and the
+`agent-files` subcommands added at this one's.
 
 #### Problem
 
-`push`'s positional is a bookmark, so `push -s b @-` is refused, though git needs only a name on
-the remote: `git push origin HEAD:refs/heads/<name>` publishes any commit under a new name, and `jj
-git push --named <name>=<REV>` does the same and creates the local bookmark that tracks it. Filed
-from the live testing of **feat: vc-x1 closing and land**, whose `[9]` made the refusal say to
-leave the revision out.
+**feat: push, commit, and squash-push take flags only** made every argument of the three commands
+that publish a flag, and the rest still take positionals: a revision and a count on the read
+commands, a scope or a file on `lookup`, a file on the file commands, a side or a path on `config`
+and `validate-config`, directories on the `agent-files` subcommands, and a source or target and a
+name on `init`, `clone`, and `symlink`. So a word on the command line still reads by its place, and
+the rule is not yet one the README can state.
 
-A positional means something different from command to command: a bookmark to `push` and
-`squash-push`, a revision to `commit` and the read commands. So `push -s b feature` has two
-readings, the bookmark to move or the commit it is at, and `push` takes its bookmark both as the
-positional and as `--bookmark`, one value under two spellings.
+Two of the folded entries are the same kind of problem:
+
+- `build-dev`, `install-dev`, and `run-dev` are `build`, `install`, and `run` with the dev build,
+  each's help saying so, and a suffix reads as a command of its own, so `land-dev` seemed a
+  two-step Land. Found at **feat: vc-x1 land** (wink + agent, 2026-10-26).
+- `init` and `clone` alone spell the single-repo form `--por`, where the write commands spell it
+  `-s p|por`, and creating a POR from the docs took four tries: `init --por <name>` stops on "no
+  account specified", `--account` is read as a GitHub owner when it names an `[account.<name>]`
+  section, and only the URL target, which needs no config, works (wink + agent, 2026-10-26).
 
 #### Solution
 
-What was done:
+What was done: every argument a flag, the command names aside, each old positional kept hidden and
+refused with the flag that replaces it, as the first cycle did, by
+`options_flags::retired_positional`'s `refusal`, `refuse_rev_count`, and `refuse_two`.
 
-- Every argument is a flag, the command names aside, and this cycle did `push`, `commit`, and
-  `squash-push`, each old positional kept hidden and refused by one helper,
-  `options_flags::retired_positional::refusal`, naming the flag with the value in place.
-- `push -s b|w|a|p [-r REV] [--bookmark NAME]`:
-  - REV is the commit to publish, `@-` by default, one commit, a REV of several refused with the
-    count. REV is the work `@-` by commit id, however it is spelled, for the pair's path.
-  - At `@-` the pair goes out on the line's bookmark, or `--bookmark`'s, a bookmark on the line or
-    a new name created at `@-` and pushed tracked.
-  - Any other REV is a commit already made, and a name alone goes out for it, no pair: the one
-    bookmark at it, or `--bookmark`'s, at it or new. A bookmark elsewhere is refused naming
-    `move-bookmark`, and the working copy and the root are refused.
-  - `-r` with `-s a` is refused, and so is a `--bookmark` that is a revision, naming `-r`.
-  - The old positional names `--bookmark` when it is a local bookmark, else `-r`.
-- `commit -r, --revision REV`, `@` by default, its rules unchanged, the positional naming `-r`.
-- `squash-push --bookmark NAME`, the positional naming `--bookmark`.
-- The README's sections and summary lines for the three, the help in `main.rs`, `tests/cli_sync.rs`'s
-  one positional call, and the agent-files' four stale invocations, with the v0.3.1 proposal told.
-- The backlog's **vc-x1 push: rework the two bookmark parameters** retired.
+- `chid`, `desc`, `list`, `show`, `validate-desc`, `fix-desc`: `[REVISION] [COMMITS]` refused
+  naming `-r` and `-n`, which were there already, and `resolve_spec` takes the flags alone.
+- `lookup -s SCOPE --line FILE:LINE`, the scope-then-target form refused.
+- `agent-session --file`, required, `validate-anchors --file`, repeatable, and `validate-todo` and
+  `fix-todo --file`, `TODO.md` by default.
+- `config` and `validate-config`: `-s` for a side, both by default, and `--file` for a path,
+  exclusive, one bundle the two share, the old `[TARGET]` refused naming the one it was.
+- `agent-files diff --from A --to B`, `agent-files copy --from SRC --to DST`, and `agent-files size
+  --dir DIR`, their defaults unchanged.
+- `init --target URL|PATH|NAME --name NAME`, `clone --from URL|PATH --name NAME`, and `symlink
+  --target PATH`. `init` and `clone` take `-s both|por`, one side alone refused and `--por` refused
+  naming `--scope por`, their errors say `-s por`, the account errors name the URL target, the
+  user config's path, and the least account section, and the stale help is fixed.
+- `build`, `install`, and `run` take `-d/--dev`, and `build-dev`, `install-dev`, and `run-dev` are
+  hidden and refused naming `<command> --dev`. `run --dev` goes before the binary's arguments, and
+  the completion forward reads it. `--release` is deferred to **install --dev --release soaks a
+  release candidate**.
+- The README states the rule under Usage, with its one exception, `run`'s trailing arguments, and
+  every section, the help, `vc-config.md` and the model made from it, `.vc-config.md`,
+  `clippy.toml`, the completion and CLI tests, the fixture builder, and the agent-files' two
+  invocations use the flags, **agent-files(proposal): v0.3.1** told.
 
 #### Acceptance check
 
-`cargo test` passes with a test per rule: `push -r` publishes the commit named, `push --bookmark`
-with a new name creates it tracked on origin, a REV of several commits is refused, and each
-command's old positional is refused naming its flag. Live, from the rung after push's on: `vc-x1-dev
-push -s b @-` fails naming `-r @-`, and a rung committed with `--no-push` is published by
-`vc-x1-dev push -s b -r @-`.
+`cargo test` passes with a test per command that its old positional is refused naming its flag,
+and per renamed `-dev` command that it is refused naming `--dev`. Every subcommand's `vc-x1-dev
+<cmd> --help` Usage line shows no positional, `run`'s trailing `[ARGS]...` aside. Live: `vc-x1-dev
+install --dev` installs the dev build as `vc-x1-dev`, `vc-x1-dev run --dev -- -V` prints the dev
+build's banner, `vc-x1-dev show -s both @-` is refused naming `-r @-`, and `vc-x1-dev init -s por
+--target <url> --dry-run` plans a POR.
 
-Result (2026-10-27, at the closing): passed.
+Result (2026-10-27, at the closing, `vc-x1-dev` 0.85.14): passed.
 
-- Tests: the full validation passed, 806 unit tests and the CLI suites, and the check's own ran by
-  name, 56 passing, among them `push_takes_the_work_commit_by_revision`,
-  `push_creates_a_new_name_for_the_work_commit` and `push_creates_a_name_for_a_commit_already_made`
-  (each asserting the remote ref tracked), `push_refuses_what_names_no_one_commit_and_name`, and the
-  three positional refusals, push's, `commit`'s, and `squash-push`'s.
-- Live, with `vc-x1-dev` 0.85.13-1: `push -s b @-` failed with "the positional is retired, every
-  argument is a flag: `-r @-`", and `push -s b feat-push-commit-and-squash-push-take-flags-only`
-  named `--bookmark` with the bookmark.
-- Live, with `vc-x1-dev` 0.85.13-2: **feat: commit and squash-push take flags only** was made by
-  `commit -s b --no-push` and published by `push -s b -r @-`, "completed all stages (verified)".
+- Tests: the full validation passed, 803 unit tests and the CLI suites, among them a refusal test
+  per command, `cli_bot_session_positional_file_refused` from the CLI, and the three `-dev`
+  refusals in `build_cmd`, `install_cmd`, and `run_cmd`.
+- Usage: every subcommand's `--help` Usage line, `agent-files`' four included, shows `[OPTIONS]`
+  and its required flags alone, `run`'s `[ARGS]...` the one positional and `agent-files`'
+  `<COMMAND>` a subcommand.
+- Live: `vc-x1-dev install --dev` built and copied the dev build as `vc-x1-dev`, its messages
+  labelled `install --dev`; `vc-x1-dev run --dev -- -V` printed `vc-x1 0.85.14+e15f035668bf.dirty`;
+  `vc-x1-dev show -s both @-` failed with "the positional is retired, every argument is a flag:
+  `-r @-`"; and `vc-x1-dev init -s por --target git@github.com:winksaville/flags-check.git
+  --dry-run` planned the work repo alone, no agent repo.
+- The first `install-dev` at the closing failed: the bump to 0.85.14 had not reached
+  `Cargo.lock`, which `--locked` refuses to update, and a validation brought it, the checks then
+  run again on the right binary.
 
 #### Deliberation
 
-- Flags only, the command names aside, wink's call (2026-10-27).
-  - A positional's meaning differs by command, so the same word reads two ways, and a flag has one
-    reading on every command, the reason [Scope is a flag on every command, and push resolves its
-    own bookmarks](TODO.md#scope-is-a-flag-on-every-command-and-push-resolves-its-own-bookmarks)
-    gave for `-s`, and `land`'s for naming `--source` and `--onto`.
-  - jj splits the two the same way: a bookmark name is a revision symbol, and a command that moves
-    a bookmark takes its name apart from the revision, `jj bookmark set NAME -r REV` and `jj git
-    push --named NAME=REV`.
-  - The command line is what the user approves, and a flag says what each word is.
-  - `run` keeps its trailing arguments, which are the built binary's.
-- `-r, --revision` and `--bookmark`: the names the read commands, `lookup`, and `commit` already
-  use, and jj's.
-- An old positional is refused, not dropped, wink's call (2026-10-27): a hidden argument whose error
-  names the flag, so a stale doc or a habit is told its own fix.
-- Two cycles, wink's call (2026-10-27): this one the three commands that publish, which every rung
-  runs and the push Todo is about, and the rest in **feat: the other commands take flags only**,
-  with **build, install, and run take --dev** folded into it, which keeps `install-dev`, run at
-  every rung here, unchanged until this cycle lands, and **init and clone take --scope por**,
-  whose commands it touches.
-- A REV other than `@-` publishes a name alone, the agent's call under the waiver, the question put
-  at planning and not answered: the pair's checks, the trailer, the partner, and the restamp,
-  assume `@-`, and a pair's commit below `@-` was published by its own rung.
-- Push moves a bookmark only along the pair's line, decided at the push rung.
-  - Off the line, `-r REV --bookmark NAME` takes a NAME at REV or a new one, and one elsewhere is
-    refused naming `move-bookmark`, since moving it would be a sideways move push never made.
-  - `push -s b side`, a bookmark off the line published where it is, became `push -s b -r side`,
-    the bookmark found at REV, so `--bookmark` alone always means the line's or a new name at `@-`.
-  - `-s p` took the same rule, its named bookmark checked against the line where it was set
-    sideways before.
-- The agent-files' invocations alone, decided at their rung: the rule prose naming `vc-x1 push` as
-  what commits is **agent-files(proposal): v0.3.1**'s Committing vs pushing rewrite, so this cycle
-  fixed what failed as written and told the proposal.
-- The README states the rule in the other cycle, once it holds for every command.
-- Waiver, wink's "Continue and complete this cycle except for landing on main" (2026-10-27), after
-  the opening's push.
-  - Covers every rung from **feat: push takes --revision and --bookmark** through the closing: the
-    work review, the description review, the per-push approval, and the hard stop after each push.
+- One cycle for the rest, the folded entries with it, wink's call (2026-10-27): each is a command's
+  arguments brought to the flags, and the README states the rule once all of them hold it.
+- The `agent-files` subcommands join at this opening: the Todo entry listed the commands from the
+  top-level help, and `diff`, `copy`, and `size` take directories by position.
+- `config` and `validate-config` split `[TARGET]` in two, since it takes a side keyword or a path
+  in one place, the ambiguity the rule removes, and `-s` is what a side is everywhere else.
+- `init --target`, not `--repo`, which already names the remote's category and value.
+- The `-dev` rung comes last among the commands, since every rung before it installs with
+  `install-dev`, and from it on the cycle installs with `install --dev`.
+- The provisional flag names stand as written, wink's go at the opening's review (2026-10-27),
+  each still a rung's to settle if its code shows a reason. None did.
+- `--release` deferred, wink's call at the `--dev` rung (2026-10-27), the plan's one deviation,
+  asked as a stop: the `[install] dev` list names `{build.dev-bin}`, so a release build installed
+  under the dev name would copy the debug binary, and a profile-neutral placeholder is a config
+  design of its own, filed as **install --dev --release soaks a release candidate**.
+- One refusal wording through three helpers in `retired_positional`, `refusal` for one word,
+  `refuse_rev_count` for the read commands' pair, and `refuse_two` for two flags, which
+  `agent-files diff` and `copy`, `init`, and `clone` share.
+- The retired argument's field is `retired`, and `PorFlag`'s `--por` is `retired_por`, since a
+  flattened bundle's argument ids share the command's namespace and clap refuses a duplicate.
+- Waiver, wink's "go, complete cycle except for landing on main" (2026-10-27), at the opening's
+  review.
+  - Covers the opening and every rung through the closing: the work review, the description review,
+    the per-push approval, and the hard stop after each push.
   - Does not cover Land: the closing is pushed without `--land`, and the close-out shape is the
     default, trapezoid, until wink chooses at the Land.
-  - Validation still runs before every push.
+  - Validation still runs before every push, and a deviation from the plan is still a stop.
 
 #### Ladder
 
-- [feat: push, commit, and squash-push take flags only opening][f0] (done)
-- [feat: push takes --revision and --bookmark][f1] (done)
-- [feat: commit and squash-push take flags only][f2] (done)
-- [docs: the agent-files name the flags][f3] (done)
-- [feat: push, commit, and squash-push take flags only closing][f4] (done)
+- [feat: the other commands take flags only opening][o0] (done)
+- [feat: the read commands take -r and -n only][o1] (done)
+- [feat: lookup takes -s and --line][o2] (done)
+- [feat: the file commands take --file][o3] (done)
+- [feat: config and validate-config take -s and --file][o4] (done)
+- [feat: agent-files diff, copy, and size take flags][o5] (done)
+- [feat: init, clone, and symlink take flags and --scope por][o6] (done)
+- [feat: build, install, and run take --dev][o7] (done)
+- [docs: the README states every argument is a flag][o8] (done)
+- [feat: the other commands take flags only closing][o9] (done)
 
-##### feat: push, commit, and squash-push take flags only opening
+##### feat: the other commands take flags only opening
 
-Opens the cycle: the Todo moved here and widened, the other commands' Todo filed, the version
-bumped.
+Opens the cycle: the Todo and its two folded entries moved here, the `agent-files` subcommands
+added, the version bumped.
 
-##### feat: push takes --revision and --bookmark
+##### feat: the read commands take -r and -n only
 
-`push`'s positional goes hidden and refused, `-r` names the commit and `--bookmark` the remote's
-name, a new name created tracked, and the refusal helper the other commands reuse.
+`chid`, `desc`, `list`, `show`, `validate-desc`, and `fix-desc` lose `[REVISION] [COMMITS]`, kept
+hidden and refused naming `-r` and `-n`, their flags already there.
 
-- `options_flags::retired_positional::refusal`, the one wording every retired positional gets: the
-  command, "the positional is retired, every argument is a flag", and the flag form with the value
-  in place, so the next two rungs and the other cycle share it.
-- `push`'s refusal names `--bookmark` when the value is a local bookmark in the repo `-R` names,
-  else `-r`, the lookup made in `to_params` and a failed one only losing the hint.
-- Two paths, split on whether REV is the work `@-` by commit id, so `-r @-`, `-r <its chid>`, and
-  `-r <its bookmark>` all take the pair's:
-  - The pair's path is unchanged but for `--bookmark` taking a new name, set at `@-` by the work
-    half's own `bookmark_set` and tracked by its push, the call the opening's bookmark uses.
-  - `publish_elsewhere`, which replaces `publish_name`, publishes a name alone: the one bookmark at
-    REV, or `--bookmark`'s, at REV or new. A bookmark elsewhere is refused naming `move-bookmark`,
-    since push moves a bookmark only along the pair's line.
-- `-s p` resolves its bookmark the pair's way, so a named bookmark off the line is refused there too,
-  where it was moved sideways before.
-- `-r` with `-s a` is refused, and `--bookmark` given a revision names `-r`.
-- The backlog's **vc-x1 push: rework the two bookmark parameters** retires, the two spellings gone.
-- `tests/cli_sync.rs` called `push -s w main`, and the full validation found it, the one CLI caller
-  of the old form.
+- `retired_positional::refuse_rev_count`, the pair's refusal, `-r X -n N` or either alone, beside
+  `refusal`, both through one wording. The hidden count is a `String`, so `list @ x` is told
+  `-r @ -n x` rather than clap's parse error.
+- `CommonArgs::refuse_retired`, called first in the four `to_params`, and `validate-desc` and
+  `fix-desc` call the pair's refusal themselves, their args being their own.
+- `common::resolve_spec` takes `-r` and `-n` alone, the flag-over-positional precedence gone with
+  the positionals, and its tests lose the two that tested that precedence and gain a named revision
+  with a count.
+- The README's "Positional shorthand" section is "Revision and count", its examples in the flag
+  form, and its other `list` and `fix-desc` examples follow.
+- `tests/cli_smoke.rs` called `chid @` five times, found by the full validation as the first
+  cycle's `cli_sync` call was, the `.arg("chid").arg("@")` spelling missing the search for the
+  array form. No agent-file and no support script calls a read command with a positional.
 
-##### feat: commit and squash-push take flags only
+##### feat: lookup takes -s and --line
 
-`commit`'s `[REV]` becomes `-r`, and `squash-push`'s `[BOOKMARK]` becomes `--bookmark`, each old
-positional refused by the helper.
+`lookup`'s `SCOPE FILE:LINE` positionals become `-s` and `--line`, the scope-then-target form gone.
 
-- `commit -r, --revision`: the field stays `rev`, so nothing past the parse changes, and its errors
-  say `-r` where they said `REV`. The refusal always names `-r`, the positional having been a
-  revision only.
-- `squash-push --bookmark`: the one flag, the positional having had no flag form, and the refusal
-  always names `--bookmark`.
-- Each refusal is made where the command builds its params, `CommitParams::try_from` and
-  `SquashPushArgs::to_params`, before any repo is touched.
-- No CLI test and no code called either with its positional. The README's examples and tables did,
-  and `support/fixtures/build-dr-1.py`'s `vc-x1 push {bookmark} --title` is left: it is a
-  transcript line the builder synthesizes as history, never run.
+- `--line FILE:LINE` is required unless the retired positionals were given, so a bare `lookup`
+  still gets clap's "required" error and an old invocation gets the refusal, `--line X` for one
+  word and `-s S --line X` for two. `-s` was already the side's flag form.
+- `parse_side` went with the positional scope it parsed, `-s`'s own parser being one side only, so
+  "SCOPE given twice" has nothing left to catch.
+- The completion test's two `lookup` cases complete `--line`'s value, which keeps the `FilePath`
+  hint, and the README, the help, and `notes/transcript-write.md`'s two statements of the form
+  name the flags.
 
-##### docs: the agent-files name the flags
+##### feat: the file commands take --file
 
-The invocations of the three in `AGENTS.md` and `agent-data/`, with the stale `vc-x1 push <bookmark>
---title` forms brought to what `commit` does now.
+`agent-session`, `validate-anchors`, `validate-todo`, and `fix-todo` take their file by `--file`,
+repeatable for `validate-anchors`.
 
-- Four invocations were stale, each failing as written: step 9's and `jj.md`'s vc-x1 push section's
-  `vc-x1 push <bookmark> --title`, push having lost `--title` to `commit`, and At rest's and that
-  section's `squash-push -R <agent-dir>`, `-s` being required. They became `vc-x1 commit -s b
-  --title --body`, `squash-push -s a`, and, for a push run that stopped between its halves, `push
-  -s w` or `-s a`.
-- The invocations alone: the rule prose, "a cycle rung is committed by `vc-x1 push`", is left to
-  **agent-files(proposal): v0.3.1**, whose Committing vs pushing rewrite says the same thing in
-  full. The proposal now records that this copy's invocations are current, and its `commit <REV>`
-  reads `commit -r REV`.
+- `agent-session --file` is required unless the retired positional was given, the one of the four
+  with no default, so a bare run gets clap's error and an old one the refusal.
+- `validate-anchors` refuses several retired files with `--file` before each, `--file A --file B`,
+  the form the flag repeats in.
+- `validate-todo` and `fix-todo` keep `TODO.md` as `--file`'s default.
+- The CLI tests passed the transcript by position thirty-four times, and `cli_smoke` passed
+  `TODO.md` twice, one of them a test that expects the version gate's refusal and would have
+  passed for the wrong reason. `cli_bot_session_positional_file_refused` is the CLI check of a
+  refusal.
 
-##### feat: push, commit, and squash-push take flags only closing
+##### feat: config and validate-config take -s and --file
+
+`[TARGET]` splits into `-s` for a side and `--file` for a config file's path.
+
+- `config_cmd::ConfigTargetArgs`, one bundle the two commands flatten: the retired positional,
+  `-s` with the `--scope` grammar, and `--file`, exclusive by clap, both sides when neither.
+- Its `target` refuses the retired word by reading it as the positional did, `parse_target`'s
+  keyword-first rule, so `config agent` names `-s agent`, a path names `--file`, and the old `bot`
+  keywords keep their own rejection. A file named `work` needed `./work` before, and `--file work`
+  now says it.
+- `config`'s params became fallible, `TryFrom` over `From`, for the refusal. `validate-config`
+  builds its params in `to_params`, the one field being the target.
+- The error messages and help that pointed at `vc-x1 config work`, in `build`, `install`, and the
+  command lists, say `config -s work`. The CLI tests, the completion cases, and the README's
+  examples and table follow.
+
+##### feat: agent-files diff, copy, and size take flags
+
+`diff` and `copy` take their two directories by flag, and `size` its one.
+
+- `diff` and `copy` share `diff::refuse_from_to`, one directory naming `--from` and two `--from A
+  --to B`, and `size` refuses its one naming `--dir`, each first in the function that reports its
+  errors, these subcommands having no `SubcommandRunner` params step.
+- The fields keep their names, `a`/`b` and `src`/`dst`, and the report keeps "only in A" and "only
+  in B", the README naming `A` as `--from` and `B` as `--to`.
+- `agent-data/versioning.md`'s adoption, a copy and a check, names `--from`: an agent-file, so the
+  closing records the size, and the docs rung tells **agent-files(proposal): v0.3.1**.
+
+##### feat: init, clone, and symlink take flags and --scope por
+
+`init`'s and `clone`'s target and name, and `symlink`'s target, become flags, and `init` and
+`clone` take `-s both|por`, `--por` refused naming it, with the account errors and stale help
+fixed.
+
+- `init --target URL|PATH|NAME --name NAME`, `clone --from URL|PATH --name NAME`, and `symlink
+  --target PATH`, each `--target`/`--from` required unless the retired positionals were given,
+  which `retired_positional::refuse_two` refuses, one word or two, and `agent-files diff` now
+  shares it.
+- `PorFlag` became the creation scope: `-s both|por`, both by default, and `--por` kept hidden as
+  `retired_por`, its field name kept apart from the command's `retired`, since clap's argument ids
+  must be unique across a flatten. `repo_scope_parser` only hides what it does not offer, so
+  `PorFlag::check` refuses `work` and `agent` alone, and `--por`, in each command's `to_params`.
+- The `From` conversions stay total, the tests building params from them, `is_por` reading the
+  scope and the target unwrapped behind clap's requirement and the refusal before it.
+- The dual-only and POR-only errors say `-s por`. The account errors add the URL target as the way
+  that needs no config, the user config's path, and the least `[account.<name>]` section.
+- Stale help: `init` and `clone` say "a dual workspace or a plain repo with -s por", `--config`
+  names `.vc-config.md`, and `--use-template` says `-s por`. The README's `clone` section lost a
+  `--dir` flag clone never had and its `git submodule` text, and its `init` section gained the
+  `-s por` URL example.
+- `support/fixtures/build-dr-1.py` runs `init` against the binary under test, so it names
+  `--target`, and the CLI tests and completion cases follow.
+
+##### feat: build, install, and run take --dev
+
+`build`, `install`, and `run` take `--dev` and `--release`, and the `-dev` commands are kept hidden
+and refused naming `--dev`.
+
+- `-d/--dev` on the three, each passing it where the `-dev` command passed `true`, so the build,
+  the binary, the install directory, the suffix, and the list are chosen as before. The `-dev`
+  commands keep their structs, hidden, so an old invocation parses, `install-dev --dir d` included,
+  and `build_cmd::retired_dev` refuses it naming `<command> --dev`.
+- Messages say `build --dev`, `install --dev`, and `run --dev`, the labels the `-dev` names were.
+- `run --dev` is given before the binary's arguments, and `run x --dev` passes `--dev` to the
+  binary. The completion forward learned `--dev` and `-d` as `run`'s own options, the dev build's
+  words offered after them, and no longer forwards `run-dev`, which clap refuses.
+- `--release` is deferred, wink's call at this rung (2026-10-27), to **install --dev --release
+  soaks a release candidate**: the `[install] dev` list names `{build.dev-bin}`, so a release
+  build under the dev name would copy the debug binary, and a profile-neutral placeholder is a
+  config design of its own.
+- The help, the README's build, install, and run sections, `vc-config.md`'s doc strings, and so
+  `vc-config-model.md`, the workspace's `.vc-config.md`, and `clippy.toml`'s spawn register name
+  `--dev`. The README's `install-dev` heading is `install --dev`, and `run and run-dev` is `run`.
+
+##### docs: the README states every argument is a flag
+
+The README's CLI section states the rule and its one exception, `run`'s trailing arguments, and the
+agent-files' `-dev` invocations are told to the v0.3.1 proposal.
+
+- The README's Usage gains "Every argument is a flag": the rule, its why, the shared names in a
+  table, `run`'s trailing arguments as the exception, and the refusal with an example, the `-dev`
+  commands and `--por` included. The Usage summary gains `build`, `install`, and `run`, which it
+  lacked.
+- `agent-data/hooks.sh`'s guard test named `install-dev`, now `install --dev`, the case still a deny
+  and `hooks.sh test` passing its thirteen. The set held no other old form, `versioning.md`'s
+  `agent-files` invocations having changed at their rung.
+- **agent-files(proposal): v0.3.1** records the second cycle's agent-file changes beside the first
+  cycle's.
+
+##### feat: the other commands take flags only closing
 
 Closing out the cycle.
 
 - Close-out shape: trapezoid, the default, recorded under the waiver, which leaves the choice to
   wink at the Land. `commit --closing` makes the merge of `main` and the ladder's tip, pushed
   without `--land`.
-- The agent-files changed, so `notes/agent-files-size.md` gained this cycle's column and row, 1855
-  lines, one more than the last.
-- `notes/README.md`'s per-rung flow names `vc-x1 commit`, as step 9 now does.
-- What closing taught: `tests/cli_sync.rs`'s `push -s w main`, the one CLI caller of an old
-  positional, was found only by the full validation, `--fast` running the binary's unit tests alone
-  and never `tests/`, so a rung that changes a command's arguments runs the full validation before
-  its review, as the `[validate]` config already says a rung's review does.
+- `notes/agent-files-size.md` gained this cycle's column and row, 1855 lines, unchanged.
+- What closing taught: a closing's bump is not in `Cargo.lock` until a build without `--locked`
+  runs, so an install at the closing before any validation fails with "cannot update the lock
+  file". The per-rung flow validates before review, after the bump, and the acceptance check's live
+  part came first here: validation first, then the live checks.
 
 # References
 
-[f0]: #feat-push-commit-and-squash-push-take-flags-only-opening
-[f1]: #feat-push-takes---revision-and---bookmark
-[f2]: #feat-commit-and-squash-push-take-flags-only
-[f3]: #docs-the-agent-files-name-the-flags
-[f4]: #feat-push-commit-and-squash-push-take-flags-only-closing
+[o0]: #feat-the-other-commands-take-flags-only-opening
+[o1]: #feat-the-read-commands-take--r-and--n-only
+[o2]: #feat-lookup-takes--s-and---line
+[o3]: #feat-the-file-commands-take---file
+[o4]: #feat-config-and-validate-config-take--s-and---file
+[o5]: #feat-agent-files-diff-copy-and-size-take-flags
+[o6]: #feat-init-clone-and-symlink-take-flags-and---scope-por
+[o7]: #feat-build-install-and-run-take---dev
+[o8]: #docs-the-readme-states-every-argument-is-a-flag
+[o9]: #feat-the-other-commands-take-flags-only-closing

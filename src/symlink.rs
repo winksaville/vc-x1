@@ -277,8 +277,12 @@ fn default_bot_target(project_dir: &Path) -> PathBuf {
 
 #[derive(Args, Debug)]
 pub struct SymlinkArgs {
+    /// Retired: the directory, now `--target`, refused naming it.
+    #[arg(value_name = "RETIRED", hide = true)]
+    pub retired: Option<String>,
+
     /// Directory to link to [default: from repos.agent, else .claude]
-    #[arg(value_name = "TARGET", value_hint = ValueHint::DirPath)]
+    #[arg(long, value_name = "PATH", value_hint = ValueHint::DirPath)]
     pub target: Option<String>,
 
     /// Directory for symlink [default: ~/.claude/projects]
@@ -329,6 +333,11 @@ impl SubcommandRunner for SymlinkArgs {
     /// Delegate to the existing `From<&SymlinkArgs>` impl above
     /// (total: never fails).
     fn to_params(&self) -> Result<Self::Params, String> {
+        if let Some(value) = &self.retired {
+            return Err(crate::options_flags::retired_positional::refusal(
+                "symlink", value, "--target",
+            ));
+        }
         Ok(SymlinkParams::from(self))
     }
 

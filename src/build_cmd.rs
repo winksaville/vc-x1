@@ -1,10 +1,9 @@
-//! The `build` and `build-dev` subcommands: build the workspace's
-//! release or its dev build, each by its configured command list. A
-//! command per build, named with the `-dev` suffix as `run` and
-//! `run-dev` are, so each names the build it makes and no dropped flag
-//! makes the other. Neither touches the PATH: that is
-//! `vc-x1 install`'s and `vc-x1 install-dev`'s, which copy the builds
-//! there.
+//! The `build` subcommand: build the workspace's release, or with
+//! `--dev` its dev build, each by its configured command list. The
+//! dev build was `build-dev`, a command of its own, until every
+//! variant became a flag, and `build-dev` is kept hidden to be
+//! refused naming `build --dev`. Neither build touches the PATH: that
+//! is `vc-x1 install`'s, which copies them there.
 //!
 //! - `vc-x1 build` runs `[build] release`, here
 //!   `cargo build --release --locked`, and checks it left its binary
@@ -13,8 +12,8 @@
 //!   release build is run by `vc-x1 run` and copied by
 //!   `vc-x1 install`, which runs this same build first, through
 //!   [`build_params`] and [`build`].
-//! - `vc-x1 build-dev` runs `[build] dev`, the dev build, which
-//!   `vc-x1 install-dev` runs first and copies.
+//! - `vc-x1 build --dev` runs `[build] dev`, the dev build, which
+//!   `vc-x1 install --dev` runs first and copies.
 //! - Where a build leaves its binary is the config's to say,
 //!   `release-bin` and `dev-bin`: vc-x1 never works it out from cargo
 //!   or the package's name.
@@ -31,8 +30,8 @@
 //!   rebuilding only what changed, so vc-x1 runs the list every time.
 //! - The lists are run by [`crate::command_list`], as `validate`'s
 //!   are.
-//! - `--dry-run` prints the list and runs nothing, as `run` and
-//!   `run-dev` print the build they would run first.
+//! - `--dry-run` prints the list and runs nothing, as `run` prints
+//!   the build it would run first.
 
 use std::path::{Path, PathBuf};
 
@@ -51,9 +50,13 @@ pub const BUILD_COMMIT_VAR: &str = "VC_X1_BUILD_COMMIT";
 /// compiled, `clean` or `dirty`.
 pub const BUILD_STATE_VAR: &str = "VC_X1_BUILD_STATE";
 
-/// Build the release.
+/// Build the release, or with `--dev` the dev build.
 #[derive(Args, Debug)]
 pub struct BuildArgs {
+    /// Build the dev build, `[build] dev`, instead of the release
+    #[arg(short = 'd', long)]
+    pub dev: bool,
+
     #[command(flatten)]
     pub dry_run: DryRunFlag,
 
@@ -63,7 +66,8 @@ pub struct BuildArgs {
     pub repo: Option<PathBuf>,
 }
 
-/// Build the dev build.
+/// Retired: `build-dev`, now `build --dev`, refused naming it. Its
+/// flags are kept so an old invocation parses and is told the fix.
 #[derive(Args, Debug)]
 pub struct BuildDevArgs {
     #[command(flatten)]
@@ -136,7 +140,7 @@ pub fn build_env(provenance: Option<&Provenance>) -> Vec<(&'static str, &str)> {
 /// provenance, and the binary a release leaves.
 #[derive(Debug)]
 pub struct BuildParams {
-    /// `build` or `build-dev`, prefixing the run's messages.
+    /// `build` or `build --dev`, prefixing the run's messages.
     pub label: &'static str,
     /// `build.release` or `build.dev`.
     pub key: &'static str,
@@ -157,9 +161,9 @@ pub struct BuildParams {
 impl TryFrom<&BuildArgs> for BuildParams {
     type Error = String;
 
-    /// The release: see [`build_params`].
+    /// The release, or the dev build with `--dev`: see [`build_params`].
     fn try_from(a: &BuildArgs) -> Result<Self, String> {
-        let mut params = build_params(false, a.repo.as_deref())?;
+        let mut params = build_params(a.dev, a.repo.as_deref())?;
         params.dry_run = a.dry_run.value;
         Ok(params)
     }
@@ -168,12 +172,18 @@ impl TryFrom<&BuildArgs> for BuildParams {
 impl TryFrom<&BuildDevArgs> for BuildParams {
     type Error = String;
 
-    /// The dev build: see [`build_params`].
-    fn try_from(a: &BuildDevArgs) -> Result<Self, String> {
-        let mut params = build_params(true, a.repo.as_deref())?;
-        params.dry_run = a.dry_run.value;
-        Ok(params)
+    /// Refused: `build-dev` is `build --dev`.
+    fn try_from(_: &BuildDevArgs) -> Result<Self, String> {
+        Err(retired_dev("build"))
     }
+}
+
+/// The refusal for a retired `<command>-dev`, naming `<command> --dev`.
+pub fn retired_dev(command: &str) -> String {
+    format!(
+        "{command}-dev: the -dev commands are retired, the dev build is a flag: \
+         `{command} --dev`"
+    )
 }
 
 /// Resolve the workspace root (from `-R` or the cwd), take the chosen
@@ -182,7 +192,7 @@ impl TryFrom<&BuildDevArgs> for BuildParams {
 /// the dev build's provenance is best effort.
 pub fn build_params(dev: bool, repo: Option<&Path>) -> Result<BuildParams, String> {
     let (label, key) = if dev {
-        ("build-dev", "build.dev")
+        ("build --dev", "build.dev")
     } else {
         ("build", "build.release")
     };
@@ -239,7 +249,7 @@ fn bin_at(root: &Path, key: &str, what: &str) -> Result<PathBuf, String> {
         .ok_or_else(|| format!("build: no config in '{}'", root.display()))?;
     let value = crate::toml_simple::toml_get(&cfg.map, key).ok_or_else(|| {
         format!(
-            "build: {}: no `{key}`, {what} (see `vc-x1 config work`)",
+            "build: {}: no `{key}`, {what} (see `vc-x1 config -s work`)",
             cfg.path.display()
         )
     })?;
@@ -381,11 +391,12 @@ mod tests {
             parse(&["vc-x1", "build", "-R", "x"]).repo,
             Some(PathBuf::from("x"))
         );
-        assert_eq!(
-            parse_dev(&["vc-x1", "build-dev", "-R", "x"]).repo,
-            Some(PathBuf::from("x"))
-        );
-        assert!(Cli::try_parse_from(["vc-x1", "build", "--dev"]).is_err());
+        assert!(parse(&["vc-x1", "build", "--dev"]).dev);
+        assert!(parse(&["vc-x1", "build", "-d"]).dev);
+        assert!(!parse(&["vc-x1", "build"]).dev);
+        let err =
+            BuildParams::try_from(&parse_dev(&["vc-x1", "build-dev", "-R", "x"])).unwrap_err();
+        assert!(err.ends_with("`build --dev`"), "{err}");
     }
 
     /// The variables carry the commit and the state's word, and none
@@ -468,7 +479,7 @@ mod tests {
         );
         build(&params).unwrap();
         let dev = BuildParams {
-            label: "build-dev",
+            label: "build --dev",
             key: "build.dev",
             commands: vec!["sh check.sh".to_string()],
             root: root.clone(),
@@ -526,7 +537,7 @@ mod tests {
             "build takes --dry-run"
         );
         assert!(
-            parse_dev(&["vc-x1", "build-dev", "--dry-run"])
+            parse(&["vc-x1", "build", "--dev", "--dry-run"])
                 .dry_run
                 .value
         );
@@ -538,7 +549,7 @@ mod tests {
     fn dev_runs_its_list() {
         let root = workspace("dev", "");
         let params = BuildParams {
-            label: "build-dev",
+            label: "build --dev",
             key: "build.dev",
             commands: vec!["touch dev-ran".to_string()],
             root: root.clone(),

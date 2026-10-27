@@ -665,8 +665,6 @@ mod tests {
         );
 
         let check = crate::validate_desc::ValidateDescParams {
-            pos_rev: None,
-            pos_count: None,
             revision: "@-".to_string(),
             limit: None,
             repos: vec![

@@ -97,6 +97,7 @@ impl SubcommandRunner for ShowArgs {
 
     /// Delegate to the existing `TryFrom<&ShowArgs>` impl above.
     fn to_params(&self) -> Result<Self::Params, String> {
+        self.common.refuse_retired("show")?;
         ShowParams::try_from(self)
     }
 
@@ -430,8 +431,8 @@ mod tests {
         assert_eq!(args.common.repo, None);
         assert_eq!(args.common.scope, None);
         assert_eq!(args.files, "50");
-        assert_eq!(args.common.pos_rev, None);
-        assert_eq!(args.common.pos_count, None);
+        assert_eq!(args.common.retired_rev, None);
+        assert_eq!(args.common.retired_count, None);
         assert_eq!(args.common.limit, None);
     }
 
@@ -454,18 +455,14 @@ mod tests {
         assert_eq!(args.common.scope, Some(Scope(vec![Side::Work])));
     }
 
+    /// The retired positional parses, hidden, and `to_params` refuses
+    /// it naming `-r`.
     #[test]
-    fn positional_rev() {
+    fn positional_rev_refused() {
+        use crate::subcommand::SubcommandRunner;
         let args = parse(&["vc-x1", "show", "@-"]);
-        assert_eq!(args.common.pos_rev, Some("@-".to_string()));
-        assert_eq!(args.common.pos_count, None);
-    }
-
-    #[test]
-    fn positional_rev_and_count() {
-        let args = parse(&["vc-x1", "show", "@..", "3"]);
-        assert_eq!(args.common.pos_rev, Some("@..".to_string()));
-        assert_eq!(args.common.pos_count, Some(3));
+        let err = args.to_params().expect_err("refused");
+        assert!(err.ends_with("`-r @-`"), "{err}");
     }
 
     #[test]

@@ -20,10 +20,10 @@ first time it was put plainly). Two lookups, one structure:
   diff of the work commits the same push made, narrowed to one file when the line is a transcript
   write and the whole diff when it is discussion.
 
-The command is one, `vc-x1 lookup [SCOPE] FILE:LINE`: `SCOPE` is the side the line is on, `work`
-or `agent` as `status` spells them, inferred from the path when omitted, and the output is the
-window on the other side. `FILE:LINE` is the form editors, compilers, and grep print, so a line
-can be pasted from any of them.
+The command is one, `vc-x1 lookup [-s SCOPE] --line FILE:LINE`: `SCOPE` is the side the line is
+on, `work` or `agent` as `status` spells them, inferred from the path when omitted, and the output
+is the window on the other side. `FILE:LINE` is the form editors, compilers, and grep print, so a
+line can be pasted from any of them.
 
 Whether every line resolves is what the probes test, and the stash pattern is the known hole in
 both directions, with a text search across history, jj's `diff_lines()`, the known patch.
@@ -94,10 +94,10 @@ three cycles). Without it a lookup degrades from an answer to a list of candidat
 
 ## What the lookup command needs
 
-`vc-x1 lookup [SCOPE] FILE:LINE`, the requirements the probes settled (2026-09-03). This section is
-their one home, and the `## Todo` entry points here rather than restating them. The split below is
-also the build's: jj-lib serves the version-control half of both directions, and the transcript
-half is ours to write.
+`vc-x1 lookup [-s SCOPE] --line FILE:LINE`, the requirements the probes settled (2026-09-03). This
+section is their one home, and the `## Todo` entry points here rather than restating them. The
+split below is also the build's: jj-lib serves the version-control half of both directions, and
+the transcript half is ours to write.
 
 - jj-lib, not the `jj` binary (wink, 2026-09-03). vc-x1 links jj-lib already, and the [jj version
   coupling policy](jj-version-policy.md) is what makes that safe. Shelling out is reserved for

@@ -452,32 +452,32 @@ example = "target/release/vc-x1"
 
 The dev build: the commands that build a cycle's binary, same shape as
 [build.release](#buildrelease), leaving it off the PATH, `target/debug` for a plain `cargo build`,
-so nothing on the PATH is replaced while the cycle runs. `vc-x1 build-dev` runs it, and
-`vc-x1 run-dev` and `vc-x1 install-dev` run it first, so what runs is always the current code.
+so nothing on the PATH is replaced while the cycle runs. `vc-x1 build --dev` runs it, and
+`vc-x1 run --dev` and `vc-x1 install --dev` run it first, so what runs is always the current code.
 
 ```toml
 [build.dev]
 homes = ["workspace-code"]
 kind = "str-list"
-doc = "The dev build, in order, one invocation per element, run by `vc-x1 build-dev`"
-used-by = "vc-x1 build-dev, vc-x1 run-dev, and vc-x1 install-dev"
+doc = "The dev build, in order, one invocation per element, run by `vc-x1 build --dev`"
+used-by = "vc-x1 build --dev, vc-x1 run --dev, and vc-x1 install --dev"
 example = ["cargo build --locked"]
 ```
 
 ## build.dev-bin
 
 The binary the dev build leaves, relative to the config file's directory, stated in the config as
-[build.release-bin](#buildrelease-bin) is. `vc-x1 run-dev` runs it with the arguments given, after
-the dev build, and warns when its `-V` is not the manifest's version. `vc-x1 install-dev` copies it
-into [install.dev-dir](#installdev-dir) with [install.dev-suffix](#installdev-suffix) appended to
-its file name, after the dev build.
+[build.release-bin](#buildrelease-bin) is. `vc-x1 run --dev` runs it with the arguments given,
+after the dev build, and warns when its `-V` is not the manifest's version. `vc-x1 install --dev`
+copies it into [install.dev-dir](#installdev-dir) with [install.dev-suffix](#installdev-suffix)
+appended to its file name, after the dev build.
 
 ```toml
 [build.dev-bin]
 homes = ["workspace-code"]
 kind = "str"
-doc = "The dev build's binary, run by `vc-x1 run-dev` and copied by `vc-x1 install-dev`"
-used-by = "vc-x1 run-dev, vc-x1 install-dev"
+doc = "The dev build's binary, run by `vc-x1 run --dev` and copied by `vc-x1 install --dev`"
+used-by = "vc-x1 run --dev, vc-x1 install --dev"
 example = "target/debug/vc-x1"
 ```
 
@@ -528,7 +528,7 @@ example = "~/.cargo/bin"
 ## install.dev
 
 The dev install, optional: [install.release](#installrelease) for the dev build, run by
-`vc-x1 install-dev` in place of its built-in copy, its placeholders `{build.dev-bin}`,
+`vc-x1 install --dev` in place of its built-in copy, its placeholders `{build.dev-bin}`,
 [`{install.dev-dir}`](#installdev-dir), and [`{install.dev-suffix}`](#installdev-suffix). With a
 list the dev name is the list's to write, as the example does with `{install.dev-suffix}`: the
 built-in copy adds the suffix, and a list that leaves it off writes the release's name, which in a
@@ -540,36 +540,36 @@ it deploys the artifact.
 [install.dev]
 homes = ["workspace-code"]
 kind = "str-list"
-doc = "Optional, the dev install run by `vc-x1 install-dev` in place of its own copy"
-used-by = "vc-x1 install-dev"
+doc = "Optional, the dev install run by `vc-x1 install --dev` in place of its own copy"
+used-by = "vc-x1 install --dev"
 example = ["cp {build.dev-bin} {install.dev-dir}/vc-x1{install.dev-suffix}.new", "mv {install.dev-dir}/vc-x1{install.dev-suffix}.new {install.dev-dir}/vc-x1{install.dev-suffix}"]
 ```
 
 ## install.dev-dir
 
-The one directory `vc-x1 install-dev` copies the dev build into, as the file name
+The one directory `vc-x1 install --dev` copies the dev build into, as the file name
 [build.dev-bin](#builddev-bin) gives it with [install.dev-suffix](#installdev-suffix) appended, so
 it may be the release's own directory, [install.release-dir](#installrelease-dir), and the dev
 build sits beside the release there without replacing it. Expanded as `install.release-dir` is. A
-workspace without the key has no dev build to install, and `vc-x1 install-dev` says so. `--dir`
+workspace without the key has no dev build to install, and `vc-x1 install --dev` says so. `--dir`
 replaces it for one run. Owned by the work side because it deploys the artifact.
 
 ```toml
 [install.dev-dir]
 homes = ["workspace-code"]
 kind = "str"
-doc = "Where `vc-x1 install-dev` copies the dev build, `~` expanded"
-used-by = "vc-x1 install-dev"
+doc = "Where `vc-x1 install --dev` copies the dev build, `~` expanded"
+used-by = "vc-x1 install --dev"
 example = "~/.cargo/bin"
 ```
 
 ## install.dev-suffix
 
-What `vc-x1 install-dev` appends to the dev build's file name in
-[install.dev-dir](#installdev-dir), `-dev` when absent, so `vc-x1` installs as `vc-x1-dev`, the
-`-dev` of `build-dev` and `run-dev`, and the dev build sits beside the release on the PATH. The
+What `vc-x1 install --dev` appends to the dev build's file name in
+[install.dev-dir](#installdev-dir), `-dev` when absent, so `vc-x1` installs as `vc-x1-dev`, named
+for the `--dev` that builds it, and the dev build sits beside the release on the PATH. The
 built-in copy uses it, and the [install.dev](#installdev) list takes it as
-`{install.dev-suffix}`. It may be empty, and then `install-dev` refuses before the build when the
+`{install.dev-suffix}`. It may be empty, and then `install --dev` refuses before the build when the
 built-in copy's destination would be the release's, [install.release-dir](#installrelease-dir)
 and the release's file name, since that copy would replace the release. A list writes where it
 says, so the refusal does not reach one. Owned by the work side because it names the artifact.
@@ -578,8 +578,8 @@ says, so the refusal does not reach one. Owned by the work side because it names
 [install.dev-suffix]
 homes = ["workspace-code"]
 kind = "str"
-doc = "Appended to the dev build's file name by `vc-x1 install-dev`"
-used-by = "vc-x1 install-dev"
+doc = "Appended to the dev build's file name by `vc-x1 install --dev`"
+used-by = "vc-x1 install --dev"
 default = "-dev"
 ```
 

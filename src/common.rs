@@ -76,32 +76,14 @@ pub fn parse_dot_rev(rev: &str) -> DotSpec {
     }
 }
 
-/// Resolve positional and flag args into a `DotSpec` ready for `collect_ids`.
+/// Resolve `-r` and `-n` into a `DotSpec` ready for `collect_ids`.
 ///
-/// Handles: dot notation parsing, flag vs positional precedence,
-/// count-means-total semantics (subtracts 1 for anchor).
-pub fn resolve_spec(
-    pos_rev: Option<&str>,
-    pos_count: Option<usize>,
-    flag_rev: &str,
-    flag_limit: Option<usize>,
-    default_rev: &str,
-) -> DotSpec {
-    let flag_rev_set = flag_rev != default_rev;
-    let rev_str = if flag_rev_set {
-        flag_rev
-    } else {
-        pos_rev.unwrap_or(default_rev) // OK: positional absent -> fall back to CLI default
-    };
-    let mut spec = parse_dot_rev(rev_str);
+/// Handles: dot notation parsing and count-means-total semantics
+/// (subtracts 1 for anchor).
+pub fn resolve_spec(rev: &str, limit: Option<usize>) -> DotSpec {
+    let mut spec = parse_dot_rev(rev);
 
-    let count = if flag_limit.is_some() {
-        flag_limit
-    } else {
-        pos_count
-    };
-
-    if let Some(c) = count {
+    if let Some(c) = limit {
         let n = c.saturating_sub(1);
         let both_open = spec.desc_count.is_none() && spec.anc_count.is_none();
         if both_open {
@@ -1273,7 +1255,7 @@ impl TryFrom<&CommonArgs> for CommonParams {
     /// binary edge. Fallible because `resolve_repos` can fail
     /// (workspace lookup, path issues).
     fn try_from(a: &CommonArgs) -> Result<Self, String> {
-        let spec = resolve_spec(a.pos_rev.as_deref(), a.pos_count, &a.revision, a.limit, "@");
+        let spec = resolve_spec(&a.revision, a.limit);
         let header = resolve_header(&a.label, a.no_label);
         let repos = a.resolve_repos().map_err(|e| e.to_string())?;
         Ok(CommonParams {

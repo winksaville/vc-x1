@@ -37,9 +37,13 @@ const GIST_CHAR_CAP: usize = 100;
 /// Clap-derived args for `agent-session`.
 #[derive(Args, Debug)]
 pub struct BotSessionArgs {
+    /// Retired: the file, now `--file`, refused naming it.
+    #[arg(value_name = "RETIRED", hide = true)]
+    pub retired: Option<String>,
+
     /// Session transcript .jsonl file to display
-    #[arg(value_name = "FILE")]
-    pub file: PathBuf,
+    #[arg(long, value_name = "PATH", required_unless_present = "retired")]
+    pub file: Option<PathBuf>,
 
     /// List the trailing summary line [default: on]
     #[arg(
@@ -383,14 +387,25 @@ impl TryFrom<&BotSessionArgs> for BotSessionParams {
     type Error = String;
 
     /// Convert clap-derived `BotSessionArgs` into the flat
-    /// `BotSessionParams`, and fails on a malformed `--lines` spec.
+    /// `BotSessionParams`, and fails on the retired positional, a
+    /// missing `--file`, or a malformed `--lines` spec.
     fn try_from(a: &BotSessionArgs) -> Result<Self, String> {
+        if let Some(value) = &a.retired {
+            return Err(crate::options_flags::retired_positional::refusal(
+                "agent-session",
+                value,
+                "--file",
+            ));
+        }
+        let Some(file) = &a.file else {
+            return Err("agent-session: --file PATH names the transcript to display".into());
+        };
         let lines = match &a.lines {
             Some(s) => Some(parse_lines_spec(s)?),
             None => None,
         };
         Ok(Self {
-            file: a.file.clone(),
+            file: file.clone(),
             toggles: ItemToggles {
                 all: a.all,
                 none: a.none,

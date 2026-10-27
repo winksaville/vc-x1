@@ -29,7 +29,12 @@ use crate::url::{Target, derive_name, parse_target};
 /// CLI args for `vc-x1 init`.
 #[derive(Args, Debug)]
 pub struct InitArgs {
-    /// Target: URL, path, or bare NAME.
+    /// Retired: `TARGET [NAME]`, now `--target` and `--name`, refused
+    /// naming them.
+    #[arg(value_name = "RETIRED", hide = true, num_args = 0..=2)]
+    pub retired: Vec<String>,
+
+    /// What to create: URL, path, or bare NAME.
     ///
     /// - URL: `git@host:owner/name(.git)?`, `https://...(.git)?`,
     ///   used as-is, config not consulted.
@@ -41,8 +46,14 @@ pub struct InitArgs {
     /// A slashed target with no path prefix (`owner/name`) is
     /// refused: it reads equally as a path and as the retired
     /// owner/name shorthand, so pass `./owner/name` or a URL.
-    #[arg(value_name = "TARGET", value_hint = ValueHint::AnyPath, verbatim_doc_comment)]
-    pub target: String,
+    #[arg(
+        long = "target",
+        value_name = "URL|PATH|NAME",
+        value_hint = ValueHint::AnyPath,
+        required_unless_present = "retired",
+        verbatim_doc_comment
+    )]
+    pub target: Option<String>,
 
     /// Repo directory name override (URL form only).
     ///
@@ -50,7 +61,7 @@ pub struct InitArgs {
     ///   URL-derived name.
     /// - Path / bare-NAME forms: error if given (TARGET already
     ///   names the repo).
-    #[arg(value_name = "NAME", verbatim_doc_comment)]
+    #[arg(long = "name", value_name = "NAME", verbatim_doc_comment)]
     pub name: Option<String>,
 
     /// `--account`: flatten of the shared [`AccountOption`] leaf.
@@ -65,9 +76,9 @@ pub struct InitArgs {
     #[command(flatten)]
     pub repo: RepoOption,
 
-    /// `--por`: flatten of the shared [`PorFlag`] leaf. Absent
-    /// (default) -> dual workspace (work + `.agent-session/` agent
-    /// repo), present -> plain single repo.
+    /// `-s/--scope both|por`: flatten of the shared [`PorFlag`]
+    /// leaf. `both` (default) -> dual workspace (work +
+    /// `.agent-session/` agent repo), `por` -> plain single repo.
     #[command(flatten)]
     pub por: PorFlag,
 
@@ -83,7 +94,7 @@ pub struct InitArgs {
     pub use_template: UseTemplateOption,
 
     /// `--config none|<path>`: flatten of the shared
-    /// [`ConfigOption`] leaf. Only meaningful with `--por`,
+    /// [`ConfigOption`] leaf. Only meaningful with `-s por`,
     /// rejected at preflight when paired with the default dual
     /// shape. `.gitignore` is always written regardless of
     /// `--config`.
@@ -961,7 +972,7 @@ pub(crate) fn plan_init(
         && t.contains(',')
     {
         return Err(format!(
-            "--por takes a single template path; got '{t}' (drop the `,BOT` half)"
+            "-s por takes a single template path; got '{t}' (drop the `,BOT` half)"
         )
         .into());
     }
@@ -976,7 +987,7 @@ pub(crate) fn plan_init(
 
     if params.config.is_some() && !params.por {
         return Err(
-            "--config is only valid with --por (dual configs are per-side and unconditional)"
+            "--config is only valid with -s por (dual configs are per-side and unconditional)"
                 .into(),
         );
     }
@@ -995,7 +1006,7 @@ pub(crate) fn plan_init(
         ] {
             if set {
                 return Err(
-                    format!("{flag} is meaningless with --por (there is no agent repo)").into(),
+                    format!("{flag} is meaningless with -s por (there is no agent repo)").into(),
                 );
             }
         }
@@ -1373,9 +1384,16 @@ fn github_slug_from_url(url: &str) -> Result<String, Box<dyn std::error::Error>>
 impl SubcommandRunner for InitArgs {
     type Params = InitParams;
 
-    /// Delegate to the existing `From<&InitArgs>` impl in
-    /// [`crate::init::params`] (total: never fails).
+    /// Refuse the retired positionals and `--por`, else delegate to
+    /// the `From<&InitArgs>` impl in [`crate::init::params`].
     fn to_params(&self) -> Result<Self::Params, String> {
+        crate::options_flags::retired_positional::refuse_two(
+            "init",
+            &self.retired,
+            "--target",
+            "--name",
+        )?;
+        self.por.check("init")?;
         Ok(InitParams::from(self))
     }
 
@@ -1560,7 +1578,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     }
 }
 
-/// Create-from-empty orchestrator for `--por` (single repo).
+/// Create-from-empty orchestrator for `-s por` (single repo).
 ///
 /// Composes (in order):
 /// - `prepare_local_repo` -> conditional `.vc-config.md` write

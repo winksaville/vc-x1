@@ -61,74 +61,6 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### feat: the other commands take flags only
-
-(wink + agent, 2026-10-27) Split from **feat: push, commit, and squash-push take flags only** at its
-planning. Every argument is a flag, the command names aside, and that cycle does the three commands
-that publish. This one does the rest, each old positional kept hidden and refused with the flag
-that replaces it, as there.
-
-- `chid`, `desc`, `list`, `show`, `validate-desc`, `fix-desc`: `[REVISION] [COMMITS]` go, since
-  `-r, --revision` and `-n, --commits` are there already.
-- `lookup`: `-s` for the side, which [Scope is a flag on every command, and push resolves its own
-  bookmarks](#scope-is-a-flag-on-every-command-and-push-resolves-its-own-bookmarks) already asks
-  for, and `--line FILE:LINE`.
-- `agent-session`: `--file PATH`. `validate-anchors`: `--file PATH`, repeatable. `validate-todo`
-  and `fix-todo`: `--file PATH`, `TODO.md` by default.
-- `validate-config` and `config`: `[TARGET]`, `work,agent` by default, reads as a scope, so `-s`,
-  settled at its rung.
-- `clone` and `init`: `<TARGET> [NAME]`, the flags named at their rung, `--from` and `--name` the
-  first guess, and `--por` becomes `-s por`, as **init and clone take --scope por** below has it,
-  folded in at the first cycle's opening (wink, 2026-10-27).
-- `symlink`: `--target PATH`.
-- `run` keeps its trailing arguments, which are the built binary's, not vc-x1's.
-- The README's CLI section states the rule once it holds for every command.
-- `build-dev`, `install-dev`, and `run-dev` become `build`, `install`, and `run` with `--dev`, the
-  `-dev` commands kept hidden and refused with the new spelling, as below, folded in at the first
-  cycle's opening (wink, 2026-10-27).
-
-#### build, install, and run take --dev
-
-(wink + agent, 2026-10-26) `build-dev`, `install-dev`, and `run-dev` are `build`, `install`, and
-`run` with the dev build, each's help saying so, and a suffix reads as a command of its own, so
-`land-dev` seemed a two-step Land. Found at **feat: vc-x1 land**.
-
-- `build`, `install`, and `run` take `-d/--dev`, the config's `release`/`dev` pairs (`[build]
-  release`/`dev`, `release-bin`/`dev-bin`, `[install] release-dir`/`dev-dir`) chosen by it.
-- `-d` is free here, `--dry-run` having no short and `-n` being `--commits`. `-n`, not `-d`, is
-  the common short for a dry run.
-- `run --dev` takes the flag before the binary's arguments, tested, since `run` passes what
-  follows through.
-- The name and the profile split: `--dev` names the binary `<name>-dev` and `--release` builds the
-  release profile, `--dev` alone the debug build as `install-dev` is now. `install --dev --release`
-  is a release candidate's soak, the binary that ships installed beside the landed one for a
-  period of use, the plain name left to what is on `main` (wink + agent, 2026-10-26). The config
-  splits the same way: `[build]`'s `release`/`dev` and `release-bin`/`dev-bin` are the profile's,
-  `[install]`'s `release-dir`/`dev-dir` and `dev-suffix` the name's.
-- Weighed against it: `install --dir DIR`, which already installs the release build under the
-  plain name off the PATH, is a soak when DIR lasts and leads the PATH of the shell it is tried
-  from, as **feat: vc-x1 land**'s closing used it.
-- The `-dev` commands stay as hidden ones erroring with the new spelling, as `bot` names `agent`.
-- The README, `clippy.toml`'s spawn register entry 7, the completion tests, and the agent-files'
-  `install-dev`, the last an `agent-files` proposal.
-
-#### init and clone take --scope por
-
-(wink + agent, 2026-10-26) `init` and `clone` alone spell the single-repo form `--por`, where the
-write commands spell it `-s p|por`, and creating a POR from the docs took four tries:
-`init --por <name>` stops on "no account specified", `--account` is read as a GitHub owner when it
-names an `[account.<name>]` section, and only the URL target, which needs no config, works.
-
-- `init` and `clone` take `-s/--scope`, `both` by default and `por`, `work` and `agent` refused,
-  and `--por` errors naming `--scope por`. The dual-only and POR-only checks (`--config`,
-  `--agent-dir`, `--agent-repo`, `--agent-suffix`, `--use-template`'s `,BOT`) move to the scope.
-- The no-account and unknown-account errors name the URL target as the way that needs no config,
-  the user config's path, and a minimal `[account.<name>]` section.
-- Stale help fixed: init's "Create a new dual-repo project" and `--por`'s "`.claude/` companion",
-  `--use-template`'s `--scope=por` (true once this lands), and `--config`'s `.vc-config.toml`.
-- README: a `--scope por` URL example under init, a scope row in clone's table, and clone's
-  `.claude` / `git submodule` text brought up to date.
-
 ### squash takes paths
 
 (wink + agent, 2026-10-24) `squash -s w` folds all of the work `@` into `@-`, so folding one file's
@@ -313,6 +245,10 @@ description is not rewritten while the work still moves.
   -s a`, and `jj.md`'s vc-x1 push section's opening were brought current in this copy by **feat:
   push, commit, and squash-push take flags only**, the invocations alone, the Committing vs pushing
   rewrite still this proposal's.
+- The rest of the commands too, by **feat: the other commands take flags only**: `versioning.md`'s
+  adoption names `agent-files copy --from` and `diff --from`, and `hooks.sh`'s guard test names
+  `install --dev`, `build-dev`, `install-dev`, and `run-dev` being `build`, `install`, and `run`
+  with `--dev` now. A rule that says `install-dev` says `install --dev`.
 
 ##### Why: the scope flags
 
@@ -2557,6 +2493,21 @@ land**.
 - The agent-repo stays each contributor's own, never in the pull request, so a trailer in upstream
   may point where a reader cannot follow, and the pull request's record stands alone.
 - lookup's half of this is in `## Waiting`: **lookup matches a line to its write by content**.
+
+### install --dev --release soaks a release candidate
+
+(wink + agent, 2026-10-27) Deferred from **feat: build, install, and run take --dev**, in the cycle
+**feat: the other commands take flags only**, wink's call. `--dev` names the binary `<name>-dev`
+and chooses the dev build, one flag for both, so a release build cannot be installed under the dev
+name for a period of use beside the landed one.
+
+- `--release` would choose the release profile and `--dev` the name, so `install --dev --release`
+  installs the release build as `vc-x1-dev`.
+- The obstacle is the config: `[install] dev` names its binary `{build.dev-bin}`, so with the dev
+  list and the release build the list would copy the debug binary. A profile-neutral placeholder,
+  `{build.bin}` resolved by `--release`, is the first guess, and this workspace's lists move to it.
+- Meanwhile `install --dir DIR` installs the release under its plain name off the PATH, a soak when
+  DIR lasts and leads the PATH of the shell it is tried from.
 
 ### feat: vc-x1 repairs and reshapes without jj
 

@@ -150,8 +150,6 @@ fn push_completes_a_pair_made_in_two_steps() {
     assert_eq!(cid(&fx.bot, "main@origin"), cid(&fx.bot, "main"));
 
     let check = crate::validate_desc::ValidateDescParams {
-        pos_rev: None,
-        pos_count: None,
         revision: "main".to_string(),
         limit: None,
         repos: vec![

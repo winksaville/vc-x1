@@ -99,7 +99,7 @@ install() {
 guard_cases() {
   cat <<'EOF'
 deny|false; echo rc=$?
-deny|vc-x1-dev install-dev 2>&1 | tail -4; echo rc=${PIPESTATUS[0]}
+deny|vc-x1-dev install --dev 2>&1 | tail -4; echo rc=${PIPESTATUS[0]}
 deny|cargo test 2>&1 | tail -3
 deny|cargo test | tail -3; exit ${PIPESTATUS[0]}
 deny|cd /home/me/vc-x1; vc-x1 validate | grep FAILED

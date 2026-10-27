@@ -33,9 +33,14 @@ use crate::subcommand::SubcommandRunner;
 /// Clap-derived args for `validate-anchors`.
 #[derive(Args, Debug)]
 pub struct ValidateAnchorsArgs {
-    /// Markdown files to check. Default: every tracked `.md` in
-    /// the workspace, excluding the agent repo and build output.
-    #[arg(value_name = "FILE")]
+    /// Retired: the files, now `--file` each, refused naming it.
+    #[arg(value_name = "RETIRED", hide = true)]
+    pub retired: Vec<String>,
+
+    /// A markdown file to check, repeatable. Default: every tracked
+    /// `.md` in the workspace, excluding the agent repo and build
+    /// output.
+    #[arg(long = "file", value_name = "PATH")]
     pub files: Vec<PathBuf>,
 }
 
@@ -56,8 +61,16 @@ impl From<&ValidateAnchorsArgs> for ValidateAnchorsParams {
 impl SubcommandRunner for ValidateAnchorsArgs {
     type Params = ValidateAnchorsParams;
 
-    /// Delegate to the `From<&ValidateAnchorsArgs>` impl (total).
+    /// Refuse the retired positionals, naming `--file` once per file,
+    /// else delegate to the `From<&ValidateAnchorsArgs>` impl.
     fn to_params(&self) -> Result<Self::Params, String> {
+        if !self.retired.is_empty() {
+            return Err(crate::options_flags::retired_positional::refusal(
+                "validate-anchors",
+                &self.retired.join(" --file "),
+                "--file",
+            ));
+        }
         Ok(ValidateAnchorsParams::from(self))
     }
 

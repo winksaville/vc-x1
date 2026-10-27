@@ -12,7 +12,7 @@ pub struct UseTemplateOption {
     /// Value is `WORK[,BOT]`. Default bot path is `<CODE>.claude`
     /// (file-name concat, not path join: templates are siblings).
     ///
-    /// - With `--scope=por`: only `WORK` is used; passing `,BOT`
+    /// - With `-s por`: only `WORK` is used; passing `,BOT`
     ///   is fatal (no bot side to seed).
     /// - Non-hidden contents copied recursively; hidden entries
     ///   (names starting with `.`) are skipped: init writes its

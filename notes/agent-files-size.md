@@ -49,6 +49,7 @@ since its note is prose.
 | 2026-10-15 | agent-files(proposal): v0.2.9 | 10 | 1879 | the per-rung flow gains a step 0 sync, required at the opening and the closing, and the Validate step's rule that a failure is read before validation runs again, with Sync's moments and the rules index line to match, 8 lines |
 | 2026-10-27 | feat: a hook enforces the shell rules | 10 | 1854 | from v0.3.0's 1841: Acquaint's Hooks step, Exit status as one form, a Hooks bullet, and two lines in the rules index, 13 lines, the four `.sh` files in `agent-data/` uncounted as the count is of `.md` |
 | 2026-10-27 | feat: push, commit, and squash-push take flags only | 10 | 1855 | the per-rung flow's commit step and At rest's squash-push in AGENTS.md, and jj.md's push section, brought to `commit -s b`, `squash-push -s a`, and the flags, 1 line |
+| 2026-10-27 | feat: the other commands take flags only | 10 | 1855 | versioning.md's adoption names `agent-files copy --from` and `diff --from`, rewrapped to the same length, and hooks.sh's guard test `install --dev`, uncounted as the count is of `.md`, no change |
 
 Per file for the three most recent rows, newest on the left, the window sliding at each close-out
 so the earlier history is in the commits. A column is labeled by the set version it carries, the
@@ -57,17 +58,17 @@ landings before the set was versioned relative to the first version (`- v0.1.0` 
 its own row above. A cell in angle brackets, `<543>`, is a file the total leaves out, shown so a
 reader sees what it costs, and an empty cell is a file that was not in the set that landing.
 
-| File | feat: push, commit, and squash-push take flags only | feat: a hook enforces the shell rules | v0.3.0 |
+| File | feat: the other commands take flags only | feat: push, commit, and squash-push take flags only | feat: a hook enforces the shell rules |
 |---|---:|---:|---:|
-| AGENTS.md | 436 | 436 | 423 |
+| AGENTS.md | 436 | 436 | 436 |
 | custom.md | 15 | 15 | 15 |
 | agent-data/code.md | 90 | 90 | 90 |
 | agent-data/commit-model.md | 42 | 42 | 42 |
 | agent-data/cycle-model.md | 74 | 74 | 74 |
-| agent-data/jj.md | 389 | 388 | 388 |
+| agent-data/jj.md | 389 | 389 | 388 |
 | agent-data/notes.md | 162 | 162 | 162 |
 | agent-data/prose.md | 401 | 401 | 401 |
-| agent-data/rationale.md | <653> | <653> | <637> |
+| agent-data/rationale.md | <653> | <653> | <653> |
 | agent-data/session-lock.md | 43 | 43 | 43 |
 | agent-data/versioning.md | 203 | 203 | 203 |
-| total | 1855 | 1854 | 1841 |
+| total | 1855 | 1855 | 1854 |

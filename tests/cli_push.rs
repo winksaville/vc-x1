@@ -19,7 +19,7 @@ fn small_limit_workspace(tag: &str) -> (CliFixture, PathBuf, PathBuf) {
     run_ok(
         fx.cmd()
             .current_dir(&fx.base)
-            .args(["init", "./tr"])
+            .args(["init", "--target", "./tr"])
             .arg("--repo")
             .arg(format!("local={}", fx.base.display())),
     );

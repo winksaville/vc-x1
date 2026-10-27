@@ -25,11 +25,11 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
 
-use clap::{Args, ValueHint};
+use clap::Args;
 use log::{debug, info, trace, warn};
 
 use crate::common::{bot_repo_path, find_workspace_root, reject_legacy_config};
-use crate::config_cmd::{ConfigTarget, in_any, in_bot_side, in_work_side, parse_target};
+use crate::config_cmd::{ConfigTarget, ConfigTargetArgs, in_any, in_bot_side, in_work_side};
 use crate::config_schema::{Home, schema};
 use crate::context::Context;
 use crate::desc_helpers::VC_CONFIG_FILE;
@@ -39,17 +39,9 @@ use crate::subcommand::SubcommandRunner;
 /// Clap-derived args for `validate-config`.
 #[derive(Args, Debug)]
 pub struct ValidateConfigArgs {
-    /// What to check: side keyword(s) `work`, `agent`,
-    /// `work,agent`, or a config-file path. The user config
-    /// (`~/.config/vc-x1/config.toml`) has no keyword: pass its
-    /// path.
-    #[arg(
-        value_parser = parse_target,
-        value_hint = ValueHint::FilePath,
-        default_value = "work,agent",
-        verbatim_doc_comment
-    )]
-    pub target: ConfigTarget,
+    /// What to check: a side's config, both by default, or a file
+    #[command(flatten)]
+    pub target: ConfigTargetArgs,
 }
 
 /// Inputs to the validate-config op, flat, owned, clap-free.
@@ -57,21 +49,14 @@ pub struct ValidateConfigParams {
     pub target: ConfigTarget,
 }
 
-impl From<&ValidateConfigArgs> for ValidateConfigParams {
-    /// Convert clap-derived args into the flat params (total).
-    fn from(a: &ValidateConfigArgs) -> Self {
-        Self {
-            target: a.target.clone(),
-        }
-    }
-}
-
 impl SubcommandRunner for ValidateConfigArgs {
     type Params = ValidateConfigParams;
 
-    /// Delegate to the `From<&ValidateConfigArgs>` impl (total).
+    /// Resolve the target, refusing the retired positional.
     fn to_params(&self) -> Result<Self::Params, String> {
-        Ok(ValidateConfigParams::from(self))
+        Ok(ValidateConfigParams {
+            target: self.target.target("validate-config")?,
+        })
     }
 
     /// Run the `validate_config` op.

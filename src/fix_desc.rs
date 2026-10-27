@@ -25,15 +25,15 @@ use crate::subcommand::SubcommandRunner;
 /// Fix commit descriptions against the other repo.
 #[derive(Args, Debug)]
 pub struct FixDescArgs {
-    /// Revision (with optional .. notation)
-    #[arg(value_name = "REVISION")]
-    pub pos_rev: Option<String>,
+    /// Retired: the revision, now `-r`, refused naming it.
+    #[arg(value_name = "RETIRED", hide = true)]
+    pub retired_rev: Option<String>,
 
-    /// Number of commits (per open side)
-    #[arg(value_name = "COMMITS")]
-    pub pos_count: Option<usize>,
+    /// Retired: the count, now `-n`, refused naming it, kept as typed.
+    #[arg(value_name = "RETIRED", hide = true)]
+    pub retired_count: Option<String>,
 
-    /// Revision(s) to scan
+    /// Revision(s) to scan, with optional .. notation
     #[arg(short, long, default_value = "@")]
     pub revision: String,
 
@@ -76,14 +76,12 @@ pub struct FixDescArgs {
 
 /// Inputs to the fix-desc op, flat, owned, clap-free.
 ///
-/// Mirrors `FixDescArgs` field-for-field: positional `REVISION` /
-/// `COMMITS` (`pos_rev` / `pos_count`), `--revision` / `--commits`
+/// Mirrors `FixDescArgs` field-for-field: `--revision` / `--commits`
 /// (`revision` / `limit`), `--max-fixes`, `--repo`, `--other-repo`,
 /// `--id-len`, `--title`, `--fallback`, `--no-dry-run`,
-/// `--add-missing`.
+/// `--add-missing`. The retired positionals are refused before it is
+/// built.
 pub struct FixDescParams {
-    pub pos_rev: Option<String>,
-    pub pos_count: Option<usize>,
     pub revision: String,
     pub limit: Option<usize>,
     pub max_fixes: Option<usize>,
@@ -101,8 +99,6 @@ impl From<&FixDescArgs> for FixDescParams {
     /// `FixDescParams` (total: every field copies straight over).
     fn from(a: &FixDescArgs) -> Self {
         Self {
-            pos_rev: a.pos_rev.clone(),
-            pos_count: a.pos_count,
             revision: a.revision.clone(),
             limit: a.limit,
             max_fixes: a.max_fixes,
@@ -120,9 +116,14 @@ impl From<&FixDescArgs> for FixDescParams {
 impl SubcommandRunner for FixDescArgs {
     type Params = FixDescParams;
 
-    /// Delegate to the existing `From<&FixDescArgs>` impl above
-    /// (total: never fails).
+    /// Refuse the retired positionals, else delegate to the
+    /// `From<&FixDescArgs>` impl above.
     fn to_params(&self) -> Result<Self::Params, String> {
+        crate::options_flags::retired_positional::refuse_rev_count(
+            "fix-desc",
+            self.retired_rev.as_deref(),
+            self.retired_count.as_deref(),
+        )?;
         Ok(FixDescParams::from(self))
     }
 
@@ -163,13 +164,7 @@ pub fn fix_desc(_ctx: &Context, params: &FixDescParams) -> Result<(), Box<dyn st
     let (other_workspace, other_repo) = common::load_repo(&other_repo_path)?;
     let other_prefix = ochid_prefix_for(&other_repo_path)?;
 
-    let spec = common::resolve_spec(
-        params.pos_rev.as_deref(),
-        params.pos_count,
-        &params.revision,
-        params.limit,
-        "@",
-    );
+    let spec = common::resolve_spec(&params.revision, params.limit);
 
     let (ids, _anchor_index) = common::collect_ids(
         &workspace,
@@ -415,8 +410,6 @@ mod tests {
         let fx = FixturePor::new("fdesc-por-noop");
         let ctx = Context::load().expect("load user config");
         let params = FixDescParams {
-            pos_rev: None,
-            pos_count: None,
             revision: "@".to_string(),
             limit: None,
             max_fixes: None,

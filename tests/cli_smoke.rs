@@ -65,7 +65,7 @@ fn cli_version_gate_stops_every_subcommand() {
     );
 
     // Opens a repo: refuses, and says how to proceed.
-    let out = run_err(fx.cmd().env("PATH", &path).arg("chid").arg("@"));
+    let out = run_err(fx.cmd().env("PATH", &path).arg("chid").args(["-r", "@"]));
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(
         stderr.contains("0.99.0") && stderr.contains("--allow-jj-mismatch"),
@@ -78,7 +78,7 @@ fn cli_version_gate_stops_every_subcommand() {
             .env("PATH", &path)
             .arg("--allow-jj-mismatch")
             .arg("chid")
-            .arg("@"),
+            .args(["-r", "@"]),
     );
     assert!(
         !String::from_utf8_lossy(&ok.stdout).is_empty(),
@@ -92,14 +92,14 @@ fn cli_version_gate_stops_every_subcommand() {
         fx.cmd()
             .env("PATH", &path)
             .arg("validate-todo")
-            .arg("TODO.md"),
+            .args(["--file", "TODO.md"]),
     );
     run_ok(
         fx.cmd()
             .env("PATH", &path)
             .arg("--allow-jj-mismatch")
             .arg("validate-todo")
-            .arg("TODO.md"),
+            .args(["--file", "TODO.md"]),
     );
 
     // The diagnostic still answers, withholding only what it may
@@ -119,7 +119,7 @@ fn cli_version_gate_stops_every_subcommand() {
 #[test]
 fn cli_vv_reports_then_runs_the_subcommand() {
     let fx = CliFixture::new("smoke-vv-ride");
-    let out = run_ok(fx.cmd().arg("-VV").arg("chid").arg("@"));
+    let out = run_ok(fx.cmd().arg("-VV").arg("chid").args(["-r", "@"]));
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
         stdout.contains("jj-lib ") && stdout.contains("jj-data "),
@@ -148,7 +148,7 @@ fn cli_vv_reports_then_runs_the_subcommand() {
 #[test]
 fn cli_ambient_banner_is_stderr_only() {
     let fx = CliFixture::new("smoke-banner-stream");
-    let out = run_ok(fx.cmd().arg("chid").arg("@"));
+    let out = run_ok(fx.cmd().arg("chid").args(["-r", "@"]));
     let stdout = String::from_utf8_lossy(&out.stdout);
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(
@@ -163,7 +163,7 @@ fn cli_ambient_banner_is_stderr_only() {
         "banner leaked onto stdout: {stdout:?}"
     );
 
-    let quiet = run_ok(fx.cmd().arg("--no-banner").arg("chid").arg("@"));
+    let quiet = run_ok(fx.cmd().arg("--no-banner").arg("chid").args(["-r", "@"]));
     let quiet_err = String::from_utf8_lossy(&quiet.stderr);
     assert!(
         !quiet_err.contains(version),

@@ -59,6 +59,7 @@ impl SubcommandRunner for ListArgs {
 
     /// Delegate to the existing `TryFrom<&ListArgs>` impl above.
     fn to_params(&self) -> Result<Self::Params, String> {
+        self.common.refuse_retired("list")?;
         ListParams::try_from(self)
     }
 
@@ -169,25 +170,17 @@ mod tests {
         assert_eq!(args.common.limit, Some(10));
     }
 
+    /// The retired positionals parse, hidden, and `to_params` refuses
+    /// them naming `-r` and `-n`, a count that is no number included.
     #[test]
-    fn positional_rev() {
-        let args = parse(&["vc-x1", "list", "@-"]);
-        assert_eq!(args.common.pos_rev, Some("@-".to_string()));
-        assert_eq!(args.common.pos_count, None);
-    }
-
-    #[test]
-    fn positional_rev_and_count() {
-        let args = parse(&["vc-x1", "list", "@..", "5"]);
-        assert_eq!(args.common.pos_rev, Some("@..".to_string()));
-        assert_eq!(args.common.pos_count, Some(5));
-    }
-
-    #[test]
-    fn positional_both_dots() {
-        let args = parse(&["vc-x1", "list", "..abcd..", "3"]);
-        assert_eq!(args.common.pos_rev, Some("..abcd..".to_string()));
-        assert_eq!(args.common.pos_count, Some(3));
+    fn positional_rev_and_count_refused() {
+        use crate::subcommand::SubcommandRunner;
+        let args = parse(&["vc-x1", "list", "main..@", "5"]);
+        let err = args.to_params().expect_err("refused");
+        assert!(err.ends_with("`-r main..@ -n 5`"), "{err}");
+        let args = parse(&["vc-x1", "list", "@", "x"]);
+        let err = args.to_params().expect_err("refused");
+        assert!(err.ends_with("`-r @ -n x`"), "{err}");
     }
 
     #[test]

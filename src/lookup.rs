@@ -1,16 +1,16 @@
 //! `lookup` subcommand: resolve a line in either repo of a dual
 //! workspace to the window of lines in the other repo.
 //!
-//! This is the command's edge: the `[SCOPE] FILE:LINE` arguments
-//! parsed, the file placed on one side of the workspace, and the
-//! line checked to exist. The window itself is what
+//! This is the command's edge: the `-s SCOPE --line FILE:LINE`
+//! arguments parsed, the file placed on one side of the workspace,
+//! and the line checked to exist. The window itself is what
 //! `notes/transcript-write.md > What the lookup command needs`
 //! specifies, and the placement is what every later step starts
 //! from.
 //!
-//! - `LookupArgs`: clap surface, `SCOPE FILE:LINE` or `FILE:LINE`
-//!   alone as positionals, `-s` as the scope's flag form, and `-R`
-//!   for the workspace root.
+//! - `LookupArgs`: clap surface, `--line FILE:LINE`, `-s` for the
+//!   side, `-R` for the workspace root, and the retired `[SCOPE]
+//!   FILE:LINE` positionals kept hidden to be refused.
 //! - `LookupParams`: clap-free, the side when named, the file as
 //!   given, and the line.
 //! - `locate`: the placement, a `Located` naming the side, the
@@ -27,6 +27,7 @@ use jj_lib::repo::Repo;
 
 use crate::common;
 use crate::context::Context;
+use crate::options_flags::retired_positional::refusal;
 use crate::options_flags::scope::{Side, side_keyword, side_keywords};
 use crate::subcommand::SubcommandRunner;
 
@@ -48,17 +49,23 @@ const DEFAULT_CONTEXT: usize = 3;
 /// CLI args for `lookup`.
 #[derive(Args, Debug)]
 pub struct LookupArgs {
-    /// `SCOPE FILE:LINE`, or `FILE:LINE` alone: SCOPE is the side
-    /// the line is on, `work` or `agent`, inferred from the path
-    /// when omitted
-    #[arg(value_name = "SCOPE|FILE:LINE", value_hint = ValueHint::FilePath)]
-    pub first: String,
+    /// Retired: `[SCOPE] FILE:LINE`, now `-s` and `--line`, refused
+    /// naming them.
+    #[arg(value_name = "RETIRED", hide = true, num_args = 0..=2)]
+    pub retired: Vec<String>,
 
-    /// `FILE:LINE` when the first argument is SCOPE
-    #[arg(value_name = "FILE:LINE", value_hint = ValueHint::FilePath)]
-    pub second: Option<String>,
+    /// The line to look up, `FILE:LINE`, the form editors, compilers,
+    /// and grep print
+    #[arg(
+        long = "line",
+        value_name = "FILE:LINE",
+        value_hint = ValueHint::FilePath,
+        required_unless_present = "retired"
+    )]
+    pub line: Option<String>,
 
-    /// The side the line is on, the positional's flag form
+    /// The side the line is on, `work` or `agent` [default: inferred
+    /// from the file's path]
     #[arg(short = 's', long = "scope", value_name = "SCOPE", value_parser = side_keywords())]
     pub scope: Option<Side>,
 
@@ -103,25 +110,25 @@ pub struct LookupParams {
 impl TryFrom<&LookupArgs> for LookupParams {
     type Error = String;
 
-    /// Two positionals mean `SCOPE FILE:LINE`, one means
-    /// `FILE:LINE`, and a positional SCOPE beside `-s` is an
-    /// error rather than a tie-break.
+    /// The retired positionals refused naming `-s` and `--line`, then
+    /// the line parsed.
     fn try_from(a: &LookupArgs) -> Result<Self, String> {
-        let (side, target) = match &a.second {
-            Some(target) => {
-                if a.scope.is_some() {
-                    return Err("lookup: SCOPE given twice, as a positional and as -s".into());
-                }
-                (Some(parse_side(&a.first)?), target.as_str())
+        match a.retired.as_slice() {
+            [] => {}
+            [target] => return Err(refusal("lookup", target, "--line")),
+            [scope, target, ..] => {
+                return Err(refusal("lookup", &format!("{scope} --line {target}"), "-s"));
             }
-            None => (a.scope, a.first.as_str()),
+        }
+        let Some(target) = &a.line else {
+            return Err("lookup: --line FILE:LINE names the line to look up".into());
         };
         let (file, line) = parse_file_line(target)?;
         if a.tolerance < 0 {
             return Err("lookup: --tolerance is a number of seconds, so not negative".into());
         }
         Ok(LookupParams {
-            side,
+            side: a.scope,
             file,
             line,
             root: a.repo.clone(),
@@ -141,21 +148,6 @@ impl SubcommandRunner for LookupArgs {
 
     fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         lookup(ctx, params)
-    }
-}
-
-/// One side's keyword as a `Side`, `work` or `agent` and nothing
-/// wider, since a line is on one side.
-fn parse_side(s: &str) -> Result<Side, String> {
-    match s {
-        "work" => Ok(Side::Work),
-        "agent" => Ok(Side::Bot),
-        "both" => {
-            Err("lookup: SCOPE is one side, `work` or `agent`, since a line is on one".into())
-        }
-        other => Err(format!(
-            "lookup: '{other}' is not a SCOPE. Expected `work` or `agent`, or FILE:LINE alone"
-        )),
     }
 }
 
@@ -754,46 +746,44 @@ mod tests {
         }
     }
 
+    /// `--line` is the line, and `-r`, `--tolerance`, and `-R` ride
+    /// along.
     #[test]
-    fn one_positional_is_the_target() {
-        let p = params(&["t", "TODO.md:3"]).unwrap();
+    fn the_line_is_a_flag() {
+        let p = params(&["t", "--line", "TODO.md:3"]).unwrap();
         assert_eq!(p.side, None);
         assert_eq!(p.file, PathBuf::from("TODO.md"));
         assert_eq!(p.line, 3);
         assert_eq!(p.root, None);
         assert_eq!(p.rev, None);
         assert_eq!(p.tolerance_secs, DEFAULT_TOLERANCE_SECS);
-        let p = params(&["t", "TODO.md:3", "-r", "main", "--tolerance", "5"]).unwrap();
+        let p = params(&["t", "--line", "TODO.md:3", "-r", "main", "--tolerance", "5"]).unwrap();
         assert_eq!(p.rev.as_deref(), Some("main"));
         assert_eq!(p.tolerance_secs, 5);
-        assert!(params(&["t", "TODO.md:3", "--tolerance=-5"]).is_err());
+        assert!(params(&["t", "--line", "TODO.md:3", "--tolerance=-5"]).is_err());
+        assert!(T::try_parse_from(["t"]).is_err(), "--line is required");
     }
 
+    /// `-s` names the side, one side alone.
     #[test]
-    fn two_positionals_are_scope_then_target() {
-        let p = params(&["t", "agent", "s.jsonl:9"]).unwrap();
+    fn the_side_is_a_flag_and_one_side() {
+        let p = params(&["t", "-s", "agent", "--line", "s.jsonl:9"]).unwrap();
         assert_eq!(p.side, Some(Side::Bot));
         assert_eq!(p.file, PathBuf::from("s.jsonl"));
-        let p = params(&["t", "work", "TODO.md:1", "-R", "/x"]).unwrap();
+        let p = params(&["t", "-s", "work", "--line", "TODO.md:1", "-R", "/x"]).unwrap();
         assert_eq!(p.side, Some(Side::Work));
         assert_eq!(p.root, Some(PathBuf::from("/x")));
+        assert!(T::try_parse_from(["t", "--line", "TODO.md:1", "-s", "both"]).is_err());
     }
 
+    /// The retired positionals parse, hidden, and are refused naming
+    /// `--line`, and `-s` with it when the scope was given.
     #[test]
-    fn scope_flag_and_positional_conflict() {
-        let err = params(&["t", "work", "TODO.md:1", "-s", "agent"]).unwrap_err();
-        assert!(err.contains("twice"), "{err}");
-        let p = params(&["t", "TODO.md:1", "-s", "agent"]).unwrap();
-        assert_eq!(p.side, Some(Side::Bot));
-    }
-
-    #[test]
-    fn scope_is_one_side() {
-        let err = params(&["t", "both", "TODO.md:1"]).unwrap_err();
-        assert!(err.contains("one side"), "{err}");
-        assert!(T::try_parse_from(["t", "TODO.md:1", "-s", "both"]).is_err());
-        let err = params(&["t", "TODO.md", "TODO.md:1"]).unwrap_err();
-        assert!(err.contains("not a SCOPE"), "{err}");
+    fn the_retired_positionals_are_refused_naming_their_flags() {
+        let err = params(&["t", "TODO.md:3"]).unwrap_err();
+        assert!(err.ends_with("`--line TODO.md:3`"), "{err}");
+        let err = params(&["t", "agent", "s.jsonl:9"]).unwrap_err();
+        assert!(err.ends_with("`-s agent --line s.jsonl:9`"), "{err}");
     }
 
     /// A dual workspace with one three-line file on each side.

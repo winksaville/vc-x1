@@ -152,6 +152,20 @@ pub fn config_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
     Ok(base.join("vc-x1").join("config.toml"))
 }
 
+/// The way past a missing account: a URL target needs no config at
+/// all, and else the user config's path and the least section that
+/// names an account, `name` in place.
+fn account_help(name: &str) -> String {
+    let path = config_path()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| "~/.config/vc-x1/config.toml".to_string()); // OK: the path is only shown
+    format!(
+        "A URL target, `--target git@github.com:<owner>/<repo>.git`, needs no config. Else \
+         the user config is {path}, and the least account is:\n\n  [account.{name}]\n  \
+         repo.default = \"remote\"\n  repo.category.remote = \"git@github.com:<owner>\""
+    )
+}
+
 /// Load the user config from the default location.
 ///
 /// - Missing file -> empty `UserConfig`.
@@ -295,7 +309,10 @@ pub fn resolve_repo(
     let (account, account_label, account_source) = match (account_override, &cfg.default_account) {
         (Some(name), _) => {
             let acct = cfg.accounts.get(name).ok_or_else(|| {
-                format!("account '{name}' not found in config (no [account.{name}] section)")
+                format!(
+                    "account '{name}' not found in config (no [account.{name}] section). {}",
+                    account_help(name)
+                )
             })?;
             (acct, name.to_string(), "--account CLI")
         }
@@ -303,7 +320,8 @@ pub fn resolve_repo(
             let acct = cfg.accounts.get(name).ok_or_else(|| {
                 format!(
                     "account '{name}' (from [default].account) not found in config \
-                     (no [account.{name}] section)"
+                     (no [account.{name}] section). {}",
+                    account_help(name)
                 )
             })?;
             (acct, name.clone(), "[default].account")
@@ -311,9 +329,12 @@ pub fn resolve_repo(
         (None, None) => match cfg.top_level_repo.as_ref() {
             Some(r) => (r, String::from("<top-level>"), "top-level [repo]"),
             None => {
-                return Err("no account specified; set [default].account, use \
-                     --account <name>, or write a top-level [repo] section"
-                    .into());
+                return Err(format!(
+                    "no account specified; set [default].account, use --account <name>, or \
+                     write a top-level [repo] section. {}",
+                    account_help("<name>")
+                )
+                .into());
             }
         },
     };

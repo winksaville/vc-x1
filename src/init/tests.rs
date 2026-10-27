@@ -16,12 +16,15 @@ fn parse(args: &[&str]) -> InitArgs {
 
 #[test]
 fn defaults() {
-    let args = parse(&["vc-x1", "init", "https://github.com/owner/repo"]);
-    assert_eq!(args.target, "https://github.com/owner/repo");
+    let args = parse(&["vc-x1", "init", "--target", "https://github.com/owner/repo"]);
+    assert_eq!(
+        args.target.as_deref(),
+        Some("https://github.com/owner/repo")
+    );
     assert!(args.name.is_none());
     assert!(args.account.value.is_none());
     assert!(args.repo.value.is_none());
-    assert!(!args.por.value);
+    assert!(!args.por.is_por());
     assert!(!args.provision.private.value);
     assert!(!args.provision.dry_run.value);
     assert_eq!(args.provision.push_retry.push_retries, 5);
@@ -34,13 +37,16 @@ fn all_opts() {
     let args = parse(&[
         "vc-x1",
         "init",
+        "--target",
         "https://github.com/owner/repo",
+        "--name",
         "my-dir",
         "--account",
         "work",
         "--repo",
         "local=/tmp/xyz",
-        "--por",
+        "-s",
+        "por",
         "--private",
         "--dry-run",
         "--push-retries",
@@ -50,13 +56,16 @@ fn all_opts() {
         "--use-template",
         "/tmp/tmpl",
     ]);
-    assert_eq!(args.target, "https://github.com/owner/repo");
+    assert_eq!(
+        args.target.as_deref(),
+        Some("https://github.com/owner/repo")
+    );
     assert_eq!(args.name.as_deref(), Some("my-dir"));
     assert_eq!(args.account.value.as_deref(), Some("work"));
     let sel = args.repo.value.as_ref().expect("--repo set");
     assert_eq!(sel.category, "local");
     assert_eq!(sel.value.as_deref(), Some("/tmp/xyz"));
-    assert!(args.por.value);
+    assert!(args.por.is_por());
     assert!(args.provision.private.value);
     assert!(args.provision.dry_run.value);
     assert_eq!(args.provision.push_retry.push_retries, 10);
@@ -66,11 +75,11 @@ fn all_opts() {
 
 #[test]
 fn target_required_at_parse_time() {
-    // TARGET is a required positional. Missing it errors.
+    // --target is required. Missing it errors.
     let err = Cli::try_parse_from(["vc-x1", "init"])
         .unwrap_err()
         .to_string();
-    assert!(err.contains("TARGET"), "got: {err}");
+    assert!(err.contains("--target"), "got: {err}");
 }
 
 #[test]
@@ -445,44 +454,54 @@ fn end_to_end_copy_and_readme_rewrite() {
 
 #[test]
 fn target_url_form_accepted() {
-    let args = parse(&["vc-x1", "init", "git@github.com:u/p.git"]);
-    assert_eq!(args.target, "git@github.com:u/p.git");
+    let args = parse(&["vc-x1", "init", "--target", "git@github.com:u/p.git"]);
+    assert_eq!(args.target.as_deref(), Some("git@github.com:u/p.git"));
 }
 
 #[test]
 fn target_owner_name_form_accepted() {
-    let args = parse(&["vc-x1", "init", "https://github.com/owner/repo"]);
-    assert_eq!(args.target, "https://github.com/owner/repo");
+    let args = parse(&["vc-x1", "init", "--target", "https://github.com/owner/repo"]);
+    assert_eq!(
+        args.target.as_deref(),
+        Some("https://github.com/owner/repo")
+    );
 }
 
 #[test]
 fn target_path_form_accepted() {
-    let args = parse(&["vc-x1", "init", "./tf1"]);
-    assert_eq!(args.target, "./tf1");
+    let args = parse(&["vc-x1", "init", "--target", "./tf1"]);
+    assert_eq!(args.target.as_deref(), Some("./tf1"));
 }
 
 #[test]
 fn target_bare_name_form_accepted() {
-    let args = parse(&["vc-x1", "init", "tf1"]);
-    assert_eq!(args.target, "tf1");
+    let args = parse(&["vc-x1", "init", "--target", "tf1"]);
+    assert_eq!(args.target.as_deref(), Some("tf1"));
 }
 
 #[test]
-fn name_positional_accepted() {
-    let args = parse(&["vc-x1", "init", "owner/repo", "custom-dir"]);
-    assert_eq!(args.target, "owner/repo");
+fn name_flag_accepted() {
+    let args = parse(&[
+        "vc-x1",
+        "init",
+        "--target",
+        "owner/repo",
+        "--name",
+        "custom-dir",
+    ]);
+    assert_eq!(args.target.as_deref(), Some("owner/repo"));
     assert_eq!(args.name.as_deref(), Some("custom-dir"));
 }
 
 #[test]
 fn account_flag_parses() {
-    let args = parse(&["vc-x1", "init", "tf1", "--account", "work"]);
+    let args = parse(&["vc-x1", "init", "--target", "tf1", "--account", "work"]);
     assert_eq!(args.account.value.as_deref(), Some("work"));
 }
 
 #[test]
 fn repo_cat_only_parses() {
-    let args = parse(&["vc-x1", "init", "tf1", "--repo", "remote"]);
+    let args = parse(&["vc-x1", "init", "--target", "tf1", "--repo", "remote"]);
     let sel = args.repo.value.expect("--repo set");
     assert_eq!(sel.category, "remote");
     assert!(sel.value.is_none());
@@ -490,16 +509,47 @@ fn repo_cat_only_parses() {
 
 #[test]
 fn repo_cat_value_parses() {
-    let args = parse(&["vc-x1", "init", "tf1", "--repo", "remote=git@github.com:u"]);
+    let args = parse(&[
+        "vc-x1",
+        "init",
+        "--target",
+        "tf1",
+        "--repo",
+        "remote=git@github.com:u",
+    ]);
     let sel = args.repo.value.expect("--repo set");
     assert_eq!(sel.category, "remote");
     assert_eq!(sel.value.as_deref(), Some("git@github.com:u"));
 }
 
 #[test]
-fn por_flag_parses() {
-    let args = parse(&["vc-x1", "init", "tf1", "--por"]);
-    assert!(args.por.value);
+fn por_scope_parses() {
+    let args = parse(&["vc-x1", "init", "--target", "tf1", "-s", "por"]);
+    assert!(args.por.is_por());
+}
+
+/// The retired positionals and `--por` parse, hidden, and are refused
+/// naming their flags.
+#[test]
+fn the_retired_forms_are_refused_naming_their_flags() {
+    use crate::subcommand::SubcommandRunner;
+    let err = parse(&["vc-x1", "init", "https://h/o/r", "dir"])
+        .to_params()
+        .err();
+    let err = err.expect("refused");
+    assert!(
+        err.ends_with("`--target https://h/o/r --name dir`"),
+        "{err}"
+    );
+    let err = parse(&["vc-x1", "init", "--target", "tf1", "--por"])
+        .to_params()
+        .err();
+    let err = err.expect("refused");
+    assert!(err.ends_with("`--scope por`"), "{err}");
+    let err = parse(&["vc-x1", "init", "--target", "tf1", "-s", "work"])
+        .to_params()
+        .err();
+    assert!(err.expect("refused").contains("`both` or `por`"));
 }
 
 #[test]
@@ -589,7 +639,8 @@ use std::collections::HashMap;
 /// only the fields it cares about.
 fn args_for(target: &str) -> InitArgs {
     InitArgs {
-        target: target.to_string(),
+        retired: vec![],
+        target: Some(target.to_string()),
         name: None,
         account: AccountOption::default(),
         repo: RepoOption::default(),
@@ -782,7 +833,7 @@ fn an_existing_target_needs_adopt() {
 #[test]
 fn adopt_is_meaningless_with_por() {
     let mut args = args_for("git@github.com:winksaville/tf1");
-    args.por.value = true;
+    args.por.scope = Some(crate::options_flags::scope::RepoScope::Por);
     args.adopt = true;
     let err = plan_init(&InitParams::from(&args), &cfg_empty())
         .expect_err("refused")
@@ -962,7 +1013,7 @@ fn steps_dual_run_in_order() {
 fn steps_por_have_no_gaps() {
     use super::steps::{Step, Steps};
     let mut args = args_for("git@github.com:winksaville/tf1");
-    args.por.value = true;
+    args.por.scope = Some(crate::options_flags::scope::RepoScope::Por);
     let params = InitParams::from(&args);
     let plan = plan_init(&params, &cfg_empty()).unwrap();
     assert_eq!(
@@ -1104,7 +1155,7 @@ fn adopt_repo_refusals() {
 
 // ---------- adopting a single-repo workspace ----------
 
-/// The config `init --por` writes gains the two keys, and every line
+/// The config `init -s por` writes gains the two keys, and every line
 /// it had stays, in order.
 #[test]
 fn add_agent_keys_edits_the_por_config_in_place() {
@@ -1153,7 +1204,7 @@ fn add_agent_keys_shapes() {
     );
 }
 
-/// The single-repo workspace `init --por` makes is adopted: its config
+/// The single-repo workspace `init -s por` makes is adopted: its config
 /// is edited in place, its history stays, and nothing is pushed on
 /// the work side.
 #[test]
@@ -1274,6 +1325,7 @@ fn agent_repo_conflicts_with_agent_suffix() {
     let err = Cli::try_parse_from([
         "vc-x1",
         "init",
+        "--target",
         "tf1",
         "--agent-repo",
         "x",
@@ -1289,12 +1341,13 @@ fn agent_repo_conflicts_with_agent_suffix() {
 fn agent_suffix_must_open_with_a_dot_or_dash() {
     for bad in ["agent", ".", "-", "_agent", ".a/b"] {
         assert!(
-            Cli::try_parse_from(["vc-x1", "init", "tf1", "--agent-suffix", bad]).is_err(),
+            Cli::try_parse_from(["vc-x1", "init", "--target", "tf1", "--agent-suffix", bad])
+                .is_err(),
             "{bad:?} is refused"
         );
     }
     for good in [".agent-session", "-agent"] {
-        let args = parse(&["vc-x1", "init", "tf1", "--agent-suffix", good]);
+        let args = parse(&["vc-x1", "init", "--target", "tf1", "--agent-suffix", good]);
         assert_eq!(args.agent_suffix.as_deref(), Some(good));
     }
 }
@@ -1305,11 +1358,11 @@ fn agent_suffix_must_open_with_a_dot_or_dash() {
 fn agent_dir_is_one_name_inside_the_project() {
     for bad in ["", ".", "..", "a/b", ".git", ".jj"] {
         assert!(
-            Cli::try_parse_from(["vc-x1", "init", "tf1", "--agent-dir", bad]).is_err(),
+            Cli::try_parse_from(["vc-x1", "init", "--target", "tf1", "--agent-dir", bad]).is_err(),
             "{bad:?} is refused"
         );
     }
-    let args = parse(&["vc-x1", "init", "tf1", "--agent-dir", ".sess"]);
+    let args = parse(&["vc-x1", "init", "--target", "tf1", "--agent-dir", ".sess"]);
     assert_eq!(args.agent_dir.as_deref(), Some(".sess"));
 }
 
@@ -1317,13 +1370,13 @@ fn agent_dir_is_one_name_inside_the_project() {
 #[test]
 fn agent_flags_are_meaningless_with_por() {
     let mut args = args_for("git@github.com:winksaville/tf1");
-    args.por.value = true;
+    args.por.scope = Some(crate::options_flags::scope::RepoScope::Por);
     args.agent_dir = Some(".sess".into());
     let err = plan_init(&InitParams::from(&args), &cfg_empty())
         .expect_err("refused")
         .to_string();
     assert!(err.contains("--agent-dir"), "{err}");
-    assert!(err.contains("--por"), "{err}");
+    assert!(err.contains("-s por"), "{err}");
 }
 
 // ---------- URL TARGET ----------
@@ -1556,7 +1609,7 @@ fn plan_bare_name_explicit_repo_value_skips_config() {
 #[test]
 fn plan_por_path_local_single_bare() {
     let mut args = args_for("/tmp/xyz/tf1");
-    args.por.value = true;
+    args.por.scope = Some(crate::options_flags::scope::RepoScope::Por);
     args.repo.value = Some(RepoSelector {
         category: "local".into(),
         value: Some("/tmp/xyz".into()),
@@ -1575,7 +1628,7 @@ fn plan_por_path_local_single_bare() {
 #[test]
 fn plan_por_url_no_bot() {
     let mut args = args_for("git@github.com:winksaville/tf1");
-    args.por.value = true;
+    args.por.scope = Some(crate::options_flags::scope::RepoScope::Por);
     let plan = plan_init(&InitParams::from(&args), &cfg_empty()).unwrap();
     assert!(plan.scope.is_work_only());
     assert_eq!(plan.work_url, "git@github.com:winksaville/tf1.git");
@@ -1674,12 +1727,12 @@ fn error_por_with_comma_template() {
     // --scope=por + --use-template foo,bar is ambiguous: bot
     // half has no home in a single-repo workspace.
     let mut args = args_for("git@github.com:u/p");
-    args.por.value = true;
+    args.por.scope = Some(crate::options_flags::scope::RepoScope::Por);
     args.use_template.value = Some("/tmp/work,/tmp/bot".into());
     let err = plan_init(&InitParams::from(&args), &cfg_empty())
         .unwrap_err()
         .to_string();
-    assert!(err.contains("--por"), "got: {err}");
+    assert!(err.contains("-s por"), "got: {err}");
     assert!(err.contains("single template path"), "got: {err}");
 }
 
@@ -1823,18 +1876,18 @@ fn por_config_path_copies_user_file() {
     );
 }
 
-/// `--config` without `--por` (i.e. the default dual shape) is
+/// `--config` without `-s por` (i.e. the default dual shape) is
 /// rejected at preflight.
 #[test]
 fn config_rejected_without_por() {
     let mut args = args_for("./foo");
-    args.por.value = false;
+    args.por.scope = None;
     args.config.value = Some("none".to_string());
     let err = plan_init(&InitParams::from(&args), &cfg_empty())
         .unwrap_err()
         .to_string();
     assert!(
-        err.contains("--config is only valid with --por"),
+        err.contains("--config is only valid with -s por"),
         "unexpected error: {err}"
     );
 }
@@ -1842,12 +1895,12 @@ fn config_rejected_without_por() {
 /// `--config <missing-path>` errors at preflight, not at write
 /// time, so the user gets a clear diagnostic before any
 /// repo-mutating side effects start. The arg is meaningful only
-/// under `--por`. Setting `args.por.value = true` keeps the
+/// under `-s por`. Setting `args.por.scope` to `por` keeps the
 /// preflight on the path-validation branch.
 #[test]
 fn config_path_missing_rejected_at_preflight() {
     let mut args = args_for("./foo");
-    args.por.value = true;
+    args.por.scope = Some(crate::options_flags::scope::RepoScope::Por);
     args.config.value = Some("/nonexistent/path/to/config.toml".to_string());
     let err = plan_init(&InitParams::from(&args), &cfg_empty())
         .unwrap_err()
@@ -1855,14 +1908,14 @@ fn config_path_missing_rejected_at_preflight() {
     assert!(err.contains("does not exist"), "unexpected error: {err}");
 }
 
-/// `--config none` with `--por` passes preflight (it's the
+/// `--config none` with `-s por` passes preflight (it's the
 /// happy path: `none` is a literal keyword, not a path). URL
 /// target sidesteps the account-config lookup that plan_init
 /// would trigger for path-form targets in cfg_empty.
 #[test]
 fn config_none_passes_preflight() {
     let mut args = args_for("git@github.com:foo/bar.git");
-    args.por.value = true;
+    args.por.scope = Some(crate::options_flags::scope::RepoScope::Por);
     args.config.value = Some("none".to_string());
     plan_init(&InitParams::from(&args), &cfg_empty())
         .expect("--config none with --scope=por should pass preflight");

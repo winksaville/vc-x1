@@ -41,7 +41,7 @@ pub fn load(root: &Path, key: &str, label: &str) -> Result<Vec<String>, String> 
     let commands = commands.ok_or_else(|| {
         format!(
             "{label}: {}: no `{key}` table. Add one, a TOML array with one command per \
-                 element (see `vc-x1 config work`)",
+                 element (see `vc-x1 config -s work`)",
             cfg.path.display()
         )
     })?;

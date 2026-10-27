@@ -19,8 +19,12 @@ use crate::todo_helpers::{self, Section, TODO_FILE};
 /// Clap-derived args for `fix-todo`.
 #[derive(Args, Debug)]
 pub struct FixTodoArgs {
+    /// Retired: the file, now `--file`, refused naming it.
+    #[arg(value_name = "RETIRED", hide = true)]
+    pub retired: Option<String>,
+
     /// Todo markdown file to renumber
-    #[arg(value_name = "FILE", default_value = TODO_FILE)]
+    #[arg(long, value_name = "PATH", default_value = TODO_FILE)]
     pub file: PathBuf,
 
     /// Write the renumbered file in place [default: dry-run]
@@ -30,7 +34,7 @@ pub struct FixTodoArgs {
 
 /// Inputs to the fix-todo op, flat, owned, clap-free.
 ///
-/// Mirrors `FixTodoArgs`: the positional `FILE` path and the
+/// Mirrors `FixTodoArgs`: the `--file` path and the
 /// `--no-dry-run` write toggle.
 pub struct FixTodoParams {
     pub file: PathBuf,
@@ -53,6 +57,11 @@ impl SubcommandRunner for FixTodoArgs {
 
     /// Delegate to the `From<&FixTodoArgs>` impl (total).
     fn to_params(&self) -> Result<Self::Params, String> {
+        if let Some(value) = &self.retired {
+            return Err(crate::options_flags::retired_positional::refusal(
+                "fix-todo", value, "--file",
+            ));
+        }
         Ok(FixTodoParams::from(self))
     }
 

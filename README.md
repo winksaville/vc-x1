@@ -86,19 +86,19 @@ builds, each a plain `cargo build` leaving its binary in `target/`, off the PATH
 cycle builds replaces the `vc-x1` on the PATH until the cycle lands. Both are `--locked`, so they
 compile the same dependencies, the ones `Cargo.lock` commits:
 
-- Dev: `vc-x1 build-dev` runs `[build] dev`, `cargo build --locked`, leaving the rung's debug
+- Dev: `vc-x1 build --dev` runs `[build] dev`, `cargo build --locked`, leaving the rung's debug
   binary at `target/debug/vc-x1`. After a validation it reuses the test build, so it costs under a
-  second, and `vc-x1 run-dev` runs it first, so what runs is always the current code.
+  second, and `vc-x1 run --dev` runs it first, so what runs is always the current code.
 - Release: `vc-x1 build` runs `[build] release`, `cargo build --release --locked`, leaving the
   release build at `target/release/vc-x1`, its `-V` naming the commit it was built from
   ([build](#build)).
 - Install: at a cycle's Land, `vc-x1 install` runs the release build, which cargo skips when
   nothing changed, then copies it into `~/.cargo/bin`, the `[install] release-dir`, after
   reporting what it is copying ([install](#install)).
-- Install-dev: mid-cycle, `vc-x1 install-dev` runs the dev build, then copies it into
+- Install --dev: mid-cycle, `vc-x1 install --dev` runs the dev build, then copies it into
   `~/.cargo/bin`, the `[install] dev-dir`, as `vc-x1-dev`, beside the landed `vc-x1`, so the
-  cycle's code can be tried from any directory ([install-dev](#install-dev)). With `install`, the
-  two commands that touch the PATH.
+  cycle's code can be tried from any directory ([install --dev](#install---dev)). With the
+  release install, the two ways the PATH is touched.
 
 Where each build leaves its binary is the config's to say, `[build] release-bin` and `dev-bin`:
 vc-x1 never works it out from cargo or the package's name.
@@ -109,15 +109,15 @@ The commands in the order a cycle uses them, a rung's loop first and Land after:
 |---|---|---|
 | `vc-x1 validate` | fmt, clippy, every test | every rung, before review |
 | `vc-x1 validate --fast` | the unit tests only | while iterating |
-| `vc-x1 build-dev` | the dev build, into `target/debug` | to build without running |
-| `vc-x1 run-dev` | `build-dev`, then runs it | trying the change |
-| `vc-x1 install-dev` | `build-dev`, then copies it into `~/.cargo/bin` as `vc-x1-dev` | trying the change elsewhere |
+| `vc-x1 build --dev` | the dev build, into `target/debug` | to build without running |
+| `vc-x1 run --dev` | `build --dev`, then runs it | trying the change |
+| `vc-x1 install --dev` | `build --dev`, then copies it into `~/.cargo/bin` as `vc-x1-dev` | trying the change elsewhere |
 | `vc-x1 build` | the release, into `target/release` | at Land, or to try the release profile |
 | `vc-x1 run` | `build`, then runs it | the smoke check before install |
 | `vc-x1 install` | `build`, then reports it and copies it into `~/.cargo/bin` | at Land |
 
-`validate` checks the source and makes no build of either kind. `run`, `run-dev`, `install`, and
-`install-dev` build first, as `cargo run` does, and cargo rebuilds only what changed, so the binary
+`validate` checks the source and makes no build of either kind. `run`, `run --dev`, `install`, and
+`install --dev` build first, as `cargo run` does, and cargo rebuilds only what changed, so the binary
 `run` smoke-tests is the one `install` copies.
 
 - `target/debug/vc-x1 -V` names the exact rung, since the version-of-record carries the cycle's
@@ -143,18 +143,21 @@ vc-x1 desc [-r REVISION] [-n COMMITS]  # Show full description of a commit
 vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
 vc-x1 status [-s SCOPE] [-R PATH]          # Working-copy status by scope, w|a|b|p, and the clean verdict (alias st)
-vc-x1 lookup [SCOPE] FILE:LINE           # The other repo's window for a line in this one
-vc-x1 agent-session <FILE> [OPTS]        # Display a session transcript as a conversation
+vc-x1 lookup [-s S] --line FILE:LINE     # The other repo's window for a line in this one
+vc-x1 agent-session --file F [OPTS]      # Display a session transcript as a conversation
 vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
-vc-x1 validate-todo [FILE]                # Check todo-file entry numbering
-vc-x1 fix-todo [FILE]                     # Renumber todo file (dry-run default)
+vc-x1 validate-todo [--file F]            # Check todo-file entry numbering
+vc-x1 fix-todo [--file F]                 # Renumber todo file (dry-run default)
 vc-x1 validate [--fast] [OPTS]            # Run the workspace's configured validation commands
+vc-x1 build [--dev] [OPTS]                # Build the release, or the dev build, off the PATH
+vc-x1 install [--dev] [OPTS]              # Build, then copy into the install directory
+vc-x1 run [--dev] [OPTS] [-- ARGS]        # Build, then run the binary with ARGS
 vc-x1 validate-agent [OPTS]               # Check the agent repo is published
 vc-x1 config [OPTS]                       # Print / validate settable config keys
-vc-x1 clone <REPO> [NAME] [OPTS]          # Clone a dual-repo project
-vc-x1 init <TARGET> [OPTS]                # Create a new dual-repo project
-vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
+vc-x1 clone --from URL [--name N] [OPTS]  # Clone a project, dual or with -s por plain
+vc-x1 init --target T [OPTS]              # Create a project, dual or with -s por plain
+vc-x1 symlink [--target P] [OPTS]         # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
 vc-x1 squash-push -s a [--bookmark NAME]  # Squash @ into @-, advance a bookmark, push
 vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
@@ -165,12 +168,43 @@ vc-x1 move-bookmark -s w --bookmark B --target T  # Point an existing bookmark a
 vc-x1 push -s b [-r REV] [--bookmark NAME] # Publish a rung's pair, or a name for a commit made
 vc-x1 version                              # Report vc-x1, agent-files, jj-lib, jj, and jj-data versions
 vc-x1 agent-files version                  # Print the workspace's agent-files set version, bare
-vc-x1 agent-files diff [A] [B] [-c]        # Name the set files that differ between two copies of the set
-vc-x1 agent-files copy [SRC] [DST] [-c]    # Make DST's set a copy of SRC's, uncommitted
-vc-x1 agent-files size [DIR]               # Count the set's lines, and slide the table that records them
+vc-x1 agent-files diff [--from A] [--to B]  # Name the set files that differ between two copies of the set
+vc-x1 agent-files copy [--from S] [--to D]  # Make DST's set a copy of SRC's, uncommitted
+vc-x1 agent-files size [--dir DIR]         # Count the set's lines, and slide the table that records them
 vc-x1 --version                            # Print version, with the workspace's agent-files version
 vc-x1 --help                           # Print help
 ```
+
+### Every argument is a flag
+
+Every argument is a flag, the command names aside, so a word on the command line says what it is
+and never reads two ways by its place: in `push -s b feature`, `feature` could have been the
+bookmark to move or the commit it is at, and `push -s b --bookmark feature` is one of them. The
+command line is also what is reviewed before a write runs, and a flag says what each word means.
+The same names mean the same thing everywhere:
+
+| Flag | Means |
+|------|-------|
+| `-s, --scope` | Which repos: `w\|work`, `a\|agent`, `b\|both`, or `p\|por` |
+| `-R, --repo` | Where: a path in the workspace, or a plain repo |
+| `-r, --revision` | A revision, as jj resolves it, `..` notation on the read commands |
+| `-n, --commits` | How many commits a read command shows |
+| `--bookmark` | A bookmark's name, the one to move or a new one to create |
+| `--file`, `--dir` | A file or a directory a command reads |
+| `-d, --dev` | The dev build, on `build`, `install`, and `run` |
+
+The one exception is `run`'s trailing arguments, which are the built binary's, not vc-x1's.
+
+A positional a command once took is kept hidden and refused, naming the flag that replaced it with
+the value in place, so a stale doc or a habit is told its own fix:
+
+```
+$ vc-x1 push -s b @-
+error: push: the positional is retired, every argument is a flag: `-r @-`
+```
+
+`build-dev`, `install-dev`, and `run-dev` are refused the same way, naming `build --dev`, `install
+--dev`, and `run --dev`, and `init --por` and `clone --por` name `--scope por`.
 
 ### jj version gate
 
@@ -239,23 +273,24 @@ source (COMPLETE=fish vc-x1 | psub)
 Completions are generated dynamically by the binary, so they stay in sync with the installed version
 automatically.
 
-### Positional shorthand
+### Revision and count
 
-REVISION and COMMITS can be given as positional arguments, omitting `-r` and `-n`:
+REVISION is `-r`/`--revision` and COMMITS is `-n`/`--commits`, with `..` on either side of the
+revision opening that side to the count:
 
 ```
-vc-x1 list x                # just x (1 commit)
-vc-x1 list x 5              # x.. 5 -> x + 4 ancestors (5 commits)
-vc-x1 list x.. 5            # same as above
-vc-x1 list ..x 3            # 2 descendants + x (3 commits)
-vc-x1 list ..x.. 3          # 1 descendant, x, 1 ancestor (3 commits)
-vc-x1 list ..x.. 1          # just x (1 commit)
+vc-x1 list -r x                # just x (1 commit)
+vc-x1 list -r x -n 5           # x.. 5 -> x + 4 ancestors (5 commits)
+vc-x1 list -r x.. -n 5         # same as above
+vc-x1 list -r ..x -n 3         # 2 descendants + x (3 commits)
+vc-x1 list -r ..x.. -n 3       # 1 descendant, x, 1 ancestor (3 commits)
+vc-x1 list -r ..x.. -n 1       # just x (1 commit)
 ```
 
 **Defaults:** with no arguments, REVISION is `@` and COMMITS is 1 (just the working copy).
 
-Named flags `-r`/`--revision`, `-n`/`--commits`, `-R`/`--repo`, and `-s`/`--scope` take precedence
-over positional arguments.
+Every argument is a flag: the positionals these commands once took, `list x 5`, are refused, naming
+the flag form, `-r x -n 5`.
 
 ### Multi-repo queries
 
@@ -267,7 +302,7 @@ walking up from cwd (the existing `find_workspace_root` rule).
 vc-x1 chid -s work,bot          # both sides of the workspace
 vc-x1 chid -s work              # just the work repo
 vc-x1 chid -s agent             # just the bot repo
-vc-x1 list @.. 3 -s work,bot    # works with chid / desc / list / show
+vc-x1 list -r @.. -n 3 -s work,bot  # works with chid / desc / list / show
 ```
 
 `-R`/`--repo` takes a single path. Used alone it points at one jj repo (workspace lookup is
@@ -303,7 +338,7 @@ $ vc-x1 chid -s work,bot -L
 kwoyvposvsmv
 zzpksklxyrnw
 
-$ vc-x1 list @.. 3 -s work,bot
+$ vc-x1 list -r @.. -n 3 -s work,bot
 === . ===
 kwoyvposvsmv eae175c3c1b5 (no description set)
 pqxtxxpnsmot b0c46930a640 Reorganize notes (0.19.1)
@@ -423,19 +458,19 @@ status: dirty: work @ has changes
 
 ### lookup
 
-Show the lines in the other repo that a line in this one relates to. `vc-x1 lookup [SCOPE]
-FILE:LINE` takes a line as an editor, a compiler, or grep prints it, places the file on one side
-of the workspace, and resolves it to the window on the other side, work-to-transcript or
+Show the lines in the other repo that a line in this one relates to. `vc-x1 lookup [-s SCOPE]
+--line FILE:LINE` takes a line as an editor, a compiler, or grep prints it, places the file on one
+side of the workspace, and resolves it to the window on the other side, work-to-transcript or
 transcript-to-work. The requirements are in [What the lookup command
 needs](notes/transcript-write.md#what-the-lookup-command-needs).
 
-- `SCOPE` is the side the line is on, `work` or `agent`, as a positional before `FILE:LINE` or as
-  `-s`/`--scope`. Omitted, it is inferred from the file's path. Named, a `FILE` that does not
-  exist relative to the current directory is taken relative to that side's repo root, so a
-  repo-relative path works from anywhere once the side is said. A named side the path disagrees
-  with is an error, never a hint.
-- `FILE:LINE` splits at its last colon, so a path holding a colon still parses, and the line must
-  exist in the file on disk.
+- `-s`/`--scope` is the side the line is on, `work` or `agent`. Omitted, it is inferred from the
+  file's path. Named, a `FILE` that does not exist relative to the current directory is taken
+  relative to that side's repo root, so a repo-relative path works from anywhere once the side is
+  said. A named side the path disagrees with is an error, never a hint.
+- `--line FILE:LINE` splits at its last colon, so a path holding a colon still parses, and the line
+  must exist in the file on disk. The old `[SCOPE] FILE:LINE` positionals are refused, naming `-s`
+  and `--line`.
 - The workspace is `-R`/`--repo` when given, else found from the file.
 - `-r`/`--revision REV` reads the line from the file as of REV instead of from disk, for a line
   the working copy no longer holds, such as a cycle-record line the next opening deleted.
@@ -474,10 +509,10 @@ window  design.md:3-3
 ```
 
 ```
-vc-x1 lookup TODO.md:53                  # the side inferred from the path
-vc-x1 lookup agent e355f8b2.jsonl:1200   # repo-relative under the agent repo
-vc-x1 lookup work TODO.md:53 -R ../proj  # a workspace elsewhere
-vc-x1 lookup TODO.md:11 -r main-         # the line as of a revision
+vc-x1 lookup --line TODO.md:53                   # the side inferred from the path
+vc-x1 lookup -s agent --line e355f8b2.jsonl:1200  # repo-relative under the agent repo
+vc-x1 lookup -s work --line TODO.md:53 -R ../proj # a workspace elsewhere
+vc-x1 lookup --line TODO.md:11 -r main-          # the line as of a revision
 ```
 
 ### agent-files
@@ -490,32 +525,32 @@ workspace loads, so it answers in a plain repo too.
 file with its prefix removed, bare, one per line when a bump left several, and fails outside a
 workspace or in one without the file.
 
-`agent-files diff [A] [B]` compares two copies of the set, one line per file, names only: `same`,
+`agent-files diff [--from A] [--to B]` compares two copies of the set, one line per file, names only: `same`,
 `differs`, `only in A`, or `only in B`, then `N of M differ`. It answers whether a re-sync is a
 copy, and its exit status is non-zero when anything differs, as `diff`'s is. `custom.md` is
 reported as the project layer and not compared unless `-c`/`--custom` compares it like the rest,
 for a family whose project layers are meant to be identical, and `--no-custom` overrides a config
 that says so.
 
-`A` is the operand, else the config's `agent-files.diff.dir`, else `family.template`, the config
-values relative to the config file's directory. `B` is the operand, else this workspace. So a
-bare `diff` compares the payload against this workspace, one operand compares that copy against
-this workspace, and two operands compare any two copies from anywhere, no workspace needed. The
-header line says where each came from, and a missing or non-directory operand is an error naming
-what to set.
+`A` is `--from`, else the config's `agent-files.diff.dir`, else `family.template`, the config
+values relative to the config file's directory. `B` is `--to`, else this workspace. So a bare
+`diff` compares the payload against this workspace, `--from` alone compares that copy against
+this workspace, and both compare any two copies from anywhere, no workspace needed. The header
+line says where each came from, and a missing or non-directory operand is an error naming what to
+set. The old `[A] [B]` positionals are refused, naming `--from` and `--to`.
 
-`agent-files copy [SRC] [DST]` makes the set in `DST` a byte copy of the one in `SRC`: it copies
+`agent-files copy [--from SRC] [--to DST]` makes the set in `DST` a byte copy of the one in `SRC`: it copies
 what differs or exists only in `SRC`, deletes what exists only in `DST` under `agent-data/`,
 never touches `TODO.md`, and copies `custom.md` only with `-c`/`--custom`. The operands resolve
-as `diff`'s do: `SRC` is the operand, else `agent-files.copy.dir`, else `family.template`, and
-`DST` is the operand, else this workspace. So a bare `copy` re-syncs this workspace from the
-payload, and two operands copy between any two directories, which is how a maintainer folds an
+as `diff`'s do: `SRC` is `--from`, else `agent-files.copy.dir`, else `family.template`, and
+`DST` is `--to`, else this workspace. So a bare `copy` re-syncs this workspace from the
+payload, and both copy between any two directories, which is how a maintainer folds an
 adopter's set into the payload. It prints its source and destination and each step first,
 refuses a `DST` whose jj working copy already changes a set file, so the copy's changes are the
 only ones there, and leaves the result uncommitted: `jj diff` there is the review, and the
 commit is yours to make. A `DST` outside any jj repo gets no guard, and the run says so.
 
-`agent-files size [DIR]` counts the set's markdown, `AGENTS.md`, `custom.md`, and
+`agent-files size [--dir DIR]` counts the set's markdown, `AGENTS.md`, `custom.md`, and
 `agent-data/*.md`, one line per file and a total. The version marker has no `.md` extension, so it
 takes no row and no place in the file count, and being empty it would add nothing to the total
 either. `agent-data/rationale.md` is counted: its number is shown in angle brackets and left out
@@ -527,18 +562,18 @@ leftmost column labelled by the set's version file goes in, the rightmost column
 window keeps the width it had. A file new to the set takes its sorted slot with empty cells behind
 it, one gone from the set keeps its remaining numbers until the window passes them, and the `total`
 row stays last. It is dry-run by default, printing the table it would write, and `--no-dry-run`
-applies it. `DIR` is the operand, else this workspace, `--file` names another notes file, and
+applies it. `DIR` is `--dir`, else this workspace, `--file` names another notes file, and
 `--label` names a column the version file cannot: write `--label=- v0.1.0` for a label opening on
 a `-`. The `## Counts` table above is left alone, since its note is prose.
 
 ```
 vc-x1 agent-files diff                             # the payload against this workspace
-vc-x1 agent-files diff ../iiac-perf                # a peer's copy against this workspace
-vc-x1 agent-files diff ../iiac-perf -c             # custom.md too
-vc-x1 agent-files diff ../iiac-perf ../zc-ring-x1  # two peers, from anywhere
+vc-x1 agent-files diff --from ../iiac-perf         # a peer's copy against this workspace
+vc-x1 agent-files diff --from ../iiac-perf -c      # custom.md too
+vc-x1 agent-files diff --from ../iiac-perf --to ../zc-ring-x1  # two peers, from anywhere
 vc-x1 agent-files copy                             # re-sync this workspace from the payload
-vc-x1 agent-files copy ../iiac-perf -c             # take a peer's set, custom.md included
-vc-x1 agent-files copy ../iiac-perf ../vc-x1-template/work  # fold a peer's set into the payload
+vc-x1 agent-files copy --from ../iiac-perf -c      # take a peer's set, custom.md included
+vc-x1 agent-files copy --from ../iiac-perf --to ../vc-x1-template/work  # fold a peer's set into the payload
 vc-x1 agent-files size                             # the count, and the slide it would make
 vc-x1 agent-files size --no-dry-run                # slide the table
 ```
@@ -623,23 +658,23 @@ items = "headers,user,assistant,tool,summary"
 
 ```
 # Default conversation view
-vc-x1 agent-session .claude/<uuid>.jsonl
+vc-x1 agent-session --file .claude/<uuid>.jsonl
 
 # Everything: thinking, tool results, meta/system too
-vc-x1 agent-session --all FILE
+vc-x1 agent-session --all --file F
 
 # Prompts only: what was asked, nothing else
-vc-x1 agent-session --none --user FILE
+vc-x1 agent-session --none --user --file F
 
 # Default view minus tool calls and headers
-vc-x1 agent-session --no-tool --no-headers FILE
+vc-x1 agent-session --no-tool --no-headers --file F
 
 # Slices by source JSONL line (same unit in every view)
-vc-x1 agent-session --lines 40 FILE      # first 40 source lines
-vc-x1 agent-session --lines -15 FILE     # last 15 source lines
-vc-x1 agent-session --lines 100,20 FILE  # 20 lines from Index 100
-vc-x1 agent-session --lines 100,-20 FILE # 20 lines ending at Index 100
-vc-x1 agent-session --lines 0 FILE       # stats summary only
+vc-x1 agent-session --lines 40 --file F      # first 40 source lines
+vc-x1 agent-session --lines -15 --file F     # last 15 source lines
+vc-x1 agent-session --lines 100,20 --file F  # 20 lines from Index 100
+vc-x1 agent-session --lines 100,-20 --file F # 20 lines ending at Index 100
+vc-x1 agent-session --lines 0 --file F       # stats summary only
 ```
 
 | Flag | Description |
@@ -675,16 +710,16 @@ first line. `--fields`/`--unknown` ignore item flags, and `--raw` conflicts with
 
 ```
 # What does this format actually contain today?
-vc-x1 agent-session --fields FILE
+vc-x1 agent-session --fields --file F
 
 # What don't we model yet / what did Anthropic add?
-vc-x1 agent-session --unknown FILE
+vc-x1 agent-session --unknown --file F
 
 # Inspect one entry in full (source line 42)
-vc-x1 agent-session --raw --lines 42,1 FILE
+vc-x1 agent-session --raw --lines 42,1 --file F
 
 # Walk a region line by line, fields-table style
-vc-x1 agent-session --per-line --lines 40,5 FILE
+vc-x1 agent-session --per-line --lines 40,5 --file F
 ```
 
 ### validate-desc
@@ -717,19 +752,19 @@ changes. Reads other repo from `.vc-config.md` by default.
 
 ```
 # Dry-run: show what would be fixed
-vc-x1 fix-desc @..
+vc-x1 fix-desc -r @..
 
 # Actually fix
-vc-x1 fix-desc @.. --no-dry-run
+vc-x1 fix-desc -r @.. --no-dry-run
 
 # Add missing ochid trailers by matching title
-vc-x1 fix-desc @.. --add-missing
+vc-x1 fix-desc -r @.. --add-missing
 
 # Limit fixes
-vc-x1 fix-desc @.. --no-dry-run -m 3
+vc-x1 fix-desc -r @.. --no-dry-run -m 3
 
 # Use a fallback for IDs not found in other repo
-vc-x1 fix-desc @.. --fallback /.claude/lost
+vc-x1 fix-desc -r @.. --fallback /.claude/lost
 ```
 
 | Flag | Description |
@@ -755,7 +790,7 @@ non-zero if any entry needs fixing.
 vc-x1 validate-todo
 
 # Check a specific file
-vc-x1 validate-todo path/to/todo.md
+vc-x1 validate-todo --file path/to/todo.md
 ```
 
 Each flagged entry prints its corrected first line and a `[line: ...]` tag: the entry's line number
@@ -775,7 +810,7 @@ vc-x1 fix-todo
 vc-x1 fix-todo --no-dry-run
 
 # Operate on a specific file
-vc-x1 fix-todo path/to/todo.md
+vc-x1 fix-todo --file path/to/todo.md
 ```
 
 | Flag | Description |
@@ -802,7 +837,7 @@ vc-x1 validate-anchors
 
 # Specific files, which is also how the frozen history is checked,
 # since notes/chores/ and notes/done.md are out of the default set
-vc-x1 validate-anchors TODO.md notes/bugs.md
+vc-x1 validate-anchors --file TODO.md --file notes/bugs.md
 
 # -v adds per-file counts, -vv a line per site (every link with how
 # it resolved, every heading with the slug it produced)
@@ -860,7 +895,7 @@ error: validate: `false` failed (exit 1), stopping at 2/3 of validate.full
 
 ### build
 
-Build the workspace's release with `build`, or its dev build with `build-dev`, by the work side's
+Build the workspace's release with `build`, or its dev build with `build --dev`, by the work side's
 `[build]` table (see [Workspace config tables](#workspace-config-tables)). The lists run as
 [validate](#validate)'s do: each element one command, split on whitespace with no shell in between,
 run in order from the work repo root, the first failure stopping the run. Neither touches the PATH,
@@ -868,15 +903,15 @@ which is `vc-x1 install`'s.
 
 - `vc-x1 build` runs `[build] release`, which builds the release, and then checks it left
   `[build] release-bin`.
-- `vc-x1 build-dev` runs `[build] dev`, the dev build. A command per build, named with the `-dev`
-  suffix as `run` and `run-dev` are.
+- `vc-x1 build --dev` runs `[build] dev`, the dev build, `--dev` choosing the build as it does
+  for `run` and `install`. The old `build-dev` is refused, naming `build --dev`.
 - Neither tracks whether its binary is out of date: cargo does, rebuilding only what changed, so
   a build with nothing changed is quick and leaves the binary as it was.
 - Both commands run their lists with two variables added to the environment,
   `VC_X1_BUILD_COMMIT`, the full commit id of `@-`, and `VC_X1_BUILD_STATE`, `clean` or `dirty`,
   so an artifact that compiles them in can say what it was built from wherever it is copied.
   `validate` passes the same two, so the test build it leaves has the same values and
-  `build-dev` reuses it rather than recompiling. vc-x1 compiles them in, as semver build metadata
+  `build --dev` reuses it rather than recompiling. vc-x1 compiles them in, as semver build metadata
   in its banner, and as a `build` line in `vc-x1 version`:
 
   ```
@@ -897,7 +932,7 @@ which is `vc-x1 install`'s.
 vc-x1 build
 
 # Build the dev build without running it
-vc-x1 build-dev
+vc-x1 build --dev
 
 # Print the release build's list, and run nothing
 vc-x1 build --dry-run
@@ -999,16 +1034,16 @@ nothing.
 | `--dir <DIR>` | Copy into `DIR` instead of `[install] release-dir`, for this run |
 | `-R, --repo <DIR>` | Workspace to install from [default: the one containing the current directory] |
 
-### install-dev
+### install --dev
 
 Build the dev build, then copy it into the install directory with `[install] dev-suffix`, `-dev`
-when absent, appended to its file name. It first runs `[build] dev` exactly as [build-dev](#build)
-does, then copies `[build] dev-bin`, `target/debug/vc-x1` here, into the directory `[install]
+when absent, appended to its file name. It first runs `[build] dev` exactly as
+[build --dev](#build) does, then copies `[build] dev-bin`, `target/debug/vc-x1` here, into the directory `[install]
 dev-dir` or `--dir` names, as `vc-x1-dev`. The landed `vc-x1` and the cycle's `vc-x1-dev` then sit
 side by side on the PATH, so the dev build can be tried from any directory, another project's
-included, where `vc-x1 run-dev` would run that project's dev build instead. The suffix is what lets
+included, where `vc-x1 run --dev` would run that project's dev build instead. The suffix is what lets
 `dev-dir` be `release-dir`'s own directory, the dev build beside the release without replacing it,
-and without a list `install-dev` refuses before the build when its destination would be the
+and without a list `install --dev` refuses before the build when its destination would be the
 release's, as an empty suffix in that directory or a `--dir` onto it would make it. A list writes
 where it says, so it names the suffix itself, `{install.dev-suffix}`, as this workspace's does.
 
@@ -1020,7 +1055,7 @@ the release's name and, with `dev-dir` the release's own directory, replace the 
 
 ```
 # Mid-cycle: put the rung's code on the PATH as vc-x1-dev, and try it in another project
-vc-x1 install-dev
+vc-x1 install --dev
 cd ../other-project
 vc-x1-dev status
 ```
@@ -1029,15 +1064,18 @@ vc-x1-dev status
 |--------|-------------|
 | `--dry-run` | Build and report, and copy nothing |
 | `--dir <DIR>` | Copy into `DIR` instead of `[install] dev-dir`, for this run |
+
+The old `install-dev` is refused, naming `install --dev`.
 | `-R, --repo <DIR>` | Workspace to install from [default: the one containing the current directory] |
 
-### run and run-dev
+### run
 
 Build, then run the build's binary with the given arguments, as `cargo run` builds before it runs.
 `vc-x1 run` runs `[build] release` exactly as [build](#build) does, then `[build] release-bin`,
-and `vc-x1 run-dev` runs `[build] dev`, then `[build] dev-bin`, so what runs is always the current
-code. Neither touches the PATH, so a build is tried before [install](#install) or
-[install-dev](#install-dev) copies it.
+and `vc-x1 run --dev` runs `[build] dev`, then `[build] dev-bin`, so what runs is always the current
+code. Neither touches the PATH, so a build is tried before [install](#install), `--dev` or not,
+copies it. `--dev` comes before the arguments, which are the binary's, and the old `run-dev` is
+refused, naming `run --dev`.
 
 - The arguments go to the binary untouched. One that starts with `-` comes after `--`, as with
   `cargo run`, since vc-x1's own flags are read first: `vc-x1 run -V` prints vc-x1's banner,
@@ -1048,8 +1086,8 @@ code. Neither touches the PATH, so a build is tried before [install](#install) o
   the key: the build passed but left an older binary where the config says. A binary whose `-V`
   prints no version, another project's, is run without the check.
 - `--dry-run` prints the build's list and the command, and runs nothing.
-- Completion is the binary's own: `vc-x1 run-dev <words><TAB>` asks the dev build, in clap's
-  completion mode, to complete `<words>`, so in iiac-perf `vc-x1 run-dev run <TAB>` offers its
+- Completion is the binary's own: `vc-x1 run --dev <words><TAB>` asks the dev build, in clap's
+  completion mode, to complete `<words>`, so in iiac-perf `vc-x1 run --dev run <TAB>` offers its
   benches. The binary is asked as it stands, never built, and one that is not there, or answers
   nothing, offers nothing. A binary built with clap's dynamic completion answers; another offers
   nothing.
@@ -1059,10 +1097,10 @@ code. Neither touches the PATH, so a build is tried before [install](#install) o
 vc-x1 run -- -V
 
 # Try the rung's code: build the dev build and run its status
-vc-x1 run-dev status -s b
+vc-x1 run --dev status -s b
 
 # See what would run
-vc-x1 run-dev --dry-run status -s b
+vc-x1 run --dev --dry-run status -s b
 ```
 
 | Option | Description |
@@ -1156,11 +1194,11 @@ value:
 vc-x1 config
 
 # Print only the work side's keys
-vc-x1 config work
+vc-x1 config -s work
 
 # Print the whole schema for one file (the user config has no
 # keyword, reach it by path)
-vc-x1 config ~/.config/vc-x1/config.toml
+vc-x1 config --file ~/.config/vc-x1/config.toml
 
 # Check a config file: see validate-config
 vc-x1 validate-config
@@ -1168,7 +1206,11 @@ vc-x1 validate-config
 
 | Flag | Description |
 |------|-------------|
-| `[TARGET]` | `work`, `agent`, `work,agent`, or a config-file path [default: work,bot] |
+| `-s, --scope <SCOPE>` | The side whose config: `work`, `agent`, or `work,agent` [default: work,agent] |
+| `--file <PATH>` | A config file by path, the user config's one spelling, exclusive with `-s` |
+
+The old `[TARGET]` positional is refused, naming `-s` for a side keyword and `--file` for a path.
+`validate-config` takes the same two flags.
 
 ### validate-config
 
@@ -1190,8 +1232,8 @@ which is why the two are separate subcommands. Four checks:
 vc-x1 validate-config
 
 # One side, or one explicit file
-vc-x1 validate-config work
-vc-x1 validate-config ../other/.vc-config.md
+vc-x1 validate-config -s work
+vc-x1 validate-config --file ../other/.vc-config.md
 
 # -v adds per-file counts, -vv a line per site (every key, every
 # link, every required key, with how each resolved)
@@ -1279,11 +1321,11 @@ A work-side `.vc-config.md` holds up to eight tables:
 - `[validate]` (0.80.0): the commands that validate this repo, also prose in the project layer
   before.
 - `[build]` (0.85.7): the dev and release builds, and the binaries they leave, read by `build`,
-  `build-dev`, `run`, `run-dev`, `install`, and `install-dev` ([Build and
+  `build --dev`, `run`, `run --dev`, `install`, and `install --dev` ([Build and
   install](#build-and-install)).
 - `[install]` (0.85.7): in `[build]`'s order, `release` and `dev`, optional lists run in place of
   the copy, and `release-dir` and `dev-dir`, where `install` copies the release build and
-  `install-dev` the dev build, `~` expanded.
+  `install --dev` the dev build, `~` expanded.
 - `[agent-files.diff]` and `[agent-files.copy]` (0.83.0): the defaults for the `agent-files`
   commands' `DIR` operand and `--custom` choice.
 
@@ -1324,7 +1366,7 @@ fast = ["cargo test --bins"]      # the subset a ladder rung runs
 release = ["cargo build --release --locked"]  # the release build
 release-bin = "target/release/vc-x1"  # its binary, copied by install
 dev = ["cargo build --locked"]    # the dev build
-dev-bin = "target/debug/vc-x1"    # its binary, run by run-dev, copied by install-dev
+dev-bin = "target/debug/vc-x1"    # its binary, run by run --dev, copied by install --dev
 ```
 
 ```toml
@@ -1338,7 +1380,7 @@ dev = [                           # the dev install, as vc-x1-dev
   "cp {build.dev-bin} {install.dev-dir}/vc-x1-dev.new",
   "mv {install.dev-dir}/vc-x1-dev.new {install.dev-dir}/vc-x1-dev",
 ]
-dev-dir = "~/.cargo/bin"          # where install-dev copies the dev build
+dev-dir = "~/.cargo/bin"          # where install --dev copies the dev build
 ```
 
 ```toml
@@ -1362,58 +1404,67 @@ The `[validate]` lists are `str-list` keys: a TOML array of strings, one element
 on one line or spread to the closing `]`. Each element is one command whose exit status is
 checked, so a command with its own spaces and dashes is one quoted string.
 [`vc-x1 validate`](#validate) (and `--fast`) runs them, `validate-config` checks the tables'
-keys and shapes, and `config work` prints the schema with every key's example:
+keys and shapes, and `config -s work` prints the schema with every key's example:
 
 ```
-vc-x1 validate-config                       # both sides
-vc-x1 validate-config work                  # the work side only
-vc-x1 validate-config agent                 # the agent side only
-vc-x1 validate-config .claude/.vc-config.md # a specific file, checked against every home
-vc-x1 config work                             # the work side's schema, [family], [validate], and [agent-files.*] too
-vc-x1 config agent                            # the agent side's schema
-vc-x1 config .claude/.vc-config.md            # the whole schema, labelled with the path
+vc-x1 validate-config                              # both sides
+vc-x1 validate-config -s work                      # the work side only
+vc-x1 validate-config -s agent                     # the agent side only
+vc-x1 validate-config --file .claude/.vc-config.md # a specific file, checked against every home
+vc-x1 config -s work                    # the work side's schema, [family], [validate], [agent-files.*]
+vc-x1 config -s agent                   # the agent side's schema
+vc-x1 config --file .claude/.vc-config.md # the whole schema, labelled with the path
 ```
 
 ### clone
 
-Clone an existing dual-repo project. Runs `git clone --recursive` to get both repos, initializes
-`jj` in each, and creates the Claude Code symlink.
+Clone an existing project, a dual workspace or, with `-s por`, a plain repo. It clones the work
+repo, initializes `jj` in it, reads the work repo's `.vc-config.md` for where the agent repo goes
+and what its remote calls it, clones that beside the work repo's remote, and creates the Claude
+Code symlink.
 
 ```
 # Clone using a full URL
-vc-x1 clone git@github.com:owner/my-project.git
-vc-x1 clone https://github.com/owner/my-project
+vc-x1 clone --from git@github.com:owner/my-project.git
+vc-x1 clone --from https://github.com/owner/my-project
 
 # A slashed source with no path prefix (`owner/my-project`) is
 # refused: it reads equally as a path and as the retired owner/name
 # shorthand.
 
 # Clone with a custom directory name
-vc-x1 clone https://github.com/owner/my-project my-local-name
+vc-x1 clone --from https://github.com/owner/my-project --name my-local-name
 
-# Clone into a specific parent directory
-vc-x1 clone https://github.com/owner/my-project --dir ~/projects
+# A plain repo, no agent repo
+vc-x1 clone --from https://github.com/owner/my-project -s por
 
 # Preview without executing
-vc-x1 clone https://github.com/owner/my-project --dry-run
+vc-x1 clone --from https://github.com/owner/my-project --dry-run
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--dir <PATH>` | Parent directory [default: cwd] |
+| `--from <URL\|PATH>` | The source to clone, required |
+| `--name <NAME>` | Destination directory name in the current directory [default: derived from `--from`] |
+| `-s, --scope <SCOPE>` | `both`, a dual workspace, or `por`, a plain repo [default: both] |
 | `--dry-run` | Show what would be done without executing |
 | `-v, --verbose` | Verbose output |
 
-Requires `jj` to be installed. The `.claude` bot repo is cloned automatically via `git submodule` if
-the source project was created with `vc-x1 init`.
+The old `<TARGET> [NAME]` positionals are refused, naming `--from` and `--name`, and `--por` is
+refused, naming `--scope por`. Requires `jj` to be installed.
 
 ### init
 
-Create a new dual-repo project: a work repo with its agent repo nested inside it, at
-`.agent-session` unless `--agent-dir` names another directory. Both repos are initialized with `git`
-and `jj`, configured with `.vc-config.md`, and pushed to GitHub. The work repo ignores the agent
-repo's directory, and its config records where the agent repo is and what its remote calls it, so
-`vc-x1 clone` fetches both.
+Create a new project, a dual workspace by default: a work repo with its agent repo nested inside
+it, at `.agent-session` unless `--agent-dir` names another directory. Both repos are initialized
+with `git` and `jj`, configured with `.vc-config.md`, and pushed to GitHub. The work repo ignores
+the agent repo's directory, and its config records where the agent repo is and what its remote
+calls it, so `vc-x1 clone` fetches both. `-s por` creates a plain single repo instead, and a URL
+`--target` needs no user config, the way to a plain repo with none:
+
+```
+vc-x1 init --target git@github.com:owner/my-project.git -s por
+```
 
 The agent repo's remote name is the work repo's name plus `.agent-session`, beside the work repo
 under the same owner:
@@ -1426,48 +1477,48 @@ under the same owner:
 
 ```
 # Create public project in current directory (GitHub via gh)
-vc-x1 init my-project
+vc-x1 init --target my-project
 
 # A URL or a path target. A slashed target with no path prefix
 # (`myorg/my-project`) is refused: it reads equally as a path and
 # as the retired owner/name shorthand.
-vc-x1 init https://github.com/myorg/my-project
-vc-x1 init ~/projects/my-project
-vc-x1 init ./sub/dir/my-project
+vc-x1 init --target https://github.com/myorg/my-project
+vc-x1 init --target ~/projects/my-project
+vc-x1 init --target ./sub/dir/my-project
 
 # Create private repos
-vc-x1 init my-project --private
+vc-x1 init --target my-project --private
 
 # Local bare remotes instead of GitHub (offline; used by fixtures)
-vc-x1 init my-project --repo local=/path/to/parent
+vc-x1 init --target my-project --repo local=/path/to/parent
 
 # Preview without executing
-vc-x1 init my-project --dry-run
+vc-x1 init --target my-project --dry-run
 
 # Grow an existing plain directory into a dual workspace
-vc-x1 init . --adopt
+vc-x1 init --target . --adopt
 
 # Name the agent repo's directory and its remote
-vc-x1 init my-project --agent-dir .sessions --agent-suffix -sessions
-vc-x1 init my-project --agent-repo my-project.claude
+vc-x1 init --target my-project --agent-dir .sessions --agent-suffix -sessions
+vc-x1 init --target my-project --agent-repo my-project.claude
 
 # Seed both repos from template directories (sibling layout)
-vc-x1 init my-project --use-template \
+vc-x1 init --target my-project --use-template \
     ../vc-x1-work-repo-template,../vc-x1-bot-repo-template
 
 # BOT omitted defaults to the `<CODE>.claude` sibling
-vc-x1 init my-project --use-template ../tmpl
+vc-x1 init --target my-project --use-template ../tmpl
 # Equivalent to:
-vc-x1 init my-project --use-template ../tmpl,../tmpl.claude
+vc-x1 init --target my-project --use-template ../tmpl,../tmpl.claude
 ```
 
 | Flag | Description |
 |------|-------------|
-| `<TARGET>` | URL, path, or bare NAME |
-| `[NAME]` | Repo directory name override (URL form only) |
+| `--target <URL\|PATH\|NAME>` | What to create: a URL, a path, or a bare NAME, required |
+| `--name <NAME>` | Repo directory name override (URL form only) |
 | `--account <NAME>` | Pick `[account.<a>]` from user config |
 | `--repo <CAT[=VAL]>` | Repo target, e.g. `local=<PARENT>` for local bare remotes |
-| `--por` | Plain single repo (no agent repo) |
+| `-s, --scope <SCOPE>` | `both`, a dual workspace, or `por`, a plain single repo (no agent repo) [default: both] |
 | `--adopt` | Grow an existing TARGET into a dual workspace (see below) |
 | `--agent-dir <DIR>` | The agent repo's directory, one name [default: .agent-session] |
 | `--agent-repo <NAME>` | The agent repo's whole remote name |
@@ -1502,13 +1553,15 @@ grows the target into a dual workspace:
   nothing: the commit is yours to land. With no origin, the remotes come from `--repo` as for a
   fresh init, and both are pushed. A working copy with uncommitted work is refused, and a git-only
   repo is pointed at `jj git init --colocate`.
-- A single-repo workspace, one whose config declares `repos.work` alone, such as `init --por`
+- A single-repo workspace, one whose config declares `repos.work` alone, such as `init -s por`
   makes: adopted as the repo above, except that its config is edited in place. `agent =` goes into
   `[repos]` and `agent-repo =` under `[remote]`, and every other line, prose and comments
   included, stays as it was.
 - A dual-repo workspace is refused, having nothing to grow.
 
-`--adopt` is refused with `--por` and with `--use-template`, and on a TARGET that does not exist.
+`--adopt` is refused with `-s por` and with `--use-template`, and on a `--target` that does not
+exist. The old `<TARGET> [NAME]` positionals are refused, naming `--target` and `--name`, and
+`--por` is refused, naming `--scope por`.
 
 Requires `gh` (authenticated) and `jj` to be installed (`gh` is skipped under `--repo local=...`).
 
@@ -1525,7 +1578,7 @@ character that is not an ASCII letter or digit replaced by `-`, so `/home/me/io_
 vc-x1 symlink
 
 # Specify a different target
-vc-x1 symlink /path/to/session-dir
+vc-x1 symlink --target /path/to/session-dir
 
 # Replace existing symlink without prompting
 vc-x1 symlink -y
@@ -2218,7 +2271,7 @@ writes and push in one shot.
 
 ```bash
 parent=$(mktemp -u /tmp/vc-x1-test-XXXXXX)
-vc-x1 init "$parent/work" --repo local="$parent"
+vc-x1 init --target "$parent/work" --repo local="$parent"
 work="$parent/work"
 bot="$parent/work/.claude"
 
@@ -2268,7 +2321,7 @@ in preflight, before anything is rewritten.
 
 ```bash
 parent=$(mktemp -u /tmp/vc-x1-guard-XXXXXX)
-vc-x1 init "$parent/work" --repo local="$parent"
+vc-x1 init --target "$parent/work" --repo local="$parent"
 bot="$parent/work/.claude"
 
 # example 1, refusal: journal described on @ WITH an ochid

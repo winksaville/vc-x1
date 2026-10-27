@@ -18,7 +18,7 @@ fn clone_into_dot_slash_name_links_the_normalized_path() {
     run_ok(
         fx.cmd()
             .current_dir(&fx.base)
-            .args(["init", "./tr"])
+            .args(["init", "--target", "./tr"])
             .arg("--repo")
             .arg(format!("local={}", fx.base.display())),
     );
@@ -27,11 +27,13 @@ fn clone_into_dot_slash_name_links_the_normalized_path() {
     let projects = fx.home.join(".claude").join("projects");
     std::fs::remove_dir_all(&projects).expect("clear init's symlink");
 
-    let out = run_ok(
-        fx.cmd()
-            .current_dir(&fx.base)
-            .args(["clone", "./remote-work.git", "./cl"]),
-    );
+    let out = run_ok(fx.cmd().current_dir(&fx.base).args([
+        "clone",
+        "--from",
+        "./remote-work.git",
+        "--name",
+        "./cl",
+    ]));
     let text = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
@@ -72,6 +74,7 @@ fn clone_without_remote_agent_repo_names_it_from_the_agent_dir() {
             .current_dir(&fx.base)
             .args([
                 "init",
+                "--target",
                 "./tr",
                 "--agent-dir",
                 ".claude",
@@ -96,11 +99,13 @@ fn clone_without_remote_agent_repo_names_it_from_the_agent_dir() {
     jj(&fx.home, &tr, &["bookmark", "set", "main", "-r", "@-"]);
     jj(&fx.home, &tr, &["git", "push", "--bookmark", "main"]);
 
-    let out = run_ok(
-        fx.cmd()
-            .current_dir(&fx.base)
-            .args(["clone", "./remote-work.git", "./cl"]),
-    );
+    let out = run_ok(fx.cmd().current_dir(&fx.base).args([
+        "clone",
+        "--from",
+        "./remote-work.git",
+        "--name",
+        "./cl",
+    ]));
     let text = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),

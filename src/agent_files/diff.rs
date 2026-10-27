@@ -34,13 +34,18 @@ pub const AGENT_DATA: &str = "agent-data";
 /// CLI args for `agent-files diff`.
 #[derive(Args, Debug)]
 pub struct DiffArgs {
+    /// Retired: the two directories, now `--from` and `--to`, refused
+    /// naming them.
+    #[arg(value_name = "RETIRED", hide = true, num_args = 0..=2)]
+    pub retired: Vec<String>,
+
     /// A directory holding a copy of the set [default:
     /// agent-files.diff.dir, else family.template, else an error]
-    #[arg(value_name = "A")]
+    #[arg(long = "from", value_name = "DIR")]
     pub a: Option<PathBuf>,
 
-    /// The other copy [default: this workspace, so one operand is A]
-    #[arg(value_name = "B")]
+    /// The other copy [default: this workspace, so one side is --from]
+    #[arg(long = "to", value_name = "DIR")]
     pub b: Option<PathBuf>,
 
     /// Compare custom.md like the rest of the set
@@ -163,9 +168,15 @@ pub fn resolve_set_dir(
     }
 }
 
-/// The second set directory, `B` for diff and the destination for
-/// copy: the operand as given, else the workspace around the
-/// current directory.
+/// The retired `[A] [B]` or `[SRC] [DST]` positionals of `command`,
+/// refused naming `--from` and `--to` with the directories in place,
+/// and nothing to refuse when neither was given.
+pub fn refuse_from_to(command: &str, retired: &[String]) -> Result<(), String> {
+    crate::options_flags::retired_positional::refuse_two(command, retired, "--from", "--to")
+}
+
+/// The second set directory, `--to`: the operand as given, else the
+/// workspace around the current directory.
 pub fn resolve_here(
     root: Option<&Path>,
     operand: Option<&Path>,
@@ -286,6 +297,7 @@ impl DiffArgs {
 
     /// Print the report and say whether the sets are the same.
     fn diff(&self) -> Result<bool, Box<dyn std::error::Error>> {
+        refuse_from_to("agent-files diff", &self.retired)?;
         let root = common::find_workspace_root();
         let cfg = match &root {
             Some(r) => super::config_at(r)?,
@@ -346,16 +358,29 @@ mod tests {
     /// refused.
     #[test]
     fn flags_parse() {
-        let a = T::try_parse_from(["t", "../x", "-c"]).unwrap().a;
+        let a = T::try_parse_from(["t", "--from", "../x", "-c"]).unwrap().a;
         assert_eq!(a.a, Some(PathBuf::from("../x")));
         assert!(a.b.is_none());
         assert!(a.custom && !a.no_custom);
-        let a = T::try_parse_from(["t", "../x", "../y", "--no-custom"])
+        let a = T::try_parse_from(["t", "--from", "../x", "--to", "../y", "--no-custom"])
             .unwrap()
             .a;
         assert_eq!(a.b, Some(PathBuf::from("../y")));
         assert!(a.no_custom);
         assert!(T::try_parse_from(["t", "-c", "--no-custom"]).is_err());
+    }
+
+    /// The retired operands parse, hidden, and are refused naming
+    /// `--from`, and `--to` with it when both were given.
+    #[test]
+    fn the_retired_operands_are_refused_naming_their_flags() {
+        let a = T::try_parse_from(["t", "../x"]).unwrap().a;
+        let err = refuse_from_to("agent-files diff", &a.retired).unwrap_err();
+        assert!(err.ends_with("`--from ../x`"), "{err}");
+        let a = T::try_parse_from(["t", "../x", "../y"]).unwrap().a;
+        let err = refuse_from_to("agent-files diff", &a.retired).unwrap_err();
+        assert!(err.ends_with("`--from ../x --to ../y`"), "{err}");
+        assert_eq!(refuse_from_to("agent-files diff", &[]), Ok(()));
     }
 
     /// Flag, then key, then default, in that order.
