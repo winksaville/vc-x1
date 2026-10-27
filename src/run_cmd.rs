@@ -1,12 +1,14 @@
-//! The `run` and `run-dev` subcommands: build the release or the dev
+//! The `run` subcommand: build the release, or with `--dev` the dev
 //! build, then run its binary with the given arguments, as
-//! `cargo run` builds before it runs. Neither touches the PATH, so a
-//! build is tried before `install` or `install-dev` copies it.
+//! `cargo run` builds before it runs. It never touches the PATH, so a
+//! build is tried before `install` copies it. The dev run was
+//! `run-dev`, kept hidden to be refused naming `run --dev`.
 //!
 //! - `vc-x1 run` runs `[build] release` and then
-//!   `[build] release-bin`, and `vc-x1 run-dev` runs `[build] dev`
+//!   `[build] release-bin`, and `vc-x1 run --dev` runs `[build] dev`
 //!   and then `[build] dev-bin`, through `build`'s own code, so what
-//!   runs is always the current code.
+//!   runs is always the current code. `--dev` comes before the
+//!   arguments, which are the binary's.
 //! - The arguments go to the binary untouched. One that starts with
 //!   `-` comes after `--`, `vc-x1 run -- -V`, as with `cargo run`,
 //!   since vc-x1's own flags, `-V` among them, are read first.
@@ -19,10 +21,10 @@
 //!   may print none.
 //! - `--dry-run` prints the build's list and the command, and runs
 //!   nothing.
-//! - Completion is forwarded: the words after `run` or `run-dev` are
-//!   completed by the binary it would run, asked in clap's completion
-//!   mode, so `vc-x1 run-dev run <TAB>` offers the dev build's own
-//!   words. The binary is asked as it stands and never built, and
+//! - Completion is forwarded: the words after `run` and its own
+//!   options are completed by the binary it would run, asked in clap's
+//!   completion mode, so `vc-x1 run --dev run <TAB>` offers the dev
+//!   build's own words. The binary is asked as it stands and never built, and
 //!   one that answers nothing, or is not there, offers nothing. See
 //!   [`forward_completion`].
 
@@ -36,9 +38,14 @@ use log::{debug, error, info, warn};
 use crate::build_cmd::{BuildParams, build_params, dev_bin, release_bin};
 use crate::options_flags::dry_run::DryRunFlag;
 
-/// Build the release, then run it.
+/// Build the release, or with `--dev` the dev build, then run it.
 #[derive(Args, Debug)]
 pub struct RunArgs {
+    /// Build and run the dev build, `[build] dev` and `dev-bin`,
+    /// instead of the release, given before the arguments
+    #[arg(short = 'd', long)]
+    pub dev: bool,
+
     #[command(flatten)]
     pub dry_run: DryRunFlag,
 
@@ -57,7 +64,8 @@ pub struct RunArgs {
     pub args: Vec<OsString>,
 }
 
-/// Build the dev build, then run it.
+/// Retired: `run-dev`, now `run --dev`, refused naming it. Its flags
+/// are kept so an old invocation parses and is told the fix.
 #[derive(Args, Debug)]
 pub struct RunDevArgs {
     #[command(flatten)]
@@ -82,7 +90,7 @@ pub struct RunDevArgs {
 /// manifest's version to check it against, and the arguments.
 #[derive(Debug)]
 pub struct RunParams {
-    /// `run` or `run-dev`, prefixing the run's messages.
+    /// `run` or `run --dev`, prefixing the run's messages.
     pub label: &'static str,
     /// `build.release-bin` or `build.dev-bin`, for a message to point
     /// at.
@@ -104,18 +112,19 @@ pub struct RunParams {
 impl TryFrom<&RunArgs> for RunParams {
     type Error = String;
 
-    /// The release: see [`run_params`].
+    /// The release, or the dev build with `--dev`: see
+    /// [`run_params`].
     fn try_from(a: &RunArgs) -> Result<Self, String> {
-        run_params(false, a.repo.as_deref(), &a.args, a.dry_run.value)
+        run_params(a.dev, a.repo.as_deref(), &a.args, a.dry_run.value)
     }
 }
 
 impl TryFrom<&RunDevArgs> for RunParams {
     type Error = String;
 
-    /// The dev build: see [`run_params`].
-    fn try_from(a: &RunDevArgs) -> Result<Self, String> {
-        run_params(true, a.repo.as_deref(), &a.args, a.dry_run.value)
+    /// Refused: `run-dev` is `run --dev`.
+    fn try_from(_: &RunDevArgs) -> Result<Self, String> {
+        Err(crate::build_cmd::retired_dev("run"))
     }
 }
 
@@ -128,7 +137,7 @@ pub fn run_params(
     dry_run: bool,
 ) -> Result<RunParams, String> {
     let (label, bin_key) = if dev {
-        ("run-dev", "build.dev-bin")
+        ("run --dev", "build.dev-bin")
     } else {
         ("run", "build.release-bin")
     };
@@ -151,7 +160,7 @@ pub fn run_params(
     })
 }
 
-/// Run `run` or `run-dev` for `main`: the binary's exit code is
+/// Run `run`, with `--dev` or not, for `main`: the binary's exit code is
 /// vc-x1's, so a failing run fails the same way, and any error
 /// before it runs is logged and fails.
 pub fn dispatch(params: Result<RunParams, String>) -> ExitCode {
@@ -256,7 +265,7 @@ fn version_note(reported: Option<&str>, manifest: Option<&str>) -> Option<String
 /// first, and the cursor's index among them when the shell gave one.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Forward {
-    /// `run-dev`'s dev build rather than `run`'s release.
+    /// `run --dev`'s dev build rather than `run`'s release.
     pub dev: bool,
     /// The workspace `-R` named, else the current directory's.
     pub repo: Option<PathBuf>,
@@ -268,13 +277,14 @@ pub struct Forward {
 
 /// Plan a completion forward from the words a shell passes, the
 /// program's name first, and the cursor's index among them, or
-/// `None` when the words are not `run`'s or `run-dev`'s arguments
-/// and clap completes them itself.
+/// `None` when the words are not `run`'s arguments and clap completes
+/// them itself.
 ///
-/// - The subcommand is the first word after vc-x1's own flags that
-///   is `run` or `run-dev`. Any other subcommand is clap's.
-/// - The subcommand's own options, `--dry-run`, `-R DIR`, `--repo
-///   DIR`, and `--repo=DIR`, are skipped, and `--` ends them. A word
+/// - The subcommand is the first word after vc-x1's own flags, and
+///   only `run` is forwarded. Any other subcommand is clap's.
+/// - The subcommand's own options, `--dev`, `-d`, `--dry-run`, `-R
+///   DIR`, `--repo DIR`, and `--repo=DIR`, are skipped, `--dev`
+///   choosing the dev build, and `--` ends them. A word
 ///   at the cursor that starts with `-` before any argument is
 ///   clap's, so `run --d<TAB>` offers `--dry-run`.
 /// - The cursor on the subcommand or its options is clap's too, so
@@ -289,11 +299,10 @@ pub fn plan_forward(words: &[String], index: Option<usize>) -> Option<Forward> {
         .skip(1)
         .find(|(_, w)| !w.starts_with('-'))
         .map(|(i, _)| i)?;
-    let dev = match words[sub].as_str() {
-        "run" => false,
-        "run-dev" => true,
-        _ => return None,
-    };
+    if words[sub] != "run" {
+        return None;
+    }
+    let mut dev = false;
     let mut repo = None;
     let mut i = sub + 1;
     while i < words.len() && i < cursor {
@@ -303,6 +312,9 @@ pub fn plan_forward(words: &[String], index: Option<usize>) -> Option<Forward> {
             break;
         }
         if w == "--dry-run" {
+            i += 1;
+        } else if w == "--dev" || w == "-d" {
+            dev = true;
             i += 1;
         } else if w == "-R" || w == "--repo" {
             repo = words.get(i + 1).map(PathBuf::from);
@@ -327,7 +339,7 @@ pub fn plan_forward(words: &[String], index: Option<usize>) -> Option<Forward> {
     })
 }
 
-/// Forward a completion request for `run`'s or `run-dev`'s arguments
+/// Forward a completion request for `run`'s arguments
 /// to the binary it would run, and exit with its answer. Called by
 /// `main` before clap's completion, which it leaves alone for every
 /// other request.
@@ -435,11 +447,19 @@ mod tests {
         );
         let cli = Cli::try_parse_from(["vc-x1", "run", "-V"]).unwrap();
         assert_eq!(cli.version, 1, "-V before the arguments is vc-x1's");
+        let a = run(&["vc-x1", "run", "--dev", "--", "-V"]);
+        assert!(a.dev);
+        assert_eq!(a.args, [OsString::from("-V")]);
+        let a = run(&["vc-x1", "run", "x", "--dev"]);
+        assert!(!a.dev, "--dev after an argument is the binary's");
         match Cli::try_parse_from(["vc-x1", "run-dev", "--", "-V"])
             .unwrap()
             .command
         {
-            Some(Commands::RunDev(a)) => assert_eq!(a.args, [OsString::from("-V")]),
+            Some(Commands::RunDev(a)) => {
+                let err = RunParams::try_from(&a).unwrap_err();
+                assert!(err.ends_with("`run --dev`"), "{err}");
+            }
             _ => panic!("expected RunDev"),
         }
     }
@@ -476,10 +496,10 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
         let mut params = RunParams {
-            label: "run-dev",
+            label: "run --dev",
             bin_key: "build.dev-bin",
             build: BuildParams {
-                label: "build-dev",
+                label: "build --dev",
                 key: "build.dev",
                 commands: vec!["touch built".to_string()],
                 root: dir.clone(),
@@ -511,13 +531,13 @@ mod tests {
         std::fs::remove_dir_all(&dir).ok();
     }
 
-    /// Only `run`'s and `run-dev`'s arguments are forwarded, their
+    /// Only `run`'s arguments are forwarded, its
     /// own options skipped and the index shifted, and the cursor on
     /// the subcommand, its options, or a flag before any argument is
     /// clap's.
     #[test]
     fn plan_forward_forms() {
-        let p = plan_forward(&w("vc-x1 run-dev run zcr"), Some(3)).unwrap();
+        let p = plan_forward(&w("vc-x1 run --dev run zcr"), Some(4)).unwrap();
         assert_eq!(
             p,
             Forward {
@@ -537,9 +557,9 @@ mod tests {
             (Some(PathBuf::from("x")), w("vc-x1 a"), None)
         );
         assert_eq!(
-            plan_forward(&w("vc-x1 run-dev"), Some(1)),
+            plan_forward(&w("vc-x1 run-dev run"), Some(2)),
             None,
-            "the subcommand itself"
+            "the retired run-dev is clap's, which refuses it"
         );
         assert_eq!(
             plan_forward(&w("vc-x1 run --d"), Some(2)),

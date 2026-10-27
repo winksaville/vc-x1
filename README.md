@@ -86,19 +86,19 @@ builds, each a plain `cargo build` leaving its binary in `target/`, off the PATH
 cycle builds replaces the `vc-x1` on the PATH until the cycle lands. Both are `--locked`, so they
 compile the same dependencies, the ones `Cargo.lock` commits:
 
-- Dev: `vc-x1 build-dev` runs `[build] dev`, `cargo build --locked`, leaving the rung's debug
+- Dev: `vc-x1 build --dev` runs `[build] dev`, `cargo build --locked`, leaving the rung's debug
   binary at `target/debug/vc-x1`. After a validation it reuses the test build, so it costs under a
-  second, and `vc-x1 run-dev` runs it first, so what runs is always the current code.
+  second, and `vc-x1 run --dev` runs it first, so what runs is always the current code.
 - Release: `vc-x1 build` runs `[build] release`, `cargo build --release --locked`, leaving the
   release build at `target/release/vc-x1`, its `-V` naming the commit it was built from
   ([build](#build)).
 - Install: at a cycle's Land, `vc-x1 install` runs the release build, which cargo skips when
   nothing changed, then copies it into `~/.cargo/bin`, the `[install] release-dir`, after
   reporting what it is copying ([install](#install)).
-- Install-dev: mid-cycle, `vc-x1 install-dev` runs the dev build, then copies it into
+- Install --dev: mid-cycle, `vc-x1 install --dev` runs the dev build, then copies it into
   `~/.cargo/bin`, the `[install] dev-dir`, as `vc-x1-dev`, beside the landed `vc-x1`, so the
-  cycle's code can be tried from any directory ([install-dev](#install-dev)). With `install`, the
-  two commands that touch the PATH.
+  cycle's code can be tried from any directory ([install --dev](#install---dev)). With the
+  release install, the two ways the PATH is touched.
 
 Where each build leaves its binary is the config's to say, `[build] release-bin` and `dev-bin`:
 vc-x1 never works it out from cargo or the package's name.
@@ -109,15 +109,15 @@ The commands in the order a cycle uses them, a rung's loop first and Land after:
 |---|---|---|
 | `vc-x1 validate` | fmt, clippy, every test | every rung, before review |
 | `vc-x1 validate --fast` | the unit tests only | while iterating |
-| `vc-x1 build-dev` | the dev build, into `target/debug` | to build without running |
-| `vc-x1 run-dev` | `build-dev`, then runs it | trying the change |
-| `vc-x1 install-dev` | `build-dev`, then copies it into `~/.cargo/bin` as `vc-x1-dev` | trying the change elsewhere |
+| `vc-x1 build --dev` | the dev build, into `target/debug` | to build without running |
+| `vc-x1 run --dev` | `build --dev`, then runs it | trying the change |
+| `vc-x1 install --dev` | `build --dev`, then copies it into `~/.cargo/bin` as `vc-x1-dev` | trying the change elsewhere |
 | `vc-x1 build` | the release, into `target/release` | at Land, or to try the release profile |
 | `vc-x1 run` | `build`, then runs it | the smoke check before install |
 | `vc-x1 install` | `build`, then reports it and copies it into `~/.cargo/bin` | at Land |
 
-`validate` checks the source and makes no build of either kind. `run`, `run-dev`, `install`, and
-`install-dev` build first, as `cargo run` does, and cargo rebuilds only what changed, so the binary
+`validate` checks the source and makes no build of either kind. `run`, `run --dev`, `install`, and
+`install --dev` build first, as `cargo run` does, and cargo rebuilds only what changed, so the binary
 `run` smoke-tests is the one `install` copies.
 
 - `target/debug/vc-x1 -V` names the exact rung, since the version-of-record carries the cycle's
@@ -861,7 +861,7 @@ error: validate: `false` failed (exit 1), stopping at 2/3 of validate.full
 
 ### build
 
-Build the workspace's release with `build`, or its dev build with `build-dev`, by the work side's
+Build the workspace's release with `build`, or its dev build with `build --dev`, by the work side's
 `[build]` table (see [Workspace config tables](#workspace-config-tables)). The lists run as
 [validate](#validate)'s do: each element one command, split on whitespace with no shell in between,
 run in order from the work repo root, the first failure stopping the run. Neither touches the PATH,
@@ -869,15 +869,15 @@ which is `vc-x1 install`'s.
 
 - `vc-x1 build` runs `[build] release`, which builds the release, and then checks it left
   `[build] release-bin`.
-- `vc-x1 build-dev` runs `[build] dev`, the dev build. A command per build, named with the `-dev`
-  suffix as `run` and `run-dev` are.
+- `vc-x1 build --dev` runs `[build] dev`, the dev build, `--dev` choosing the build as it does
+  for `run` and `install`. The old `build-dev` is refused, naming `build --dev`.
 - Neither tracks whether its binary is out of date: cargo does, rebuilding only what changed, so
   a build with nothing changed is quick and leaves the binary as it was.
 - Both commands run their lists with two variables added to the environment,
   `VC_X1_BUILD_COMMIT`, the full commit id of `@-`, and `VC_X1_BUILD_STATE`, `clean` or `dirty`,
   so an artifact that compiles them in can say what it was built from wherever it is copied.
   `validate` passes the same two, so the test build it leaves has the same values and
-  `build-dev` reuses it rather than recompiling. vc-x1 compiles them in, as semver build metadata
+  `build --dev` reuses it rather than recompiling. vc-x1 compiles them in, as semver build metadata
   in its banner, and as a `build` line in `vc-x1 version`:
 
   ```
@@ -898,7 +898,7 @@ which is `vc-x1 install`'s.
 vc-x1 build
 
 # Build the dev build without running it
-vc-x1 build-dev
+vc-x1 build --dev
 
 # Print the release build's list, and run nothing
 vc-x1 build --dry-run
@@ -1000,16 +1000,16 @@ nothing.
 | `--dir <DIR>` | Copy into `DIR` instead of `[install] release-dir`, for this run |
 | `-R, --repo <DIR>` | Workspace to install from [default: the one containing the current directory] |
 
-### install-dev
+### install --dev
 
 Build the dev build, then copy it into the install directory with `[install] dev-suffix`, `-dev`
-when absent, appended to its file name. It first runs `[build] dev` exactly as [build-dev](#build)
-does, then copies `[build] dev-bin`, `target/debug/vc-x1` here, into the directory `[install]
+when absent, appended to its file name. It first runs `[build] dev` exactly as
+[build --dev](#build) does, then copies `[build] dev-bin`, `target/debug/vc-x1` here, into the directory `[install]
 dev-dir` or `--dir` names, as `vc-x1-dev`. The landed `vc-x1` and the cycle's `vc-x1-dev` then sit
 side by side on the PATH, so the dev build can be tried from any directory, another project's
-included, where `vc-x1 run-dev` would run that project's dev build instead. The suffix is what lets
+included, where `vc-x1 run --dev` would run that project's dev build instead. The suffix is what lets
 `dev-dir` be `release-dir`'s own directory, the dev build beside the release without replacing it,
-and without a list `install-dev` refuses before the build when its destination would be the
+and without a list `install --dev` refuses before the build when its destination would be the
 release's, as an empty suffix in that directory or a `--dir` onto it would make it. A list writes
 where it says, so it names the suffix itself, `{install.dev-suffix}`, as this workspace's does.
 
@@ -1021,7 +1021,7 @@ the release's name and, with `dev-dir` the release's own directory, replace the 
 
 ```
 # Mid-cycle: put the rung's code on the PATH as vc-x1-dev, and try it in another project
-vc-x1 install-dev
+vc-x1 install --dev
 cd ../other-project
 vc-x1-dev status
 ```
@@ -1030,15 +1030,18 @@ vc-x1-dev status
 |--------|-------------|
 | `--dry-run` | Build and report, and copy nothing |
 | `--dir <DIR>` | Copy into `DIR` instead of `[install] dev-dir`, for this run |
+
+The old `install-dev` is refused, naming `install --dev`.
 | `-R, --repo <DIR>` | Workspace to install from [default: the one containing the current directory] |
 
-### run and run-dev
+### run
 
 Build, then run the build's binary with the given arguments, as `cargo run` builds before it runs.
 `vc-x1 run` runs `[build] release` exactly as [build](#build) does, then `[build] release-bin`,
-and `vc-x1 run-dev` runs `[build] dev`, then `[build] dev-bin`, so what runs is always the current
-code. Neither touches the PATH, so a build is tried before [install](#install) or
-[install-dev](#install-dev) copies it.
+and `vc-x1 run --dev` runs `[build] dev`, then `[build] dev-bin`, so what runs is always the current
+code. Neither touches the PATH, so a build is tried before [install](#install), `--dev` or not,
+copies it. `--dev` comes before the arguments, which are the binary's, and the old `run-dev` is
+refused, naming `run --dev`.
 
 - The arguments go to the binary untouched. One that starts with `-` comes after `--`, as with
   `cargo run`, since vc-x1's own flags are read first: `vc-x1 run -V` prints vc-x1's banner,
@@ -1049,8 +1052,8 @@ code. Neither touches the PATH, so a build is tried before [install](#install) o
   the key: the build passed but left an older binary where the config says. A binary whose `-V`
   prints no version, another project's, is run without the check.
 - `--dry-run` prints the build's list and the command, and runs nothing.
-- Completion is the binary's own: `vc-x1 run-dev <words><TAB>` asks the dev build, in clap's
-  completion mode, to complete `<words>`, so in iiac-perf `vc-x1 run-dev run <TAB>` offers its
+- Completion is the binary's own: `vc-x1 run --dev <words><TAB>` asks the dev build, in clap's
+  completion mode, to complete `<words>`, so in iiac-perf `vc-x1 run --dev run <TAB>` offers its
   benches. The binary is asked as it stands, never built, and one that is not there, or answers
   nothing, offers nothing. A binary built with clap's dynamic completion answers; another offers
   nothing.
@@ -1060,10 +1063,10 @@ code. Neither touches the PATH, so a build is tried before [install](#install) o
 vc-x1 run -- -V
 
 # Try the rung's code: build the dev build and run its status
-vc-x1 run-dev status -s b
+vc-x1 run --dev status -s b
 
 # See what would run
-vc-x1 run-dev --dry-run status -s b
+vc-x1 run --dev --dry-run status -s b
 ```
 
 | Option | Description |
@@ -1284,11 +1287,11 @@ A work-side `.vc-config.md` holds up to eight tables:
 - `[validate]` (0.80.0): the commands that validate this repo, also prose in the project layer
   before.
 - `[build]` (0.85.7): the dev and release builds, and the binaries they leave, read by `build`,
-  `build-dev`, `run`, `run-dev`, `install`, and `install-dev` ([Build and
+  `build --dev`, `run`, `run --dev`, `install`, and `install --dev` ([Build and
   install](#build-and-install)).
 - `[install]` (0.85.7): in `[build]`'s order, `release` and `dev`, optional lists run in place of
   the copy, and `release-dir` and `dev-dir`, where `install` copies the release build and
-  `install-dev` the dev build, `~` expanded.
+  `install --dev` the dev build, `~` expanded.
 - `[agent-files.diff]` and `[agent-files.copy]` (0.83.0): the defaults for the `agent-files`
   commands' `DIR` operand and `--custom` choice.
 
@@ -1329,7 +1332,7 @@ fast = ["cargo test --bins"]      # the subset a ladder rung runs
 release = ["cargo build --release --locked"]  # the release build
 release-bin = "target/release/vc-x1"  # its binary, copied by install
 dev = ["cargo build --locked"]    # the dev build
-dev-bin = "target/debug/vc-x1"    # its binary, run by run-dev, copied by install-dev
+dev-bin = "target/debug/vc-x1"    # its binary, run by run --dev, copied by install --dev
 ```
 
 ```toml
@@ -1343,7 +1346,7 @@ dev = [                           # the dev install, as vc-x1-dev
   "cp {build.dev-bin} {install.dev-dir}/vc-x1-dev.new",
   "mv {install.dev-dir}/vc-x1-dev.new {install.dev-dir}/vc-x1-dev",
 ]
-dev-dir = "~/.cargo/bin"          # where install-dev copies the dev build
+dev-dir = "~/.cargo/bin"          # where install --dev copies the dev build
 ```
 
 ```toml

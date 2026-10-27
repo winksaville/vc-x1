@@ -29,8 +29,8 @@
 #    with that binary, which keeps the builder in step with it.
 # 5. A configured command list (src/command_list.rs): runs the
 #    workspace's `[validate]` commands for validate, its `[build]`
-#    commands for build and build-dev, and its optional `[install]`
-#    lists for install and install-dev, which is each list's whole
+#    commands for build, `--dev` or not, and its optional `[install]`
+#    lists for install, `--dev` or not, which is each list's whole
 #    job. Opened 2026-08-21 by the "empty custom-family into the
 #    pinned set and config" cycle, whose plan put the checklist
 #    commands in config for one subcommand to run, and widened to the
@@ -51,9 +51,9 @@
 #    "feat: sync is safe by default" cycle, and temporary: the entry
 #    closes when jj-lib offers the query (TODO.md > ## Waiting).
 # 7. The workspace's builds (src/install_cmd.rs, src/run_cmd.rs):
-#    install and install-dev run the binary they are about to copy,
+#    install, `--dev` or not, runs the binary it is about to copy,
 #    `-V` alone, to report the version and commit it shows beside the
-#    manifest, run and run-dev run the build with the arguments given,
+#    manifest, run, `--dev` or not, runs the build with the arguments,
 #    which is each command's whole job, and the completion forward
 #    asks the build, in clap's completion mode, for its own words.
 #    Opened 2026-10-21 by "feat: vc-x1 install stages, deploys, and

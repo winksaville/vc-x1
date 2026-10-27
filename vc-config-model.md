@@ -94,8 +94,9 @@ fast = ["cargo test --bins"]
 The `[build]` table
 - release: The release build, in order, one invocation per element, run by `vc-x1 build` [[17]]
 - release-bin: The release build's binary, run by `vc-x1 run` and copied by `vc-x1 install` [[18]]
-- dev: The dev build, in order, one invocation per element, run by `vc-x1 build-dev` [[19]]
-- dev-bin: The dev build's binary, run by `vc-x1 run-dev` and copied by `vc-x1 install-dev` [[20]]
+- dev: The dev build, in order, one invocation per element, run by `vc-x1 build --dev` [[19]]
+- dev-bin: The dev build's binary, run by `vc-x1 run --dev` and copied by `vc-x1 install --dev`
+  [[20]]
 ```toml
 [build]
 release = ["cargo build --release --locked"]
@@ -107,9 +108,9 @@ dev-bin = "target/debug/vc-x1"
 The `[install]` table
 - release: Optional, the release install run by `vc-x1 install` in place of its own copy [[21]]
 - release-dir: Where `vc-x1 install` copies the release build, `~` expanded [[22]]
-- dev: Optional, the dev install run by `vc-x1 install-dev` in place of its own copy [[23]]
-- dev-dir: Where `vc-x1 install-dev` copies the dev build, `~` expanded [[24]]
-- dev-suffix: Appended to the dev build's file name by `vc-x1 install-dev` [[25]]
+- dev: Optional, the dev install run by `vc-x1 install --dev` in place of its own copy [[23]]
+- dev-dir: Where `vc-x1 install --dev` copies the dev build, `~` expanded [[24]]
+- dev-suffix: Appended to the dev build's file name by `vc-x1 install --dev` [[25]]
 ```toml
 [install]
 release = [

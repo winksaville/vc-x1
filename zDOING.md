@@ -119,7 +119,7 @@ build's banner, `vc-x1-dev show -s both @-` is refused naming `-r @-`, and `vc-x
 - [feat: config and validate-config take -s and --file][o4] (done)
 - [feat: agent-files diff, copy, and size take flags][o5] (done)
 - [feat: init, clone, and symlink take flags and --scope por][o6] (done)
-- [feat: build, install, and run take --dev][o7]
+- [feat: build, install, and run take --dev][o7] (done)
 - [docs: the README states every argument is a flag][o8]
 - [feat: the other commands take flags only closing][o9]
 
@@ -232,6 +232,22 @@ fixed.
 
 `build`, `install`, and `run` take `--dev` and `--release`, and the `-dev` commands are kept hidden
 and refused naming `--dev`.
+
+- `-d/--dev` on the three, each passing it where the `-dev` command passed `true`, so the build,
+  the binary, the install directory, the suffix, and the list are chosen as before. The `-dev`
+  commands keep their structs, hidden, so an old invocation parses, `install-dev --dir d` included,
+  and `build_cmd::retired_dev` refuses it naming `<command> --dev`.
+- Messages say `build --dev`, `install --dev`, and `run --dev`, the labels the `-dev` names were.
+- `run --dev` is given before the binary's arguments, and `run x --dev` passes `--dev` to the
+  binary. The completion forward learned `--dev` and `-d` as `run`'s own options, the dev build's
+  words offered after them, and no longer forwards `run-dev`, which clap refuses.
+- `--release` is deferred, wink's call at this rung (2026-10-27), to **install --dev --release
+  soaks a release candidate**: the `[install] dev` list names `{build.dev-bin}`, so a release
+  build under the dev name would copy the debug binary, and a profile-neutral placeholder is a
+  config design of its own.
+- The help, the README's build, install, and run sections, `vc-config.md`'s doc strings, and so
+  `vc-config-model.md`, the workspace's `.vc-config.md`, and `clippy.toml`'s spawn register name
+  `--dev`. The README's `install-dev` heading is `install --dev`, and `run and run-dev` is `run`.
 
 ##### docs: the README states every argument is a flag
 
