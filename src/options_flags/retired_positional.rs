@@ -28,6 +28,23 @@ pub fn refuse_rev_count(
     Err(message(command, &form))
 }
 
+/// A retired pair of positionals on `command`, refused naming `first`
+/// for the first word and `second` for the second, either alone, and
+/// nothing to refuse when neither was given.
+pub fn refuse_two(
+    command: &str,
+    retired: &[String],
+    first: &str,
+    second: &str,
+) -> Result<(), String> {
+    let form = match retired {
+        [] => return Ok(()),
+        [a] => format!("{first} {a}"),
+        [a, b, ..] => format!("{first} {a} {second} {b}"),
+    };
+    Err(message(command, &form))
+}
+
 /// The one wording: the command, the rule, and the flag form to type.
 fn message(command: &str, form: &str) -> String {
     format!("{command}: the positional is retired, every argument is a flag: `{form}`")

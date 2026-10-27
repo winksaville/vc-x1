@@ -172,14 +172,7 @@ pub fn resolve_set_dir(
 /// refused naming `--from` and `--to` with the directories in place,
 /// and nothing to refuse when neither was given.
 pub fn refuse_from_to(command: &str, retired: &[String]) -> Result<(), String> {
-    let value = match retired {
-        [] => return Ok(()),
-        [from] => from.clone(),
-        [from, to, ..] => format!("{from} --to {to}"),
-    };
-    Err(crate::options_flags::retired_positional::refusal(
-        command, &value, "--from",
-    ))
+    crate::options_flags::retired_positional::refuse_two(command, retired, "--from", "--to")
 }
 
 /// The second set directory, `--to`: the operand as given, else the

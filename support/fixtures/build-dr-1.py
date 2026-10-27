@@ -433,7 +433,7 @@ def main():
     # init's default moved from `.claude` to `.agent-session` after this
     # fixture was designed.
     jj.run(
-        [VC, "init", str(fix.resolve()), "--repo", f"local={remotes.resolve()}", "--agent-dir", ".claude"],
+        [VC, "init", "--target", str(fix.resolve()), "--repo", f"local={remotes.resolve()}", "--agent-dir", ".claude"],
         fixtures,
         check=False,
     )

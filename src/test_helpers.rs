@@ -226,7 +226,8 @@ impl Fixture {
         //   <base>/remote-work.agent-session.git (bot bare origin)
         let work_path = base.join("work");
         let args = InitArgs {
-            target: work_path.to_string_lossy().into_owned(),
+            retired: vec![],
+            target: Some(work_path.to_string_lossy().into_owned()),
             name: None,
             account: AccountOption::default(),
             repo: RepoOption {
@@ -235,7 +236,7 @@ impl Fixture {
                     value: Some(base.to_string_lossy().into_owned()),
                 }),
             },
-            por: PorFlag { value: false },
+            por: PorFlag::default(),
             provision: ProvisionOptionFlagBundle::default(),
             use_template: UseTemplateOption {
                 value: use_template,
@@ -323,7 +324,8 @@ impl FixturePor {
         //   <base>/remote.git   (bare origin)
         let work_path = base.join("work");
         let args = InitArgs {
-            target: work_path.to_string_lossy().into_owned(),
+            retired: vec![],
+            target: Some(work_path.to_string_lossy().into_owned()),
             name: None,
             account: AccountOption::default(),
             repo: RepoOption {
@@ -332,7 +334,10 @@ impl FixturePor {
                     value: Some(base.to_string_lossy().into_owned()),
                 }),
             },
-            por: PorFlag { value: true },
+            por: PorFlag {
+                scope: Some(crate::options_flags::scope::RepoScope::Por),
+                retired_por: false,
+            },
             provision: ProvisionOptionFlagBundle::default(),
             use_template: UseTemplateOption::default(),
             config: ConfigOption { value: config },

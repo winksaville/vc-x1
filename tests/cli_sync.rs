@@ -63,7 +63,7 @@ fn setup_peer_push(tag: &str) -> PeerPush {
     run_ok(
         fx.cmd()
             .current_dir(&fx.base)
-            .args(["init", "./tr"])
+            .args(["init", "--target", "./tr"])
             .arg("--repo")
             .arg(format!("local={}", fx.base.display())),
     );
@@ -78,7 +78,9 @@ fn setup_peer_push(tag: &str) -> PeerPush {
             fx.cmd()
                 .current_dir(&fx.base)
                 .arg("clone")
+                .arg("--from")
                 .arg(&work_remote)
+                .arg("--name")
                 .arg(name),
         );
     }

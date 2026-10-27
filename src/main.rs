@@ -490,10 +490,10 @@ pub(crate) enum Commands {
     )]
     FixTodo(fix_todo::FixTodoArgs),
 
-    /// Clone a dual-repo project
+    /// Clone a project, a dual workspace or a plain repo with -s por
     Clone(clone::CloneArgs),
 
-    /// Create a new dual-repo project
+    /// Create a project, a dual workspace or a plain repo with -s por
     Init(init::InitArgs),
 
     /// Create Claude Code project symlink

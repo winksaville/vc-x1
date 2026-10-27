@@ -152,9 +152,9 @@ vc-x1 fix-todo [--file F]                 # Renumber todo file (dry-run default)
 vc-x1 validate [--fast] [OPTS]            # Run the workspace's configured validation commands
 vc-x1 validate-agent [OPTS]               # Check the agent repo is published
 vc-x1 config [OPTS]                       # Print / validate settable config keys
-vc-x1 clone <REPO> [NAME] [OPTS]          # Clone a dual-repo project
-vc-x1 init <TARGET> [OPTS]                # Create a new dual-repo project
-vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
+vc-x1 clone --from URL [--name N] [OPTS]  # Clone a project, dual or with -s por plain
+vc-x1 init --target T [OPTS]              # Create a project, dual or with -s por plain
+vc-x1 symlink [--target P] [OPTS]         # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
 vc-x1 squash-push -s a [--bookmark NAME]  # Squash @ into @-, advance a bookmark, push
 vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
@@ -1381,44 +1381,53 @@ vc-x1 config --file .claude/.vc-config.md # the whole schema, labelled with the 
 
 ### clone
 
-Clone an existing dual-repo project. Runs `git clone --recursive` to get both repos, initializes
-`jj` in each, and creates the Claude Code symlink.
+Clone an existing project, a dual workspace or, with `-s por`, a plain repo. It clones the work
+repo, initializes `jj` in it, reads the work repo's `.vc-config.md` for where the agent repo goes
+and what its remote calls it, clones that beside the work repo's remote, and creates the Claude
+Code symlink.
 
 ```
 # Clone using a full URL
-vc-x1 clone git@github.com:owner/my-project.git
-vc-x1 clone https://github.com/owner/my-project
+vc-x1 clone --from git@github.com:owner/my-project.git
+vc-x1 clone --from https://github.com/owner/my-project
 
 # A slashed source with no path prefix (`owner/my-project`) is
 # refused: it reads equally as a path and as the retired owner/name
 # shorthand.
 
 # Clone with a custom directory name
-vc-x1 clone https://github.com/owner/my-project my-local-name
+vc-x1 clone --from https://github.com/owner/my-project --name my-local-name
 
-# Clone into a specific parent directory
-vc-x1 clone https://github.com/owner/my-project --dir ~/projects
+# A plain repo, no agent repo
+vc-x1 clone --from https://github.com/owner/my-project -s por
 
 # Preview without executing
-vc-x1 clone https://github.com/owner/my-project --dry-run
+vc-x1 clone --from https://github.com/owner/my-project --dry-run
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--dir <PATH>` | Parent directory [default: cwd] |
+| `--from <URL\|PATH>` | The source to clone, required |
+| `--name <NAME>` | Destination directory name in the current directory [default: derived from `--from`] |
+| `-s, --scope <SCOPE>` | `both`, a dual workspace, or `por`, a plain repo [default: both] |
 | `--dry-run` | Show what would be done without executing |
 | `-v, --verbose` | Verbose output |
 
-Requires `jj` to be installed. The `.claude` bot repo is cloned automatically via `git submodule` if
-the source project was created with `vc-x1 init`.
+The old `<TARGET> [NAME]` positionals are refused, naming `--from` and `--name`, and `--por` is
+refused, naming `--scope por`. Requires `jj` to be installed.
 
 ### init
 
-Create a new dual-repo project: a work repo with its agent repo nested inside it, at
-`.agent-session` unless `--agent-dir` names another directory. Both repos are initialized with `git`
-and `jj`, configured with `.vc-config.md`, and pushed to GitHub. The work repo ignores the agent
-repo's directory, and its config records where the agent repo is and what its remote calls it, so
-`vc-x1 clone` fetches both.
+Create a new project, a dual workspace by default: a work repo with its agent repo nested inside
+it, at `.agent-session` unless `--agent-dir` names another directory. Both repos are initialized
+with `git` and `jj`, configured with `.vc-config.md`, and pushed to GitHub. The work repo ignores
+the agent repo's directory, and its config records where the agent repo is and what its remote
+calls it, so `vc-x1 clone` fetches both. `-s por` creates a plain single repo instead, and a URL
+`--target` needs no user config, the way to a plain repo with none:
+
+```
+vc-x1 init --target git@github.com:owner/my-project.git -s por
+```
 
 The agent repo's remote name is the work repo's name plus `.agent-session`, beside the work repo
 under the same owner:
@@ -1431,48 +1440,48 @@ under the same owner:
 
 ```
 # Create public project in current directory (GitHub via gh)
-vc-x1 init my-project
+vc-x1 init --target my-project
 
 # A URL or a path target. A slashed target with no path prefix
 # (`myorg/my-project`) is refused: it reads equally as a path and
 # as the retired owner/name shorthand.
-vc-x1 init https://github.com/myorg/my-project
-vc-x1 init ~/projects/my-project
-vc-x1 init ./sub/dir/my-project
+vc-x1 init --target https://github.com/myorg/my-project
+vc-x1 init --target ~/projects/my-project
+vc-x1 init --target ./sub/dir/my-project
 
 # Create private repos
-vc-x1 init my-project --private
+vc-x1 init --target my-project --private
 
 # Local bare remotes instead of GitHub (offline; used by fixtures)
-vc-x1 init my-project --repo local=/path/to/parent
+vc-x1 init --target my-project --repo local=/path/to/parent
 
 # Preview without executing
-vc-x1 init my-project --dry-run
+vc-x1 init --target my-project --dry-run
 
 # Grow an existing plain directory into a dual workspace
-vc-x1 init . --adopt
+vc-x1 init --target . --adopt
 
 # Name the agent repo's directory and its remote
-vc-x1 init my-project --agent-dir .sessions --agent-suffix -sessions
-vc-x1 init my-project --agent-repo my-project.claude
+vc-x1 init --target my-project --agent-dir .sessions --agent-suffix -sessions
+vc-x1 init --target my-project --agent-repo my-project.claude
 
 # Seed both repos from template directories (sibling layout)
-vc-x1 init my-project --use-template \
+vc-x1 init --target my-project --use-template \
     ../vc-x1-work-repo-template,../vc-x1-bot-repo-template
 
 # BOT omitted defaults to the `<CODE>.claude` sibling
-vc-x1 init my-project --use-template ../tmpl
+vc-x1 init --target my-project --use-template ../tmpl
 # Equivalent to:
-vc-x1 init my-project --use-template ../tmpl,../tmpl.claude
+vc-x1 init --target my-project --use-template ../tmpl,../tmpl.claude
 ```
 
 | Flag | Description |
 |------|-------------|
-| `<TARGET>` | URL, path, or bare NAME |
-| `[NAME]` | Repo directory name override (URL form only) |
+| `--target <URL\|PATH\|NAME>` | What to create: a URL, a path, or a bare NAME, required |
+| `--name <NAME>` | Repo directory name override (URL form only) |
 | `--account <NAME>` | Pick `[account.<a>]` from user config |
 | `--repo <CAT[=VAL]>` | Repo target, e.g. `local=<PARENT>` for local bare remotes |
-| `--por` | Plain single repo (no agent repo) |
+| `-s, --scope <SCOPE>` | `both`, a dual workspace, or `por`, a plain single repo (no agent repo) [default: both] |
 | `--adopt` | Grow an existing TARGET into a dual workspace (see below) |
 | `--agent-dir <DIR>` | The agent repo's directory, one name [default: .agent-session] |
 | `--agent-repo <NAME>` | The agent repo's whole remote name |
@@ -1507,13 +1516,15 @@ grows the target into a dual workspace:
   nothing: the commit is yours to land. With no origin, the remotes come from `--repo` as for a
   fresh init, and both are pushed. A working copy with uncommitted work is refused, and a git-only
   repo is pointed at `jj git init --colocate`.
-- A single-repo workspace, one whose config declares `repos.work` alone, such as `init --por`
+- A single-repo workspace, one whose config declares `repos.work` alone, such as `init -s por`
   makes: adopted as the repo above, except that its config is edited in place. `agent =` goes into
   `[repos]` and `agent-repo =` under `[remote]`, and every other line, prose and comments
   included, stays as it was.
 - A dual-repo workspace is refused, having nothing to grow.
 
-`--adopt` is refused with `--por` and with `--use-template`, and on a TARGET that does not exist.
+`--adopt` is refused with `-s por` and with `--use-template`, and on a `--target` that does not
+exist. The old `<TARGET> [NAME]` positionals are refused, naming `--target` and `--name`, and
+`--por` is refused, naming `--scope por`.
 
 Requires `gh` (authenticated) and `jj` to be installed (`gh` is skipped under `--repo local=...`).
 
@@ -1530,7 +1541,7 @@ character that is not an ASCII letter or digit replaced by `-`, so `/home/me/io_
 vc-x1 symlink
 
 # Specify a different target
-vc-x1 symlink /path/to/session-dir
+vc-x1 symlink --target /path/to/session-dir
 
 # Replace existing symlink without prompting
 vc-x1 symlink -y
@@ -2223,7 +2234,7 @@ writes and push in one shot.
 
 ```bash
 parent=$(mktemp -u /tmp/vc-x1-test-XXXXXX)
-vc-x1 init "$parent/work" --repo local="$parent"
+vc-x1 init --target "$parent/work" --repo local="$parent"
 work="$parent/work"
 bot="$parent/work/.claude"
 
@@ -2273,7 +2284,7 @@ in preflight, before anything is rewritten.
 
 ```bash
 parent=$(mktemp -u /tmp/vc-x1-guard-XXXXXX)
-vc-x1 init "$parent/work" --repo local="$parent"
+vc-x1 init --target "$parent/work" --repo local="$parent"
 bot="$parent/work/.claude"
 
 # example 1, refusal: journal described on @ WITH an ochid

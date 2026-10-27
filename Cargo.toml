@@ -1,6 +1,6 @@
 [package]
 name = "vc-x1"
-version = "0.85.14-5"
+version = "0.85.14-6"
 edition = "2024"
 
 # The package name is the installed binary's name and never

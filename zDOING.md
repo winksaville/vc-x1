@@ -118,7 +118,7 @@ build's banner, `vc-x1-dev show -s both @-` is refused naming `-r @-`, and `vc-x
 - [feat: the file commands take --file][o3] (done)
 - [feat: config and validate-config take -s and --file][o4] (done)
 - [feat: agent-files diff, copy, and size take flags][o5] (done)
-- [feat: init, clone, and symlink take flags and --scope por][o6]
+- [feat: init, clone, and symlink take flags and --scope por][o6] (done)
 - [feat: build, install, and run take --dev][o7]
 - [docs: the README states every argument is a flag][o8]
 - [feat: the other commands take flags only closing][o9]
@@ -208,6 +208,25 @@ repeatable for `validate-anchors`.
 `init`'s and `clone`'s target and name, and `symlink`'s target, become flags, and `init` and
 `clone` take `-s both|por`, `--por` refused naming it, with the account errors and stale help
 fixed.
+
+- `init --target URL|PATH|NAME --name NAME`, `clone --from URL|PATH --name NAME`, and `symlink
+  --target PATH`, each `--target`/`--from` required unless the retired positionals were given,
+  which `retired_positional::refuse_two` refuses, one word or two, and `agent-files diff` now
+  shares it.
+- `PorFlag` became the creation scope: `-s both|por`, both by default, and `--por` kept hidden as
+  `retired_por`, its field name kept apart from the command's `retired`, since clap's argument ids
+  must be unique across a flatten. `repo_scope_parser` only hides what it does not offer, so
+  `PorFlag::check` refuses `work` and `agent` alone, and `--por`, in each command's `to_params`.
+- The `From` conversions stay total, the tests building params from them, `is_por` reading the
+  scope and the target unwrapped behind clap's requirement and the refusal before it.
+- The dual-only and POR-only errors say `-s por`. The account errors add the URL target as the way
+  that needs no config, the user config's path, and the least `[account.<name>]` section.
+- Stale help: `init` and `clone` say "a dual workspace or a plain repo with -s por", `--config`
+  names `.vc-config.md`, and `--use-template` says `-s por`. The README's `clone` section lost a
+  `--dir` flag clone never had and its `git submodule` text, and its `init` section gained the
+  `-s por` URL example.
+- `support/fixtures/build-dr-1.py` runs `init` against the binary under test, so it names
+  `--target`, and the CLI tests and completion cases follow.
 
 ##### feat: build, install, and run take --dev
 

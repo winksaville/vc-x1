@@ -16,12 +16,12 @@ use crate::options_flags::push_retry::PushRetryOptions;
 
 /// Inputs to the init op, flat, owned, clap-free.
 ///
-/// - `target`: the TARGET positional argument (URL, path, or
+/// - `target`: `--target` (URL, path, or
 ///   bare NAME).
-/// - `name`: optional `NAME` positional override.
+/// - `name`: optional `--name` override.
 /// - `account`: `--account` value (None => default account chain).
 /// - `repo`: `--repo` value parsed into a `RepoSelector`.
-/// - `por`: `--por` resolved, `true` for plain single repo,
+/// - `por`: `-s` resolved, `true` for `por`, a plain single repo,
 ///   `false` (default) for dual workspace.
 /// - `private`: `--private`.
 /// - `dry_run`: `--dry-run`.
@@ -60,11 +60,13 @@ impl From<&InitArgs> for InitParams {
     /// directly (or post-edit the field).
     fn from(a: &InitArgs) -> Self {
         Self {
-            target: a.target.clone(),
+            // OK: clap requires --target unless the retired positionals
+            // were given, and `to_params` refuses those first
+            target: a.target.clone().unwrap_or_default(),
             name: a.name.clone(),
             account: a.account.value.clone(),
             repo: a.repo.value.clone(),
-            por: a.por.value,
+            por: a.por.is_por(),
             private: a.provision.private.value,
             dry_run: a.provision.dry_run.value,
             push_retry: a.provision.push_retry.clone(),

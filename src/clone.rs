@@ -1,13 +1,13 @@
 //! `vc-x1 clone`: clone a repo (URL or local path) into a workspace.
 //!
-//! - Default (no `--por`): dual-repo layout: clones the work repo,
+//! - Default (`-s both`): dual-repo layout: clones the work repo,
 //!   takes the agent-repo's name from the cloned config's
 //!   `[remote] agent-repo` (derived from its `repos.agent` when the
 //!   key is absent, see [`derive_agent_repo`]),
 //!   clones the agent side into the dir the cloned `repos.agent`
 //!   names, creates the Claude Code symlink. Both sides must
 //!   succeed.
-//! - `--por`: single repo into `<target>`. No agent repo, no
+//! - `-s por`: single repo into `<target>`. No agent repo, no
 //!   symlink.
 //!
 //! TARGET shapes (all routed through `parse_target`): a URL or a
@@ -35,6 +35,11 @@ use crate::url::{Target, agent_url, derive_agent_repo, derive_name, parse_target
 /// CLI args for `vc-x1 clone`.
 #[derive(Args, Debug)]
 pub struct CloneArgs {
+    /// Retired: `TARGET [NAME]`, now `--from` and `--name`, refused
+    /// naming them.
+    #[arg(value_name = "RETIRED", hide = true, num_args = 0..=2)]
+    pub retired: Vec<String>,
+
     /// Source to clone: URL or local path.
     ///
     /// - URL: `git@host:owner/name(.git)?`, `https://...(.git)?`
@@ -43,15 +48,22 @@ pub struct CloneArgs {
     ///   owner/name shorthand, so pass `./owner/name` or a URL.
     /// - Local path: `./X`, `../X`, `/X`, `~/X`, `~`, `.`, `..`
     ///   (passed directly to `git clone`)
-    #[arg(value_name = "TARGET", value_hint = ValueHint::AnyPath, verbatim_doc_comment)]
-    pub target: String,
+    #[arg(
+        long = "from",
+        value_name = "URL|PATH",
+        value_hint = ValueHint::AnyPath,
+        required_unless_present = "retired",
+        verbatim_doc_comment
+    )]
+    pub target: Option<String>,
 
-    /// Destination dir name in cwd [default: derived from TARGET]
-    #[arg(value_name = "NAME")]
+    /// Destination dir name in cwd [default: derived from --from]
+    #[arg(long = "name", value_name = "NAME")]
     pub name: Option<String>,
 
-    /// Flatten of the shared [`PorFlag`] leaf: `--por` switches
-    /// the clone shape from dual (default) to single repo.
+    /// Flatten of the shared [`PorFlag`] leaf: `-s por` switches
+    /// the clone shape from dual (`both`, the default) to single
+    /// repo.
     #[command(flatten)]
     pub por: PorFlag,
 
@@ -62,12 +74,10 @@ pub struct CloneArgs {
 
 /// Inputs to the clone op, flat, owned, clap-free.
 ///
-/// - `target`: the `TARGET` positional (URL or
-///   local path).
-/// - `name`: optional `NAME` positional override for the
-///   destination dir.
-/// - `por`: `--por` resolved, `true` for plain single repo,
-///   `false` (default) for dual.
+/// - `target`: `--from`, the source (URL or local path).
+/// - `name`: optional `--name` override for the destination dir.
+/// - `por`: `-s` resolved, `true` for `por`, a plain single repo,
+///   `false` for `both` (default), a dual workspace.
 /// - `dry_run`: `--dry-run`.
 pub struct CloneParams {
     pub target: String,
@@ -81,9 +91,11 @@ impl From<&CloneArgs> for CloneParams {
     /// (total: every field copies straight over).
     fn from(a: &CloneArgs) -> Self {
         Self {
-            target: a.target.clone(),
+            // OK: clap requires --from unless the retired positionals
+            // were given, and `to_params` refuses those first
+            target: a.target.clone().unwrap_or_default(),
             name: a.name.clone(),
-            por: a.por.value,
+            por: a.por.is_por(),
             dry_run: a.dry_run.value,
         }
     }
@@ -92,9 +104,16 @@ impl From<&CloneArgs> for CloneParams {
 impl SubcommandRunner for CloneArgs {
     type Params = CloneParams;
 
-    /// Delegate to the existing `From<&CloneArgs>` impl above
-    /// (total: never fails).
+    /// Refuse the retired positionals and `--por`, else delegate to
+    /// the `From<&CloneArgs>` impl above.
     fn to_params(&self) -> Result<Self::Params, String> {
+        crate::options_flags::retired_positional::refuse_two(
+            "clone",
+            &self.retired,
+            "--from",
+            "--name",
+        )?;
+        self.por.check("clone")?;
         Ok(CloneParams::from(self))
     }
 
@@ -195,7 +214,7 @@ pub(crate) fn clone_one(source: &str, target_dir: &Path) -> Result<(), Box<dyn s
 
 /// Orchestrate a dual-repo clone: work via `clone_one`, bot via
 /// `clone_one` (no graceful skip: both sides required by the
-/// default dual shape, and users who want work-only pass `--por`),
+/// default dual shape, and users who want work-only pass `-s por`),
 /// then create the Claude Code symlink.
 pub(crate) fn clone_dual(
     work_source: &str,
@@ -293,17 +312,17 @@ mod tests {
 
     #[test]
     fn defaults() {
-        let args = parse(&["vc-x1", "clone", "owner/repo"]);
-        assert_eq!(args.target, "owner/repo");
+        let args = parse(&["vc-x1", "clone", "--from", "owner/repo"]);
+        assert_eq!(args.target.as_deref(), Some("owner/repo"));
         assert!(args.name.is_none());
-        assert!(!args.por.value);
+        assert!(!args.por.is_por());
         assert!(!args.dry_run.value);
     }
 
     #[test]
     fn with_name() {
-        let args = parse(&["vc-x1", "clone", "owner/repo", "my-dir"]);
-        assert_eq!(args.target, "owner/repo");
+        let args = parse(&["vc-x1", "clone", "--from", "owner/repo", "--name", "my-dir"]);
+        assert_eq!(args.target.as_deref(), Some("owner/repo"));
         assert_eq!(args.name.as_deref(), Some("my-dir"));
     }
 
@@ -312,39 +331,58 @@ mod tests {
         let args = parse(&[
             "vc-x1",
             "clone",
+            "--from",
             "owner/repo",
+            "--name",
             "my-dir",
-            "--por",
+            "-s",
+            "por",
             "--dry-run",
         ]);
-        assert_eq!(args.target, "owner/repo");
+        assert_eq!(args.target.as_deref(), Some("owner/repo"));
         assert_eq!(args.name.as_deref(), Some("my-dir"));
-        assert!(args.por.value);
+        assert!(args.por.is_por());
         assert!(args.dry_run.value);
     }
 
     #[test]
     fn missing_target() {
         let err = parse_err(&["vc-x1", "clone"]);
-        assert!(err.contains("TARGET"));
+        assert!(err.contains("--from"), "{err}");
     }
 
     #[test]
-    fn por_flag() {
-        let args = parse(&["vc-x1", "clone", "owner/repo", "--por"]);
-        assert!(args.por.value);
+    fn por_scope() {
+        let args = parse(&["vc-x1", "clone", "--from", "owner/repo", "-s", "por"]);
+        assert!(args.por.is_por());
+    }
+
+    /// The retired positionals and `--por` parse, hidden, and are
+    /// refused naming their flags.
+    #[test]
+    fn the_retired_forms_are_refused_naming_their_flags() {
+        let err = parse(&["vc-x1", "clone", "./b.git", "cl"])
+            .to_params()
+            .err();
+        let err = err.expect("refused");
+        assert!(err.ends_with("`--from ./b.git --name cl`"), "{err}");
+        let err = parse(&["vc-x1", "clone", "--from", "./b.git", "--por"])
+            .to_params()
+            .err();
+        let err = err.expect("refused");
+        assert!(err.ends_with("`--scope por`"), "{err}");
     }
 
     #[test]
     fn target_path_form_accepted() {
-        let args = parse(&["vc-x1", "clone", "/tmp/foo.git"]);
-        assert_eq!(args.target, "/tmp/foo.git");
+        let args = parse(&["vc-x1", "clone", "--from", "/tmp/foo.git"]);
+        assert_eq!(args.target.as_deref(), Some("/tmp/foo.git"));
     }
 
     #[test]
     fn target_relative_path_form_accepted() {
-        let args = parse(&["vc-x1", "clone", "./bare.git"]);
-        assert_eq!(args.target, "./bare.git");
+        let args = parse(&["vc-x1", "clone", "--from", "./bare.git"]);
+        assert_eq!(args.target.as_deref(), Some("./bare.git"));
     }
 
     // Unit tests for derive_name / derive_agent_repo / agent_url

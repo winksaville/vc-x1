@@ -1,4 +1,4 @@
-//! `--config none|<path>`: `.vc-config.toml` write override.
+//! `--config none|<path>`: the workspace config write override.
 //! See [options_flags](README.md) for shared architecture.
 
 use std::path::PathBuf;
@@ -28,11 +28,12 @@ pub fn parse_config_kind(s: &str, default: ConfigKind) -> ConfigKind {
 /// see [Consuming an OF](README.md#consuming-an-of).
 #[derive(Args, Debug, Clone, Default)]
 pub struct ConfigOption {
-    /// Override the canned `.vc-config.toml` write.
+    /// Override the canned workspace config write.
     ///
-    /// - Absent: write the canned `.vc-config.toml`.
+    /// - Absent: write the canned `.vc-config.md`.
     /// - `--config none`: skip writing entirely.
-    /// - `--config <path>`: copy `<path>` to `.vc-config.toml`
+    /// - `--config <path>`: copy `<path>` to `.vc-config.md`, or to
+    ///   `.vc-config.toml` for a source that is not markdown
     ///   (bytewise; no schema validation).
     #[arg(
         id = "config",
