@@ -117,7 +117,7 @@ build's banner, `vc-x1-dev show -s both @-` is refused naming `-r @-`, and `vc-x
 - [feat: lookup takes -s and --line][o2] (done)
 - [feat: the file commands take --file][o3] (done)
 - [feat: config and validate-config take -s and --file][o4] (done)
-- [feat: agent-files diff, copy, and size take flags][o5]
+- [feat: agent-files diff, copy, and size take flags][o5] (done)
 - [feat: init, clone, and symlink take flags and --scope por][o6]
 - [feat: build, install, and run take --dev][o7]
 - [docs: the README states every argument is a flag][o8]
@@ -194,6 +194,14 @@ repeatable for `validate-anchors`.
 ##### feat: agent-files diff, copy, and size take flags
 
 `diff` and `copy` take their two directories by flag, and `size` its one.
+
+- `diff` and `copy` share `diff::refuse_from_to`, one directory naming `--from` and two `--from A
+  --to B`, and `size` refuses its one naming `--dir`, each first in the function that reports its
+  errors, these subcommands having no `SubcommandRunner` params step.
+- The fields keep their names, `a`/`b` and `src`/`dst`, and the report keeps "only in A" and "only
+  in B", the README naming `A` as `--from` and `B` as `--to`.
+- `agent-data/versioning.md`'s adoption, a copy and a check, names `--from`: an agent-file, so the
+  closing records the size, and the docs rung tells **agent-files(proposal): v0.3.1**.
 
 ##### feat: init, clone, and symlink take flags and --scope por
 

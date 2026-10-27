@@ -289,9 +289,13 @@ pub fn render(table: &Table) -> String {
 /// CLI args for `agent-files size`.
 #[derive(Args, Debug)]
 pub struct SizeArgs {
+    /// Retired: the directory, now `--dir`, refused naming it.
+    #[arg(value_name = "RETIRED", hide = true)]
+    pub retired: Option<String>,
+
     /// A directory holding a copy of the set [default: this
     /// workspace]
-    #[arg(value_name = "DIR")]
+    #[arg(long = "dir", value_name = "DIR")]
     pub dir: Option<PathBuf>,
 
     /// The notes file whose per-file table slides [default:
@@ -325,6 +329,14 @@ impl SizeArgs {
     /// Report the count, and slide the per-file table when the notes
     /// file has one.
     fn size(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(value) = &self.retired {
+            return Err(crate::options_flags::retired_positional::refusal(
+                "agent-files size",
+                value,
+                "--dir",
+            )
+            .into());
+        }
         let root = common::find_workspace_root();
         let dir = diff::resolve_here(root.as_deref(), self.dir.as_deref())?;
         let counts = count_set(&dir.path)?;
@@ -449,6 +461,7 @@ mod tests {
         assert!(a.dir.is_none() && a.file.is_none() && a.label.is_none() && !a.no_dry_run);
         let a = T::try_parse_from([
             "t",
+            "--dir",
             "../x",
             "--file",
             "n/s.md",
@@ -463,6 +476,9 @@ mod tests {
         assert_eq!(a.file, Some(PathBuf::from("n/s.md")));
         assert_eq!(a.label.as_deref(), Some("- v0.1.0"));
         assert!(a.no_dry_run);
+        let a = T::try_parse_from(["t", "../x"]).expect("retired").a;
+        let err = a.size().unwrap_err().to_string();
+        assert!(err.ends_with("`--dir ../x`"), "{err}");
     }
 
     /// The count is `wc -l`, the two root files lead and
@@ -669,6 +685,7 @@ mod tests {
         let before = std::fs::read_to_string(&note).expect("read");
 
         let args = SizeArgs {
+            retired: None,
             dir: Some(dir.clone()),
             file: None,
             label: None,
@@ -678,6 +695,7 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&note).expect("read"), before);
 
         let args = SizeArgs {
+            retired: None,
             no_dry_run: true,
             ..args
         };
@@ -706,6 +724,7 @@ mod tests {
     fn label_and_missing_table() {
         let dir = set_dir("nolabel", &[("AGENTS.md", "a\n"), (SIZE_NOTE, "# Size\n")]);
         let args = SizeArgs {
+            retired: None,
             dir: Some(dir.clone()),
             file: None,
             label: None,
@@ -723,6 +742,7 @@ mod tests {
             ],
         );
         let args = SizeArgs {
+            retired: None,
             dir: Some(with_table.clone()),
             file: None,
             label: None,
@@ -733,6 +753,7 @@ mod tests {
         assert!(err.contains("--label"), "{err}");
 
         let args = SizeArgs {
+            retired: None,
             label: Some("- v0.1.0".to_string()),
             ..args
         };

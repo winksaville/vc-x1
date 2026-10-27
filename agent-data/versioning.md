@@ -193,9 +193,9 @@ unique by construction ([Project-declared types](prose.md#project-declared-types
   scheme](#suffix-scheme) beside the artifact's version, `-0`, `-1`, then bare at the close-out, so
   a set copied from a draft bookmark says on its face that it is unfinished. An adoption copies the
   source's bare file and bumps nothing.
-- **An adoption is a copy and a check**: `vc-x1 agent-files copy <src>` takes the set, and
-  `vc-x1 agent-files diff <src>` is the adoption's last act, exiting zero when the two copies are
-  the same and printing the differences the acceptance agreed to when they are not.
+- **An adoption is a copy and a check**: `vc-x1 agent-files copy --from <src>` takes the set, and
+  `vc-x1 agent-files diff --from <src>` is the adoption's last act, exiting zero when the two copies
+  are the same and printing the differences the acceptance agreed to when they are not.
 - **Named by the proposal**: a version names the text as proposed. An adopter that accepts with
   changes carries them as its diff against that text, and two proposers claiming one number are
   two proposals, the later re-proposing under the next.

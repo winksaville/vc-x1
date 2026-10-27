@@ -165,9 +165,9 @@ vc-x1 move-bookmark -s w --bookmark B --target T  # Point an existing bookmark a
 vc-x1 push -s b [-r REV] [--bookmark NAME] # Publish a rung's pair, or a name for a commit made
 vc-x1 version                              # Report vc-x1, agent-files, jj-lib, jj, and jj-data versions
 vc-x1 agent-files version                  # Print the workspace's agent-files set version, bare
-vc-x1 agent-files diff [A] [B] [-c]        # Name the set files that differ between two copies of the set
-vc-x1 agent-files copy [SRC] [DST] [-c]    # Make DST's set a copy of SRC's, uncommitted
-vc-x1 agent-files size [DIR]               # Count the set's lines, and slide the table that records them
+vc-x1 agent-files diff [--from A] [--to B]  # Name the set files that differ between two copies of the set
+vc-x1 agent-files copy [--from S] [--to D]  # Make DST's set a copy of SRC's, uncommitted
+vc-x1 agent-files size [--dir DIR]         # Count the set's lines, and slide the table that records them
 vc-x1 --version                            # Print version, with the workspace's agent-files version
 vc-x1 --help                           # Print help
 ```
@@ -491,32 +491,32 @@ workspace loads, so it answers in a plain repo too.
 file with its prefix removed, bare, one per line when a bump left several, and fails outside a
 workspace or in one without the file.
 
-`agent-files diff [A] [B]` compares two copies of the set, one line per file, names only: `same`,
+`agent-files diff [--from A] [--to B]` compares two copies of the set, one line per file, names only: `same`,
 `differs`, `only in A`, or `only in B`, then `N of M differ`. It answers whether a re-sync is a
 copy, and its exit status is non-zero when anything differs, as `diff`'s is. `custom.md` is
 reported as the project layer and not compared unless `-c`/`--custom` compares it like the rest,
 for a family whose project layers are meant to be identical, and `--no-custom` overrides a config
 that says so.
 
-`A` is the operand, else the config's `agent-files.diff.dir`, else `family.template`, the config
-values relative to the config file's directory. `B` is the operand, else this workspace. So a
-bare `diff` compares the payload against this workspace, one operand compares that copy against
-this workspace, and two operands compare any two copies from anywhere, no workspace needed. The
-header line says where each came from, and a missing or non-directory operand is an error naming
-what to set.
+`A` is `--from`, else the config's `agent-files.diff.dir`, else `family.template`, the config
+values relative to the config file's directory. `B` is `--to`, else this workspace. So a bare
+`diff` compares the payload against this workspace, `--from` alone compares that copy against
+this workspace, and both compare any two copies from anywhere, no workspace needed. The header
+line says where each came from, and a missing or non-directory operand is an error naming what to
+set. The old `[A] [B]` positionals are refused, naming `--from` and `--to`.
 
-`agent-files copy [SRC] [DST]` makes the set in `DST` a byte copy of the one in `SRC`: it copies
+`agent-files copy [--from SRC] [--to DST]` makes the set in `DST` a byte copy of the one in `SRC`: it copies
 what differs or exists only in `SRC`, deletes what exists only in `DST` under `agent-data/`,
 never touches `TODO.md`, and copies `custom.md` only with `-c`/`--custom`. The operands resolve
-as `diff`'s do: `SRC` is the operand, else `agent-files.copy.dir`, else `family.template`, and
-`DST` is the operand, else this workspace. So a bare `copy` re-syncs this workspace from the
-payload, and two operands copy between any two directories, which is how a maintainer folds an
+as `diff`'s do: `SRC` is `--from`, else `agent-files.copy.dir`, else `family.template`, and
+`DST` is `--to`, else this workspace. So a bare `copy` re-syncs this workspace from the
+payload, and both copy between any two directories, which is how a maintainer folds an
 adopter's set into the payload. It prints its source and destination and each step first,
 refuses a `DST` whose jj working copy already changes a set file, so the copy's changes are the
 only ones there, and leaves the result uncommitted: `jj diff` there is the review, and the
 commit is yours to make. A `DST` outside any jj repo gets no guard, and the run says so.
 
-`agent-files size [DIR]` counts the set's markdown, `AGENTS.md`, `custom.md`, and
+`agent-files size [--dir DIR]` counts the set's markdown, `AGENTS.md`, `custom.md`, and
 `agent-data/*.md`, one line per file and a total. The version marker has no `.md` extension, so it
 takes no row and no place in the file count, and being empty it would add nothing to the total
 either. `agent-data/rationale.md` is counted: its number is shown in angle brackets and left out
@@ -528,18 +528,18 @@ leftmost column labelled by the set's version file goes in, the rightmost column
 window keeps the width it had. A file new to the set takes its sorted slot with empty cells behind
 it, one gone from the set keeps its remaining numbers until the window passes them, and the `total`
 row stays last. It is dry-run by default, printing the table it would write, and `--no-dry-run`
-applies it. `DIR` is the operand, else this workspace, `--file` names another notes file, and
+applies it. `DIR` is `--dir`, else this workspace, `--file` names another notes file, and
 `--label` names a column the version file cannot: write `--label=- v0.1.0` for a label opening on
 a `-`. The `## Counts` table above is left alone, since its note is prose.
 
 ```
 vc-x1 agent-files diff                             # the payload against this workspace
-vc-x1 agent-files diff ../iiac-perf                # a peer's copy against this workspace
-vc-x1 agent-files diff ../iiac-perf -c             # custom.md too
-vc-x1 agent-files diff ../iiac-perf ../zc-ring-x1  # two peers, from anywhere
+vc-x1 agent-files diff --from ../iiac-perf         # a peer's copy against this workspace
+vc-x1 agent-files diff --from ../iiac-perf -c      # custom.md too
+vc-x1 agent-files diff --from ../iiac-perf --to ../zc-ring-x1  # two peers, from anywhere
 vc-x1 agent-files copy                             # re-sync this workspace from the payload
-vc-x1 agent-files copy ../iiac-perf -c             # take a peer's set, custom.md included
-vc-x1 agent-files copy ../iiac-perf ../vc-x1-template/work  # fold a peer's set into the payload
+vc-x1 agent-files copy --from ../iiac-perf -c      # take a peer's set, custom.md included
+vc-x1 agent-files copy --from ../iiac-perf --to ../vc-x1-template/work  # fold a peer's set into the payload
 vc-x1 agent-files size                             # the count, and the slide it would make
 vc-x1 agent-files size --no-dry-run                # slide the table
 ```
