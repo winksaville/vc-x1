@@ -144,11 +144,11 @@ vc-x1 chid [-r REVISION] [-n COMMITS]  # Print changeID(s) for a revision
 vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
 vc-x1 status [-s SCOPE] [-R PATH]          # Working-copy status by scope, w|a|b|p, and the clean verdict (alias st)
 vc-x1 lookup [-s S] --line FILE:LINE     # The other repo's window for a line in this one
-vc-x1 agent-session <FILE> [OPTS]        # Display a session transcript as a conversation
+vc-x1 agent-session --file F [OPTS]      # Display a session transcript as a conversation
 vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
-vc-x1 validate-todo [FILE]                # Check todo-file entry numbering
-vc-x1 fix-todo [FILE]                     # Renumber todo file (dry-run default)
+vc-x1 validate-todo [--file F]            # Check todo-file entry numbering
+vc-x1 fix-todo [--file F]                 # Renumber todo file (dry-run default)
 vc-x1 validate [--fast] [OPTS]            # Run the workspace's configured validation commands
 vc-x1 validate-agent [OPTS]               # Check the agent repo is published
 vc-x1 config [OPTS]                       # Print / validate settable config keys
@@ -624,23 +624,23 @@ items = "headers,user,assistant,tool,summary"
 
 ```
 # Default conversation view
-vc-x1 agent-session .claude/<uuid>.jsonl
+vc-x1 agent-session --file .claude/<uuid>.jsonl
 
 # Everything: thinking, tool results, meta/system too
-vc-x1 agent-session --all FILE
+vc-x1 agent-session --all --file F
 
 # Prompts only: what was asked, nothing else
-vc-x1 agent-session --none --user FILE
+vc-x1 agent-session --none --user --file F
 
 # Default view minus tool calls and headers
-vc-x1 agent-session --no-tool --no-headers FILE
+vc-x1 agent-session --no-tool --no-headers --file F
 
 # Slices by source JSONL line (same unit in every view)
-vc-x1 agent-session --lines 40 FILE      # first 40 source lines
-vc-x1 agent-session --lines -15 FILE     # last 15 source lines
-vc-x1 agent-session --lines 100,20 FILE  # 20 lines from Index 100
-vc-x1 agent-session --lines 100,-20 FILE # 20 lines ending at Index 100
-vc-x1 agent-session --lines 0 FILE       # stats summary only
+vc-x1 agent-session --lines 40 --file F      # first 40 source lines
+vc-x1 agent-session --lines -15 --file F     # last 15 source lines
+vc-x1 agent-session --lines 100,20 --file F  # 20 lines from Index 100
+vc-x1 agent-session --lines 100,-20 --file F # 20 lines ending at Index 100
+vc-x1 agent-session --lines 0 --file F       # stats summary only
 ```
 
 | Flag | Description |
@@ -676,16 +676,16 @@ first line. `--fields`/`--unknown` ignore item flags, and `--raw` conflicts with
 
 ```
 # What does this format actually contain today?
-vc-x1 agent-session --fields FILE
+vc-x1 agent-session --fields --file F
 
 # What don't we model yet / what did Anthropic add?
-vc-x1 agent-session --unknown FILE
+vc-x1 agent-session --unknown --file F
 
 # Inspect one entry in full (source line 42)
-vc-x1 agent-session --raw --lines 42,1 FILE
+vc-x1 agent-session --raw --lines 42,1 --file F
 
 # Walk a region line by line, fields-table style
-vc-x1 agent-session --per-line --lines 40,5 FILE
+vc-x1 agent-session --per-line --lines 40,5 --file F
 ```
 
 ### validate-desc
@@ -756,7 +756,7 @@ non-zero if any entry needs fixing.
 vc-x1 validate-todo
 
 # Check a specific file
-vc-x1 validate-todo path/to/todo.md
+vc-x1 validate-todo --file path/to/todo.md
 ```
 
 Each flagged entry prints its corrected first line and a `[line: ...]` tag: the entry's line number
@@ -776,7 +776,7 @@ vc-x1 fix-todo
 vc-x1 fix-todo --no-dry-run
 
 # Operate on a specific file
-vc-x1 fix-todo path/to/todo.md
+vc-x1 fix-todo --file path/to/todo.md
 ```
 
 | Flag | Description |
@@ -803,7 +803,7 @@ vc-x1 validate-anchors
 
 # Specific files, which is also how the frozen history is checked,
 # since notes/chores/ and notes/done.md are out of the default set
-vc-x1 validate-anchors TODO.md notes/bugs.md
+vc-x1 validate-anchors --file TODO.md --file notes/bugs.md
 
 # -v adds per-file counts, -vv a line per site (every link with how
 # it resolved, every heading with the slug it produced)

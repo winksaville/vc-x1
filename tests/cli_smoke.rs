@@ -92,14 +92,14 @@ fn cli_version_gate_stops_every_subcommand() {
         fx.cmd()
             .env("PATH", &path)
             .arg("validate-todo")
-            .arg("TODO.md"),
+            .args(["--file", "TODO.md"]),
     );
     run_ok(
         fx.cmd()
             .env("PATH", &path)
             .arg("--allow-jj-mismatch")
             .arg("validate-todo")
-            .arg("TODO.md"),
+            .args(["--file", "TODO.md"]),
     );
 
     // The diagnostic still answers, withholding only what it may

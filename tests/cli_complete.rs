@@ -49,7 +49,7 @@ fn path_arguments_complete() {
         (&["config", "no"], "notes.md"),
         (&["validate-config", "no"], "notes.md"),
         // Already a `PathBuf`, so it completed before the hints.
-        (&["validate-anchors", "no"], "notes.md"),
+        (&["validate-anchors", "--file", "no"], "notes.md"),
     ];
     for (args, want) in cases {
         let got = complete(&fx, &dir, args);

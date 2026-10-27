@@ -19,14 +19,18 @@ use crate::todo_helpers::{self, Section, TODO_FILE};
 /// Clap-derived args for `validate-todo`.
 #[derive(Args, Debug)]
 pub struct ValidateTodoArgs {
+    /// Retired: the file, now `--file`, refused naming it.
+    #[arg(value_name = "RETIRED", hide = true)]
+    pub retired: Option<String>,
+
     /// Todo markdown file to check
-    #[arg(value_name = "FILE", default_value = TODO_FILE)]
+    #[arg(long, value_name = "PATH", default_value = TODO_FILE)]
     pub file: PathBuf,
 }
 
 /// Inputs to the validate-todo op, flat, owned, clap-free.
 ///
-/// Mirrors `ValidateTodoArgs`: the positional `FILE` path.
+/// Mirrors `ValidateTodoArgs`: the `--file` path.
 pub struct ValidateTodoParams {
     pub file: PathBuf,
 }
@@ -46,6 +50,13 @@ impl SubcommandRunner for ValidateTodoArgs {
 
     /// Delegate to the `From<&ValidateTodoArgs>` impl (total).
     fn to_params(&self) -> Result<Self::Params, String> {
+        if let Some(value) = &self.retired {
+            return Err(crate::options_flags::retired_positional::refusal(
+                "validate-todo",
+                value,
+                "--file",
+            ));
+        }
         Ok(ValidateTodoParams::from(self))
     }
 

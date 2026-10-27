@@ -115,7 +115,7 @@ build's banner, `vc-x1-dev show -s both @-` is refused naming `-r @-`, and `vc-x
 - [feat: the other commands take flags only opening][o0] (done)
 - [feat: the read commands take -r and -n only][o1] (done)
 - [feat: lookup takes -s and --line][o2] (done)
-- [feat: the file commands take --file][o3]
+- [feat: the file commands take --file][o3] (done)
 - [feat: config and validate-config take -s and --file][o4]
 - [feat: agent-files diff, copy, and size take flags][o5]
 - [feat: init, clone, and symlink take flags and --scope por][o6]
@@ -164,6 +164,16 @@ hidden and refused naming `-r` and `-n`, their flags already there.
 
 `agent-session`, `validate-anchors`, `validate-todo`, and `fix-todo` take their file by `--file`,
 repeatable for `validate-anchors`.
+
+- `agent-session --file` is required unless the retired positional was given, the one of the four
+  with no default, so a bare run gets clap's error and an old one the refusal.
+- `validate-anchors` refuses several retired files with `--file` before each, `--file A --file B`,
+  the form the flag repeats in.
+- `validate-todo` and `fix-todo` keep `TODO.md` as `--file`'s default.
+- The CLI tests passed the transcript by position thirty-four times, and `cli_smoke` passed
+  `TODO.md` twice, one of them a test that expects the version gate's refusal and would have
+  passed for the wrong reason. `cli_bot_session_positional_file_refused` is the CLI check of a
+  refusal.
 
 ##### feat: config and validate-config take -s and --file
 
