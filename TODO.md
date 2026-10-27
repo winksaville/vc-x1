@@ -288,7 +288,7 @@ commit, and Land step 4 names no command.
   A fix is edited and folded by `vc-x1 squash -s b`, a description fix by `squash -s b --title
   --body`.
 - A commit made by hand, a draft below `@` with no description, is described in place by `vc-x1
-  commit <REV> -s b --title --body`, its trailer stamped and its partner made, never by `jj
+  commit -s b -r REV --title --body`, its trailer stamped and its partner made, never by `jj
   describe`, and `--bookmark` moves the cycle's bookmark onto it past any nearer one.
 - Step 6's work review stays ahead of it.
 - Committing vs pushing is rewritten, `vc-x1 commit` committing both repos, `squash` continuing
@@ -308,6 +308,11 @@ description is not rewritten while the work still moves.
 - Every `vc-x1` invocation in the agent-files carries its scope: `sync -s b` at the sync points,
   `commit -s b`, `squash -s b`, `push -s b` in the per-rung flow, and `squash-push -s a` for the
   user's squash-push, replacing `--scope=both` and `-R <agent-dir>`.
+- Every argument is a flag, no positional: `commit -r REV`, `push -r REV --bookmark NAME`, and
+  `squash-push --bookmark NAME`. Step 9's `vc-x1 commit -s b --title --body`, At rest's `squash-push
+  -s a`, and `jj.md`'s vc-x1 push section's opening were brought current in this copy by **feat:
+  push, commit, and squash-push take flags only**, the invocations alone, the Committing vs pushing
+  rewrite still this proposal's.
 
 ##### Why: the scope flags
 

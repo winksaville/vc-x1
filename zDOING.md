@@ -102,7 +102,7 @@ push -s b @-` fails naming `-r @-`, and a rung committed with `--no-push` is pub
 - [feat: push, commit, and squash-push take flags only opening][f0] (done)
 - [feat: push takes --revision and --bookmark][f1] (done)
 - [feat: commit and squash-push take flags only][f2] (done)
-- [docs: the agent-files name the flags][f3]
+- [docs: the agent-files name the flags][f3] (done)
 - [feat: push, commit, and squash-push take flags only closing][f4]
 
 ##### feat: push, commit, and squash-push take flags only opening
@@ -154,6 +154,16 @@ positional refused by the helper.
 
 The invocations of the three in `AGENTS.md` and `agent-data/`, with the stale `vc-x1 push <bookmark>
 --title` forms brought to what `commit` does now.
+
+- Four invocations were stale, each failing as written: step 9's and `jj.md`'s vc-x1 push section's
+  `vc-x1 push <bookmark> --title`, push having lost `--title` to `commit`, and At rest's and that
+  section's `squash-push -R <agent-dir>`, `-s` being required. They became `vc-x1 commit -s b
+  --title --body`, `squash-push -s a`, and, for a push run that stopped between its halves, `push
+  -s w` or `-s a`.
+- The invocations alone: the rule prose, "a cycle rung is committed by `vc-x1 push`", is left to
+  **agent-files(proposal): v0.3.1**, whose Committing vs pushing rewrite says the same thing in
+  full. The proposal now records that this copy's invocations are current, and its `commit <REV>`
+  reads `commit -r REV`.
 
 ##### feat: push, commit, and squash-push take flags only closing
 

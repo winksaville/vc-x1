@@ -277,8 +277,9 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)):
    description](#commit-description)).
 8. Description review: show the title + body and stop. Ask permission to commit and push without
    spelling out the invocation. The go covers the push only when it says so.
-9. Commit + push: on the go, `vc-x1 push <bookmark> --title "..." --body "..."` ([Committing vs
-   pushing](#committing-vs-pushing)), then [At rest](#at-rest-push-stop-squash-push).
+9. Commit + push: on the go, `vc-x1 commit -s b --title "..." --body "..."`, the commit and its
+   push in one invocation ([Committing vs pushing](#committing-vs-pushing)), then [At
+   rest](#at-rest-push-stop-squash-push).
 
 ### Committing vs pushing
 
@@ -315,8 +316,7 @@ item's tail ([why](agent-data/rationale.md#at-rest-push-stop-squash-push)):
 1. The agent publishes: completing a step means issuing its publishing command. The agent says what
    is worth saying *before* the final publishing command, responds with the one word "Published",
    and does nothing further until the user speaks.
-2. The user squash-pushes: `vc-x1 squash-push -R <agent-dir>` whenever they want both repos fully
-   pushed.
+2. The user squash-pushes: `vc-x1 squash-push -s a` whenever they want both repos fully pushed.
 
 "Clean" means both repos' `@` empty. A late work-repo tweak after the push is a remote rewrite and
 takes approval like any push ([vc-x1 push][vpush]).
