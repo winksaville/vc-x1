@@ -156,7 +156,7 @@ vc-x1 clone <REPO> [NAME] [OPTS]          # Clone a dual-repo project
 vc-x1 init <TARGET> [OPTS]                # Create a new dual-repo project
 vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
-vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmark, push
+vc-x1 squash-push -s a [--bookmark NAME]  # Squash @ into @-, advance a bookmark, push
 vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
 vc-x1 land -s b --onto T [--source S]      # Land a made cycle: fast-forward, push, delete its bookmark
 vc-x1 squash -s b [--title T --body B]     # Fold the working copies into the pair
@@ -1725,7 +1725,7 @@ The primary use case is folding the bot repo's session tail: session data keeps 
 the last commit (including the record of the push itself), and only the user, acting after the bot
 goes quiet, can capture all of it. Zero ceremony by design:
 
-`BOOKMARK` defaults to the bookmark of the line you are on, the nearest one at or above the squash
+`--bookmark` defaults to the bookmark of the line you are on, the nearest one at or above the squash
 target. There is no literal default: on the agent repo the line's bookmark is `main`, and on a work
 repo running a cycle it is the topic bookmark, so a bare run publishes the line you are working and
 never advances `main`. Several candidates, or none, is an error asking you to name one, since a
@@ -1750,7 +1750,7 @@ vc-x1 squash-push -s b
 vc-x1 squash-push -s p
 
 # Name the bookmark explicitly, with a custom squash pair, on the work repo
-vc-x1 squash-push feature -s w --squash @,@--
+vc-x1 squash-push -s w --bookmark feature --squash @,@--
 
 # Confirm before acting, overriding a configured squash-push.yes
 vc-x1 squash-push -s a --ask
@@ -1792,7 +1792,7 @@ vc-x1: clean
 
 | Flag | Description |
 |------|-------------|
-| `[BOOKMARK]` | Bookmark to advance and push [default: the line's own, see below] |
+| `--bookmark <NAME>` | Bookmark to advance and push [default: the line's own, see above]; the old positional is refused, naming this flag |
 | `-R, --repo <PATH>` | Path to jj repo [default: .] |
 | `--squash [<SOURCE,TARGET>]` | Squash pair [default: @,@-] |
 | `-y, --yes` | Act without asking, once the precheck found work |
@@ -1821,7 +1821,7 @@ Behavior notes:
   is an error too, so a scripted run learns it did not happen. A run the precheck found clean never
   reaches the prompt.
 - With an empty `@` but work still to do, it skips the squash and still pushes.
-- If the bookmark doesn't match `BOOKMARK@origin` at start (an earlier publish was lost, see
+- If the bookmark doesn't match `<bookmark>@origin` at start (an earlier publish was lost, see
   [validate-agent](#validate-agent)), it says so and proceeds: publishing is its job.
 - As [`push`](#push)'s `squash-push-bot` stage it says nothing and asks nothing. Every line above is
   addressed to a person, and mid-push there is neither a person to read them nor a settled state
@@ -1859,7 +1859,7 @@ vc-x1 commit -s b --title "feat: a rung" --body "The problem.
 vc-x1 commit -s p -R ../other --title "..." --body "..."
 
 # A draft made by hand, the undescribed @-, described in place as the rung, its trailer stamped
-vc-x1 commit @- -s b --title "feat: a rung" --body @tmp/body.md
+vc-x1 commit -s b -r @- --title "feat: a rung" --body @tmp/body.md
 
 # The cycle's opening, " opening" appended, its bookmark, feat-a-cycle, created at @- and pushed
 vc-x1 commit -s b --opening --title "feat: a cycle" --body @tmp/body.md
@@ -1872,13 +1872,14 @@ vc-x1 commit -s b --closing @-
 vc-x1 commit -s b --closing feat-a-cycle --land dev
 ```
 
-`REV`, the positional, is the commit the description is for: `@` by default, committed as the
+`-r, --revision REV` is the commit the description is for: `@` by default, committed as the
 working copy, else `@-` or any draft below it, described in place with no new commit and its
 trailer stamped, so a commit made by hand becomes a rung's. The draft must be unpublished, no
 remote bookmark reaching it, carry no trailer yet, since a pair's commit is re-described by
 `squash --title --body`, and hold a change. `@` is left as it is, as `push` leaves new work, the
 line's bookmark advances to the draft, and a draft below `@-` is kept local, since push publishes
-`@-`. Not with `--opening` or `--closing`, whose commits are made from `@`.
+`@-`. Not with `--opening` or `--closing`, whose commits are made from `@`. The positional it was
+is refused, naming `-r`.
 
 `--closing <BM|REV>` closes the cycle whose tip the argument names, a bookmark or a revision as jj
 resolves them, a name that is both being the bookmark, onto the trunk, `--land`'s bookmark or

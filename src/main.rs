@@ -558,13 +558,15 @@ pub(crate) enum Commands {
         @ -> @- in `.` and pushes the bookmark of the line you are\n\
         on. With an empty `@` but work still to do, the squash is\n\
         skipped and the push still runs.\n\n\
-        BOOKMARK defaults to the line's own bookmark, the nearest one\n\
+        --bookmark defaults to the line's own bookmark, the nearest one\n\
         at or above the squash target, and there is no literal\n\
         default. On the agent repo that is `main`. On a work repo\n\
         running a cycle it is the topic bookmark, so a bare run\n\
         publishes the line you are working and never advances `main`.\n\
         Several candidates, or none, is an error asking you to name\n\
-        one, since a wrong guess here publishes something.\n\n\
+        one, since a wrong guess here publishes something. Every\n\
+        argument is a flag: the old positional is refused, naming\n\
+        --bookmark.\n\n\
         A precheck asks whether the run has work at all: the working\n\
         copy at rest, the bookmark at its origin, and the bookmark\n\
         already at the squash target. That third condition is there\n\
@@ -632,11 +634,12 @@ pub(crate) enum Commands {
         push publishes what was reviewed. --no-push keeps the commit local,\n\
         for a look at it by `vc-x1 show -s both @-` before `vc-x1 push`, and\n\
         `[commit] push = false` makes that the default, --push overriding it.\n\n\
-        REV is the commit the description is for: `@` by default, committed\n\
-        as the working copy, else `@-` or any draft below it, described in\n\
-        place with no new commit and its trailer stamped, so a commit made by\n\
-        hand becomes a rung's. A draft below `@-` is kept local, since push\n\
-        publishes `@-`.\n\n\
+        -r REV is the commit the description is for: `@` by default,\n\
+        committed as the working copy, else `@-` or any draft below it,\n\
+        described in place with no new commit and its trailer stamped, so a\n\
+        commit made by hand becomes a rung's. A draft below `@-` is kept\n\
+        local, since push publishes `@-`. Every argument is a flag: the old\n\
+        positional is refused, naming -r.\n\n\
         --closing <BM|REV> closes the cycle whose tip it names, onto the trunk,\n\
         --land's or `[cycle] trunk`, `main` when absent: one commit above the\n\
         trunk is finalized in place, more get the closing commit, the merge of\n\

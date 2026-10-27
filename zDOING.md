@@ -101,7 +101,7 @@ push -s b @-` fails naming `-r @-`, and a rung committed with `--no-push` is pub
 
 - [feat: push, commit, and squash-push take flags only opening][f0] (done)
 - [feat: push takes --revision and --bookmark][f1] (done)
-- [feat: commit and squash-push take flags only][f2]
+- [feat: commit and squash-push take flags only][f2] (done)
 - [docs: the agent-files name the flags][f3]
 - [feat: push, commit, and squash-push take flags only closing][f4]
 
@@ -138,6 +138,17 @@ name, a new name created tracked, and the refusal helper the other commands reus
 
 `commit`'s `[REV]` becomes `-r`, and `squash-push`'s `[BOOKMARK]` becomes `--bookmark`, each old
 positional refused by the helper.
+
+- `commit -r, --revision`: the field stays `rev`, so nothing past the parse changes, and its errors
+  say `-r` where they said `REV`. The refusal always names `-r`, the positional having been a
+  revision only.
+- `squash-push --bookmark`: the one flag, the positional having had no flag form, and the refusal
+  always names `--bookmark`.
+- Each refusal is made where the command builds its params, `CommitParams::try_from` and
+  `SquashPushArgs::to_params`, before any repo is touched.
+- No CLI test and no code called either with its positional. The README's examples and tables did,
+  and `support/fixtures/build-dr-1.py`'s `vc-x1 push {bookmark} --title` is left: it is a
+  transcript line the builder synthesizes as history, never run.
 
 ##### docs: the agent-files name the flags
 
