@@ -95,7 +95,7 @@ bookmarks are gone locally and on origin, and `cargo test` passes with a test pe
 - [feat: vc-x1 land lands a source onto a bookmark][l2] (done)
 - [feat: land deletes the intermediate bookmarks][l3] (done)
 - [feat: land defaults its source][l4] (done)
-- [docs: the README and the v0.3.1 proposal name land][l5]
+- [docs: the README and the v0.3.1 proposal name land][l5] (done)
 - [feat: vc-x1 land closing][l6]
 
 ##### feat: vc-x1 land opening
@@ -219,6 +219,14 @@ naming `land`.
   (wink, 2026-10-26). The README-table bullet of **docs: each command's -s help names the scopes
   it takes** moves here, and **commit and land take the same scopes** gains one updating the
   table's rows.
+- The `land` section: its examples, the test-before-publish sequence and why a fast-forward makes
+  it exact, `--source` and its default, `--onto`, the publish by where the source is, `--skip` and
+  `--delete-intermediate-bookmarks`, and `-s` linking the scope table. A Land is always published,
+  `--dry-run` the look before it.
+- `commit --land` says it is the closing then `land` in one step, linking the section, and the
+  Usage list gains `land`.
+- The v0.3.1 proposal's Land gains the test-before-publish sequence beside
+  `commit --closing ... --land`.
 
 ##### feat: vc-x1 land closing
 

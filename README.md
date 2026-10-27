@@ -158,6 +158,7 @@ vc-x1 symlink [TARGET] [OPTS]             # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
 vc-x1 squash-push [BOOKMARK] [OPTS]        # Squash @ into @-, advance a bookmark, push
 vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
+vc-x1 land -s b --onto T [--source S]      # Land a made cycle: fast-forward, push, delete its bookmark
 vc-x1 squash -s b [--title T --body B]     # Fold the working copies into the pair
 vc-x1 merge -s w --target T --from S...    # Add sources to a target's parents, keeping its change
 vc-x1 move-bookmark -s w --bookmark B --target T  # Point an existing bookmark at a commit, locally
@@ -347,6 +348,30 @@ remains single-repo.
 
 `-s` is keyword-only: `work`, `agent`, `work,agent`, `agent,work`. Path-based single-repo operation uses
 `-R` (above).
+
+### Write scopes
+
+The write commands, and `status`, take `-s` as one of four scopes: `w|work` the work repo, `a|agent`
+the agent repo, `b|both` the pair, and `p|por` a Plain Old Repo, one repo with no pair, the one
+`-R` names. `-s` is required wherever a write command takes it, so none guesses which repos it
+acts on, and each takes the scopes that make sense for it, refusing the others with the reason.
+
+Scopes: `w`=work, `a`=agent, `b`=both, `p`=por.
+
+| Command | Scopes | Why the subset |
+|---|---|---|
+| `sync`, `squash`, `squash-push`, `push`, `status`, `move-bookmark`, `delete-bookmark` | `w a b p` | |
+| `validate-desc` | `w a b` | a plain repo has no other repo to check its descriptions against |
+| `commit` | `w a b p` | `a` refused with a REV, with `--opening` or `--closing`, and on an agent `@` paired to a work commit |
+| `land` | `b p` | `w` could publish trailers naming agent commits left unpublished, and `a` has no cycle |
+| `merge` | `w p` | the agent repo never holds a merge |
+
+The rule: a scope is valid when what it publishes names nothing it leaves unpublished. A commit made
+by `commit -s b` carries an `ochid:` trailer naming its partner in the other repo, so publishing
+one side of a pair alone can leave a trailer naming a commit origin does not have. The repo
+commands act on the agent repo as a repo of its own and link nothing, so they take `a`. The cycle
+commands, which make or publish a cycle's commits, refuse it or hem it in, since a cycle runs on
+the work repo's bookmark and the agent repo has none.
 
 ### status
 
@@ -1894,7 +1919,9 @@ fast-forwarded to it and pushed with the agent half as its partner, and the clos
 deleted locally and on `origin`, `--skip local|remote|both` keeping what it names. The trunk is
 `--land`'s value, else `[cycle] trunk`, else `main`, the closing's first parent either way, so a
 cycle lands with `commit --closing @- --land`. The closing's own push to the cycle's bookmark is
-skipped, the bookmark being deleted.
+skipped, the bookmark being deleted. `--land` is the closing then [`land`](#land), one code path,
+in one step: to install and test the closing before it is published, close without `--land` and
+run `land` after.
 
 The closing's bookmark is the one its commit carries and a Land deletes, and `--closing`'s
 argument decides it. A bookmark named is that one. A revision means the current bookmark on the
@@ -1944,6 +1971,59 @@ with `--push`, since its bookmark was left where it was.
 body in commit-body form has markers and blank lines a shell quote mangles. The work repo's `@`
 must hold a change, and with `b` the agent repo's `@`, the session's journal, is committed as it
 stands. A failure after the first commit restores both repos from `jj op` snapshots.
+
+### land
+
+Land a cycle whose last commit is already made: `--onto` fast-forwarded to `--source` and pushed,
+and the cycle's bookmark deleted locally and on `origin`, every check made before anything moves.
+It is the Land of a closing made without `--land`, or of a single-step commit, and the second half
+of `commit --closing ... --land`, which runs the same code.
+
+```bash
+vc-x1 land -s b --onto main                          # the one bookmark besides main, landed on it
+vc-x1 land -s b --source feat-a-cycle --onto main    # the cycle's bookmark named
+vc-x1 land -s b --source @- --onto dev               # a revision, its bookmark the nearest one
+vc-x1 land -s b --source feat-c --onto main --delete-intermediate-bookmarks   # a stack of cycles
+vc-x1 land -s p -R ../other --onto main --dry-run    # a plain repo, every check, nothing moved
+```
+
+Testing before publishing is the reason to use it over `commit --land`. A Land only fast-forwards,
+so `main` becomes the source commit itself, its id and its tree, and what is installed and tested
+from the source is exactly what lands:
+
+```bash
+vc-x1 commit -s b --closing @-         # the closing, pushed to the cycle's bookmark, main unmoved
+vc-x1 install                          # the closing built and installed as the real vc-x1
+# ... the final testing ...
+vc-x1 land -s b --onto main --dry-run  # the steps it would take
+vc-x1 land -s b --onto main            # the tree tested, landed and published
+```
+
+A `main` that moved meanwhile is refused, and the rebase it needs makes a new tree, installed and
+tested again. `commit --closing ... --land` is the one step when no test pause is wanted. A Land
+is always published: `--dry-run` makes every check and says each step, and is the look before it.
+
+`--source <BM|REV>` names the cycle's last commit, a bookmark, the cycle's, or a revision, whose
+current bookmark, else its nearest parent's above `--onto`, is the cycle's, several at that height
+refused with the list, as `commit --closing` decides it. Left out, it is the one local bookmark
+besides `--onto`, every local bookmark counted, and none or several is refused with their names,
+so a stack of cycles names its tip. `--onto <BOOKMARK>` is any local bookmark at its `origin`
+position that `--source` descends from, so a bushy tree lands anywhere, and one that is not an
+ancestor is refused: `land` makes no merge, which is `commit --closing`'s. A conflicted source is
+not landed.
+
+The publish follows where the source is. At the work `@-`, whose pair may be unfinished, the trunk
+goes through `push`, which finishes it. Below it, the pair is finished, so the trunk is pushed
+alone and the agent `main` published. `--skip local|remote|both` keeps that side of the cycle's
+bookmark. The branch's other bookmarks are merged by the Land and left as they are, each named
+after it, and `--delete-intermediate-bookmarks` deletes those strictly between `--onto` and
+`--source`, locally and on origin as `--skip` allows, a stack of cycles landing together. A
+bookmark at the tip beside the cycle's is kept either way, since it may be one you put there.
+
+`-s` is required: `b` a dual workspace, the agent `main` published with the trunk, and `p` a
+plain repo. `w` alone could publish trailers naming agent commits not yet published, and `a`
+alone has no cycle to land, so both are refused ([Write scopes](#write-scopes)). The install
+stays `vc-x1 install`.
 
 ### squash
 

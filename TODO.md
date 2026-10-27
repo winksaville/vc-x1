@@ -215,8 +215,8 @@ names its two values and clap repeats them. Found at **feat: vc-x1 land**, whose
 `merge` `-s` help it fixed, `-h` naming only the scopes taken and `--help` why the others are
 refused.
 
-- A README table of each write command's scopes with the reason for each subset, beside the
-  README's account of `-s`, so the rule is said once.
+- The README's `### Write scopes` table, written by **feat: vc-x1 land**'s docs rung, is the list
+  the help is checked against.
 - `hide_possible_values` on every `--scope` and on `delete-bookmark --skip`, the help text the one
   list, being the one with the short forms.
 - `validate-desc`'s `-h` names `w|work`, `a|agent`, or `b|both`, and `--help` says why `p` is
@@ -241,8 +241,10 @@ all four and `land` takes `b` and `p`.
 - The repo commands keep `a`: `sync`, `squash`, `squash-push`, `push`, `status`, `move-bookmark`,
   `delete-bookmark`, and `validate-desc` act on the agent-repo as a repo of its own and link
   nothing.
-- Goes with **docs: each command's -s help names the scopes it takes**, whose README table these
-  change.
+- The README's `### Write scopes` table gets `commit`'s and `land`'s new rows, its rule
+  paragraph unchanged.
+- Goes with **docs: each command's -s help names the scopes it takes**, which checks the help
+  against that table.
 
 ### build, install, and run take --dev
 
@@ -350,7 +352,9 @@ lands, so the rules' invocations must carry it or fail.
   - Either converts to the other while the closing is a draft, before Land, by re-parenting the
     same closing: its change id, trailer, and, with the trunk unmoved, its tree are kept.
 - Land is sync, then `commit --closing <BM|REV> --land [TRUNK]`, the fast-forward and the push,
-  then `vc-x1 install`. The bookmark deleted is the one `--closing` names, or for a revision its
+  then `vc-x1 install`. To test the closing before it is published, it is made without `--land`,
+  installed by `vc-x1 install` and tested, and landed by `vc-x1 land -s b --onto <TRUNK>`, the
+  fast-forward landing the tree tested. The bookmark deleted is the one `--closing` names, or for a revision its
   current or nearest parent bookmark above the trunk, several refused with the list, and the
   branch's other bookmarks are left and named as merged. The trapezoid recipe goes,
   Close-out step 5 keeps the user's choice, the key its default, and carries it out by the flag,
