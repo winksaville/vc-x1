@@ -109,7 +109,7 @@ installs `tmp/soak/vc-x1-rc`, which `cmp` finds identical to `target/release/vc-
 - [feat: the config defines named build profiles][p2] (done)
 - [feat: --profile chooses the build and the install][p3] (done)
 - [feat: the old build and install keys are refused][p4] (done)
-- [docs: the README and the agent-files name --profile][p5]
+- [docs: the README and the agent-files name --profile][p5] (done)
 - [feat: build, install, and run take --profile closing][p6]
 
 ##### feat: build, install, and run take --profile opening
@@ -207,6 +207,19 @@ The commands and `validate-config` name the profile form for each old key, and `
 ##### docs: the README and the agent-files name --profile
 
 The README, the help, and the agent-files' `install --dev`, told to the v0.3.1 proposal.
+
+* The README described two fixed builds, `--dev`, and the nine old keys.
+  - Its overview, Usage, flag table, build, install, and run sections, and its config tables
+    describe profiles, `--profile`, `{profile.<property>}`, and the profile form, with a soak
+    profile, `[profile.rc]` installing `vc-x1-rc`, and a custom `Cargo.toml` profile as examples.
+  - `### install --dev` is `### install --profile`, its one link following, and the retired forms
+    are named where the README says what was retired.
+  - Written by a subagent from the agent's brief, its anchors checked at 0 failed, and the
+    agent tagged the new `[profile.<name>]` table bullet with this cycle's version.
+* `agent-data/hooks.sh`'s guard test named `install --dev`.
+  - It names `install --profile dev`, still a deny, `hooks.sh test` passing its thirteen.
+* **agent-files(proposal): v0.3.1** records the profile rename beside the flags cycles' notes.
+* The help was written with the commands, in the profile rung.
 
 ##### feat: build, install, and run take --profile closing
 

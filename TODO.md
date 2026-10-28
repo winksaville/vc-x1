@@ -249,6 +249,10 @@ description is not rewritten while the work still moves.
   adoption names `agent-files copy --from` and `diff --from`, and `hooks.sh`'s guard test names
   `install --dev`, `build-dev`, `install-dev`, and `run-dev` being `build`, `install`, and `run`
   with `--dev` now. A rule that says `install-dev` says `install --dev`.
+- And then by profile, by **feat: build, install, and run take --profile**: `--dev` retired to
+  `--profile dev`, so `hooks.sh`'s guard test names `install --profile dev`, and a rule that says
+  `install-dev` or `install --dev` says `install --profile dev`. The `[build]` and `[install]` keys a
+  rule might name are `commands`, `dir`, and the `[profile.<name>]` tables.
 
 ##### Why: the scope flags
 
