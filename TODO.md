@@ -61,13 +61,69 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### squash takes paths
+### squash-push shows what it takes, and push follows jj
 
-(wink + agent, 2026-10-24) `squash -s w` folds all of the work `@` into `@-`, so folding one file's
-change while `@` holds the next rung's edits means `jj squash <path>` typed, or the edits parked
-first. Filed from the live testing of **feat: vc-x1 closing and land**.
+(wink + agent, 2026-10-28) The rules for rewriting what is published, from the opening that became
+**feat: undo takes back the last vc-x1 run**. `squash` refuses folding into a commit on the trunk's
+remote without `--yes`, a guard on a local act that undo takes back, while `squash-push -s b` folds a
+work `@` it expects empty without showing it, and pushes it. The mistake that matters is a command
+taking more than was meant and publishing it unseen, not a bookmark moving sideways. After the undo
+cycle and before **squash takes --include**, wink's order (2026-10-28).
 
-- `squash -s w [PATHS]`, the paths folded and the rest left in `@`, as `jj squash <paths>` does.
+- Local acts are not refused, since undo takes them back: squash's trunk refusal becomes its
+  existing rewrite warning, and its `--yes` retires as `--dev` did, hidden and refused, freeing it
+  for **squash takes --include**.
+- A command shows what it takes when that is more than the routine: `squash-push -s b` at rest
+  expects an empty work `@`, and a non-empty one is listed, each file with `+n -m`, and asked for,
+  `squash --include`'s approval. `squash-push.yes` skips the routine case alone, the agent tail or
+  an empty work side.
+- Pushes are force-with-lease and nothing more: a backward or sideways move goes, undo reversing
+  it, and the lease stops a push over a remote someone else moved. No bookmark is special to vc-x1,
+  and a shared repo's guard on its trunk is the server's, GitHub's branch protection refusing a
+  force push from every client.
+- The agent-repo stays clean in one command, `squash-push -s a` folding the tail into its published
+  tip, a local rewrite and a leased push.
+- Push's flags are a subset of `jj git push`'s where they overlap, with its meanings: `--remote`,
+  defaulting to `git.push`, else `origin`, else the only remote, `-b/--bookmark`, `-r`, `--named
+  NAME=REV` for a new bookmark, and `--dry-run`. vc-x1 adds the scope and the pair, the trailers,
+  and moving the line's bookmark to `@-`. What jj does is information, not a requirement (wink,
+  2026-10-28).
+- Push's help and module doc say what each scope publishes: the pair only for `-s b`, since `-s a`,
+  `-s w`, and `-s p` each publish one repo.
+- Open: the trunk a closing merges onto and `--land` lands on, `[cycle] trunk` else `main` today.
+  The candidates are jj's `trunk()`, the latest of `main`, `master`, and `trunk` on `origin` or
+  `upstream` unless a repo overrides it, and the remote's default branch, `origin`'s `HEAD`, the key
+  retired either way.
+- **push --from --to moves a bookmark and publishes it** may fold in.
+
+### squash takes --include
+
+(wink + agent, 2026-10-24, from **squash takes paths**, reshaped 2026-10-28) `squash -s w` folds all
+of the work `@` into `@-`, so folding one file's change while `@` holds the next rung's edits means
+`jj squash <path>` typed, or the edits parked first. Filed from the live testing of **feat: vc-x1
+closing and land**. After **feat: undo takes back the last vc-x1 run**, which its testing uses, and
+**squash-push shows what it takes, and push follows jj**, which frees `--yes`, wink's order
+(2026-10-28). The rest of the selection is **squash and commit take --exclude**.
+
+- Selection: `--include <path>`, repeatable, a file or everything under a directory, absolute or
+  relative to the current directory. What is not included stays in `@`.
+- A path's repo is the innermost repo of the pair holding it, so one list may mix work and agent
+  files.
+  - The repo must agree with `-s`, a mismatch refused naming the scope that takes it.
+  - A path in neither repo is refused. Content not yet in the tree comes in first by **import
+    brings content into the tree**.
+- A path matching nothing in `@` is warned about, by name, which catches a typo.
+- Approval by default: squash lists what folds and what stays, grouped by repo, each file with its
+  status and `+n -m`, and asks. `--yes` folds without asking.
+  - The mechanism is squash-push's: `--ask` and `--yes`, a config default, `squash.yes` false where
+    `squash-push.yes` is true, a non-terminal stdin and a declined prompt each an error.
+  - With no terminal, nothing changes and the exit names `--yes`, so the agent shows the list and
+    reruns on the user's go. A code of its own for "needs approval", apart from a failure, is open.
+  - The approval is of paths, not content. The agent `@` grows with the session between the list
+    and the rerun, so the folded list is printed again after the fold.
+- A squash without `--include` folds all of `@` without asking, as today.
+- Open: the folded `@-` is a tree no validation ran on, since validation runs on the working copy.
+  Until a revision can be validated, a fold by paths before a push needs `@-` checked.
 
 ### sync says one repo when the work @ is dirty
 
@@ -422,6 +478,99 @@ Each run on its own:
   out of TODO.md into zDOING.md**.
 - A rung inserted before pushed rungs: a `jj.md` recipe, once **lookup is tested on a reordered
   ladder** has its results.
+
+### squash and commit take --exclude
+
+(wink + agent, 2026-10-28) The rest of the selection, after **squash takes --include**: `commit` has
+the same gap in `jj commit <paths>`, and a fold of everything but the next rung's files is often the
+shorter list.
+
+- Selection: everything in `@`, narrowed by `--include` when given, less `--exclude`, exclude
+  winning, with `--include`'s path forms, repo routing, and approval.
+- `commit` takes `--include` and `--exclude` too, the flags shared in `options_flags`, so the rung's
+  files are committed and the rest left in `@`.
+- Globs, opt-in, as jj's `glob:`, so a plain path never surprises.
+- Output: text, one file per line, by default, and JSON by a general flag, `--json` or `--format
+  json`, with a versioned schema, for every command rather than squash alone.
+- Paths select whole files: a file holding both the fix and the next rung's edits cannot be split.
+
+### push --from --to moves a bookmark and publishes it
+
+(wink + agent, 2026-10-28) Publishing a bookmark somewhere other than the line's `@-` is two
+commands, `move-bookmark --bookmark NAME --target REV` and then `push -r REV --bookmark NAME`, and
+push's `-r` and `--bookmark` read as a revision and a name rather than a move. Filed at the
+opening of **feat: undo takes back the last vc-x1 run**, while it was still the push cycle.
+
+- `push --from <BM|REV> --to <BM|REV>`: `--from` names the bookmark to move, by name or by the
+  commit it is at, the line's nearest when left out, and `--to` where it goes, a revision or another
+  bookmark's commit, `@-` when left out. "Or some such": the names are open.
+- Forward unless `--rewrite`, as every push.
+- Whether it replaces `-r` and `--bookmark`, and whether `move-bookmark` stays as the local half,
+  is open.
+
+### import brings content into the tree
+
+(wink + agent, 2026-10-28) Code from an unrelated source, a path outside the pair or a URL, has no
+command: it is copied in by hand, and nothing records where it came from or which version it was.
+
+- `--import <path|URL>` with a destination writes it into `@`, and `--include` then takes it into a
+  commit like any file in the tree, so a fold never fetches. Its home, a command of its own or a
+  flag on `commit` and `squash`, is open.
+- Pinned: a git source records the commit SHA it got, any other source a content hash, never a
+  moving branch.
+- Provenance: an `imported-from: <url>@<sha>` trailer, so `git log --grep imported-from` finds every
+  import, and a later check can re-fetch and verify it.
+- Trust: content from a URL is untrusted, so the approval list shows sizes and marks binaries, and
+  licensing is a human's question.
+- Sources: a plain file over https first, then a git URL with a ref and a subpath, through jj-lib
+  with no `git` spawn, then tarballs and crates.
+- Re-import after local edits is a three-way merge against the last import, the problem git subtree
+  and Copybara solve. A first form refuses to overwrite a locally edited file.
+- Precedent: `agent-files copy --from` already imports files from the template repo.
+
+### agent-files(proposal): vc-x1 is the interface, jj the engine
+
+(wink + agent, 2026-10-28) The rule **jj, not git** says version-control operations use jj, but in
+a cycle the user does not and should not use jj. vc-x1 carries the model jj does not know, the
+pair, the scope, the opening and closing, the trailers, and Land, with jj-lib as its engine.
+
+- The rule becomes: in a cycle, version-control operations use vc-x1, and a reach for raw jj is a
+  vc-x1 gap, filed as a Todo rather than written into the protocol as a workaround.
+- Already said in parts: v0.3.1's **Warn rather than refuse** names raw jj as what "the tool exists
+  to retire", and its re-describe rule retires `jj describe`. The bookmark moves by `jj git push`
+  are what is left.
+- Open: whether read-only jj, `jj log`, `jj st`, and `jj op log` for recovery, stays allowed as
+  inspection and the escape hatch. The agent's suggestion is that it does.
+- Its own proposal, after **agent-files(proposal): v0.3.1** (wink, 2026-10-28).
+
+### Parallel cycles
+
+(wink + agent, 2026-10-28) The model runs one cycle at a time, and the work must scale to several
+changes at once, as Anthropic's Scion does for its agents. A design entry, its findings for a
+`notes/` file.
+
+- Sources: [Redesigning source
+  control](https://www.anthropic.com/research/redesigning-source-control), [The Pulse on
+  Scion](https://blog.pragmaticengineer.com/the-pulse-anthropic-builds-its-own-source-control-system/),
+  and the prototypes [CarterT27/scion](https://github.com/CarterT27/scion) and
+  [tinyhumansai/openscion](https://github.com/tinyhumansai/openscion).
+- What carries over from Scion:
+  - making a change never touches a ref, and landing is a rebase onto the trunk as it is now and a
+    compare-and-swap on the ref, retried, with no global lock
+  - conflicts are expected and fixed after the merge, and humans review intent rather than every
+    line
+  - v0.3.1's `commit --closing` already merges onto the trunk as it is.
+- What assumes one cycle, each a design point:
+  - the working copy, one `@` per repo: a jj workspace per cycle, each on its bookmark
+  - the record, one In Progress block in `zDOING.md` and one `zCLOSED.md`: a record file per cycle
+  - the version, bumped at each opening, so two cycles claim the same next one: assigned at Land
+  - the agent-repo, one session's journal per `@` with trailers pairing commits: a workspace or a
+    directory per session
+  - the build and install, one `target/` and one `vc-x1-dev`: per workspace, a profile per cycle
+  - the messages repo's single-clone mutex, its README's "No second machine": member-scoped ids.
+- The human gates come first: per-push approval and the hard stop are what make the protocol
+  trusted now, and the decision is which of them move to Land or to a review of a cycle's intent.
+  We think the rest is mechanical.
 
 ### The help lists the subcommands in alphabetical order
 
