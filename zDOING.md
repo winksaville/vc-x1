@@ -92,11 +92,20 @@ installs `tmp/soak/vc-x1-rc`, which `cmp` finds identical to `target/release/vc-
 - `--dev`, landed one cycle ago, retires to `--profile dev`, the treatment the positionals got.
 - Multi-step: the placeholder expansion, the schema, the three commands, the retirement, and the
   docs, each reviewable on its own.
+- Waiver, wink's "go, complete cycle except for landing on main using the new prototype v0.3.1
+  agent-file version" (2026-10-27), after the opening's push.
+  - Covers every rung from [1] through the closing: the work review, the description review, the
+    per-push approval, and the hard stop after each push.
+  - Does not cover Land: the closing is pushed without `--land`, its shape the default,
+    trapezoid, until wink chooses at the Land.
+  - The v0.3.1 form throughout: two-paragraph bodies ending "See details in zDOING.md.", the rung
+    subsection the full account in `*` and `-` form, and the continuation notes in the closing.
+  - Validation still runs before every push, and a deviation from the plan is still a stop.
 
 #### Ladder
 
 - [feat: build, install, and run take --profile opening][p0] (done)
-- [feat: a list-valued placeholder expands to its words][p1]
+- [feat: a list-valued placeholder expands to its words][p1] (done)
 - [feat: the config defines named build profiles][p2]
 - [feat: --profile chooses the build and the install][p3]
 - [feat: the old build and install keys are refused][p4]
@@ -111,6 +120,17 @@ Opens the cycle: the Todo moved here and widened into profiles, the version bump
 
 `command_list`'s filling learns list values: a word that is a list-valued placeholder alone becomes
 its words, none for an empty list.
+
+* A list's words are split before its placeholders are filled, so a value is one word, and an
+  empty value would be an empty argument, which cargo refuses.
+  - `command_list::expand` takes list values beside the string ones: a word that is `{name}` alone,
+    for a list, becomes the list's items, one word each, none for an empty one.
+  - `words` stays, the strings-only form, delegating to `expand`, so its callers are unchanged until
+    the profile rung passes lists.
+* A list inside a longer word, `x{flags}`, has no word for its items to share.
+  - It is refused, naming the list and the word, rather than joined with a guessed separator.
+* The refusal for an unknown name offered the string placeholders alone.
+  - It offers the lists too, so a typo is told every name the list may use.
 
 ##### feat: the config defines named build profiles
 

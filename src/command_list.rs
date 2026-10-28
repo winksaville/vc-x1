@@ -102,25 +102,42 @@ pub fn check_placeholders(
 }
 
 /// Split `command` on whitespace and fill each word's placeholders,
-/// `{name}` for each `(name, value)` of `vars`. A word is split before
-/// it is filled, so a value with spaces stays one word. With no `vars`
-/// the words are as written. A `{name}`, a name of letters, digits,
-/// `.`, `-`, and `_`, that `vars` lacks is an error naming the ones
-/// offered, and any other brace is literal.
+/// `{name}` for each `(name, value)` of `vars`: [`expand`] with no
+/// list-valued placeholders.
 pub fn words(command: &str, vars: &[(&str, &str)]) -> Result<Vec<String>, String> {
-    command
-        .split_whitespace()
-        .map(|word| {
-            if vars.is_empty() {
-                return Ok(word.to_string());
-            }
-            fill(word, vars)
-        })
-        .collect()
+    expand(command, vars, &[])
 }
 
-/// Fill one word's placeholders: see [`words`].
-fn fill(word: &str, vars: &[(&str, &str)]) -> Result<String, String> {
+/// Split `command` on whitespace and fill each word's placeholders,
+/// `{name}` for each `(name, value)` of `vars`, and for each
+/// `(name, items)` of `lists` a word that is `{name}` alone becomes the
+/// items, one word each, none for an empty list. A word is split before
+/// it is filled, so a value with spaces stays one word. With neither
+/// the words are as written. A `{name}`, a name of letters, digits,
+/// `.`, `-`, and `_`, offered by neither is an error naming the ones
+/// offered, a list inside a longer word is an error, since its items
+/// have no word to share, and any other brace is literal.
+pub fn expand(
+    command: &str,
+    vars: &[(&str, &str)],
+    lists: &[(&str, &[String])],
+) -> Result<Vec<String>, String> {
+    let mut out = Vec::new();
+    for word in command.split_whitespace() {
+        let alone = word.strip_prefix('{').and_then(|w| w.strip_suffix('}'));
+        if let Some((_, items)) = alone.and_then(|name| lists.iter().find(|(n, _)| *n == name)) {
+            out.extend(items.iter().cloned());
+        } else if vars.is_empty() && lists.is_empty() {
+            out.push(word.to_string());
+        } else {
+            out.push(fill(word, vars, lists)?);
+        }
+    }
+    Ok(out)
+}
+
+/// Fill one word's placeholders: see [`expand`].
+fn fill(word: &str, vars: &[(&str, &str)], lists: &[(&str, &[String])]) -> Result<String, String> {
     let is_name = |c: char| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_');
     let mut out = String::new();
     let mut rest = word;
@@ -135,8 +152,19 @@ fn fill(word: &str, vars: &[(&str, &str)]) -> Result<String, String> {
             rest = after;
             continue;
         }
+        if lists.iter().any(|(n, _)| *n == name) {
+            return Err(format!(
+                "`{{{name}}}` is a list, which fills a word of its own, so it stands alone \
+                 rather than inside `{word}`"
+            ));
+        }
         let Some((_, value)) = vars.iter().find(|(n, _)| *n == name) else {
-            let offered: Vec<String> = vars.iter().map(|(n, _)| format!("{{{n}}}")).collect();
+            let offered: Vec<String> = vars
+                .iter()
+                .map(|(n, _)| *n)
+                .chain(lists.iter().map(|(n, _)| *n))
+                .map(|n| format!("{{{n}}}"))
+                .collect();
             return Err(format!(
                 "`{{{name}}}` is not a placeholder here, which offers {}",
                 offered.join(", ")
@@ -290,6 +318,39 @@ mod tests {
     /// word, a list offered none is as written, any brace that is not
     /// a placeholder is literal, and an unknown one is an error naming
     /// the ones offered.
+    #[test]
+    fn a_list_fills_words_of_its_own() {
+        let flags = vec!["--profile".to_string(), "release-lto".to_string()];
+        let none: Vec<String> = vec![];
+        let vars = [("profile.bin", "target/x/app")];
+        let lists = [
+            ("profile.flags", flags.as_slice()),
+            ("profile.none", none.as_slice()),
+        ];
+        assert_eq!(
+            expand("cargo build {profile.flags} --locked", &vars, &lists).unwrap(),
+            ["cargo", "build", "--profile", "release-lto", "--locked"]
+        );
+        assert_eq!(
+            expand("cargo build {profile.none} --locked", &vars, &lists).unwrap(),
+            ["cargo", "build", "--locked"]
+        );
+        assert_eq!(
+            expand("cp {profile.bin} x", &vars, &lists).unwrap(),
+            ["cp", "target/x/app", "x"]
+        );
+        let e = expand("cargo x{profile.flags}", &vars, &lists).unwrap_err();
+        assert!(
+            e.contains("is a list, which fills a word of its own"),
+            "{e}"
+        );
+        let e = expand("cp {profile.dir} x", &vars, &lists).unwrap_err();
+        assert!(
+            e.contains("{profile.bin}, {profile.flags}, {profile.none}"),
+            "{e}"
+        );
+    }
+
     #[test]
     fn placeholders_fill_words() {
         let vars = [
