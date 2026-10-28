@@ -145,6 +145,110 @@ fn cli_push_stops_on_a_journal_file_the_size_limit_refused() {
     }
 }
 
+/// `repo`'s newest operation id, read without a snapshot.
+fn op_head(home: &std::path::Path, repo: &std::path::Path) -> String {
+    jj(
+        home,
+        repo,
+        &[
+            "op",
+            "log",
+            "--no-graph",
+            "--ignore-working-copy",
+            "--limit",
+            "1",
+            "-T",
+            "id",
+        ],
+    )
+}
+
+/// The attributes of each of `repo`'s operations after `since`,
+/// newest first, read without a snapshot.
+fn attributes_after(home: &std::path::Path, repo: &std::path::Path, since: &str) -> Vec<String> {
+    let log = jj(
+        home,
+        repo,
+        &[
+            "op",
+            "log",
+            "--no-graph",
+            "--ignore-working-copy",
+            "-T",
+            r#"id ++ "\n" ++ attributes ++ "\n@@\n""#,
+        ],
+    );
+    let mut ops = Vec::new();
+    for record in log.split("@@") {
+        let (id, attributes) = record
+            .trim()
+            .split_once('\n')
+            .unwrap_or((record.trim(), "")); // OK: an operation with no attributes
+        if id == since {
+            return ops;
+        }
+        ops.push(attributes.to_string());
+    }
+    panic!("{since} is not in {}'s op log:\n{log}", repo.display());
+}
+
+/// `commit -s b` records its run in both repos: every operation it
+/// commits in either carries the same run id and its command line.
+#[test]
+fn cli_commit_records_its_run_in_both_repos() {
+    let fx = CliFixture::new("commit-run");
+    run_ok(
+        fx.cmd()
+            .current_dir(&fx.base)
+            .args(["init", "--target", "./tr"])
+            .arg("--repo")
+            .arg(format!("local={}", fx.base.display())),
+    );
+    let work = fx.path("tr");
+    let agent = work.join(".agent-session");
+    fs::write(work.join("hello.txt"), "hi\n").expect("write work file");
+    fs::write(agent.join("notes.md"), "notes\n").expect("write agent file");
+    let since = [op_head(&fx.home, &work), op_head(&fx.home, &agent)];
+
+    run_ok(fx.cmd().current_dir(&work).args([
+        "commit",
+        "-s",
+        "b",
+        "--title",
+        "feat: hello",
+        "--body",
+        "Says hello.",
+        "--no-push",
+    ]));
+
+    let mut ids = Vec::new();
+    for (repo, since) in [&work, &agent].into_iter().zip(&since) {
+        let ops = attributes_after(&fx.home, repo, since);
+        assert!(!ops.is_empty(), "{}: no operations", repo.display());
+        for attributes in &ops {
+            let id = attributes
+                .lines()
+                .find_map(|l| l.strip_prefix("vc-x1-run: "))
+                .unwrap_or_else(|| panic!("no run id: {attributes}")); // OK: the assertion
+            assert!(
+                id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit()),
+                "a 128-bit id: {id}"
+            );
+            ids.push(id.to_string());
+            for line in ["vc-x1-command: commit", "vc-x1-run-format: 1"] {
+                assert!(attributes.lines().any(|l| l == line), "{attributes}");
+            }
+            assert!(
+                attributes.contains("vc-x1-args: ") && attributes.contains(" commit -s b "),
+                "{attributes}"
+            );
+            assert!(attributes.contains("'feat: hello'"), "{attributes}");
+        }
+    }
+    ids.dedup();
+    assert_eq!(ids.len(), 1, "one run, one id: {ids:?}");
+}
+
 /// A bare `push` is refused: `-s` is required, and the retired
 /// description flags are errors naming themselves.
 #[test]

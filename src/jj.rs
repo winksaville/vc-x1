@@ -60,6 +60,7 @@ use pollster::FutureExt;
 
 use crate::common;
 
+pub(crate) mod run;
 pub(crate) mod session;
 
 /// Crate-standard boxed-error result, aliased locally for brevity.

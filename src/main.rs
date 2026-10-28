@@ -868,6 +868,12 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
+    // The run record every operation this process commits carries,
+    // begun before any repo is opened, named by the subcommand clap
+    // parsed.
+    // OK: `cmd` is a subcommand, so clap has its name
+    jj::run::begin_run(matches.subcommand_name().unwrap_or("?"));
+
     // The version gate: every subcommand, no exceptions beyond
     // `version`, which returned above. Not scoped to the write path,
     // because "read" in jj-lib means "writes nothing the caller
