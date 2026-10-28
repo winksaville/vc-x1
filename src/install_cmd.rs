@@ -1,21 +1,24 @@
-//! The `install` subcommand: build the release, or with `--dev` the
-//! dev build, then copy it into the install directory, the command
-//! that touches the PATH, after reporting what it copies. The dev
-//! install was `install-dev`, kept hidden to be refused naming
-//! `install --dev`.
+//! The `install` subcommand: build the chosen profile, then copy its
+//! binary into the install directory, the command that touches the
+//! PATH, after reporting what it copies. The profile is
+//! `--profile NAME`, else `[build] default-profile`, else `release`.
+//! The dev install was `install-dev`, and then `install --dev`, both
+//! kept hidden to be refused naming `install --profile dev`.
 //!
-//! - `install` runs `[build] release` first, exactly as `vc-x1 build`
-//!   does, and `install --dev` runs `[build] dev` as `vc-x1 build
-//!   --dev` does. Cargo rebuilds only what changed, so with nothing changed
-//!   the binary already tested is the one copied, and a missing or
-//!   stale one is built rather than refused.
-//! - The binary is `[build] release-bin` or `[build] dev-bin`. The
-//!   destination is the one directory `[install] release-dir` or
-//!   `dev-dir` names, `~` expanded, so the committed value fits every
-//!   machine. The release keeps its file name there, and the dev build
-//!   gets `-dev` appended, `vc-x1-dev`, so the two may share a
-//!   directory and sit side by side on the PATH. `$PATH` is not
-//!   searched.
+//! - `install` runs `[build] commands` first, exactly as
+//!   `vc-x1 build --profile NAME` does. Cargo rebuilds only what
+//!   changed, so with nothing changed the binary already tested is the
+//!   one copied, and a missing or stale one is built rather than
+//!   refused.
+//! - The binary is the profile's `bin`. The destination is the one
+//!   directory `[install] dir` names, `~` expanded, so the committed
+//!   value fits every machine, the binary keeping its file name there
+//!   with the profile's `suffix` appended, `vc-x1-dev` for a `-dev`
+//!   suffix, so the builds of several profiles may share a directory
+//!   and sit side by side on the PATH. `$PATH` is not searched.
+//! - A copy that would land on another profile's destination, the same
+//!   file name and suffix in the same directory, is refused before the
+//!   build, since it would replace that profile's binary.
 //! - The report says what is being copied: the version and commit the
 //!   binary's `-V` shows, whether that commit is `main` and
 //!   `main@origin`, its state, and a suffixed version. A binary whose
@@ -31,30 +34,29 @@
 //!   place, so the binary installed is the one tested, a running copy
 //!   of the old one is undisturbed, and a failed copy leaves the old
 //!   one.
-//! - `[install] release` and `dev`, optional command lists in
-//!   `[build]`'s shape, replace the copy when present: the build, the
-//!   report, and the refusals are the same, and the list runs instead
-//!   of the copy. Its placeholders are the keys the command reads,
-//!   resolved for the run: `{build.release-bin}` and
-//!   `{install.release-dir}`, or `{build.dev-bin}` and
-//!   `{install.dev-dir}`, `--dir` applied, so the list names every
-//!   path it writes. With a list, the file name, `-dev` included, is
-//!   the list's to write.
+//! - `[install] commands`, an optional command list in `[build]`'s
+//!   shape, replaces the copy when present: the build, the report, and
+//!   the refusals are the same, and the list runs instead of the copy.
+//!   Its placeholders are the chosen profile's properties,
+//!   `{profile.bin}` resolved and `{profile.suffix}` empty when absent,
+//!   and `{install.dir}`, `--dir` applied, so the list names every path
+//!   it writes. With a list, the file name, suffix included, is the
+//!   list's to write, and no collision is checked.
 //! - `--dry-run` builds and reports, and copies nothing.
 //! - `--dir <DIR>` copies into `DIR` instead of the configured
 //!   directory, for one run, so a test of install leaves the PATH
 //!   alone. A relative `DIR` is taken against the current directory,
 //!   as any path argument is, and the workspace needs no directory key
 //!   for it.
-//! - A workspace with no directory key for the build has nothing to
-//!   install, and the command says so before building anything.
+//! - A workspace with no `[install] dir` has nothing to install, and
+//!   the command says so before building anything.
 
 use std::path::{Path, PathBuf};
 
 use clap::Args;
 use log::{debug, info};
 
-use crate::build_cmd::{BuildParams, build_params, dev_bin, release_bin};
+use crate::build_cmd::{BuildParams, Profile, build_params, defined_profiles, resolve_profile};
 use crate::context::Context;
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::subcommand::SubcommandRunner;
@@ -62,13 +64,23 @@ use crate::subcommand::SubcommandRunner;
 /// The trunk the report compares the binary's commit with.
 const TRUNK: &str = "main";
 
-/// Copy the release build, or with `--dev` the dev build, into the
-/// install directory.
+/// The key naming the install directory, and its placeholder.
+const INSTALL_DIR_KEY: &str = "install.dir";
+
+/// The key of the optional install list, shared by every profile.
+const INSTALL_COMMANDS_KEY: &str = "install.commands";
+
+/// Copy the chosen profile's build into the install directory.
 #[derive(Args, Debug)]
 pub struct InstallArgs {
-    /// Install the dev build as `<name>-dev`, by `[build] dev` and
-    /// `[install] dev-dir`, instead of the release
-    #[arg(short = 'd', long)]
+    /// Build and install the profile NAME, a `[profile.<NAME>]` table,
+    /// its `suffix` appended to the file name [default:
+    /// `[build] default-profile`, else release]
+    #[arg(long, value_name = "NAME")]
+    pub profile: Option<String>,
+
+    /// Retired: refused naming `--profile dev`
+    #[arg(long, hide = true)]
     pub dev: bool,
 
     #[command(flatten)]
@@ -79,14 +91,14 @@ pub struct InstallArgs {
     #[arg(short = 'R', long, value_name = "DIR")]
     pub repo: Option<PathBuf>,
 
-    /// Copy into DIR instead of `[install] release-dir`, or `dev-dir`
-    /// with `--dev`, for this run
+    /// Copy into DIR instead of `[install] dir`, for this run
     #[arg(long, value_name = "DIR")]
     pub dir: Option<PathBuf>,
 }
 
-/// Retired: `install-dev`, now `install --dev`, refused naming it.
-/// Its flags are kept so an old invocation parses and is told the fix.
+/// Retired: `install-dev`, now `install --profile dev`, refused naming
+/// it. Its flags are kept so an old invocation parses and is told the
+/// fix.
 #[derive(Args, Debug)]
 pub struct InstallDevArgs {
     #[command(flatten)]
@@ -97,7 +109,7 @@ pub struct InstallDevArgs {
     #[arg(short = 'R', long, value_name = "DIR")]
     pub repo: Option<PathBuf>,
 
-    /// Copy into DIR instead of `[install] dev-dir`, for this run
+    /// Copy into DIR instead of `[install] dir`, for this run
     #[arg(long, value_name = "DIR")]
     pub dir: Option<PathBuf>,
 }
@@ -134,37 +146,34 @@ pub struct Facts {
 }
 
 /// Per-invocation install inputs: the build to run first, where its
-/// binary is and where it goes, and whether to copy.
+/// binary is and where it goes, the install list and its
+/// placeholders, and whether to copy.
 #[derive(Debug)]
 pub struct InstallParams {
-    /// `install` or `install --dev`, prefixing the run's messages.
+    /// `install`, prefixing the run's messages.
     pub label: &'static str,
-    /// `build.release-bin` or `build.dev-bin`, the key naming the
-    /// binary, for a refusal to point at.
-    pub bin_key: &'static str,
+    /// `profile.<name>.bin`, the key naming the binary, for a refusal
+    /// to point at.
+    pub bin_key: String,
     /// The work repo root.
     pub root: PathBuf,
-    /// The build, `vc-x1 build`'s, with `--dev` or not, run before
+    /// The build, `vc-x1 build --profile <name>`'s, run before
     /// anything else.
     pub build: BuildParams,
-    /// The binary, `[build] release-bin` or `[build] dev-bin`.
+    /// The binary, the profile's `bin`.
     pub bin: PathBuf,
-    /// The destination, `--dir` or `[install] release-dir` or
-    /// `dev-dir` joined with the binary's name, `suffix` appended.
+    /// The destination, `--dir` or `[install] dir` joined with the
+    /// binary's name, the profile's suffix appended.
     pub dest: PathBuf,
-    /// `[install] dev-suffix` for the dev build, `-dev` when absent,
-    /// and empty for the release.
-    pub suffix: String,
-    /// `[install] release` or `dev`, run in place of the copy when
-    /// present.
+    /// `[install] commands`, run in place of the copy when present.
     pub list: Option<Vec<String>>,
-    /// `install.release` or `install.dev`, naming the list in its
-    /// messages.
+    /// `install.commands`, naming the list in its messages.
     pub list_key: &'static str,
-    /// The keys whose resolved values the list's placeholders name,
-    /// the binary's, the directory's, and for the dev build the
-    /// suffix's.
-    pub names: &'static [&'static str],
+    /// The list's string placeholders, the profile's properties and
+    /// `install.dir`, resolved for the run.
+    pub vars: Vec<(String, String)>,
+    /// The list's list-valued placeholders, the profile's.
+    pub lists: Vec<(String, Vec<String>)>,
     /// Build and report, and copy nothing.
     pub dry_run: bool,
 }
@@ -172,75 +181,77 @@ pub struct InstallParams {
 impl TryFrom<&InstallArgs> for InstallParams {
     type Error = String;
 
-    /// The release, or the dev build with `--dev`: see
-    /// [`install_params`].
+    /// The chosen profile: see [`install_params`]. `--dev` is refused.
     fn try_from(a: &InstallArgs) -> Result<Self, String> {
-        install_params(a.dev, a.repo.as_deref(), a.dir.as_deref(), a.dry_run.value)
+        if a.dev {
+            return Err(crate::build_cmd::retired_dev_flag("install"));
+        }
+        install_params(
+            a.profile.as_deref(),
+            a.repo.as_deref(),
+            a.dir.as_deref(),
+            a.dry_run.value,
+        )
     }
 }
 
 impl TryFrom<&InstallDevArgs> for InstallParams {
     type Error = String;
 
-    /// Refused: `install-dev` is `install --dev`.
+    /// Refused: `install-dev` is `install --profile dev`.
     fn try_from(_: &InstallDevArgs) -> Result<Self, String> {
         Err(crate::build_cmd::retired_dev("install"))
     }
 }
 
 /// Resolve the workspace, the install directory, `dir` before
-/// `[install] release-dir` or `dev-dir`, the build, the dev build and
-/// its suffix when `dev`, and the optional install list. A missing
-/// config key, and a dev copy that would replace the release, are
+/// `[install] dir`, the build of the profile `profile` names (see
+/// [`resolve_profile`]), the destination, and the optional install
+/// list, its placeholders checked. A missing config key, an unknown
+/// placeholder, and a copy that would replace another profile's are
 /// errors here, before the build runs, and every fact about the binary
 /// is gathered after it.
 pub fn install_params(
-    dev: bool,
+    profile: Option<&str>,
     repo: Option<&Path>,
     dir: Option<&Path>,
     dry_run: bool,
 ) -> Result<InstallParams, String> {
-    let (label, dir_key, list_key) = if dev {
-        ("install --dev", "install.dev-dir", "install.dev")
-    } else {
-        ("install", "install.release-dir", "install.release")
-    };
-    let (bin_key, names): (&str, &'static [&'static str]) = if dev {
-        (
-            "build.dev-bin",
-            &["build.dev-bin", "install.dev-dir", "install.dev-suffix"],
-        )
-    } else {
-        (
-            "build.release-bin",
-            &["build.release-bin", "install.release-dir"],
-        )
-    };
+    let label = "install";
     let root = match repo {
         Some(p) => crate::common::find_workspace_root_from(p)
             .ok_or_else(|| format!("{label}: '{}' is not in a vc-x1 workspace", p.display()))?,
         None => crate::common::find_workspace_root()
             .ok_or_else(|| format!("{label}: not in a vc-x1 workspace (no config found)"))?,
     };
-    let dest_dir = dest_dir(&root, dir, dir_key).map_err(|e| format!("{label}: {e}"))?;
-    let build = build_params(dev, Some(&root))?;
-    let bin = if dev {
-        dev_bin(&root)?
-    } else {
-        release_bin(&root)?
-    };
-    let suffix = if dev {
-        dev_suffix(&root).map_err(|e| format!("{label}: {e}"))?
-    } else {
-        String::new()
-    };
-    let dest = dest_dir.join(dest_name(&bin, &suffix).map_err(|e| format!("{label}: {e}"))?);
-    let list = crate::command_list::load_optional(&root, list_key, label)?;
+    let dest_dir = dest_dir(&root, dir, INSTALL_DIR_KEY).map_err(|e| format!("{label}: {e}"))?;
+    let build = build_params(profile, Some(&root))?;
+    let profile = &build.profile;
+    let bin = profile.bin.clone();
+    let dest =
+        dest_dir.join(dest_name(&bin, &profile.suffix).map_err(|e| format!("{label}: {e}"))?);
+    let mut vars = profile.vars.clone();
+    vars.push((
+        INSTALL_DIR_KEY.to_string(),
+        dest_dir.to_string_lossy().into_owned(),
+    ));
+    let lists = profile.lists.clone();
+    let list = crate::command_list::load_optional(&root, INSTALL_COMMANDS_KEY, label)?;
     match &list {
-        Some(list) => crate::command_list::check_placeholders(list, names, list_key, label)?,
-        None if dev => guard_release(&root, &dest).map_err(|e| format!("{label}: {e}"))?,
-        None => {}
+        Some(list) => {
+            let names: Vec<&str> = vars.iter().map(|(n, _)| n.as_str()).collect();
+            let list_names: Vec<&str> = lists.iter().map(|(n, _)| n.as_str()).collect();
+            crate::command_list::check_placeholders(
+                list,
+                &names,
+                &list_names,
+                INSTALL_COMMANDS_KEY,
+                label,
+            )?
+        }
+        None => guard_others(&root, profile, &dest).map_err(|e| format!("{label}: {e}"))?,
     }
+    let bin_key = format!("profile.{}.bin", profile.name);
     Ok(InstallParams {
         label,
         bin_key,
@@ -248,16 +259,16 @@ pub fn install_params(
         build,
         bin,
         dest,
-        suffix,
         list,
-        list_key,
-        names,
+        list_key: INSTALL_COMMANDS_KEY,
+        vars,
+        lists,
         dry_run,
     })
 }
 
 /// The name `bin` takes in the install directory: its own, with
-/// `suffix` appended, empty for the release.
+/// `suffix` appended, empty for none.
 fn dest_name(bin: &Path, suffix: &str) -> Result<String, String> {
     let name = bin
         .file_name()
@@ -266,54 +277,36 @@ fn dest_name(bin: &Path, suffix: &str) -> Result<String, String> {
     Ok(format!("{name}{suffix}"))
 }
 
-/// `[install] dev-suffix` at `root`, the schema's default, `-dev`,
-/// when absent. A suffix holding a path separator is an error, since
-/// it would move the copy out of the install directory.
-fn dev_suffix(root: &Path) -> Result<String, String> {
+/// Refuse a copy of `profile` to `dest` whose file name is another
+/// profile's in the same directory, its binary's file name with its
+/// suffix appended, since the copy would replace that profile's. A
+/// profile of the config's that does not resolve is passed over, since
+/// it has no destination to replace.
+fn guard_others(root: &Path, profile: &Profile, dest: &Path) -> Result<(), String> {
     let cfg = crate::config_md::load(root)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("no config in '{}'", root.display()))?;
-    let suffix = match crate::toml_simple::toml_get(&cfg.map, "install.dev-suffix") {
-        Some(s) => s.clone(),
-        None => crate::config_schema::INSTALL_DEV_SUFFIX_DEFAULT.to_string(),
-    };
-    if suffix.contains(std::path::is_separator) {
-        return Err(format!(
-            "{}: `install.dev-suffix` is '{suffix}', which holds a path separator",
-            cfg.path.display()
-        ));
+    let name = &profile.name;
+    for other in defined_profiles(&cfg.map) {
+        if other == *name {
+            continue;
+        }
+        let Ok(p) = resolve_profile(root, Some(&other), "install") else {
+            continue;
+        };
+        let Ok(theirs) = dest_name(&p.bin, &p.suffix) else {
+            continue;
+        };
+        if dest.file_name() == Some(std::ffi::OsStr::new(&theirs)) {
+            return Err(format!(
+                "the `{name}` profile's destination '{}' is the `{other}` profile's too, so the \
+                 copy would replace it: give `profile.{name}.suffix` or `profile.{other}.suffix` \
+                 a value, or pass --dir elsewhere",
+                dest.display()
+            ));
+        }
     }
-    Ok(suffix)
-}
-
-/// Refuse a dev copy to `dest` that is the release's own destination,
-/// `[install] release-dir` joined with the release's file name, since
-/// it would replace the release. A workspace with no release install
-/// has none to replace.
-fn guard_release(root: &Path, dest: &Path) -> Result<(), String> {
-    let (Ok(dir), Ok(bin)) = (install_dir(root, "install.release-dir"), release_bin(root)) else {
-        return Ok(());
-    };
-    let release = dir.join(dest_name(&bin, "")?);
-    if !same_place(dest, &release) {
-        return Ok(());
-    }
-    Err(format!(
-        "the dev build's destination '{}' is the release's, so the copy would replace it: give \
-         `install.dev-suffix` a value, or put `install.dev-dir` or --dir elsewhere",
-        dest.display()
-    ))
-}
-
-/// True when `a` and `b` name the same file: the same file name in the
-/// same directory, each directory compared canonical when it exists.
-fn same_place(a: &Path, b: &Path) -> bool {
-    // OK: a directory that does not exist is compared as written
-    let dir = |p: &Path| {
-        p.parent()
-            .map(|d| std::fs::canonicalize(d).unwrap_or_else(|_| d.to_path_buf()))
-    };
-    a.file_name() == b.file_name() && dir(a) == dir(b)
+    Ok(())
 }
 
 /// Gather the facts about the binary at `bin`, after the build, and
@@ -343,11 +336,10 @@ fn dest_dir(root: &Path, dir: Option<&Path>, key: &str) -> Result<PathBuf, Strin
     }
 }
 
-/// The directory `key`, `install.release-dir` or `install.dev-dir`,
-/// names at `root`: `~` and `~/...` against the home directory, any
-/// other relative value against the config file's directory, an
-/// absolute one as is. Its absence is the workspace having nothing of
-/// that build to install.
+/// The directory `key`, `install.dir`, names at `root`: `~` and
+/// `~/...` against the home directory, any other relative value
+/// against the config file's directory, an absolute one as is. Its
+/// absence is the workspace having nothing to install.
 pub fn install_dir(root: &Path, key: &str) -> Result<PathBuf, String> {
     let cfg = crate::config_md::load(root)
         .map_err(|e| e.to_string())?
@@ -564,13 +556,14 @@ impl SubcommandRunner for InstallDevArgs {
         InstallParams::try_from(self)
     }
 
-    /// Run the same op as `install`, its params naming the dev build.
+    /// Never reached, since the params are refused, but the same op
+    /// as `install`.
     fn run(_ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
         install(params)
     }
 }
 
-/// Run the build, as `vc-x1 build`, with `--dev` or not, does, then
+/// Run the build, as `vc-x1 build --profile <name>` does, then
 /// report the binary and copy it unless refused or a dry run. Cargo
 /// rebuilds only what changed, so with nothing changed the binary
 /// already tested is the one copied.
@@ -597,7 +590,7 @@ pub fn copy_reported(
     for line in report(facts) {
         info!("{label}:   {line}");
     }
-    let reasons = refusals(facts, bin, dest, params.bin_key);
+    let reasons = refusals(facts, bin, dest, &params.bin_key);
     if !reasons.is_empty() {
         let list: String = reasons.iter().map(|r| format!("\n  - {r}")).collect();
         return Err(format!(
@@ -622,28 +615,26 @@ pub fn copy_reported(
 }
 
 /// Run the install list from the root, in place of the copy, its
-/// placeholders the binary and the directory, resolved for the run.
+/// placeholders the profile's properties and the directory, resolved
+/// for the run.
 fn run_list(params: &InstallParams, list: &[String]) -> Result<(), Box<dyn std::error::Error>> {
-    let bin = params.bin.to_string_lossy();
-    // OK: dest is a directory joined with a file name, so it has a parent
-    let dir = params
-        .dest
-        .parent()
-        .unwrap_or(&params.dest)
-        .to_string_lossy();
-    let mut vars = vec![
-        (params.names[0], bin.as_ref()),
-        (params.names[1], dir.as_ref()),
-    ];
-    if let Some(name) = params.names.get(2) {
-        vars.push((name, params.suffix.as_str()));
-    }
+    let vars: Vec<(&str, &str)> = params
+        .vars
+        .iter()
+        .map(|(n, v)| (n.as_str(), v.as_str()))
+        .collect();
+    let lists: Vec<(&str, &[String])> = params
+        .lists
+        .iter()
+        .map(|(n, v)| (n.as_str(), v.as_slice()))
+        .collect();
     crate::command_list::run(
         &params.root,
         params.list_key,
         list,
         &[],
         &vars,
+        &lists,
         params.label,
     )
 }
@@ -681,34 +672,71 @@ mod tests {
             f,
             Path::new("target/release/vc-x1"),
             Path::new("/home/u/.cargo/bin/vc-x1"),
-            "build.release-bin",
+            "profile.release.bin",
         )
         .join("\n")
     }
 
-    /// Install params copying `bin` to `dest`, their build never run.
+    /// Install params copying `bin` to `dest`, their build never run,
+    /// the release profile's placeholders and the directory offered.
     fn params(bin: &Path, dest: &Path, dry_run: bool) -> InstallParams {
+        let vars = vec![
+            (
+                "profile.bin".to_string(),
+                bin.to_string_lossy().into_owned(),
+            ),
+            ("profile.suffix".to_string(), String::new()),
+        ];
+        let dir = dest.parent().unwrap().to_string_lossy().into_owned();
         InstallParams {
             label: "install",
-            bin_key: "build.release-bin",
+            bin_key: "profile.release.bin".to_string(),
             root: PathBuf::from("."),
             build: BuildParams {
                 label: "build",
-                key: "build.release",
+                key: "build.commands",
                 commands: Vec::new(),
                 root: PathBuf::from("."),
                 provenance: None,
-                bin: None,
+                profile: Profile {
+                    name: "release".to_string(),
+                    vars: vars.clone(),
+                    lists: Vec::new(),
+                    bin: bin.to_path_buf(),
+                    suffix: String::new(),
+                },
                 dry_run: false,
             },
             bin: bin.to_path_buf(),
             dest: dest.to_path_buf(),
             list: None,
-            suffix: String::new(),
-            list_key: "install.release",
-            names: &["build.release-bin", "install.release-dir"],
+            list_key: "install.commands",
+            vars: [vars, vec![("install.dir".to_string(), dir)]].concat(),
+            lists: Vec::new(),
             dry_run,
         }
+    }
+
+    /// A workspace at `dir` whose config is `toml`, a work repo at its
+    /// root with a build list that runs nothing.
+    fn write_config(dir: &Path, toml: &str) {
+        std::fs::write(
+            dir.join(".vc-config.md"),
+            format!("```toml\n[repos]\nwork = \".\"\n[build]\ncommands = [\"true\"]\n{toml}```\n"),
+        )
+        .unwrap();
+    }
+
+    /// The two profiles this workspace defines, as the config writes
+    /// them, both leaving `vc-x1`.
+    const PROFILES: &str = "[profile.release]\ncargo = \"release\"\nbin = \"rel/vc-x1\"\n\
+                            [profile.dev]\ncargo = \"dev\"\nbin = \"dbg/vc-x1\"\n\
+                            suffix = \"-dev\"\n";
+
+    /// The params for `install --profile <profile> --dir <dir>` in the
+    /// workspace at `root`.
+    fn resolve(root: &Path, profile: Option<&str>, dir: &Path) -> Result<InstallParams, String> {
+        install_params(profile, Some(root), Some(dir), true)
     }
 
     /// Unique tempdir.
@@ -738,12 +766,21 @@ mod tests {
             Some(Commands::Install(a)) => assert_eq!(a.dir, Some(PathBuf::from("tmp/bin"))),
             _ => panic!("expected Install"),
         }
-        let cli = Cli::try_parse_from(["vc-x1", "install", "--dev", "--dir", "d"]).unwrap();
+        let cli =
+            Cli::try_parse_from(["vc-x1", "install", "--profile", "dev", "--dir", "d"]).unwrap();
         match cli.command {
             Some(Commands::Install(a)) => {
-                assert!(a.dev);
+                assert_eq!(a.profile.as_deref(), Some("dev"));
                 assert_eq!(a.dir, Some(PathBuf::from("d")));
             }
+            _ => panic!("expected Install"),
+        }
+        let cli = Cli::try_parse_from(["vc-x1", "install", "--dev", "--dir", "d"]).unwrap();
+        match cli.command {
+            Some(Commands::Install(a)) => assert_eq!(
+                InstallParams::try_from(&a).unwrap_err(),
+                "install: --dev is retired, the build is a profile: `install --profile dev`"
+            ),
             _ => panic!("expected Install"),
         }
         let cli =
@@ -752,7 +789,7 @@ mod tests {
         match cli.command {
             Some(Commands::InstallDev(a)) => {
                 let err = InstallParams::try_from(&a).unwrap_err();
-                assert!(err.ends_with("`install --dev`"), "{err}");
+                assert!(err.ends_with("`install --profile dev`"), "{err}");
             }
             _ => panic!("expected InstallDev"),
         }
@@ -771,57 +808,85 @@ mod tests {
         );
     }
 
-    /// The suffix is the schema's `-dev` when absent, the config's
-    /// when set, empty included, and a path separator in it is an
-    /// error.
+    /// The dev profile installs as `<dir>/vc-x1-dev`, its suffix
+    /// appended, and the release under its own name, the list's
+    /// placeholders offered resolved.
     #[test]
-    fn dev_suffix_forms() {
-        let dir = tempdir("suffix");
-        let cfg = |extra: &str| {
-            std::fs::write(
-                dir.join(".vc-config.md"),
-                format!("```toml\n[repos]\nwork = \".\"\n{extra}```\n"),
-            )
-            .unwrap()
-        };
-        cfg("");
-        assert_eq!(dev_suffix(&dir).unwrap(), "-dev");
-        cfg("[install]\ndev-suffix = \".dbg\"\n");
-        assert_eq!(dev_suffix(&dir).unwrap(), ".dbg");
-        cfg("[install]\ndev-suffix = \"\"\n");
-        assert_eq!(dev_suffix(&dir).unwrap(), "");
-        cfg("[install]\ndev-suffix = \"/x\"\n");
-        assert!(dev_suffix(&dir).unwrap_err().contains("path separator"));
+    fn the_profile_names_the_destination() {
+        let dir = tempdir("dest");
+        write_config(&dir, PROFILES);
+        let bin = dir.join("bin");
+        let p = resolve(&dir, Some("dev"), &bin).unwrap();
+        assert_eq!(p.dest, bin.join("vc-x1-dev"));
+        assert_eq!(p.bin, dir.join("dbg/vc-x1"));
+        assert_eq!(p.bin_key, "profile.dev.bin");
+        assert_eq!(p.build.profile.name, "dev");
+        assert!(p.vars.contains(&(
+            "install.dir".to_string(),
+            bin.to_string_lossy().into_owned()
+        )));
+        assert!(
+            p.vars
+                .contains(&("profile.suffix".to_string(), "-dev".to_string()))
+        );
+        let p = resolve(&dir, None, &bin).unwrap();
+        assert_eq!(p.dest, bin.join("vc-x1"));
         std::fs::remove_dir_all(&dir).ok();
     }
 
-    /// A dev copy whose destination is the release's is refused, the
-    /// directories compared canonical, and one beside it, or in a
-    /// workspace with no release install, is not.
+    /// A copy whose destination is another profile's, the same file
+    /// name and suffix in the same directory, is refused naming both,
+    /// and one with a suffix, or with a list, is not.
     #[test]
-    fn a_dev_copy_onto_the_release_is_refused() {
+    fn a_copy_onto_another_profiles_destination_is_refused() {
         let dir = tempdir("guard");
-        std::fs::create_dir_all(dir.join("bin")).unwrap();
-        let cfg = |extra: &str| {
-            std::fs::write(
-                dir.join(".vc-config.md"),
-                format!(
-                    "```toml\n[repos]\nwork = \".\"\n[build]\nrelease-bin = \"rel/app\"\n{extra}```\n"
-                ),
-            )
-            .unwrap()
-        };
-        cfg("[install]\nrelease-dir = \"bin\"\n");
-        let e = guard_release(&dir, &dir.join("bin/app")).unwrap_err();
-        assert!(e.contains("is the release's"), "{e}");
-        assert!(
-            guard_release(&dir, &dir.join("bin/../bin/app")).is_err(),
-            "canonical"
+        let bin = dir.join("bin");
+        write_config(
+            &dir,
+            "[profile.release]\nbin = \"rel/app\"\n[profile.dev]\nbin = \"dbg/app\"\n",
         );
-        guard_release(&dir, &dir.join("bin/app-dev")).unwrap();
-        guard_release(&dir, &dir.join("other/app")).unwrap();
-        cfg("");
-        guard_release(&dir, &dir.join("bin/app")).unwrap();
+        let e = resolve(&dir, Some("dev"), &bin).unwrap_err();
+        assert!(e.starts_with("install: "), "{e}");
+        assert!(
+            e.contains("the `dev` profile's destination") && e.contains("the `release` profile's"),
+            "{e}"
+        );
+        assert!(e.contains("`profile.dev.suffix`"), "{e}");
+        let e = resolve(&dir, None, &bin).unwrap_err();
+        assert!(e.contains("the `dev` profile's too"), "{e}");
+        write_config(
+            &dir,
+            "[profile.release]\nbin = \"rel/app\"\n[profile.dev]\nbin = \"dbg/app\"\n\
+             suffix = \"-dev\"\n",
+        );
+        resolve(&dir, Some("dev"), &bin).unwrap();
+        resolve(&dir, None, &bin).unwrap();
+        write_config(
+            &dir,
+            "[install]\ncommands = [\"true\"]\n\
+             [profile.release]\nbin = \"rel/app\"\n[profile.dev]\nbin = \"dbg/app\"\n",
+        );
+        resolve(&dir, Some("dev"), &bin).unwrap();
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// An install list's placeholders are checked before the build,
+    /// the profile's properties and `install.dir` offered.
+    #[test]
+    fn an_install_lists_placeholders_are_checked() {
+        let dir = tempdir("listph");
+        write_config(
+            &dir,
+            &format!(
+                "[install]\ncommands = [\"cp {{profile.bin}} {{install.release-dir}}\"]\n{PROFILES}"
+            ),
+        );
+        let e = resolve(&dir, None, &dir.join("bin")).unwrap_err();
+        assert!(
+            e.contains("`install.commands`: `{install.release-dir}` is not a placeholder"),
+            "{e}"
+        );
+        assert!(e.contains("{install.dir}"), "{e}");
         std::fs::remove_dir_all(&dir).ok();
     }
 
@@ -911,7 +976,7 @@ mod tests {
         let r = refused(&f);
         assert!(r.contains("no binary at 'target/release/vc-x1'"), "{r}");
         assert!(
-            r.contains("check `build.release-bin`"),
+            r.contains("check `profile.release.bin`"),
             "names the key: {r}"
         );
         assert!(
@@ -954,28 +1019,25 @@ mod tests {
         let cfg = Path::new("/w");
         let home = Path::new("/home/u");
         assert_eq!(
-            expand_dir(cfg, "install.release-dir", "~/.cargo/bin", Some(home)).unwrap(),
+            expand_dir(cfg, "install.dir", "~/.cargo/bin", Some(home)).unwrap(),
             PathBuf::from("/home/u/.cargo/bin")
         );
         assert_eq!(
-            expand_dir(cfg, "install.release-dir", "~", Some(home)).unwrap(),
+            expand_dir(cfg, "install.dir", "~", Some(home)).unwrap(),
             PathBuf::from("/home/u")
         );
         assert_eq!(
-            expand_dir(cfg, "install.release-dir", "/opt/bin", Some(home)).unwrap(),
+            expand_dir(cfg, "install.dir", "/opt/bin", Some(home)).unwrap(),
             PathBuf::from("/opt/bin")
         );
         assert_eq!(
-            expand_dir(cfg, "install.release-dir", "out/bin", Some(home)).unwrap(),
+            expand_dir(cfg, "install.dir", "out/bin", Some(home)).unwrap(),
             PathBuf::from("/w/out/bin")
         );
-        let e = expand_dir(cfg, "install.release-dir", "~/x", None).unwrap_err();
-        assert!(
-            e.contains("`install.release-dir`") && e.contains("HOME"),
-            "{e}"
-        );
+        let e = expand_dir(cfg, "install.dir", "~/x", None).unwrap_err();
+        assert!(e.contains("`install.dir`") && e.contains("HOME"), "{e}");
         assert_eq!(
-            expand_dir(cfg, "install.release-dir", "~user/x", Some(home)).unwrap(),
+            expand_dir(cfg, "install.dir", "~user/x", Some(home)).unwrap(),
             PathBuf::from("/w/~user/x"),
             "only `~` and `~/` expand"
         );
@@ -1041,11 +1103,12 @@ mod tests {
         let dir = tempdir("nodir");
         std::fs::write(
             dir.join(".vc-config.md"),
-            "```toml\n[repos]\nwork = \".\"\n[build]\nrelease = [\"true\"]\n\
-             release-bin = \"app\"\n```\n",
+            "```toml\n[repos]\nwork = \".\"\n[build]\ncommands = [\"true\"]\n\
+             [profile.release]\nbin = \"app\"\n```\n",
         )
         .unwrap();
         let args = InstallArgs {
+            profile: None,
             dev: false,
             dry_run: DryRunFlag { value: true },
             repo: Some(dir.clone()),
@@ -1056,35 +1119,31 @@ mod tests {
         std::fs::remove_dir_all(&dir).ok();
     }
 
-    /// `--dir` replaces the build's directory key for the run, and
-    /// needs no key to do it, and each build reads its own key.
+    /// `--dir` replaces the directory key for the run, and needs no
+    /// key to do it.
     #[test]
     fn dir_overrides_the_install_dir() {
         let dir = tempdir("dirflag");
         let cfg = "```toml\n[repos]\nwork = \".\"\n";
         std::fs::write(dir.join(".vc-config.md"), format!("{cfg}```\n")).unwrap();
         let flag = Path::new("/scratch/bin");
-        let (rel, dev) = ("install.release-dir", "install.dev-dir");
-        assert_eq!(dest_dir(&dir, Some(flag), rel).unwrap(), flag);
-        let e = dest_dir(&dir, None, dev).unwrap_err();
-        assert!(e.contains("no `install.dev-dir`"), "{e}");
+        let key = INSTALL_DIR_KEY;
+        assert_eq!(dest_dir(&dir, Some(flag), key).unwrap(), flag);
+        let e = dest_dir(&dir, None, key).unwrap_err();
+        assert!(e.contains("no `install.dir`"), "{e}");
         assert!(e.contains("nothing to install"), "{e}");
         std::fs::write(
             dir.join(".vc-config.md"),
-            format!("{cfg}[install]\nrelease-dir = \"/opt/bin\"\ndev-dir = \"/opt/dev\"\n```\n"),
+            format!("{cfg}[install]\ndir = \"/opt/bin\"\n```\n"),
         )
         .unwrap();
-        assert_eq!(dest_dir(&dir, Some(flag), dev).unwrap(), flag, "--dir wins");
+        assert_eq!(dest_dir(&dir, Some(flag), key).unwrap(), flag, "--dir wins");
         assert_eq!(
-            dest_dir(&dir, None, rel).unwrap(),
+            dest_dir(&dir, None, key).unwrap(),
             PathBuf::from("/opt/bin")
         );
         assert_eq!(
-            dest_dir(&dir, None, dev).unwrap(),
-            PathBuf::from("/opt/dev")
-        );
-        assert_eq!(
-            dest_dir(&dir, Some(Path::new("tmp/bin")), rel).unwrap(),
+            dest_dir(&dir, Some(Path::new("tmp/bin")), key).unwrap(),
             std::env::current_dir().unwrap().join("tmp/bin"),
             "a relative --dir is made absolute against the current directory"
         );
@@ -1112,9 +1171,7 @@ mod tests {
         .unwrap();
         let mut p = params(&bin, &dest, true);
         p.root = dir.clone();
-        p.list = Some(vec![
-            "sh check.sh {build.release-bin} {install.release-dir}".to_string(),
-        ]);
+        p.list = Some(vec!["sh check.sh {profile.bin} {install.dir}".to_string()]);
         copy_reported(&p, &good()).unwrap();
         assert!(!dir.join("list-ran").exists(), "a dry run ran the list");
         p.dry_run = false;
@@ -1124,13 +1181,13 @@ mod tests {
         p.list = Some(vec!["false".to_string()]);
         let e = copy_reported(&p, &good()).unwrap_err().to_string();
         assert!(
-            e.contains("`false` failed") && e.contains("install.release"),
+            e.contains("`false` failed") && e.contains("install.commands"),
             "{e}"
         );
         std::fs::remove_dir_all(&dir).ok();
     }
 
-    /// The dev list takes the suffix as its third placeholder.
+    /// A list takes the profile's suffix as `{profile.suffix}`.
     #[test]
     fn a_dev_list_takes_the_suffix() {
         let dir = tempdir("devlist");
@@ -1139,10 +1196,13 @@ mod tests {
         std::fs::create_dir_all(dir.join("bin")).unwrap();
         let mut p = params(&bin, &dir.join("bin/app.dbg"), false);
         p.root = dir.clone();
-        p.names = &["build.dev-bin", "install.dev-dir", "install.dev-suffix"];
-        p.suffix = ".dbg".to_string();
+        for (name, value) in p.vars.iter_mut() {
+            if name == "profile.suffix" {
+                *value = ".dbg".to_string();
+            }
+        }
         p.list = Some(vec![
-            "cp {build.dev-bin} {install.dev-dir}/app{install.dev-suffix}".to_string(),
+            "cp {profile.bin} {install.dir}/app{profile.suffix}".to_string(),
         ]);
         copy_reported(&p, &good()).unwrap();
         assert_eq!(
@@ -1165,8 +1225,9 @@ mod tests {
         let mut p = params(&bin, &dest, false);
         p.root = dir.clone();
         p.list = Some(vec![
-            "cp {build.release-bin} {install.release-dir}/app.new".to_string(),
-            "mv {install.release-dir}/app.new {install.release-dir}/app".to_string(),
+            "cp {profile.bin} {install.dir}/app{profile.suffix}.new".to_string(),
+            "mv {install.dir}/app{profile.suffix}.new {install.dir}/app{profile.suffix}"
+                .to_string(),
         ]);
         copy_reported(&p, &good()).unwrap();
         assert_eq!(std::fs::read_to_string(&dest).unwrap(), "the release");

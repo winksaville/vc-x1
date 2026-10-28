@@ -7,13 +7,14 @@
 //!   command for every medium instead of pointing at prose.
 //! - How a list is read and run, printed, stopped at the first
 //!   failure, refused when empty, and split with no shell, is
-//!   [`crate::command_list`]'s, which `build` and `build-dev` share.
+//!   [`crate::command_list`]'s, which `build` shares.
 //! - The commands run with the build's provenance in their
-//!   environment, as `build`'s and `build-dev`'s do, so the test
-//!   build compiles with the same commit and state as the dev build
-//!   that follows it, which then reuses it rather than recompiling.
-//! - Validation checks the source and makes no build of either kind:
-//!   the dev build is `build-dev`'s, which `run-dev` runs first.
+//!   environment, as `build`'s do, so the test build compiles with the
+//!   same commit and state as the dev build that follows it, which then
+//!   reuses it rather than recompiling.
+//! - Validation checks the source and makes no build of any profile:
+//!   the dev build is `build --profile dev`'s, which
+//!   `run --profile dev` runs first.
 
 use std::path::PathBuf;
 
@@ -111,6 +112,7 @@ pub fn validate(params: &ValidateParams) -> Result<(), Box<dyn std::error::Error
         params.key,
         &params.commands,
         &env,
+        &[],
         &[],
         "validate",
     )

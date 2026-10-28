@@ -107,7 +107,7 @@ installs `tmp/soak/vc-x1-rc`, which `cmp` finds identical to `target/release/vc-
 - [feat: build, install, and run take --profile opening][p0] (done)
 - [feat: a list-valued placeholder expands to its words][p1] (done)
 - [feat: the config defines named build profiles][p2] (done)
-- [feat: --profile chooses the build and the install][p3]
+- [feat: --profile chooses the build and the install][p3] (done)
 - [feat: the old build and install keys are refused][p4]
 - [docs: the README and the agent-files name --profile][p5]
 - [feat: build, install, and run take --profile closing][p6]
@@ -154,6 +154,30 @@ dir` and `commands`, with this workspace's config and the model carrying `releas
 
 The three commands take `--profile`, resolve the chosen profile, and fill `{profile.<property>}`,
 `--dev` refused naming `--profile dev`.
+
+* A build was chosen by `--dev` between two fixed key sets.
+  - `build_cmd::resolve_profile` takes `--profile`, else `build.default-profile`, else `release`,
+    and reads `[profile.<name>]`: string properties become `{profile.<property>}`, list ones, by
+    their bracketed text, list placeholders, `bin` is resolved against the config's directory and
+    required, and `suffix` is offered empty when absent. An unknown name is refused naming the
+    profiles defined.
+  - `build` runs `build.commands` with the profile's placeholders, checked before anything runs,
+    and checks the profile's `bin` after it for every profile, the provenance best effort for all.
+  - `run` runs the profile's build, then its `bin`, and its completion forward skips `--profile x`
+    and `--profile=x`, resolving that profile's binary.
+  - `install` copies to `--dir`, else `install.dir`, under the bin's file name with the suffix, or
+    runs `install.commands` with the profile's placeholders and `{install.dir}`.
+* A dev install was guarded only against the release's name.
+  - Without an install list, a copy whose name equals another profile's in the same directory is
+    refused, both ways, naming both suffix keys and `--dir`.
+* `--dev` was the dev build's flag.
+  - It is hidden and refused naming `<command> --profile dev`, and `build-dev`, `install-dev`, and
+    `run-dev` name it too.
+* The list runner filled strings alone.
+  - `command_list::run` and `run_one` take lists and fill through `expand`, and
+    `check_placeholders` takes list names, `words` kept for the tests alone.
+* The code was written by a subagent from the agent's brief, and the agent reviewed its diff and
+  ran the full validation, 891 tests passing.
 
 ##### feat: the old build and install keys are refused
 

@@ -3,10 +3,9 @@
 //! repo root, stopping at the first failure.
 //!
 //! - `[validate] full` and `fast` are run by `validate`,
-//!   `[build] release` and `dev` by `build` and `build-dev`, and the
-//!   optional `[install] release` and `dev` by `install` and
-//!   `install-dev`. Each caller passes its own label, which prefixes
-//!   every message.
+//!   `[build] commands` by `build`, and the optional
+//!   `[install] commands` by `install`, for every profile. Each caller
+//!   passes its own label, which prefixes every message.
 //! - Each command is printed before it runs, inherits the terminal,
 //!   and runs from the root.
 //! - The first non-zero exit stops the run, naming the command, its
@@ -21,11 +20,13 @@
 //!   process: `build` passes the build's provenance this way.
 //! - A caller may offer placeholders, `{name}` filled with a value
 //!   in any word after the split, so a value with spaces stays one
-//!   argument: `install` offers the resolved keys it reads,
-//!   `{build.release-bin}` and `{install.release-dir}`. A `{name}`
-//!   the caller does not offer is an error before anything runs, so
-//!   a typo never runs as a literal path. A list offered none is
-//!   taken as written, braces and all.
+//!   argument: `build` offers the chosen profile's properties,
+//!   `{profile.cargo}` and the like, and `install` those and
+//!   `{install.dir}`. A list-valued placeholder, such as
+//!   `{profile.flags}`, standing alone as a word becomes its items, one
+//!   word each. A `{name}` the caller does not offer is an error before
+//!   anything runs, so a typo never runs as a literal path. A list
+//!   offered none is taken as written, braces and all.
 
 use std::path::Path;
 
@@ -86,26 +87,23 @@ fn nonempty(
     Ok(commands)
 }
 
-/// Check every placeholder in `commands` is one of `names`, before
-/// anything runs. `key` names the list and `label` prefixes the error.
+/// Check every placeholder in `commands` is one of `names`, a string
+/// placeholder, or one of `list_names`, a list-valued one standing
+/// alone as a word, before anything runs. `key` names the list and
+/// `label` prefixes the error.
 pub fn check_placeholders(
     commands: &[String],
     names: &[&str],
+    list_names: &[&str],
     key: &str,
     label: &str,
 ) -> Result<(), String> {
     let vars: Vec<(&str, &str)> = names.iter().map(|n| (*n, "")).collect();
+    let lists: Vec<(&str, &[String])> = list_names.iter().map(|n| (*n, &[][..])).collect();
     for command in commands {
-        words(command, &vars).map_err(|e| format!("{label}: `{key}`: {e}"))?;
+        expand(command, &vars, &lists).map_err(|e| format!("{label}: `{key}`: {e}"))?;
     }
     Ok(())
-}
-
-/// Split `command` on whitespace and fill each word's placeholders,
-/// `{name}` for each `(name, value)` of `vars`: [`expand`] with no
-/// list-valued placeholders.
-pub fn words(command: &str, vars: &[(&str, &str)]) -> Result<Vec<String>, String> {
-    expand(command, vars, &[])
 }
 
 /// Split `command` on whitespace and fill each word's placeholders,
@@ -180,29 +178,31 @@ fn fill(word: &str, vars: &[(&str, &str)], lists: &[(&str, &[String])]) -> Resul
 /// Run `commands` in order from `root`, printing each before it
 /// runs, stopping at the first failure. `key` names the list in the
 /// messages, `label` prefixes them, `env` is added to each command's
-/// environment, and `vars` are the placeholders offered (see
-/// [`words`]).
+/// environment, and `vars` and `lists` are the placeholders offered
+/// (see [`expand`]).
 pub fn run(
     root: &Path,
     key: &str,
     commands: &[String],
     env: &[(&str, &str)],
     vars: &[(&str, &str)],
+    lists: &[(&str, &[String])],
     label: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let n = commands.len();
     for (i, command) in commands.iter().enumerate() {
         // The command as it runs, its placeholders filled, so the log
         // shows the paths it used.
-        let shown = match vars {
-            [] => command.clone(),
-            _ => words(command, vars)
+        let shown = if vars.is_empty() && lists.is_empty() {
+            command.clone()
+        } else {
+            expand(command, vars, lists)
                 .map_err(|e| format!("{label}: `{command}`: {e}"))?
-                .join(" "),
+                .join(" ")
         };
         let command = &shown;
         info!("{label}: [{}/{n}] {command}", i + 1);
-        let status = run_one(root, &commands[i], env, vars, label)?;
+        let status = run_one(root, &commands[i], env, vars, lists, label)?;
         if !status.success() {
             return Err(format!(
                 "{label}: `{command}` failed ({}), stopping at {}/{n} of {key}",
@@ -218,17 +218,18 @@ pub fn run(
 
 /// Run one command line from `root`, inheriting stdio and adding
 /// `env` to its environment, and return its exit status. The line
-/// is split on whitespace and its placeholders filled from `vars`,
-/// the first word the program, so no shell sits between vc-x1 and
-/// the command's own status.
+/// is split on whitespace and its placeholders filled from `vars` and
+/// `lists` (see [`expand`]), the first word the program, so no shell
+/// sits between vc-x1 and the command's own status.
 pub fn run_one(
     root: &Path,
     command: &str,
     env: &[(&str, &str)],
     vars: &[(&str, &str)],
+    lists: &[(&str, &[String])],
     label: &str,
 ) -> Result<std::process::ExitStatus, String> {
-    let words = words(command, vars).map_err(|e| format!("{label}: `{command}`: {e}"))?;
+    let words = expand(command, vars, lists).map_err(|e| format!("{label}: `{command}`: {e}"))?;
     let Some((program, args)) = words.split_first() else {
         return Err(format!("{label}: an empty command element"));
     };
@@ -351,6 +352,11 @@ mod tests {
         );
     }
 
+    /// Split and fill with string placeholders alone.
+    fn words(command: &str, vars: &[(&str, &str)]) -> Result<Vec<String>, String> {
+        expand(command, vars, &[])
+    }
+
     #[test]
     fn placeholders_fill_words() {
         let vars = [
@@ -377,16 +383,37 @@ mod tests {
             "{e}"
         );
         let e = check_placeholders(
-            &["cp {install.dir} x".to_string()],
-            &["install.release-dir"],
-            "install.release",
+            &["cp {install.release-dir} x".to_string()],
+            &["install.dir"],
+            &[],
+            "install.commands",
             "install",
         )
         .unwrap_err();
         assert!(
-            e.starts_with("install: `install.release`: `{install.dir}`"),
+            e.starts_with("install: `install.commands`: `{install.release-dir}`"),
             "{e}"
         );
+    }
+
+    /// A list name is accepted standing alone and refused inside a
+    /// longer word, and an unknown name is refused naming both kinds.
+    #[test]
+    fn check_placeholders_takes_list_names() {
+        let check = |command: &str| {
+            check_placeholders(
+                &[command.to_string()],
+                &["profile.cargo"],
+                &["profile.flags"],
+                "build.commands",
+                "build",
+            )
+        };
+        check("cargo build {profile.flags} --profile {profile.cargo}").unwrap();
+        let e = check("cargo x{profile.flags}").unwrap_err();
+        assert!(e.contains("is a list"), "{e}");
+        let e = check("cargo {profile.bin}").unwrap_err();
+        assert!(e.contains("{profile.cargo}, {profile.flags}"), "{e}");
     }
 
     /// Commands run in order and the first failure stops the run,
@@ -399,7 +426,7 @@ mod tests {
             "false".to_string(),
             "touch never.txt".to_string(),
         ];
-        let e = run(&root, "validate.fast", &commands, &[], &[], "validate")
+        let e = run(&root, "validate.fast", &commands, &[], &[], &[], "validate")
             .unwrap_err()
             .to_string();
         assert!(e.contains("failed (exit 1)"), "{e}");
@@ -413,7 +440,7 @@ mod tests {
     fn all_pass_runs_from_root() {
         let root = workspace("pass", "```toml\n[repos]\nwork = \".\"\n```\n");
         let commands = vec!["touch ran.txt".to_string(), "true".to_string()];
-        run(&root, "validate.full", &commands, &[], &[], "validate").unwrap();
+        run(&root, "validate.full", &commands, &[], &[], &[], "validate").unwrap();
         assert!(root.join("ran.txt").exists());
         std::fs::remove_dir_all(&root).ok();
     }
@@ -426,14 +453,15 @@ mod tests {
         let commands = vec!["printenv VC_X1_TEST_CMDLIST".to_string()];
         run(
             &root,
-            "build.release",
+            "build.commands",
             &commands,
             &[("VC_X1_TEST_CMDLIST", "x")],
+            &[],
             &[],
             "build",
         )
         .unwrap();
-        let e = run(&root, "build.release", &commands, &[], &[], "install").unwrap_err();
+        let e = run(&root, "build.commands", &commands, &[], &[], &[], "install").unwrap_err();
         assert!(e.to_string().contains("failed (exit 1)"), "{e}");
         std::fs::remove_dir_all(&root).ok();
     }
@@ -442,7 +470,7 @@ mod tests {
     #[test]
     fn unrunnable_program_errors() {
         let root = workspace("norun", "```toml\n[repos]\nwork = \".\"\n```\n");
-        let e = run_one(&root, "no-such-program-xyz --flag", &[], &[], "build").unwrap_err();
+        let e = run_one(&root, "no-such-program-xyz --flag", &[], &[], &[], "build").unwrap_err();
         assert!(e.starts_with("build: "), "{e}");
         assert!(e.contains("cannot run `no-such-program-xyz --flag`"), "{e}");
         std::fs::remove_dir_all(&root).ok();
