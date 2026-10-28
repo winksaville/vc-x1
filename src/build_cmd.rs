@@ -55,6 +55,111 @@ pub const BUILD_STATE_VAR: &str = "VC_X1_BUILD_STATE";
 /// The key of the build's command list, shared by every profile.
 pub const BUILD_COMMANDS_KEY: &str = "build.commands";
 
+/// The keys the profile form retired, each with the profile form that
+/// replaces it, a phrase finishing "`<key>` is retired: ". The
+/// `[build]` lists and binaries were one pair per build, release and
+/// dev, and every build is now a `[profile.<name>]` table filling the
+/// one `[build] commands`; the `[install]` lists and directories went
+/// the same way, to `[install] commands` and `dir`. `validate-config`
+/// reports each one found with its replacement, and `build`, `run`,
+/// and `install` refuse a config that holds one in place of its
+/// replacement.
+pub const RETIRED_KEYS: &[(&str, &str)] = &[
+    (
+        "build.release",
+        "the build for every profile, `[build] commands`, filled from a profile such as \
+         `[profile.release] cargo = \"release\"`",
+    ),
+    (
+        "build.release-bin",
+        "a profile's `bin`, `[profile.release] bin = \"target/release/<name>\"`",
+    ),
+    (
+        "build.dev",
+        "the build for every profile, `[build] commands`, filled from a profile such as \
+         `[profile.dev] cargo = \"dev\"`",
+    ),
+    (
+        "build.dev-bin",
+        "a profile's `bin`, `[profile.dev] bin = \"target/debug/<name>\"`",
+    ),
+    (
+        "install.release",
+        "the install for every profile, `[install] commands`, its placeholders \
+         `{profile.bin}`, `{profile.suffix}`, and `{install.dir}`",
+    ),
+    (
+        "install.release-dir",
+        "the one install directory, `[install] dir`",
+    ),
+    (
+        "install.dev",
+        "the install for every profile, `[install] commands`, its placeholders \
+         `{profile.bin}`, `{profile.suffix}`, and `{install.dir}`",
+    ),
+    (
+        "install.dev-dir",
+        "the one install directory, `[install] dir`, the dev build named apart by its \
+         profile's `suffix`",
+    ),
+    (
+        "install.dev-suffix",
+        "a profile's `suffix`, `[profile.dev] suffix = \"-dev\"`",
+    ),
+];
+
+/// The retirement sentence for `key`, "`<key>` is retired: <its
+/// replacement>", or `None` when `key` is not one of
+/// [`RETIRED_KEYS`].
+pub fn retired_key(key: &str) -> Option<String> {
+    RETIRED_KEYS
+        .iter()
+        .find(|(k, _)| *k == key)
+        .map(|(k, replacement)| format!("`{k}` is retired: {replacement}"))
+}
+
+/// The retired `[build]` keys, which `[build] commands` and the
+/// profiles replace.
+pub const RETIRED_BUILD_KEYS: &[&str] = &[
+    "build.release",
+    "build.release-bin",
+    "build.dev",
+    "build.dev-bin",
+];
+
+/// Refuse a config that lacks `key` but still holds one of the
+/// retired keys `old`, the ones `key` replaces, naming the migration
+/// to the profile form: an old config would otherwise be told only
+/// that `key` is missing. `Ok` when none is held, so the caller
+/// reports the missing key as it always has. `path` is the config
+/// file's, and the caller prefixes its label.
+pub fn refuse_retired(
+    map: &std::collections::HashMap<String, String>,
+    path: &Path,
+    key: &str,
+    old: &[&str],
+) -> Result<(), String> {
+    let held: Vec<String> = old
+        .iter()
+        .filter(|k| map.contains_key(**k))
+        .map(|k| format!("`{k}`"))
+        .collect();
+    if held.is_empty() {
+        return Ok(());
+    }
+    let (held, verb) = match held.len() {
+        1 => (held.join(""), "is"),
+        _ => (held.join(", "), "are"),
+    };
+    Err(format!(
+        "{}: no `{key}`, and {held} {verb} retired: every build is a profile now, \
+         `[build] commands` filled from a `[profile.<name>]` table per build, its `cargo`, \
+         `bin`, and `suffix`, and the install is `[install] dir` and, optionally, \
+         `[install] commands` (`vc-x1 validate-config` names each retired key's replacement)",
+        path.display()
+    ))
+}
+
 /// Build the chosen profile.
 #[derive(Args, Debug)]
 pub struct BuildArgs {
@@ -384,6 +489,8 @@ pub fn build_params(profile: Option<&str>, repo: Option<&Path>) -> Result<BuildP
         Some(c) => c,
         None => {
             let cfg = load_config(&root, label)?;
+            refuse_retired(&cfg.map, &cfg.path, key, RETIRED_BUILD_KEYS)
+                .map_err(|e| format!("{label}: {e}"))?;
             return Err(format!(
                 "{label}: {}: no `{key}`, the build for every profile. Add one, such as \
                  `commands = [\"cargo build --profile {{profile.cargo}} --locked\"]` under \
@@ -720,7 +827,59 @@ mod tests {
         let e = build_params(None, Some(&root)).unwrap_err();
         assert!(e.contains("no `build.commands`"), "{e}");
         assert!(e.contains("[profile.<name>]"), "{e}");
+        assert!(!e.contains("retired"), "no old key, no migration: {e}");
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// A config holding only the retired `[build]` keys is refused
+    /// naming them and the migration to the profile form, by `build`
+    /// and by `run`, which takes the same build first.
+    #[test]
+    fn the_retired_build_keys_are_refused_naming_the_migration() {
+        let root = workspace(
+            "retired",
+            &config(
+                "[build]
+release = [\"cargo build --release\"]
+                 release-bin = \"target/release/app\"
+",
+            ),
+        );
+        let e = build_params(None, Some(&root)).unwrap_err();
+        assert!(e.starts_with("build: "), "{e}");
+        assert!(e.contains("no `build.commands`"), "{e}");
+        assert!(
+            e.contains("`build.release`, `build.release-bin` are retired"),
+            "{e}"
+        );
+        assert!(e.contains("[profile.<name>]"), "{e}");
+        assert!(e.contains("`vc-x1 validate-config`"), "{e}");
+        let Err(e) = crate::run_cmd::run_params(None, Some(&root), &[], false) else {
+            panic!("run refuses the retired keys");
+        };
+        assert!(e.contains("are retired"), "{e}");
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// Each retired key has one sentence naming its replacement, and
+    /// a key that is not retired has none.
+    #[test]
+    fn a_retired_key_names_its_replacement() {
+        assert_eq!(RETIRED_KEYS.len(), 9);
+        assert_eq!(
+            retired_key("build.release-bin").unwrap(),
+            "`build.release-bin` is retired: a profile's `bin`, \
+             `[profile.release] bin = \"target/release/<name>\"`"
+        );
+        assert_eq!(
+            retired_key("install.dev-suffix").unwrap(),
+            "`install.dev-suffix` is retired: a profile's `suffix`, \
+             `[profile.dev] suffix = \"-dev\"`"
+        );
+        for k in RETIRED_BUILD_KEYS {
+            assert!(retired_key(k).is_some(), "{k}");
+        }
+        assert_eq!(retired_key("build.commands"), None);
     }
 
     /// A placeholder the profile does not offer is refused before

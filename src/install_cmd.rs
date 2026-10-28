@@ -237,6 +237,21 @@ pub fn install_params(
     ));
     let lists = profile.lists.clone();
     let list = crate::command_list::load_optional(&root, INSTALL_COMMANDS_KEY, label)?;
+    if list.is_none() {
+        // An old install list is refused rather than passed over for the
+        // built-in copy, since it may do what the copy does not, such as
+        // sign the binary.
+        let cfg = crate::config_md::load(&root)
+            .map_err(|e| format!("{label}: {e}"))?
+            .ok_or_else(|| format!("{label}: no config in '{}'", root.display()))?;
+        crate::build_cmd::refuse_retired(
+            &cfg.map,
+            &cfg.path,
+            INSTALL_COMMANDS_KEY,
+            &["install.release", "install.dev"],
+        )
+        .map_err(|e| format!("{label}: {e}"))?;
+    }
     match &list {
         Some(list) => {
             let names: Vec<&str> = vars.iter().map(|(n, _)| n.as_str()).collect();
@@ -344,6 +359,14 @@ pub fn install_dir(root: &Path, key: &str) -> Result<PathBuf, String> {
     let cfg = crate::config_md::load(root)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("no config in '{}'", root.display()))?;
+    if !cfg.map.contains_key(key) {
+        crate::build_cmd::refuse_retired(
+            &cfg.map,
+            &cfg.path,
+            key,
+            &["install.release-dir", "install.dev-dir"],
+        )?;
+    }
     let value = crate::toml_simple::toml_get(&cfg.map, key).ok_or_else(|| {
         format!(
             "{}: no `{key}`, so this workspace has nothing to install. Name the \
@@ -1116,6 +1139,40 @@ mod tests {
         };
         let e = InstallParams::try_from(&args).unwrap_err();
         assert!(e.contains("nothing to install"), "{e}");
+        assert!(!e.contains("retired"), "no old key, no migration: {e}");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A config holding the retired directories in place of
+    /// `[install] dir` is refused naming them and the migration, and
+    /// one holding a retired list in place of `[install] commands` is
+    /// refused rather than given the built-in copy.
+    #[test]
+    fn the_retired_install_keys_are_refused_naming_the_migration() {
+        let dir = tempdir("retired");
+        write_config(
+            &dir,
+            &format!(
+                "[install]
+release-dir = \"~/.cargo/bin\"
+{PROFILES}"
+            ),
+        );
+        let e = install_params(None, Some(&dir), None, true).unwrap_err();
+        assert!(e.starts_with("install: "), "{e}");
+        assert!(e.contains("no `install.dir`"), "{e}");
+        assert!(e.contains("`install.release-dir` is retired"), "{e}");
+        assert!(e.contains("`[install] dir`"), "{e}");
+        assert!(!e.contains("nothing to install"), "{e}");
+        write_config(
+            &dir,
+            &format!(
+                "[install]\ndir = \"bin\"\nrelease = [\"cp {{build.release-bin}} x\"]\n{PROFILES}"
+            ),
+        );
+        let e = install_params(None, Some(&dir), None, true).unwrap_err();
+        assert!(e.contains("no `install.commands`"), "{e}");
+        assert!(e.contains("`install.release` is retired"), "{e}");
         std::fs::remove_dir_all(&dir).ok();
     }
 

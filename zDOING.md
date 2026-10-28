@@ -108,7 +108,7 @@ installs `tmp/soak/vc-x1-rc`, which `cmp` finds identical to `target/release/vc-
 - [feat: a list-valued placeholder expands to its words][p1] (done)
 - [feat: the config defines named build profiles][p2] (done)
 - [feat: --profile chooses the build and the install][p3] (done)
-- [feat: the old build and install keys are refused][p4]
+- [feat: the old build and install keys are refused][p4] (done)
 - [docs: the README and the agent-files name --profile][p5]
 - [feat: build, install, and run take --profile closing][p6]
 
@@ -182,6 +182,27 @@ The three commands take `--profile`, resolve the chosen profile, and fill `{prof
 ##### feat: the old build and install keys are refused
 
 The commands and `validate-config` name the profile form for each old key, and `init` writes it.
+
+* The nine old keys, `[build] release`, `dev`, `release-bin`, `dev-bin`, and `[install]
+  release`, `dev`, `release-dir`, `dev-dir`, `dev-suffix`, were in the schema and this workspace's
+  config, read by nothing since the profile rung.
+  - They leave the schema, `vc-config.md`'s links that named them pointing at the profile keys,
+    and the model is regenerated.
+  - `build_cmd::RETIRED_KEYS` maps each to its replacement, and `validate-config` reports a
+    retired key once, with that sentence, before its unknown-key check.
+* A config on the old form would fail with a missing key and no way forward.
+  - `build`, `run`, and `install` refuse when `build.commands`, `install.dir`, or
+    `install.commands` is absent and an old key is present, naming the keys held, the profile form,
+    and `validate-config`. Without the old keys the errors are as before.
+  - `install` refuses an old install list beside no `install.commands`, so a custom list, a signing
+    step say, is never silently replaced by the built-in copy.
+* This workspace held both forms.
+  - Its `.vc-config.md` keeps the profile form alone, its prose rewritten and its references
+    renumbered, the `--locked`, `.new`-then-move, and under-a-second facts kept.
+* `init` writes no `[build]` or `[install]` keys, so it needed no change: its commented optional
+  keys come from the schema, and `install.dev-suffix` left with it.
+* Written by a subagent from the agent's brief, the diff reviewed and the full validation run by
+  the agent.
 
 ##### docs: the README and the agent-files name --profile
 

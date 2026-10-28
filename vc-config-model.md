@@ -92,44 +92,9 @@ fast = ["cargo test --bins"]
 ```
 
 The `[build]` table
-- release: The release build, in order, one invocation per element, run by `vc-x1 build` [[17]]
-- release-bin: The release build's binary, run by `vc-x1 run` and copied by `vc-x1 install` [[18]]
-- dev: The dev build, in order, one invocation per element, run by `vc-x1 build --dev` [[19]]
-- dev-bin: The dev build's binary, run by `vc-x1 run --dev` and copied by `vc-x1 install --dev`
-  [[20]]
-```toml
-[build]
-release = ["cargo build --release --locked"]
-release-bin = "target/release/vc-x1"
-dev = ["cargo build --locked"]
-dev-bin = "target/debug/vc-x1"
-```
-
-The `[install]` table
-- release: Optional, the release install run by `vc-x1 install` in place of its own copy [[21]]
-- release-dir: Where `vc-x1 install` copies the release build, `~` expanded [[22]]
-- dev: Optional, the dev install run by `vc-x1 install --dev` in place of its own copy [[23]]
-- dev-dir: Where `vc-x1 install --dev` copies the dev build, `~` expanded [[24]]
-- dev-suffix: Appended to the dev build's file name by `vc-x1 install --dev` [[25]]
-```toml
-[install]
-release = [
-  "cp {build.release-bin} {install.release-dir}/vc-x1.new",
-  "mv {install.release-dir}/vc-x1.new {install.release-dir}/vc-x1",
-]
-release-dir = "~/.cargo/bin"
-dev = [
-  "cp {build.dev-bin} {install.dev-dir}/vc-x1{install.dev-suffix}.new",
-  "mv {install.dev-dir}/vc-x1{install.dev-suffix}.new {install.dev-dir}/vc-x1{install.dev-suffix}",
-]
-dev-dir = "~/.cargo/bin"
-dev-suffix = "-dev"
-```
-
-The `[build]` table
 - commands: The build for every profile, in order, `{profile.<property>}` filled from the chosen
-  profile [[26]]
-- default-profile: The profile used when --profile is left out [[27]]
+  profile [[17]]
+- default-profile: The profile used when --profile is left out [[18]]
 ```toml
 [build]
 commands = ["cargo build --profile {profile.cargo} --locked"]
@@ -137,8 +102,8 @@ default-profile = "release"
 ```
 
 The `[install]` table
-- dir: Where `vc-x1 install` copies the chosen profile's binary, `~` expanded [[28]]
-- commands: Optional, the install for every profile, run in place of the built-in copy [[29]]
+- dir: Where `vc-x1 install` copies the chosen profile's binary, `~` expanded [[19]]
+- commands: Optional, the install for every profile, run in place of the built-in copy [[20]]
 ```toml
 [install]
 dir = "~/.cargo/bin"
@@ -149,12 +114,12 @@ commands = [
 ```
 
 The `[profile.<name>]` table
-- cargo: The Cargo.toml profile this profile builds, filled as {profile.cargo} [[30]]
-- flags: The build's flags, filled as {profile.flags}, one word per item [[31]]
+- cargo: The Cargo.toml profile this profile builds, filled as {profile.cargo} [[21]]
+- flags: The build's flags, filled as {profile.flags}, one word per item [[22]]
 - bin: The binary the profile's build leaves, run by `vc-x1 run` and copied by `vc-x1 install`
-  [[32]]
-- suffix: Appended to the installed binary's file name, empty when absent [[33]]
-- <property>: Any other property of a profile, filled as {profile.<property>} [[34]]
+  [[23]]
+- suffix: Appended to the installed binary's file name, empty when absent [[24]]
+- <property>: Any other property of a profile, filled as {profile.<property>} [[25]]
 ```toml
 [profile.<name>]
 cargo = "release"
@@ -165,15 +130,15 @@ suffix = "-dev"
 ```
 
 The `[commit]` table
-- push: Default for commit: push what it commits, `--no-push` / `--push` override [[35]]
+- push: Default for commit: push what it commits, `--no-push` / `--push` override [[26]]
 ```toml
 [commit]
 push = true
 ```
 
 The `[record]` table
-- doing: The file whose `## In Progress` block `commit --closing` moves to record.closed [[36]]
-- closed: The file whose `## Closed` block `commit --closing` replaces with record.doing's [[37]]
+- doing: The file whose `## In Progress` block `commit --closing` moves to record.closed [[27]]
+- closed: The file whose `## Closed` block `commit --closing` replaces with record.doing's [[28]]
 ```toml
 [record]
 doing = "zDOING.md"
@@ -181,14 +146,14 @@ closed = "zCLOSED.md"
 ```
 
 The `[closing]` table
-- body: The closing commit's default body, `{title}` the cycle title [[38]]
+- body: The closing commit's default body, `{title}` the cycle title [[29]]
 ```toml
 [closing]
 body = "Closes the cycle {title}. See details in zCLOSED.md."
 ```
 
 The `[cycle]` table
-- trunk: The trunk a closing merges onto and a bare `--land` lands on [[39]]
+- trunk: The trunk a closing merges onto and a bare `--land` lands on [[30]]
 ```toml
 [cycle]
 trunk = "main"
@@ -196,7 +161,7 @@ trunk = "main"
 
 The `[test]` table
 - fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
-  test` [[40]]
+  test` [[31]]
 ```toml
 [test]
 fixtures = ".fixtures"
@@ -220,27 +185,18 @@ fixtures = ".fixtures"
 [14]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#squash-pushyes
 [15]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefull
 [16]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefast
-[17]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#buildrelease
-[18]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#buildrelease-bin
-[19]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#builddev
-[20]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#builddev-bin
-[21]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installrelease
-[22]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installrelease-dir
-[23]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev
-[24]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev-dir
-[25]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev-suffix
-[26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#buildcommands
-[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#builddefault-profile
-[28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdir
-[29]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installcommands
-[30]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamecargo
-[31]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenameflags
-[32]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamebin
-[33]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamesuffix
-[34]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenameproperty
-[35]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#commitpush
-[36]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recorddoing
-[37]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recordclosed
-[38]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
-[39]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#cycletrunk
-[40]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
+[17]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#buildcommands
+[18]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#builddefault-profile
+[19]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdir
+[20]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installcommands
+[21]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamecargo
+[22]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenameflags
+[23]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamebin
+[24]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamesuffix
+[25]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenameproperty
+[26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#commitpush
+[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recorddoing
+[28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recordclosed
+[29]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
+[30]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#cycletrunk
+[31]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
