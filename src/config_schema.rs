@@ -372,6 +372,31 @@ mod tests {
         }
     }
 
+    /// The profile form: `[build] commands` and `[install] commands`
+    /// lists, `default-profile` defaulting to `release`, and a
+    /// profile's properties dynamic, `flags` a list and the rest
+    /// strings, any other property known by the catch-all.
+    #[test]
+    fn profile_form() {
+        let find = |p: &str| schema().iter().find(|k| k.path == p).expect(p);
+        for p in ["build.commands", "install.commands"] {
+            assert_eq!(find(p).kind, ValueKind::StrList, "{p} kind");
+        }
+        assert_eq!(find("build.default-profile").default, Some("release"));
+        for (p, kind) in [
+            ("profile.<name>.cargo", ValueKind::Str),
+            ("profile.<name>.flags", ValueKind::StrList),
+            ("profile.<name>.bin", ValueKind::Str),
+            ("profile.<name>.suffix", ValueKind::Str),
+            ("profile.<name>.<property>", ValueKind::Str),
+        ] {
+            let k = find(p);
+            assert!(k.dynamic, "{p} dynamic");
+            assert_eq!(k.kind, kind, "{p} kind");
+            assert_eq!(k.homes, &[Home::WorkspaceCode], "{p} homes");
+        }
+    }
+
     /// The build table is work-side only: the two command lists typed
     /// `str-list` like validate's, and the two binaries `str`s, each
     /// with an example.
@@ -409,9 +434,11 @@ mod tests {
                 "install.release-dir",
                 "install.dev",
                 "install.dev-dir",
-                "install.dev-suffix"
+                "install.dev-suffix",
+                "install.dir",
+                "install.commands"
             ],
-            "[install] mirrors [build]'s order, the dev suffix last"
+            "[install] mirrors [build]'s order, the dev suffix last, then the profile form's"
         );
         let k = find("install.dev-suffix");
         assert_eq!(k.kind, ValueKind::Str, "dev-suffix kind");

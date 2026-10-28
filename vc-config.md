@@ -583,6 +583,148 @@ used-by = "vc-x1 install --dev"
 default = "-dev"
 ```
 
+## build.commands
+
+The build, for every profile: the commands that build the chosen profile, in order, each element
+one invocation whose exit status is checked, `{profile.<property>}` filled from the profile
+`--profile` names, else [build.default-profile](#builddefault-profile). The encouraged form names a
+`Cargo.toml` profile by the profile's [cargo](#profilenamecargo) property, `cargo build --profile
+{profile.cargo} --locked`, so cargo owns the flags and the directory. A list-valued property, such
+as [flags](#profilenameflags), fills a word of its own with its items, none for an empty list.
+`vc-x1 build` runs it, and `vc-x1 run` and `vc-x1 install` run it first. Its commands see
+`VC_X1_BUILD_COMMIT` and `VC_X1_BUILD_STATE`, as the `[validate]` lists' do.
+
+```toml
+[build.commands]
+homes = ["workspace-code"]
+kind = "str-list"
+doc = "The build for every profile, in order, `{profile.<property>}` filled from the chosen profile"
+used-by = "vc-x1 build, vc-x1 run, and vc-x1 install"
+example = ["cargo build --profile {profile.cargo} --locked"]
+```
+
+## build.default-profile
+
+The profile `vc-x1 build`, `run`, and `install` use when `--profile` is left out, a name with a
+`[profile.<name>]` table.
+
+```toml
+[build.default-profile]
+homes = ["workspace-code"]
+kind = "str"
+doc = "The profile used when --profile is left out"
+used-by = "vc-x1 build, vc-x1 run, and vc-x1 install"
+default = "release"
+```
+
+## install.dir
+
+The one directory `vc-x1 install` copies the chosen profile's binary into, `~` expanded, so the
+committed value fits every machine, and `--dir` replaces it for one run. `$PATH` is not searched.
+Filled as `{install.dir}` in [install.commands](#installcommands).
+
+```toml
+[install.dir]
+homes = ["workspace-code"]
+kind = "str"
+doc = "Where `vc-x1 install` copies the chosen profile's binary, `~` expanded"
+used-by = "vc-x1 install"
+example = "~/.cargo/bin"
+```
+
+## install.commands
+
+Optional, the install run by `vc-x1 install` in place of its built-in copy, for every profile:
+`{profile.<property>}` filled from the chosen profile and `{install.dir}` from
+[install.dir](#installdir), `--dir` applied, so the list names every path it writes, the binary as
+`{profile.bin}` and the installed name's ending as `{profile.suffix}`. Absent, the built-in copy
+puts `{profile.bin}` in `{install.dir}` under its file name with the suffix appended.
+
+```toml
+[install.commands]
+homes = ["workspace-code"]
+kind = "str-list"
+doc = "Optional, the install for every profile, run in place of the built-in copy"
+used-by = "vc-x1 install"
+example = ["cp {profile.bin} {install.dir}/vc-x1{profile.suffix}.new", "mv {install.dir}/vc-x1{profile.suffix}.new {install.dir}/vc-x1{profile.suffix}"]
+```
+
+## profile.\<name\>.cargo
+
+The profile in `Cargo.toml` this profile builds, `dev`, `release`, or any custom one, filled as
+`{profile.cargo}`, the encouraged form of [build.commands](#buildcommands). A profile is a
+`[profile.<name>]` table of properties, any name and any properties: vc-x1 reads
+[bin](#profilenamebin) and [suffix](#profilenamesuffix) itself, and the rest are the lists' to
+fill.
+
+```toml
+[profile."<name>".cargo]
+homes = ["workspace-code"]
+kind = "str"
+doc = "The Cargo.toml profile this profile builds, filled as {profile.cargo}"
+used-by = "vc-x1 build, vc-x1 run, and vc-x1 install, through their lists"
+example = "release"
+```
+
+## profile.\<name\>.flags
+
+The build's flags, a list, for a build named by flags rather than by a `Cargo.toml` profile,
+`["--release"]` or `[]`, filled as `{profile.flags}`, a word of its own per item.
+
+```toml
+[profile."<name>".flags]
+homes = ["workspace-code"]
+kind = "str-list"
+doc = "The build's flags, filled as {profile.flags}, one word per item"
+used-by = "vc-x1 build, vc-x1 run, and vc-x1 install, through their lists"
+example = ["--release"]
+```
+
+## profile.\<name\>.bin
+
+The binary the profile's build leaves, relative to the config file's directory, or as is when
+absolute: vc-x1 never works it out from cargo or the package's name. `vc-x1 build` checks the
+build left it, `vc-x1 run` runs it, and `vc-x1 install` reports its `-V` and copies it. Filled as
+`{profile.bin}`.
+
+```toml
+[profile."<name>".bin]
+homes = ["workspace-code"]
+kind = "str"
+doc = "The binary the profile's build leaves, run by `vc-x1 run` and copied by `vc-x1 install`"
+used-by = "vc-x1 build, vc-x1 run, and vc-x1 install"
+example = "target/release/vc-x1"
+```
+
+## profile.\<name\>.suffix
+
+Appended to the binary's file name when `vc-x1 install` copies it, so builds of several profiles
+sit side by side on the PATH, `vc-x1-dev` beside `vc-x1`. Empty when absent. A suffix holding a
+path separator is an error, and a copy that would land on another profile's binary of the same
+name is refused before the build. Filled as `{profile.suffix}`.
+
+```toml
+[profile."<name>".suffix]
+homes = ["workspace-code"]
+kind = "str"
+doc = "Appended to the installed binary's file name, empty when absent"
+used-by = "vc-x1 install"
+example = "-dev"
+```
+
+## profile.\<name\>.\<property\>
+
+Any other property of a profile, the lists' to fill as `{profile.<property>}`.
+
+```toml
+[profile."<name>"."<property>"]
+homes = ["workspace-code"]
+kind = "str"
+doc = "Any other property of a profile, filled as {profile.<property>}"
+used-by = "vc-x1 build, vc-x1 run, and vc-x1 install, through their lists"
+example = "value"
+```
+
 ## commit.push
 
 Whether `vc-x1 commit` pushes what it commits in the same invocation, as `vc-x1 push` would after

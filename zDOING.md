@@ -106,7 +106,7 @@ installs `tmp/soak/vc-x1-rc`, which `cmp` finds identical to `target/release/vc-
 
 - [feat: build, install, and run take --profile opening][p0] (done)
 - [feat: a list-valued placeholder expands to its words][p1] (done)
-- [feat: the config defines named build profiles][p2]
+- [feat: the config defines named build profiles][p2] (done)
 - [feat: --profile chooses the build and the install][p3]
 - [feat: the old build and install keys are refused][p4]
 - [docs: the README and the agent-files name --profile][p5]
@@ -136,6 +136,19 @@ its words, none for an empty list.
 
 The schema's `[profile."<name>"]` tables, `[build] commands` and `default-profile`, and `[install]
 dir` and `commands`, with this workspace's config and the model carrying `release` and `dev`.
+
+* The schema has no key for a profile, a build for every profile, or an install for every profile.
+  - `profile."<name>".cargo`, `flags`, `bin`, and `suffix`, documented each, `flags` a list and
+    the rest strings, and `profile."<name>"."<property>"`, a catch-all, so any property is known:
+    `validate-config` matches a dynamic key by its path, a `<...>` segment matching any one.
+  - `build.commands` and `build.default-profile`, `release` by default, and `install.dir` and
+    `install.commands`, the old keys left beside them until the rung that refuses them.
+* This workspace has no profiles.
+  - `[profile.release]` and `[profile.dev]` name their `Cargo.toml` profiles, `dev` with suffix
+    `-dev`, and `[build] commands` and `[install] dir` and `commands` are added to the existing
+    tables, the config's fences being one TOML document where a table is declared once. The old
+    keys stay, since the installed 0.85.14 reads them for `install --dev` until this cycle lands.
+  - The model is regenerated, and `schema::tests::profile_form` checks the new keys.
 
 ##### feat: --profile chooses the build and the install
 
