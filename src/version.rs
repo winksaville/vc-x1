@@ -38,7 +38,7 @@ use crate::jj::session::home_dir;
 /// with no git checkout to read, a source package's.
 ///
 /// `build.rs` takes it from `VC_X1_BUILD_COMMIT`, which `vc-x1 build`,
-/// `build-dev`, and `validate` pass, else from git's `HEAD`, and
+/// for every profile, and `validate` pass, else from git's `HEAD`, and
 /// reruns when either changes.
 pub fn build_commit() -> Option<&'static str> {
     option_env!("VC_X1_COMMIT").filter(|c| !c.is_empty())

@@ -7,292 +7,246 @@ commit's copy of the record.
 
 ## Closed
 
-### feat: the other commands take flags only
+### feat: build, install, and run take --profile
 
-Picked from `## Todo` as **feat: the other commands take flags only** (wink + agent, 2026-10-27),
-split from **feat: push, commit, and squash-push take flags only**, with **build, install, and run
-take --dev** and **init and clone take --scope por** folded in at that cycle's opening, and the
-`agent-files` subcommands added at this one's.
+Picked from `## Todo` as **install --dev --release soaks a release candidate** (wink + agent,
+2026-10-27), deferred from **feat: build, install, and run take --dev**, and widened at its
+opening's review into named build profiles, `--profile` replacing `--dev` (wink + agent,
+2026-10-27). The first cycle run in the v0.3.1 form, wink's call (2026-10-27): it begins with
+`commit --opening`, its commit bodies are two paragraphs, the problem and "Solution:", its ladder
+labels count from `[0]`, and its continuation notes go in the closing.
 
 #### Problem
 
-**feat: push, commit, and squash-push take flags only** made every argument of the three commands
-that publish a flag, and the rest still take positionals: a revision and a count on the read
-commands, a scope or a file on `lookup`, a file on the file commands, a side or a path on `config`
-and `validate-config`, directories on the `agent-files` subcommands, and a source or target and a
-name on `init`, `clone`, and `symlink`. So a word on the command line still reads by its place, and
-the rule is not yet one the README can state.
-
-Two of the folded entries are the same kind of problem:
-
-- `build-dev`, `install-dev`, and `run-dev` are `build`, `install`, and `run` with the dev build,
-  each's help saying so, and a suffix reads as a command of its own, so `land-dev` seemed a
-  two-step Land. Found at **feat: vc-x1 land** (wink + agent, 2026-10-26).
-- `init` and `clone` alone spell the single-repo form `--por`, where the write commands spell it
-  `-s p|por`, and creating a POR from the docs took four tries: `init --por <name>` stops on "no
-  account specified", `--account` is read as a GitHub owner when it names an `[account.<name>]`
-  section, and only the URL target, which needs no config, works (wink + agent, 2026-10-26).
+A build is chosen by two fixed names, `release` and `dev`, each with its own keys in `[build]` and
+`[install]`, and `--dev` chooses the dev build and the `-dev` name at once. So no other build can be
+made, a custom `Cargo.toml` profile included, and a release build cannot be installed under another
+name for a period of use beside the landed one, a soak: the `[install] dev` list names
+`{build.dev-bin}`, so the dev list with the release build would copy the debug binary.
 
 #### Solution
 
-What was done: every argument a flag, the command names aside, each old positional kept hidden and
-refused with the flag that replaces it, as the first cycle did, by
-`options_flags::retired_positional`'s `refusal`, `refuse_rev_count`, and `refuse_two`.
+What was done:
 
-- `chid`, `desc`, `list`, `show`, `validate-desc`, `fix-desc`: `[REVISION] [COMMITS]` refused
-  naming `-r` and `-n`, which were there already, and `resolve_spec` takes the flags alone.
-- `lookup -s SCOPE --line FILE:LINE`, the scope-then-target form refused.
-- `agent-session --file`, required, `validate-anchors --file`, repeatable, and `validate-todo` and
-  `fix-todo --file`, `TODO.md` by default.
-- `config` and `validate-config`: `-s` for a side, both by default, and `--file` for a path,
-  exclusive, one bundle the two share, the old `[TARGET]` refused naming the one it was.
-- `agent-files diff --from A --to B`, `agent-files copy --from SRC --to DST`, and `agent-files size
-  --dir DIR`, their defaults unchanged.
-- `init --target URL|PATH|NAME --name NAME`, `clone --from URL|PATH --name NAME`, and `symlink
-  --target PATH`. `init` and `clone` take `-s both|por`, one side alone refused and `--por` refused
-  naming `--scope por`, their errors say `-s por`, the account errors name the URL target, the
-  user config's path, and the least account section, and the stale help is fixed.
-- `build`, `install`, and `run` take `-d/--dev`, and `build-dev`, `install-dev`, and `run-dev` are
-  hidden and refused naming `<command> --dev`. `run --dev` goes before the binary's arguments, and
-  the completion forward reads it. `--release` is deferred to **install --dev --release soaks a
-  release candidate**.
-- The README states the rule under Usage, with its one exception, `run`'s trailing arguments, and
-  every section, the help, `vc-config.md` and the model made from it, `.vc-config.md`,
-  `clippy.toml`, the completion and CLI tests, the fixture builder, and the agent-files' two
-  invocations use the flags, **agent-files(proposal): v0.3.1** told.
+- A profile is a `[profile.<name>]` table of properties: `cargo`, the `Cargo.toml` profile, the
+  encouraged form, `flags`, a list for a build by flags, `bin`, the binary, required, `suffix`,
+  appended to the installed name, and any other, all filled as `{profile.<property>}`.
+- `build`, `run`, and `install` take `--profile NAME`, else `[build] default-profile`, else
+  `release`, an unknown name refused naming the profiles defined. One `[build] commands` and one
+  optional `[install] commands`, with `[install] dir`, serve every profile, and a copy onto
+  another profile's name in the same directory is refused.
+- `command_list::expand` fills a list-valued placeholder with its items, a word each, none for an
+  empty list, and `run` and `run_one` take lists.
+- `--dev` and the `-dev` commands are refused naming `<command> --profile dev`.
+- The nine old `[build]` and `[install]` keys left the schema and this workspace's config,
+  `validate-config` reporting each with its replacement and the commands refusing a config still
+  on the old form.
+- This workspace defines `release` and `dev`, `dev` with suffix `-dev`, and a soak is one more
+  profile, as `[profile.rc]` installing `vc-x1-rc` showed.
+- The README, `vc-config.md` and its model, the help, `hooks.sh`'s guard test, and the v0.3.1
+  proposal follow.
 
 #### Acceptance check
 
-`cargo test` passes with a test per command that its old positional is refused naming its flag,
-and per renamed `-dev` command that it is refused naming `--dev`. Every subcommand's `vc-x1-dev
-<cmd> --help` Usage line shows no positional, `run`'s trailing `[ARGS]...` aside. Live: `vc-x1-dev
-install --dev` installs the dev build as `vc-x1-dev`, `vc-x1-dev run --dev -- -V` prints the dev
-build's banner, `vc-x1-dev show -s both @-` is refused naming `-r @-`, and `vc-x1-dev init -s por
---target <url> --dry-run` plans a POR.
+`cargo test` passes with tests that a list-valued placeholder expands to its words, that
+`--profile` chooses the profile's properties for `build`, `run`, and `install`, that an unknown
+profile and `--dev` are refused naming the fix, and that `validate-config` reports the old keys.
+Live, from the rung that lands `--profile` on: `vc-x1-dev install --profile dev` installs
+`vc-x1-dev`, `vc-x1-dev run --profile dev -- -V` prints the dev build's banner, and `vc-x1-dev
+install --profile rc --dir tmp/soak`, with a `[profile.rc]` building `release` under suffix `-rc`,
+installs `tmp/soak/vc-x1-rc`, which `cmp` finds identical to `target/release/vc-x1`.
 
-Result (2026-10-27, at the closing, `vc-x1-dev` 0.85.14): passed.
+Result (2026-10-27, at the closing, `vc-x1-dev` 0.85.15): passed.
 
-- Tests: the full validation passed, 803 unit tests and the CLI suites, among them a refusal test
-  per command, `cli_bot_session_positional_file_refused` from the CLI, and the three `-dev`
-  refusals in `build_cmd`, `install_cmd`, and `run_cmd`.
-- Usage: every subcommand's `--help` Usage line, `agent-files`' four included, shows `[OPTIONS]`
-  and its required flags alone, `run`'s `[ARGS]...` the one positional and `agent-files`'
-  `<COMMAND>` a subcommand.
-- Live: `vc-x1-dev install --dev` built and copied the dev build as `vc-x1-dev`, its messages
-  labelled `install --dev`; `vc-x1-dev run --dev -- -V` printed `vc-x1 0.85.14+e15f035668bf.dirty`;
-  `vc-x1-dev show -s both @-` failed with "the positional is retired, every argument is a flag:
-  `-r @-`"; and `vc-x1-dev init -s por --target git@github.com:winksaville/flags-check.git
-  --dry-run` planned the work repo alone, no agent repo.
-- The first `install-dev` at the closing failed: the bump to 0.85.14 had not reached
-  `Cargo.lock`, which `--locked` refuses to update, and a validation brought it, the checks then
-  run again on the right binary.
+- Tests: the full validation passed at every rung, the profile rung's 891 tests and the retirement
+  rung's 895 among them, covering list expansion, profile resolution, an unknown profile, `--dev`,
+  the collision guard, the forwarder, and each retired key.
+- Live: `vc-x1-dev install --profile dev` built `cargo build --profile dev` and installed
+  `vc-x1-dev` through `install.commands`; `vc-x1-dev run --profile dev -- -V` printed `vc-x1
+  0.85.15+a9fe7ae2d774.dirty`; `vc-x1-dev build --profile nope` was refused naming `dev, release`.
+- Live, with a `[profile.rc]` added for the check and removed after: `vc-x1-dev install --profile
+  rc --dir tmp/soak` built `cargo build --profile release` and installed `tmp/soak/vc-x1-rc`,
+  which `cmp` found identical to `target/release/vc-x1`, its `-V` naming 0.85.15.
 
 #### Deliberation
 
-- One cycle for the rest, the folded entries with it, wink's call (2026-10-27): each is a command's
-  arguments brought to the flags, and the README states the rule once all of them hold it.
-- The `agent-files` subcommands join at this opening: the Todo entry listed the commands from the
-  top-level help, and `diff`, `copy`, and `size` take directories by position.
-- `config` and `validate-config` split `[TARGET]` in two, since it takes a side keyword or a path
-  in one place, the ambiguity the rule removes, and `-s` is what a side is everywhere else.
-- `init --target`, not `--repo`, which already names the remote's category and value.
-- The `-dev` rung comes last among the commands, since every rung before it installs with
-  `install-dev`, and from it on the cycle installs with `install --dev`.
-- The provisional flag names stand as written, wink's go at the opening's review (2026-10-27),
-  each still a rung's to settle if its code shows a reason. None did.
-- `--release` deferred, wink's call at the `--dev` rung (2026-10-27), the plan's one deviation,
-  asked as a stop: the `[install] dev` list names `{build.dev-bin}`, so a release build installed
-  under the dev name would copy the debug binary, and a profile-neutral placeholder is a config
-  design of its own, filed as **install --dev --release soaks a release candidate**.
-- One refusal wording through three helpers in `retired_positional`, `refusal` for one word,
-  `refuse_rev_count` for the read commands' pair, and `refuse_two` for two flags, which
-  `agent-files diff` and `copy`, `init`, and `clone` share.
-- The retired argument's field is `retired`, and `PorFlag`'s `--por` is `retired_por`, since a
-  flattened bundle's argument ids share the command's namespace and clap refuses a duplicate.
-- Waiver, wink's "go, complete cycle except for landing on main" (2026-10-27), at the opening's
-  review.
-  - Covers the opening and every rung through the closing: the work review, the description review,
-    the per-push approval, and the hard stop after each push.
-  - Does not cover Land: the closing is pushed without `--land`, and the close-out shape is the
-    default, trapezoid, until wink chooses at the Land.
+- Named profiles over a `--release` beside `--dev`, wink's call at the opening's review
+  (2026-10-27): a profile names the build and the installed name together, so a soak is a profile
+  and not two flags composed, and any build can be made, a custom `Cargo.toml` profile included.
+- Named properties over positions, the agent's suggestion taken (2026-10-27): wink's sketch,
+  `release = ["--release", "--locked", "target/release/vc-x1"]` read as `{profile.release[2]}`,
+  put the meaning in the index, which differed between profiles.
+- One `[build] commands` and one `[install] commands` filled from the chosen profile, rather than a
+  list per profile, since `{profile.<property>}` is the chosen profile's.
+- `Cargo.toml` profiles encouraged, wink's call (2026-10-27), read as a `cargo` property naming the
+  profile, "simpler" since cargo then owns the flags and the directory: wink wrote
+  `{profile.full}` with `[profile].full = "xyz"`, and the name `cargo` is the agent's, provisional.
+  The flags form works too.
+- `release` and `dev` are examples, not built in, wink's call (2026-10-27): any profile can be
+  built. The default when `--profile` is left out is provisional, `[build] default-profile`, else
+  `release`.
+- A list-valued property expands to words, since lists are split before they are filled and an
+  empty value would otherwise be an empty argument cargo refuses.
+- The old keys are refused, not kept working beside the new: two shapes would be two code paths,
+  and `validate-config` names the fix for an adopter on the old one. `install` also refuses an
+  old install list beside no `install.commands`, so a custom list is never silently replaced.
+- Three rungs' work was delegated to subagents, the profile code, the key retirement, and the
+  README, each from a full brief, the agent reviewing each diff and running the full validation
+  before its commit, AGENTS.md's Delegate practice applied to work too long for one context.
+- `cargo` kept as the property's name and `[build] default-profile`, else `release`, as the
+  default, the provisional choices standing at the opening's "lg".
+- `--dev`, landed one cycle ago, retires to `--profile dev`, the treatment the positionals got.
+- Multi-step: the placeholder expansion, the schema, the three commands, the retirement, and the
+  docs, each reviewable on its own.
+- Waiver, wink's "go, complete cycle except for landing on main using the new prototype v0.3.1
+  agent-file version" (2026-10-27), after the opening's push.
+  - Covers every rung from [1] through the closing: the work review, the description review, the
+    per-push approval, and the hard stop after each push.
+  - Does not cover Land: the closing is pushed without `--land`, its shape the default,
+    trapezoid, until wink chooses at the Land.
+  - The v0.3.1 form throughout: two-paragraph bodies ending "See details in zDOING.md.", the rung
+    subsection the full account in `*` and `-` form, and the continuation notes in the closing.
   - Validation still runs before every push, and a deviation from the plan is still a stop.
 
 #### Ladder
 
-- [feat: the other commands take flags only opening][o0] (done)
-- [feat: the read commands take -r and -n only][o1] (done)
-- [feat: lookup takes -s and --line][o2] (done)
-- [feat: the file commands take --file][o3] (done)
-- [feat: config and validate-config take -s and --file][o4] (done)
-- [feat: agent-files diff, copy, and size take flags][o5] (done)
-- [feat: init, clone, and symlink take flags and --scope por][o6] (done)
-- [feat: build, install, and run take --dev][o7] (done)
-- [docs: the README states every argument is a flag][o8] (done)
-- [feat: the other commands take flags only closing][o9] (done)
+- [feat: build, install, and run take --profile opening][p0] (done)
+- [feat: a list-valued placeholder expands to its words][p1] (done)
+- [feat: the config defines named build profiles][p2] (done)
+- [feat: --profile chooses the build and the install][p3] (done)
+- [feat: the old build and install keys are refused][p4] (done)
+- [docs: the README and the agent-files name --profile][p5] (done)
+- [feat: build, install, and run take --profile closing][p6] (done)
 
-##### feat: the other commands take flags only opening
+##### feat: build, install, and run take --profile opening
 
-Opens the cycle: the Todo and its two folded entries moved here, the `agent-files` subcommands
-added, the version bumped.
+Opens the cycle: the Todo moved here and widened into profiles, the version bumped.
 
-##### feat: the read commands take -r and -n only
+##### feat: a list-valued placeholder expands to its words
 
-`chid`, `desc`, `list`, `show`, `validate-desc`, and `fix-desc` lose `[REVISION] [COMMITS]`, kept
-hidden and refused naming `-r` and `-n`, their flags already there.
+`command_list`'s filling learns list values: a word that is a list-valued placeholder alone becomes
+its words, none for an empty list.
 
-- `retired_positional::refuse_rev_count`, the pair's refusal, `-r X -n N` or either alone, beside
-  `refusal`, both through one wording. The hidden count is a `String`, so `list @ x` is told
-  `-r @ -n x` rather than clap's parse error.
-- `CommonArgs::refuse_retired`, called first in the four `to_params`, and `validate-desc` and
-  `fix-desc` call the pair's refusal themselves, their args being their own.
-- `common::resolve_spec` takes `-r` and `-n` alone, the flag-over-positional precedence gone with
-  the positionals, and its tests lose the two that tested that precedence and gain a named revision
-  with a count.
-- The README's "Positional shorthand" section is "Revision and count", its examples in the flag
-  form, and its other `list` and `fix-desc` examples follow.
-- `tests/cli_smoke.rs` called `chid @` five times, found by the full validation as the first
-  cycle's `cli_sync` call was, the `.arg("chid").arg("@")` spelling missing the search for the
-  array form. No agent-file and no support script calls a read command with a positional.
+* A list's words are split before its placeholders are filled, so a value is one word, and an
+  empty value would be an empty argument, which cargo refuses.
+  - `command_list::expand` takes list values beside the string ones: a word that is `{name}` alone,
+    for a list, becomes the list's items, one word each, none for an empty one.
+  - `words` stays, the strings-only form, delegating to `expand`, so its callers are unchanged until
+    the profile rung passes lists.
+* A list inside a longer word, `x{flags}`, has no word for its items to share.
+  - It is refused, naming the list and the word, rather than joined with a guessed separator.
+* The refusal for an unknown name offered the string placeholders alone.
+  - It offers the lists too, so a typo is told every name the list may use.
 
-##### feat: lookup takes -s and --line
+##### feat: the config defines named build profiles
 
-`lookup`'s `SCOPE FILE:LINE` positionals become `-s` and `--line`, the scope-then-target form gone.
+The schema's `[profile."<name>"]` tables, `[build] commands` and `default-profile`, and `[install]
+dir` and `commands`, with this workspace's config and the model carrying `release` and `dev`.
 
-- `--line FILE:LINE` is required unless the retired positionals were given, so a bare `lookup`
-  still gets clap's "required" error and an old invocation gets the refusal, `--line X` for one
-  word and `-s S --line X` for two. `-s` was already the side's flag form.
-- `parse_side` went with the positional scope it parsed, `-s`'s own parser being one side only, so
-  "SCOPE given twice" has nothing left to catch.
-- The completion test's two `lookup` cases complete `--line`'s value, which keeps the `FilePath`
-  hint, and the README, the help, and `notes/transcript-write.md`'s two statements of the form
-  name the flags.
+* The schema has no key for a profile, a build for every profile, or an install for every profile.
+  - `profile."<name>".cargo`, `flags`, `bin`, and `suffix`, documented each, `flags` a list and
+    the rest strings, and `profile."<name>"."<property>"`, a catch-all, so any property is known:
+    `validate-config` matches a dynamic key by its path, a `<...>` segment matching any one.
+  - `build.commands` and `build.default-profile`, `release` by default, and `install.dir` and
+    `install.commands`, the old keys left beside them until the rung that refuses them.
+* This workspace has no profiles.
+  - `[profile.release]` and `[profile.dev]` name their `Cargo.toml` profiles, `dev` with suffix
+    `-dev`, and `[build] commands` and `[install] dir` and `commands` are added to the existing
+    tables, the config's fences being one TOML document where a table is declared once. The old
+    keys stay, since the installed 0.85.14 reads them for `install --dev` until this cycle lands.
+  - The model is regenerated, and `schema::tests::profile_form` checks the new keys.
 
-##### feat: the file commands take --file
+##### feat: --profile chooses the build and the install
 
-`agent-session`, `validate-anchors`, `validate-todo`, and `fix-todo` take their file by `--file`,
-repeatable for `validate-anchors`.
+The three commands take `--profile`, resolve the chosen profile, and fill `{profile.<property>}`,
+`--dev` refused naming `--profile dev`.
 
-- `agent-session --file` is required unless the retired positional was given, the one of the four
-  with no default, so a bare run gets clap's error and an old one the refusal.
-- `validate-anchors` refuses several retired files with `--file` before each, `--file A --file B`,
-  the form the flag repeats in.
-- `validate-todo` and `fix-todo` keep `TODO.md` as `--file`'s default.
-- The CLI tests passed the transcript by position thirty-four times, and `cli_smoke` passed
-  `TODO.md` twice, one of them a test that expects the version gate's refusal and would have
-  passed for the wrong reason. `cli_bot_session_positional_file_refused` is the CLI check of a
-  refusal.
+* A build was chosen by `--dev` between two fixed key sets.
+  - `build_cmd::resolve_profile` takes `--profile`, else `build.default-profile`, else `release`,
+    and reads `[profile.<name>]`: string properties become `{profile.<property>}`, list ones, by
+    their bracketed text, list placeholders, `bin` is resolved against the config's directory and
+    required, and `suffix` is offered empty when absent. An unknown name is refused naming the
+    profiles defined.
+  - `build` runs `build.commands` with the profile's placeholders, checked before anything runs,
+    and checks the profile's `bin` after it for every profile, the provenance best effort for all.
+  - `run` runs the profile's build, then its `bin`, and its completion forward skips `--profile x`
+    and `--profile=x`, resolving that profile's binary.
+  - `install` copies to `--dir`, else `install.dir`, under the bin's file name with the suffix, or
+    runs `install.commands` with the profile's placeholders and `{install.dir}`.
+* A dev install was guarded only against the release's name.
+  - Without an install list, a copy whose name equals another profile's in the same directory is
+    refused, both ways, naming both suffix keys and `--dir`.
+* `--dev` was the dev build's flag.
+  - It is hidden and refused naming `<command> --profile dev`, and `build-dev`, `install-dev`, and
+    `run-dev` name it too.
+* The list runner filled strings alone.
+  - `command_list::run` and `run_one` take lists and fill through `expand`, and
+    `check_placeholders` takes list names, `words` kept for the tests alone.
+* The code was written by a subagent from the agent's brief, and the agent reviewed its diff and
+  ran the full validation, 891 tests passing.
 
-##### feat: config and validate-config take -s and --file
+##### feat: the old build and install keys are refused
 
-`[TARGET]` splits into `-s` for a side and `--file` for a config file's path.
+The commands and `validate-config` name the profile form for each old key, and `init` writes it.
 
-- `config_cmd::ConfigTargetArgs`, one bundle the two commands flatten: the retired positional,
-  `-s` with the `--scope` grammar, and `--file`, exclusive by clap, both sides when neither.
-- Its `target` refuses the retired word by reading it as the positional did, `parse_target`'s
-  keyword-first rule, so `config agent` names `-s agent`, a path names `--file`, and the old `bot`
-  keywords keep their own rejection. A file named `work` needed `./work` before, and `--file work`
-  now says it.
-- `config`'s params became fallible, `TryFrom` over `From`, for the refusal. `validate-config`
-  builds its params in `to_params`, the one field being the target.
-- The error messages and help that pointed at `vc-x1 config work`, in `build`, `install`, and the
-  command lists, say `config -s work`. The CLI tests, the completion cases, and the README's
-  examples and table follow.
+* The nine old keys, `[build] release`, `dev`, `release-bin`, `dev-bin`, and `[install]
+  release`, `dev`, `release-dir`, `dev-dir`, `dev-suffix`, were in the schema and this workspace's
+  config, read by nothing since the profile rung.
+  - They leave the schema, `vc-config.md`'s links that named them pointing at the profile keys,
+    and the model is regenerated.
+  - `build_cmd::RETIRED_KEYS` maps each to its replacement, and `validate-config` reports a
+    retired key once, with that sentence, before its unknown-key check.
+* A config on the old form would fail with a missing key and no way forward.
+  - `build`, `run`, and `install` refuse when `build.commands`, `install.dir`, or
+    `install.commands` is absent and an old key is present, naming the keys held, the profile form,
+    and `validate-config`. Without the old keys the errors are as before.
+  - `install` refuses an old install list beside no `install.commands`, so a custom list, a signing
+    step say, is never silently replaced by the built-in copy.
+* This workspace held both forms.
+  - Its `.vc-config.md` keeps the profile form alone, its prose rewritten and its references
+    renumbered, the `--locked`, `.new`-then-move, and under-a-second facts kept.
+* `init` writes no `[build]` or `[install]` keys, so it needed no change: its commented optional
+  keys come from the schema, and `install.dev-suffix` left with it.
+* Written by a subagent from the agent's brief, the diff reviewed and the full validation run by
+  the agent.
 
-##### feat: agent-files diff, copy, and size take flags
+##### docs: the README and the agent-files name --profile
 
-`diff` and `copy` take their two directories by flag, and `size` its one.
+The README, the help, and the agent-files' `install --dev`, told to the v0.3.1 proposal.
 
-- `diff` and `copy` share `diff::refuse_from_to`, one directory naming `--from` and two `--from A
-  --to B`, and `size` refuses its one naming `--dir`, each first in the function that reports its
-  errors, these subcommands having no `SubcommandRunner` params step.
-- The fields keep their names, `a`/`b` and `src`/`dst`, and the report keeps "only in A" and "only
-  in B", the README naming `A` as `--from` and `B` as `--to`.
-- `agent-data/versioning.md`'s adoption, a copy and a check, names `--from`: an agent-file, so the
-  closing records the size, and the docs rung tells **agent-files(proposal): v0.3.1**.
+* The README described two fixed builds, `--dev`, and the nine old keys.
+  - Its overview, Usage, flag table, build, install, and run sections, and its config tables
+    describe profiles, `--profile`, `{profile.<property>}`, and the profile form, with a soak
+    profile, `[profile.rc]` installing `vc-x1-rc`, and a custom `Cargo.toml` profile as examples.
+  - `### install --dev` is `### install --profile`, its one link following, and the retired forms
+    are named where the README says what was retired.
+  - Written by a subagent from the agent's brief, its anchors checked at 0 failed, and the
+    agent tagged the new `[profile.<name>]` table bullet with this cycle's version.
+* `agent-data/hooks.sh`'s guard test named `install --dev`.
+  - It names `install --profile dev`, still a deny, `hooks.sh test` passing its thirteen.
+* **agent-files(proposal): v0.3.1** records the profile rename beside the flags cycles' notes.
+* The help was written with the commands, in the profile rung.
 
-##### feat: init, clone, and symlink take flags and --scope por
-
-`init`'s and `clone`'s target and name, and `symlink`'s target, become flags, and `init` and
-`clone` take `-s both|por`, `--por` refused naming it, with the account errors and stale help
-fixed.
-
-- `init --target URL|PATH|NAME --name NAME`, `clone --from URL|PATH --name NAME`, and `symlink
-  --target PATH`, each `--target`/`--from` required unless the retired positionals were given,
-  which `retired_positional::refuse_two` refuses, one word or two, and `agent-files diff` now
-  shares it.
-- `PorFlag` became the creation scope: `-s both|por`, both by default, and `--por` kept hidden as
-  `retired_por`, its field name kept apart from the command's `retired`, since clap's argument ids
-  must be unique across a flatten. `repo_scope_parser` only hides what it does not offer, so
-  `PorFlag::check` refuses `work` and `agent` alone, and `--por`, in each command's `to_params`.
-- The `From` conversions stay total, the tests building params from them, `is_por` reading the
-  scope and the target unwrapped behind clap's requirement and the refusal before it.
-- The dual-only and POR-only errors say `-s por`. The account errors add the URL target as the way
-  that needs no config, the user config's path, and the least `[account.<name>]` section.
-- Stale help: `init` and `clone` say "a dual workspace or a plain repo with -s por", `--config`
-  names `.vc-config.md`, and `--use-template` says `-s por`. The README's `clone` section lost a
-  `--dir` flag clone never had and its `git submodule` text, and its `init` section gained the
-  `-s por` URL example.
-- `support/fixtures/build-dr-1.py` runs `init` against the binary under test, so it names
-  `--target`, and the CLI tests and completion cases follow.
-
-##### feat: build, install, and run take --dev
-
-`build`, `install`, and `run` take `--dev` and `--release`, and the `-dev` commands are kept hidden
-and refused naming `--dev`.
-
-- `-d/--dev` on the three, each passing it where the `-dev` command passed `true`, so the build,
-  the binary, the install directory, the suffix, and the list are chosen as before. The `-dev`
-  commands keep their structs, hidden, so an old invocation parses, `install-dev --dir d` included,
-  and `build_cmd::retired_dev` refuses it naming `<command> --dev`.
-- Messages say `build --dev`, `install --dev`, and `run --dev`, the labels the `-dev` names were.
-- `run --dev` is given before the binary's arguments, and `run x --dev` passes `--dev` to the
-  binary. The completion forward learned `--dev` and `-d` as `run`'s own options, the dev build's
-  words offered after them, and no longer forwards `run-dev`, which clap refuses.
-- `--release` is deferred, wink's call at this rung (2026-10-27), to **install --dev --release
-  soaks a release candidate**: the `[install] dev` list names `{build.dev-bin}`, so a release
-  build under the dev name would copy the debug binary, and a profile-neutral placeholder is a
-  config design of its own.
-- The help, the README's build, install, and run sections, `vc-config.md`'s doc strings, and so
-  `vc-config-model.md`, the workspace's `.vc-config.md`, and `clippy.toml`'s spawn register name
-  `--dev`. The README's `install-dev` heading is `install --dev`, and `run and run-dev` is `run`.
-
-##### docs: the README states every argument is a flag
-
-The README's CLI section states the rule and its one exception, `run`'s trailing arguments, and the
-agent-files' `-dev` invocations are told to the v0.3.1 proposal.
-
-- The README's Usage gains "Every argument is a flag": the rule, its why, the shared names in a
-  table, `run`'s trailing arguments as the exception, and the refusal with an example, the `-dev`
-  commands and `--por` included. The Usage summary gains `build`, `install`, and `run`, which it
-  lacked.
-- `agent-data/hooks.sh`'s guard test named `install-dev`, now `install --dev`, the case still a deny
-  and `hooks.sh test` passing its thirteen. The set held no other old form, `versioning.md`'s
-  `agent-files` invocations having changed at their rung.
-- **agent-files(proposal): v0.3.1** records the second cycle's agent-file changes beside the first
-  cycle's.
-
-##### feat: the other commands take flags only closing
+##### feat: build, install, and run take --profile closing
 
 Closing out the cycle.
 
 - Close-out shape: trapezoid, the default, recorded under the waiver, which leaves the choice to
-  wink at the Land. `commit --closing` makes the merge of `main` and the ladder's tip, pushed
-  without `--land`.
-- `notes/agent-files-size.md` gained this cycle's column and row, 1855 lines, unchanged.
-- What closing taught: a closing's bump is not in `Cargo.lock` until a build without `--locked`
-  runs, so an install at the closing before any validation fails with "cannot update the lock
-  file". The per-rung flow validates before review, after the bump, and the acceptance check's live
-  part came first here: validation first, then the live checks.
+  wink at the Land, `commit --closing` making the merge, pushed without `--land`.
+- `notes/agent-files-size.md` gained this cycle's column and row, 1855 lines, unchanged, the one
+  agent-file touched being `hooks.sh`.
+- The continuation notes are written in this closing, the first under v0.3.1's rule, and say what
+  the next session checks after the Land.
+- What closing taught: the acceptance check needed a profile this workspace does not keep, so it
+  was added for the check and removed, the check's config not the committed one. A standing
+  `[profile.rc]` would make the soak one command, a choice for wink rather than this closing.
 
 # References
 
-[o0]: #feat-the-other-commands-take-flags-only-opening
-[o1]: #feat-the-read-commands-take--r-and--n-only
-[o2]: #feat-lookup-takes--s-and---line
-[o3]: #feat-the-file-commands-take---file
-[o4]: #feat-config-and-validate-config-take--s-and---file
-[o5]: #feat-agent-files-diff-copy-and-size-take-flags
-[o6]: #feat-init-clone-and-symlink-take-flags-and---scope-por
-[o7]: #feat-build-install-and-run-take---dev
-[o8]: #docs-the-readme-states-every-argument-is-a-flag
-[o9]: #feat-the-other-commands-take-flags-only-closing
+[p0]: #feat-build-install-and-run-take---profile-opening
+[p1]: #feat-a-list-valued-placeholder-expands-to-its-words
+[p2]: #feat-the-config-defines-named-build-profiles
+[p3]: #feat---profile-chooses-the-build-and-the-install
+[p4]: #feat-the-old-build-and-install-keys-are-refused
+[p5]: #docs-the-readme-and-the-agent-files-name---profile
+[p6]: #feat-build-install-and-run-take---profile-closing

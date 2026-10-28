@@ -249,6 +249,10 @@ description is not rewritten while the work still moves.
   adoption names `agent-files copy --from` and `diff --from`, and `hooks.sh`'s guard test names
   `install --dev`, `build-dev`, `install-dev`, and `run-dev` being `build`, `install`, and `run`
   with `--dev` now. A rule that says `install-dev` says `install --dev`.
+- And then by profile, by **feat: build, install, and run take --profile**: `--dev` retired to
+  `--profile dev`, so `hooks.sh`'s guard test names `install --profile dev`, and a rule that says
+  `install-dev` or `install --dev` says `install --profile dev`. The `[build]` and `[install]` keys a
+  rule might name are `commands`, `dir`, and the `[profile.<name>]` tables.
 
 ##### Why: the scope flags
 
@@ -2493,21 +2497,6 @@ land**.
 - The agent-repo stays each contributor's own, never in the pull request, so a trailer in upstream
   may point where a reader cannot follow, and the pull request's record stands alone.
 - lookup's half of this is in `## Waiting`: **lookup matches a line to its write by content**.
-
-### install --dev --release soaks a release candidate
-
-(wink + agent, 2026-10-27) Deferred from **feat: build, install, and run take --dev**, in the cycle
-**feat: the other commands take flags only**, wink's call. `--dev` names the binary `<name>-dev`
-and chooses the dev build, one flag for both, so a release build cannot be installed under the dev
-name for a period of use beside the landed one.
-
-- `--release` would choose the release profile and `--dev` the name, so `install --dev --release`
-  installs the release build as `vc-x1-dev`.
-- The obstacle is the config: `[install] dev` names its binary `{build.dev-bin}`, so with the dev
-  list and the release build the list would copy the debug binary. A profile-neutral placeholder,
-  `{build.bin}` resolved by `--release`, is the first guess, and this workspace's lists move to it.
-- Meanwhile `install --dir DIR` installs the release under its plain name off the PATH, a soak when
-  DIR lasts and leads the PATH of the shell it is tried from.
 
 ### feat: vc-x1 repairs and reshapes without jj
 

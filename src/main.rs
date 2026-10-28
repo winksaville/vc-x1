@@ -292,52 +292,57 @@ pub(crate) enum Commands {
         table's shape.")]
     Validate(validate::ValidateArgs),
 
-    /// Build the release, or with --dev the dev build, off the PATH
-    #[command(
-        long_about = "Build the release, or with --dev the dev build, off the PATH.\n\n\
-        Runs `[build] release` from the work repo root, here\n\
-        `cargo build --release --locked`, and checks it left\n\
-        `[build] release-bin`, the binary the config says the build leaves.\n\
+    /// Build the chosen profile, off the PATH
+    #[command(long_about = "Build the chosen profile, off the PATH.\n\n\
+        A profile is a `[profile.<NAME>]` table, chosen by --profile NAME,\n\
+        else `[build] default-profile`, else release. Runs `[build] commands`\n\
+        from the work repo root, here\n\
+        `cargo build --profile {profile.cargo} --locked`, each\n\
+        {profile.<property>} filled from the profile and a list-valued one,\n\
+        such as {profile.flags}, filling a word per item, and checks it left\n\
+        the profile's `bin`, the binary the config says the build leaves.\n\
         The commands see the commit `@-` and the state of the source code,\n\
         clean when `@` was empty and dirty when not, as VC_X1_BUILD_COMMIT\n\
         and VC_X1_BUILD_STATE, as validate's do, so vc-x1's\n\
         own banner carries the commit. Cargo decides what to rebuild, so a\n\
-        build with nothing changed is quick. The release build is run by\n\
-        `vc-x1 run` and copied into the install directory by `vc-x1 install`,\n\
-        which runs this same build first.\n\n\
+        build with nothing changed is quick. A build is run by `vc-x1 run`\n\
+        and copied into the install directory by `vc-x1 install`, which run\n\
+        this same build first.\n\n\
         Nothing is checked first: a release may be built from a cycle's\n\
         bookmark to try the release profile. The list runs as `validate`'s\n\
         does, each element one command, the first failure stopping the run.\n\
         --dry-run prints the list and runs nothing. See `vc-x1 config -s work`\n\
-        for the table's keys.\n\n\
-        --dev, -d runs `[build] dev` instead, here `cargo build --locked`,\n\
-        leaving `[build] dev-bin`, with the same provenance in its\n\
-        environment. After a validation it reuses the test build, so it\n\
-        takes under a second. The old `build-dev` is refused, naming\n\
-        `build --dev`."
-    )]
+        for the keys.\n\n\
+        --profile dev builds this workspace's dev profile, leaving\n\
+        `target/debug/vc-x1`. After a validation it reuses the test build,\n\
+        so it takes under a second. The old `build-dev` and `build --dev`\n\
+        are refused, naming `build --profile dev`.")]
     Build(build_cmd::BuildArgs),
 
-    /// Retired: `build-dev`, now `build --dev`, refused naming it
+    /// Retired: `build-dev`, now `build --profile dev`, refused naming it
     #[command(hide = true)]
     BuildDev(build_cmd::BuildDevArgs),
 
-    /// Build the release if out of date, or with --dev the dev build, then copy it into the install directory
+    /// Build the chosen profile if out of date, then copy it into the install directory
     #[command(
-        long_about = "Build the release if out of date, or with --dev the dev build, then copy\n\
-        it into the install directory.\n\n\
-        It first runs `[build] release`, exactly as `vc-x1 build` does.\n\
-        Cargo rebuilds only what changed, so with nothing changed\n\
+        long_about = "Build the chosen profile if out of date, then copy it into the install\n\
+        directory.\n\n\
+        The profile is --profile NAME, else `[build] default-profile`, else\n\
+        release. It first runs `[build] commands`, exactly as `vc-x1 build`\n\
+        does. Cargo rebuilds only what changed, so with nothing changed\n\
         the binary already tested is the one copied. The build leaves the\n\
-        release at `[build] release-bin` (here `target/release/vc-x1`), and\n\
-        `install` copies it into the one directory `[install] release-dir`\n\
-        names (here `~/.cargo/bin`, `~` expanded), under the same file name.\n\
+        profile's `bin` (here `target/release/vc-x1` for release), and\n\
+        `install` copies it into the one directory `[install] dir` names\n\
+        (here `~/.cargo/bin`, `~` expanded), under the same file name with\n\
+        the profile's `suffix` appended (here `vc-x1-dev` for dev), so the\n\
+        profiles sit side by side on the PATH. A copy that would land on\n\
+        another profile's destination is refused before the build.\n\
         It does not search $PATH. The copy goes to a temporary file renamed\n\
         into place, so a running copy of the old binary is undisturbed and a\n\
-        failed copy leaves the old one. An `[install] release` list, when\n\
-        present, runs in place of the copy, each word's {build.release-bin}\n\
-        and {install.release-dir} filled with the values resolved for the\n\
-        run, --dir applied, so the list names every path it writes. This\n\
+        failed copy leaves the old one. An `[install] commands` list, when\n\
+        present, runs in place of the copy, each word's {profile.<property>}\n\
+        and {install.dir} filled with the values resolved for the run,\n\
+        --dir applied, so the list names every path it writes. This\n\
         workspace's list is the copy written out.\n\n\
         Before copying it reports what it is copying: the version and commit\n\
         the binary's -V shows, whether that commit is `main` and\n\
@@ -345,52 +350,45 @@ pub(crate) enum Commands {
         A binary whose -V carries no commit is reported as unknown. The\n\
         report is for you to judge, and refuses nothing: which builds may be\n\
         installed is the release process's call, not the tool's. It refuses\n\
-        only when the copy itself would be wrong: no binary at `release-bin`\n\
-        after the build, a binary whose -V will not run, or a missing install\n\
-        directory. --dry-run builds and reports, and copies nothing.\n\
-        --dir DIR copies into DIR instead of `[install] release-dir` for this\n\
-        run, so a test of install leaves the PATH alone, a relative DIR taken\n\
-        against the current directory. A workspace with no\n\
-        `[install] release-dir` and no --dir has nothing to install, and\n\
-        builds nothing.\n\n\
-        --dev, -d builds `[build] dev` and copies `[build] dev-bin` (here\n\
-        `target/debug/vc-x1`) into `[install] dev-dir`, or --dir, with\n\
-        `[install] dev-suffix`, `-dev` when absent, appended to its file name\n\
-        (here `~/.cargo/bin/vc-x1-dev`), an `[install] dev` list running in\n\
-        place of the copy. A copy that would land on the release's own\n\
-        destination is refused before the build. The landed binary and the\n\
-        cycle's dev build then sit side by side on the PATH. The old\n\
-        `install-dev` is refused, naming `install --dev`."
+        only when the copy itself would be wrong: no binary at the profile's\n\
+        `bin` after the build, a binary whose -V will not run, or a missing\n\
+        install directory. --dry-run builds and reports, and copies nothing.\n\
+        --dir DIR copies into DIR instead of `[install] dir` for this run, so\n\
+        a test of install leaves the PATH alone, a relative DIR taken\n\
+        against the current directory. A workspace with no `[install] dir`\n\
+        and no --dir has nothing to install, and builds nothing.\n\n\
+        The old `install-dev` and `install --dev` are refused, naming\n\
+        `install --profile dev`."
     )]
     Install(install_cmd::InstallArgs),
 
-    /// Retired: `install-dev`, now `install --dev`, refused naming it
+    /// Retired: `install-dev`, now `install --profile dev`, refused naming it
     #[command(hide = true)]
     InstallDev(install_cmd::InstallDevArgs),
 
-    /// Build the release, or with --dev the dev build, then run it with the given arguments
+    /// Build the chosen profile, then run it with the given arguments
     #[command(
-        long_about = "Build the release, or with --dev the dev build, then run it with the\n\
-        given arguments.\n\n\
-        It first runs `[build] release`, exactly as `vc-x1 build` does, then\n\
-        runs `[build] release-bin` (here `target/release/vc-x1`) in the\n\
+        long_about = "Build the chosen profile, then run it with the given arguments.\n\n\
+        The profile is --profile NAME, given before the arguments, else\n\
+        `[build] default-profile`, else release. It first runs\n\
+        `[build] commands`, exactly as `vc-x1 build` does, then runs the\n\
+        profile's `bin` (here `target/release/vc-x1` for release) in the\n\
         current directory, as `cargo run` builds before it runs, so what\n\
         runs is always the current code. The arguments go to the binary\n\
         untouched. One that starts with `-` comes after --, as with cargo\n\
         run, since vc-x1's own flags are read first: `vc-x1 run -- -V` is\n\
-        the smoke check before install. The binary's exit code is vc-x1's.\n\n\
+        the smoke check before install, and `vc-x1 run --profile dev -- -V`\n\
+        the dev build's. The binary's exit code is vc-x1's.\n\n\
         Its -V is read first, and a version other than the manifest's is a\n\
-        warning naming `build.release-bin`. --dry-run prints the build's list\n\
+        warning naming the profile's `bin`. --dry-run prints the build's list\n\
         and the command, and runs nothing. Completion of the arguments is\n\
         the binary's own, asked in clap's completion mode and never built.\n\n\
-        --dev, -d builds `[build] dev` and runs `[build] dev-bin` (here\n\
-        `target/debug/vc-x1`), given before the arguments, which are the\n\
-        binary's: `vc-x1 run --dev -- -V`. The old `run-dev` is refused,\n\
-        naming `run --dev`."
+        The old `run-dev` and `run --dev` are refused, naming\n\
+        `run --profile dev`."
     )]
     Run(run_cmd::RunArgs),
 
-    /// Retired: `run-dev`, now `run --dev`, refused naming it
+    /// Retired: `run-dev`, now `run --profile dev`, refused naming it
     #[command(hide = true)]
     RunDev(run_cmd::RunDevArgs),
 

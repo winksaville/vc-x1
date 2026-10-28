@@ -5,7 +5,8 @@
 //! Four checks:
 //!
 //! - every key is one `vc-config.md` declares for that side, and a
-//!   `str-list` key holds an array rather than a scalar
+//!   `str-list` key holds an array rather than a scalar. A key the
+//!   profile form retired is named so, with its replacement
 //! - the legacy `[workspace]` schema is rejected with a fix-it, and
 //!   a dual workspace's two `[repos]` registries must resolve to the
 //!   same pair
@@ -160,7 +161,10 @@ impl Counts {
 ///
 /// - A missing file is not an error: `info!`s that it's absent and
 ///   returns an empty [`Counts`].
-/// - Each key not recognized by `key_known` is reported with
+/// - A key the profile form retired
+///   ([`crate::build_cmd::RETIRED_KEYS`]) is reported with `warn!`,
+///   naming it retired and the profile form that replaces it.
+/// - Each other key not recognized by `key_known` is reported with
 ///   `warn!`, naming `label` and the key. Keys are checked in
 ///   sorted order for stable output.
 /// - A known `str-list` key whose value is not an array of quoted
@@ -189,6 +193,13 @@ fn validate_file(
     };
     for key in keys {
         counts.keys += 1;
+        // A retired key is named with its replacement, one finding,
+        // in place of the generic unknown key the schema would make it.
+        if let Some(retired) = crate::build_cmd::retired_key(key) {
+            warn!("{label} ({}): {retired}", path.display());
+            counts.findings += 1;
+            continue;
+        }
         if !key_known(key, home_pred) {
             warn!("{label} ({}): unknown key {key:?}", path.display());
             counts.findings += 1;
@@ -541,6 +552,36 @@ member = \"x\"
             .expect("validate")
             .findings;
         assert_eq!(findings, 0, "every link now resolves");
+        let _ = std::fs::remove_dir_all(path.parent().expect("temp dir"));
+    }
+
+    /// Each retired key is one finding, named retired with its
+    /// replacement rather than reported as an unknown key, a `[build]`
+    /// and an `[install]` one alike, beside the profile form, which is
+    /// clean.
+    #[test]
+    fn validate_reports_each_retired_key_once() {
+        let body = "# c\n\n```toml\n[repos]\nwork = \".\"\n\
+                    [build]\ncommands = [\"cargo build\"]\nrelease-bin = \"target/release/app\"\n\
+                    [install]\ndir = \"~/.cargo/bin\"\ndev-suffix = \"-dev\"\n\
+                    [profile.dev]\nbin = \"target/debug/app\"\nsuffix = \"-dev\"\n```\n";
+        let path = config_file("config-retired", body);
+        let counts = validate_file(&path, "work config", in_work_side, true).expect("validate");
+        assert_eq!(
+            counts.findings, 2,
+            "build.release-bin and install.dev-suffix"
+        );
+        for key in ["build.release-bin", "install.dev-suffix"] {
+            assert!(
+                !key_known(key, in_work_side),
+                "{key} is gone from the schema"
+            );
+            let msg = crate::build_cmd::retired_key(key).expect("retired");
+            assert!(
+                msg.starts_with(&format!("`{key}` is retired: a profile's ")),
+                "{msg}"
+            );
+        }
         let _ = std::fs::remove_dir_all(path.parent().expect("temp dir"));
     }
 

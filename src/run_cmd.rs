@@ -1,13 +1,13 @@
-//! The `run` subcommand: build the release, or with `--dev` the dev
-//! build, then run its binary with the given arguments, as
-//! `cargo run` builds before it runs. It never touches the PATH, so a
-//! build is tried before `install` copies it. The dev run was
-//! `run-dev`, kept hidden to be refused naming `run --dev`.
+//! The `run` subcommand: build the chosen profile, then run its binary
+//! with the given arguments, as `cargo run` builds before it runs. It
+//! never touches the PATH, so a build is tried before `install` copies
+//! it. The profile is `--profile NAME`, else `[build] default-profile`,
+//! else `release`. The dev run was `run-dev`, and then `run --dev`,
+//! both kept hidden to be refused naming `run --profile dev`.
 //!
-//! - `vc-x1 run` runs `[build] release` and then
-//!   `[build] release-bin`, and `vc-x1 run --dev` runs `[build] dev`
-//!   and then `[build] dev-bin`, through `build`'s own code, so what
-//!   runs is always the current code. `--dev` comes before the
+//! - `vc-x1 run` runs `[build] commands` for the profile and then the
+//!   profile's `bin`, through `build`'s own code, so what runs is
+//!   always the current code. `--profile NAME` comes before the
 //!   arguments, which are the binary's.
 //! - The arguments go to the binary untouched. One that starts with
 //!   `-` comes after `--`, `vc-x1 run -- -V`, as with `cargo run`,
@@ -23,8 +23,8 @@
 //!   nothing.
 //! - Completion is forwarded: the words after `run` and its own
 //!   options are completed by the binary it would run, asked in clap's
-//!   completion mode, so `vc-x1 run --dev run <TAB>` offers the dev
-//!   build's own words. The binary is asked as it stands and never built, and
+//!   completion mode, so `vc-x1 run --profile dev run <TAB>` offers
+//!   the dev build's own words. The binary is asked as it stands and never built, and
 //!   one that answers nothing, or is not there, offers nothing. See
 //!   [`forward_completion`].
 
@@ -35,15 +35,20 @@ use std::process::ExitCode;
 use clap::Args;
 use log::{debug, error, info, warn};
 
-use crate::build_cmd::{BuildParams, build_params, dev_bin, release_bin};
+use crate::build_cmd::{BuildParams, build_params, resolve_profile};
 use crate::options_flags::dry_run::DryRunFlag;
 
-/// Build the release, or with `--dev` the dev build, then run it.
+/// Build the chosen profile, then run it.
 #[derive(Args, Debug)]
 pub struct RunArgs {
-    /// Build and run the dev build, `[build] dev` and `dev-bin`,
-    /// instead of the release, given before the arguments
-    #[arg(short = 'd', long)]
+    /// Build and run the profile NAME, a `[profile.<NAME>]` table,
+    /// given before the arguments [default: `[build] default-profile`,
+    /// else release]
+    #[arg(long, value_name = "NAME")]
+    pub profile: Option<String>,
+
+    /// Retired: refused naming `--profile dev`
+    #[arg(long, hide = true)]
     pub dev: bool,
 
     #[command(flatten)]
@@ -54,7 +59,7 @@ pub struct RunArgs {
     #[arg(short = 'R', long, value_name = "DIR")]
     pub repo: Option<PathBuf>,
 
-    /// Arguments for the release build, after `--` when the first
+    /// Arguments for the profile's binary, after `--` when the first
     /// starts with `-`
     #[arg(
         trailing_var_arg = true,
@@ -64,7 +69,7 @@ pub struct RunArgs {
     pub args: Vec<OsString>,
 }
 
-/// Retired: `run-dev`, now `run --dev`, refused naming it. Its flags
+/// Retired: `run-dev`, now `run --profile dev`, refused naming it. Its flags
 /// are kept so an old invocation parses and is told the fix.
 #[derive(Args, Debug)]
 pub struct RunDevArgs {
@@ -90,13 +95,12 @@ pub struct RunDevArgs {
 /// manifest's version to check it against, and the arguments.
 #[derive(Debug)]
 pub struct RunParams {
-    /// `run` or `run --dev`, prefixing the run's messages.
+    /// `run`, prefixing the run's messages.
     pub label: &'static str,
-    /// `build.release-bin` or `build.dev-bin`, for a message to point
-    /// at.
-    pub bin_key: &'static str,
-    /// The build, `vc-x1 build`'s or `vc-x1 build-dev`'s, a dry run
-    /// when this one is.
+    /// `profile.<name>.bin`, for a message to point at.
+    pub bin_key: String,
+    /// The build, `vc-x1 build --profile <name>`'s, a dry run when
+    /// this one is.
     pub build: BuildParams,
     /// The binary to run.
     pub bin: PathBuf,
@@ -112,42 +116,43 @@ pub struct RunParams {
 impl TryFrom<&RunArgs> for RunParams {
     type Error = String;
 
-    /// The release, or the dev build with `--dev`: see
-    /// [`run_params`].
+    /// The chosen profile: see [`run_params`]. `--dev` is refused.
     fn try_from(a: &RunArgs) -> Result<Self, String> {
-        run_params(a.dev, a.repo.as_deref(), &a.args, a.dry_run.value)
+        if a.dev {
+            return Err(crate::build_cmd::retired_dev_flag("run"));
+        }
+        run_params(
+            a.profile.as_deref(),
+            a.repo.as_deref(),
+            &a.args,
+            a.dry_run.value,
+        )
     }
 }
 
 impl TryFrom<&RunDevArgs> for RunParams {
     type Error = String;
 
-    /// Refused: `run-dev` is `run --dev`.
+    /// Refused: `run-dev` is `run --profile dev`.
     fn try_from(_: &RunDevArgs) -> Result<Self, String> {
         Err(crate::build_cmd::retired_dev("run"))
     }
 }
 
-/// Resolve the build, the dev build when `dev`, and its binary. A
-/// missing config key is an error here, before anything runs.
+/// Resolve the build of the profile `profile` names (see
+/// [`resolve_profile`]) and its binary. A missing config key is an
+/// error here, before anything runs.
 pub fn run_params(
-    dev: bool,
+    profile: Option<&str>,
     repo: Option<&Path>,
     args: &[OsString],
     dry_run: bool,
 ) -> Result<RunParams, String> {
-    let (label, bin_key) = if dev {
-        ("run --dev", "build.dev-bin")
-    } else {
-        ("run", "build.release-bin")
-    };
-    let mut build = build_params(dev, repo)?;
+    let label = "run";
+    let mut build = build_params(profile, repo)?;
     build.dry_run = dry_run;
-    let bin = if dev {
-        dev_bin(&build.root)?
-    } else {
-        release_bin(&build.root)?
-    };
+    let bin = build.profile.bin.clone();
+    let bin_key = format!("profile.{}.bin", build.profile.name);
     let version = crate::install_cmd::manifest_version(&build.root).ok();
     Ok(RunParams {
         label,
@@ -160,7 +165,7 @@ pub fn run_params(
     })
 }
 
-/// Run `run`, with `--dev` or not, for `main`: the binary's exit code is
+/// Run `run`, for any profile, for `main`: the binary's exit code is
 /// vc-x1's, so a failing run fails the same way, and any error
 /// before it runs is logged and fails.
 pub fn dispatch(params: Result<RunParams, String>) -> ExitCode {
@@ -224,8 +229,8 @@ pub fn run(params: &RunParams) -> Result<i32, Box<dyn std::error::Error>> {
         );
     }
     info!("{}: {shown}", params.label);
-    // Register entry 7 (clippy.toml): run and run-dev run the
-    // workspace's build, which is the whole job of the command.
+    // Register entry 7 (clippy.toml): run runs the workspace's build,
+    // which is the whole job of the command.
     #[allow(clippy::disallowed_methods)]
     let status = std::process::Command::new(&params.bin)
         .args(&params.args)
@@ -260,13 +265,13 @@ fn version_note(reported: Option<&str>, manifest: Option<&str>) -> Option<String
     (reported != manifest).then(|| format!("reports {reported}, the manifest's is {manifest}"))
 }
 
-/// What a completion forward asks: the build whose binary answers,
+/// What a completion forward asks: the profile whose binary answers,
 /// the workspace `-R` named, the words it is given, its own name
 /// first, and the cursor's index among them when the shell gave one.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Forward {
-    /// `run --dev`'s dev build rather than `run`'s release.
-    pub dev: bool,
+    /// The profile `--profile` named, else the default.
+    pub profile: Option<String>,
     /// The workspace `-R` named, else the current directory's.
     pub repo: Option<PathBuf>,
     /// The words for the binary, the first standing for its name.
@@ -282,9 +287,10 @@ pub struct Forward {
 ///
 /// - The subcommand is the first word after vc-x1's own flags, and
 ///   only `run` is forwarded. Any other subcommand is clap's.
-/// - The subcommand's own options, `--dev`, `-d`, `--dry-run`, `-R
-///   DIR`, `--repo DIR`, and `--repo=DIR`, are skipped, `--dev`
-///   choosing the dev build, and `--` ends them. A word
+/// - The subcommand's own options, `--profile NAME`,
+///   `--profile=NAME`, `--dry-run`, `-R DIR`, `--repo DIR`, and
+///   `--repo=DIR`, are skipped, `--profile` choosing the profile, and
+///   `--` ends them. A word
 ///   at the cursor that starts with `-` before any argument is
 ///   clap's, so `run --d<TAB>` offers `--dry-run`.
 /// - The cursor on the subcommand or its options is clap's too, so
@@ -302,7 +308,7 @@ pub fn plan_forward(words: &[String], index: Option<usize>) -> Option<Forward> {
     if words[sub] != "run" {
         return None;
     }
-    let mut dev = false;
+    let mut profile = None;
     let mut repo = None;
     let mut i = sub + 1;
     while i < words.len() && i < cursor {
@@ -313,8 +319,11 @@ pub fn plan_forward(words: &[String], index: Option<usize>) -> Option<Forward> {
         }
         if w == "--dry-run" {
             i += 1;
-        } else if w == "--dev" || w == "-d" {
-            dev = true;
+        } else if w == "--profile" {
+            profile = words.get(i + 1).cloned();
+            i += 2;
+        } else if let Some(name) = w.strip_prefix("--profile=") {
+            profile = Some(name.to_string());
             i += 1;
         } else if w == "-R" || w == "--repo" {
             repo = words.get(i + 1).map(PathBuf::from);
@@ -332,7 +341,7 @@ pub fn plan_forward(words: &[String], index: Option<usize>) -> Option<Forward> {
     let mut forwarded = vec![words[0].clone()];
     forwarded.extend(words[i..].iter().cloned());
     Some(Forward {
-        dev,
+        profile,
         repo,
         words: forwarded,
         index: index.map(|n| n - (i - 1)),
@@ -349,8 +358,9 @@ pub fn plan_forward(words: &[String], index: Option<usize>) -> Option<Forward> {
 /// is asked the same way, `COMPLETE` and the shell's other variables
 /// inherited and the index shifted, so it answers in the protocol
 /// the shell reads. Its config is the workspace's the shell is in, or
-/// `-R`'s, and it is never built: no binary, or none that answers,
-/// prints nothing.
+/// `-R`'s, its profile `--profile`'s or the default, and it is never
+/// built: a profile that does not resolve, no binary, or none that
+/// answers, prints nothing.
 pub fn forward_completion() {
     if std::env::var_os("COMPLETE").is_none_or(|v| v.is_empty() || v == "0") {
         return;
@@ -379,14 +389,10 @@ fn forward(plan: &Forward) -> i32 {
     let Some(root) = root else {
         return 0;
     };
-    let bin = if plan.dev {
-        dev_bin(&root)
-    } else {
-        release_bin(&root)
-    };
-    let Ok(bin) = bin else {
+    let Ok(profile) = resolve_profile(&root, plan.profile.as_deref(), "run") else {
         return 0;
     };
+    let bin = profile.bin;
     if !bin.is_file() {
         return 0;
     }
@@ -408,6 +414,7 @@ fn forward(plan: &Forward) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::build_cmd::Profile;
     use crate::{Cli, Commands};
     use clap::Parser;
 
@@ -447,18 +454,28 @@ mod tests {
         );
         let cli = Cli::try_parse_from(["vc-x1", "run", "-V"]).unwrap();
         assert_eq!(cli.version, 1, "-V before the arguments is vc-x1's");
+        let a = run(&["vc-x1", "run", "--profile", "dev", "--", "-V"]);
+        assert_eq!(a.profile.as_deref(), Some("dev"));
+        assert_eq!(a.args, [OsString::from("-V")]);
+        let a = run(&["vc-x1", "run", "x", "--profile", "dev"]);
+        assert_eq!(
+            a.profile, None,
+            "--profile after an argument is the binary's"
+        );
+        assert_eq!(a.args, ["x", "--profile", "dev"]);
         let a = run(&["vc-x1", "run", "--dev", "--", "-V"]);
         assert!(a.dev);
-        assert_eq!(a.args, [OsString::from("-V")]);
-        let a = run(&["vc-x1", "run", "x", "--dev"]);
-        assert!(!a.dev, "--dev after an argument is the binary's");
+        assert_eq!(
+            RunParams::try_from(&a).unwrap_err(),
+            "run: --dev is retired, the build is a profile: `run --profile dev`"
+        );
         match Cli::try_parse_from(["vc-x1", "run-dev", "--", "-V"])
             .unwrap()
             .command
         {
             Some(Commands::RunDev(a)) => {
                 let err = RunParams::try_from(&a).unwrap_err();
-                assert!(err.ends_with("`run --dev`"), "{err}");
+                assert!(err.ends_with("`run --profile dev`"), "{err}");
             }
             _ => panic!("expected RunDev"),
         }
@@ -496,15 +513,21 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
         let mut params = RunParams {
-            label: "run --dev",
-            bin_key: "build.dev-bin",
+            label: "run",
+            bin_key: "profile.dev.bin".to_string(),
             build: BuildParams {
-                label: "build --dev",
-                key: "build.dev",
+                label: "build",
+                key: "build.commands",
                 commands: vec!["touch built".to_string()],
                 root: dir.clone(),
                 provenance: None,
-                bin: None,
+                profile: Profile {
+                    name: "dev".to_string(),
+                    vars: Vec::new(),
+                    lists: Vec::new(),
+                    bin: bin.clone(),
+                    suffix: "-dev".to_string(),
+                },
                 dry_run: true,
             },
             bin: bin.clone(),
@@ -523,9 +546,10 @@ mod tests {
         assert!(dir.join("built").exists(), "the build ran first");
         assert_eq!(std::fs::read_to_string(&out).unwrap(), "a b|-x|");
         params.bin = dir.join("absent");
+        params.build.profile.bin = dir.join("absent");
         let e = run(&params).unwrap_err().to_string();
         assert!(
-            e.contains("no binary at") && e.contains("build.dev-bin"),
+            e.contains("no binary at") && e.contains("profile.dev.bin"),
             "{e}"
         );
         std::fs::remove_dir_all(&dir).ok();
@@ -537,18 +561,23 @@ mod tests {
     /// clap's.
     #[test]
     fn plan_forward_forms() {
-        let p = plan_forward(&w("vc-x1 run --dev run zcr"), Some(4)).unwrap();
+        let p = plan_forward(&w("vc-x1 run --profile dev run zcr"), Some(5)).unwrap();
         assert_eq!(
             p,
             Forward {
-                dev: true,
+                profile: Some("dev".to_string()),
                 repo: None,
                 words: w("vc-x1 run zcr"),
                 index: Some(2),
             }
         );
+        let p = plan_forward(&w("vc-x1 run --profile=x run zcr"), Some(4)).unwrap();
+        assert_eq!(
+            (p.profile.as_deref(), p.words, p.index),
+            (Some("x"), w("vc-x1 run zcr"), Some(2))
+        );
         let p = plan_forward(&w("vc-x1 -v run --dry-run -R ../w -- --fast "), Some(7)).unwrap();
-        assert!(!p.dev);
+        assert_eq!(p.profile, None);
         assert_eq!(p.repo, Some(PathBuf::from("../w")));
         assert_eq!((p.words, p.index), (w("vc-x1 --fast "), Some(1)));
         let p = plan_forward(&w("vc-x1 run --repo=x a"), None).unwrap();
@@ -572,6 +601,11 @@ mod tests {
             "-R's value"
         );
         assert_eq!(
+            plan_forward(&w("vc-x1 run --profile "), Some(3)),
+            None,
+            "--profile's value"
+        );
+        assert_eq!(
             plan_forward(&w("vc-x1 build x"), Some(2)),
             None,
             "another subcommand"
@@ -587,7 +621,7 @@ mod tests {
     fn a_forward_with_nothing_to_ask_answers_nothing() {
         let dir = tempdir("noforward");
         let plan = Forward {
-            dev: true,
+            profile: Some("dev".to_string()),
             repo: Some(dir.clone()),
             words: w("x a"),
             index: Some(1),
@@ -595,10 +629,15 @@ mod tests {
         assert_eq!(forward(&plan), 0, "no workspace");
         std::fs::write(
             dir.join(".vc-config.md"),
-            "```toml\n[repos]\nwork = \".\"\n[build]\ndev-bin = \"absent\"\n```\n",
+            "```toml\n[repos]\nwork = \".\"\n[profile.dev]\nbin = \"absent\"\n```\n",
         )
         .unwrap();
         assert_eq!(forward(&plan), 0, "no binary");
+        let unknown = Forward {
+            profile: Some("lto".to_string()),
+            ..plan
+        };
+        assert_eq!(forward(&unknown), 0, "a profile that does not resolve");
         std::fs::remove_dir_all(&dir).ok();
     }
 }

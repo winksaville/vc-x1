@@ -77,31 +77,36 @@ A few naming conventions this project keeps, to avoid ambiguous jargon:
 vc-x1 is not a build system. The config says what the steps are, the build and install commands
 and where the binaries land, and vc-x1 runs them in order and checks their results: it builds
 before it runs or installs, reports what it is about to copy, refuses only a copy that would be
-wrong, and never lets the dev build replace the release. Cargo, not vc-x1, decides what to
+wrong, and never lets one profile's install replace another's. Cargo, not vc-x1, decides what to
 rebuild.
 
 A plain Rust crate: `cargo build` and `cargo test` of one binary, `vc-x1`, named by the
-manifest's `[package].name`, which never changes. The `[build]` table in `.vc-config.md` holds two
-builds, each a plain `cargo build` leaving its binary in `target/`, off the PATH, so nothing a
-cycle builds replaces the `vc-x1` on the PATH until the cycle lands. Both are `--locked`, so they
-compile the same dependencies, the ones `Cargo.lock` commits:
+manifest's `[package].name`, which never changes. A build is chosen by a named profile, a
+`[profile.<name>]` table in `.vc-config.md`, and `--profile NAME` on `build`, `run`, and `install`
+picks one, else `[build] default-profile`, else `release`. The `[build] commands` list is one
+build for every profile, a plain `cargo build --profile {profile.cargo} --locked` leaving its
+binary in `target/`, off the PATH, so nothing a cycle builds replaces the `vc-x1` on the PATH until
+the cycle lands. It is `--locked`, so every profile compiles the same dependencies, the ones
+`Cargo.lock` commits. This workspace defines two profiles:
 
-- Dev: `vc-x1 build --dev` runs `[build] dev`, `cargo build --locked`, leaving the rung's debug
-  binary at `target/debug/vc-x1`. After a validation it reuses the test build, so it costs under a
-  second, and `vc-x1 run --dev` runs it first, so what runs is always the current code.
-- Release: `vc-x1 build` runs `[build] release`, `cargo build --release --locked`, leaving the
-  release build at `target/release/vc-x1`, its `-V` naming the commit it was built from
-  ([build](#build)).
+- Dev: `vc-x1 build --profile dev` runs `cargo build --profile dev --locked`, leaving the rung's
+  debug binary at `target/debug/vc-x1`. After a validation it reuses the test build, so it costs
+  under a second, and `vc-x1 run --profile dev` runs it first, so what runs is always the current
+  code.
+- Release: `vc-x1 build`, the default profile, runs `cargo build --profile release --locked`,
+  leaving the release build at `target/release/vc-x1`, its `-V` naming the commit it was built
+  from ([build](#build)).
 - Install: at a cycle's Land, `vc-x1 install` runs the release build, which cargo skips when
-  nothing changed, then copies it into `~/.cargo/bin`, the `[install] release-dir`, after
-  reporting what it is copying ([install](#install)).
-- Install --dev: mid-cycle, `vc-x1 install --dev` runs the dev build, then copies it into
-  `~/.cargo/bin`, the `[install] dev-dir`, as `vc-x1-dev`, beside the landed `vc-x1`, so the
-  cycle's code can be tried from any directory ([install --dev](#install---dev)). With the
-  release install, the two ways the PATH is touched.
+  nothing changed, then copies it into `~/.cargo/bin`, the `[install] dir`, after reporting what
+  it is copying ([install](#install)).
+- Install --profile dev: mid-cycle, `vc-x1 install --profile dev` runs the dev build, then copies
+  it into `~/.cargo/bin` as `vc-x1-dev`, the profile's `suffix` appended, beside the landed
+  `vc-x1`, so the cycle's code can be tried from any directory
+  ([install --profile](#install---profile)). Any other profile, a soak's release candidate among
+  them, installs the same way under its own suffix.
 
-Where each build leaves its binary is the config's to say, `[build] release-bin` and `dev-bin`:
-vc-x1 never works it out from cargo or the package's name.
+Where each build leaves its binary is the config's to say, each profile's `bin`: vc-x1 never
+works it out from cargo or the package's name.
 
 The commands in the order a cycle uses them, a rung's loop first and Land after:
 
@@ -109,15 +114,15 @@ The commands in the order a cycle uses them, a rung's loop first and Land after:
 |---|---|---|
 | `vc-x1 validate` | fmt, clippy, every test | every rung, before review |
 | `vc-x1 validate --fast` | the unit tests only | while iterating |
-| `vc-x1 build --dev` | the dev build, into `target/debug` | to build without running |
-| `vc-x1 run --dev` | `build --dev`, then runs it | trying the change |
-| `vc-x1 install --dev` | `build --dev`, then copies it into `~/.cargo/bin` as `vc-x1-dev` | trying the change elsewhere |
-| `vc-x1 build` | the release, into `target/release` | at Land, or to try the release profile |
+| `vc-x1 build --profile dev` | the dev build, into `target/debug` | to build without running |
+| `vc-x1 run --profile dev` | `build --profile dev`, then runs it | trying the change |
+| `vc-x1 install --profile dev` | `build --profile dev`, then copies it into `~/.cargo/bin` as `vc-x1-dev` | trying the change elsewhere |
+| `vc-x1 build` | the release, the default profile, into `target/release` | at Land, or to try the release profile |
 | `vc-x1 run` | `build`, then runs it | the smoke check before install |
 | `vc-x1 install` | `build`, then reports it and copies it into `~/.cargo/bin` | at Land |
 
-`validate` checks the source and makes no build of either kind. `run`, `run --dev`, `install`, and
-`install --dev` build first, as `cargo run` does, and cargo rebuilds only what changed, so the binary
+`validate` checks the source and makes no build of any profile. `run` and `install`, whatever the
+profile, build first, as `cargo run` does, and cargo rebuilds only what changed, so the binary
 `run` smoke-tests is the one `install` copies.
 
 - `target/debug/vc-x1 -V` names the exact rung, since the version-of-record carries the cycle's
@@ -150,9 +155,9 @@ vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run def
 vc-x1 validate-todo [--file F]            # Check todo-file entry numbering
 vc-x1 fix-todo [--file F]                 # Renumber todo file (dry-run default)
 vc-x1 validate [--fast] [OPTS]            # Run the workspace's configured validation commands
-vc-x1 build [--dev] [OPTS]                # Build the release, or the dev build, off the PATH
-vc-x1 install [--dev] [OPTS]              # Build, then copy into the install directory
-vc-x1 run [--dev] [OPTS] [-- ARGS]        # Build, then run the binary with ARGS
+vc-x1 build [--profile P] [OPTS]          # Build a profile, release by default, off the PATH
+vc-x1 install [--profile P] [OPTS]        # Build, then copy into the install directory
+vc-x1 run [--profile P] [OPTS] [-- ARGS]  # Build, then run the binary with ARGS
 vc-x1 validate-agent [OPTS]               # Check the agent repo is published
 vc-x1 config [OPTS]                       # Print / validate settable config keys
 vc-x1 clone --from URL [--name N] [OPTS]  # Clone a project, dual or with -s por plain
@@ -191,7 +196,7 @@ The same names mean the same thing everywhere:
 | `-n, --commits` | How many commits a read command shows |
 | `--bookmark` | A bookmark's name, the one to move or a new one to create |
 | `--file`, `--dir` | A file or a directory a command reads |
-| `-d, --dev` | The dev build, on `build`, `install`, and `run` |
+| `--profile` | A build profile, a `[profile.<name>]` table, on `build`, `install`, and `run` |
 
 The one exception is `run`'s trailing arguments, which are the built binary's, not vc-x1's.
 
@@ -203,8 +208,9 @@ $ vc-x1 push -s b @-
 error: push: the positional is retired, every argument is a flag: `-r @-`
 ```
 
-`build-dev`, `install-dev`, and `run-dev` are refused the same way, naming `build --dev`, `install
---dev`, and `run --dev`, and `init --por` and `clone --por` name `--scope por`.
+`build-dev`, `install-dev`, and `run-dev`, and the retired `--dev` flag, are refused the same way,
+naming `build --profile dev`, `install --profile dev`, and `run --profile dev`, and `init --por`
+and `clone --por` name `--scope por`.
 
 ### jj version gate
 
@@ -895,31 +901,38 @@ error: validate: `false` failed (exit 1), stopping at 2/3 of validate.full
 
 ### build
 
-Build the workspace's release with `build`, or its dev build with `build --dev`, by the work side's
-`[build]` table (see [Workspace config tables](#workspace-config-tables)). The lists run as
-[validate](#validate)'s do: each element one command, split on whitespace with no shell in between,
-run in order from the work repo root, the first failure stopping the run. Neither touches the PATH,
-which is `vc-x1 install`'s.
+Build the chosen profile by the work side's `[build]` table and the profile's `[profile.<name>]`
+table (see [Workspace config tables](#workspace-config-tables)). The profile is `--profile NAME`,
+else `[build] default-profile`, else `release`, and a name with no `[profile.<name>]` table is
+refused, naming the profiles the config defines. The list runs as [validate](#validate)'s do: each
+element one command, split on whitespace with no shell in between, run in order from the work repo
+root, the first failure stopping the run. It does not touch the PATH, which is `vc-x1 install`'s.
 
-- `vc-x1 build` runs `[build] release`, which builds the release, and then checks it left
-  `[build] release-bin`.
-- `vc-x1 build --dev` runs `[build] dev`, the dev build, `--dev` choosing the build as it does
-  for `run` and `install`. The old `build-dev` is refused, naming `build --dev`.
-- Neither tracks whether its binary is out of date: cargo does, rebuilding only what changed, so
-  a build with nothing changed is quick and leaves the binary as it was.
-- Both commands run their lists with two variables added to the environment,
+- `[build] commands` is one list for every profile, each `{profile.<property>}` in it filled from
+  the chosen profile, here `cargo build --profile {profile.cargo} --locked`. The build prints
+  `build: profile <name>` first and then checks it left the profile's `bin`.
+- `vc-x1 build` builds the release, the default, and `vc-x1 build --profile dev` the dev build,
+  `--profile` choosing the build as it does for `run` and `install`. The old `build-dev` and
+  `build --dev` are refused, naming `build --profile dev`.
+- A profile's `cargo` property, the `Cargo.toml` profile it builds, is the encouraged form, so
+  cargo owns the flags and the target directory. A build named by flags uses a `flags` list
+  instead, `["--release"]` or `[]`, filled as `{profile.flags}`, one word per item and none when
+  the list is empty, and any other property is the list's to fill as `{profile.<property>}`.
+- It does not track whether its binary is out of date: cargo does, rebuilding only what changed,
+  so a build with nothing changed is quick and leaves the binary as it was.
+- The build runs its list with two variables added to the environment,
   `VC_X1_BUILD_COMMIT`, the full commit id of `@-`, and `VC_X1_BUILD_STATE`, `clean` or `dirty`,
   so an artifact that compiles them in can say what it was built from wherever it is copied.
   `validate` passes the same two, so the test build it leaves has the same values and
-  `build --dev` reuses it rather than recompiling. vc-x1 compiles them in, as semver build metadata
-  in its banner, and as a `build` line in `vc-x1 version`:
+  `build --profile dev` reuses it rather than recompiling. vc-x1 compiles them in, as semver build
+  metadata in its banner, and as a `build` line in `vc-x1 version`:
 
   ```
   $ target/release/vc-x1 -V
   vc-x1 0.85.7+d70cf9ecdfd9 (agent-files v0.3.0)
   ```
 
-  `.dirty` follows the commit when `@` was not empty. A build none of the three made, a
+  `.dirty` follows the commit when `@` was not empty. A build neither command made, a
   hand-typed `cargo build` or `cargo install`, takes the commit from git's `HEAD`, which in a jj
   colocated repo is `@-`, and follows it with `.unknown`, since whether `@` held edits is a jj
   question its build script cannot ask. A build with no `.git` to read, a source package's,
@@ -927,12 +940,22 @@ which is `vc-x1 install`'s.
 - Nothing is checked first, so a release may be built from a cycle's bookmark to try the release
   profile.
 
+A custom `Cargo.toml` profile is one more table, its `bin` where cargo leaves it, and
+`vc-x1 build --profile lto` builds it:
+
+```toml
+[profile.lto]
+cargo = "release-lto"             # a [profile.release-lto] in Cargo.toml
+bin = "target/release-lto/vc-x1"
+suffix = "-lto"                   # installed as vc-x1-lto, beside the release
 ```
-# Build the release, from the workspace containing the current directory
+
+```
+# Build the release, the default profile, from the workspace containing the current directory
 vc-x1 build
 
 # Build the dev build without running it
-vc-x1 build --dev
+vc-x1 build --profile dev
 
 # Print the release build's list, and run nothing
 vc-x1 build --dry-run
@@ -940,39 +963,41 @@ vc-x1 build --dry-run
 
 | Option | Description |
 |--------|-------------|
+| `--profile <NAME>` | Build the profile `NAME`, a `[profile.<NAME>]` table [default: `[build] default-profile`, else release] |
 | `--dry-run` | Print the list, and run nothing |
-| `-R, --repo <DIR>` | Workspace to build from, for both commands [default: the one containing the current directory] |
+| `-R, --repo <DIR>` | Workspace to build from [default: the one containing the current directory] |
 
 ### install
 
-Build the release if it is out of date, then copy it into the install directory, at a cycle's Land.
-It first runs `[build] release` exactly as [build](#build) does. Cargo rebuilds only what changed,
-so with nothing changed the binary already tested is the one copied, and a missing or stale one is
-built rather than refused. It then copies `[build] release-bin`, `target/release/vc-x1` here, into
-the one directory `[install] release-dir` names, `~/.cargo/bin` here, under the same file name.
-`$PATH` is not searched: the directory being on it is what puts the copy on the PATH. `~` in the
-directory expands against your home, so the committed value fits every machine. The copy is a
-temporary file renamed into place, so a running copy of the old binary is undisturbed and a failed
-copy leaves it as it was.
+Build the chosen profile if it is out of date, then copy it into the install directory, the release
+at a cycle's Land. The profile is chosen as [build](#build)'s is, and `install` first runs
+`[build] commands` exactly as `build` does. Cargo rebuilds only what changed, so with nothing
+changed the binary already tested is the one copied, and a missing or stale one is built rather
+than refused. It then copies the profile's `bin`, `target/release/vc-x1` here for the release, into
+the one directory `[install] dir` names, `~/.cargo/bin` here, under the same file name with the
+profile's `suffix` appended, empty when absent. `$PATH` is not searched: the directory being on it
+is what puts the copy on the PATH. `~` in the directory expands against your home, so the committed
+value fits every machine. The copy is a temporary file renamed into place, so a running copy of the
+old binary is undisturbed and a failed copy leaves it as it was.
 
-`[install] release`, a command list in `[build] release`'s shape, runs in place of the copy when
-present, after the same build, report, and refusals, so a project that installs some other way, a
-signed copy or one to another machine, says how. The elements run with no shell, each split on
-whitespace, and then each word's placeholders are filled: `{build.release-bin}` and
-`{install.release-dir}`, the values of the keys `install` reads, resolved for the run, `~`
-expanded and `--dir` applied. A value with spaces stays one word, and any other `{name}` is an
-error before anything runs. The list names every path it writes, the file name included, and a
-script takes the values as arguments, `sh scripts/sign.sh {build.release-bin}
-{install.release-dir}`. This workspace's list is the copy written out, so the config says what
-`install` does:
+`[install] commands`, a command list in `[build] commands`' shape, runs in place of the copy for
+every profile when present, after the same build, report, and refusals, so a project that installs
+some other way, a signed copy or one to another machine, says how. The elements run with no shell,
+each split on whitespace, and then each word's placeholders are filled: `{profile.<property>}` from
+the chosen profile, `{profile.bin}` and `{profile.suffix}` among them, and `{install.dir}`,
+resolved for the run, `~` expanded and `--dir` applied. A value with spaces stays one word, and
+any other `{name}` is an error before anything runs. The list names every path it writes, the file
+name and suffix included, and a script takes the values as arguments,
+`sh scripts/sign.sh {profile.bin} {install.dir}`. This workspace's list is the copy written out,
+so the config says what `install` does:
 
 ```toml
 [install]
-release = [
-  "cp {build.release-bin} {install.release-dir}/vc-x1.new",
-  "mv {install.release-dir}/vc-x1.new {install.release-dir}/vc-x1",
+dir = "~/.cargo/bin"
+commands = [
+  "cp {profile.bin} {install.dir}/vc-x1{profile.suffix}.new",
+  "mv {install.dir}/vc-x1{profile.suffix}.new {install.dir}/vc-x1{profile.suffix}",
 ]
-release-dir = "~/.cargo/bin"
 ```
 
 The rename is what makes it safe over a running binary, since a `cp` onto a running executable
@@ -991,14 +1016,16 @@ variables in, is reported as `commit unknown` and `state unknown`.
 The report refuses nothing. Which builds may be installed is the release process's call, not the
 tool's: here a cycle's Land runs `install` on `main` after the push, and a project releasing from
 a branch or a tag makes it differently. `install` refuses only when the copy itself would be
-wrong, listing every reason: no binary at `release-bin` after the build, a binary whose `-V` will
-not run, or a missing install directory.
+wrong, listing every reason: no binary at the profile's `bin` after the build, a binary whose `-V`
+will not run, or a missing install directory. Without a list, a copy whose installed name is
+another profile's in the same directory, the same file name and suffix, is refused before the
+build, so a second profile with no suffix never replaces the release. A list writes where it says,
+so it names the suffix itself, as this workspace's does.
 
 `--dry-run` builds and reports, and copies nothing, and runs no list. `--dir <DIR>` copies into
-`DIR` instead of `[install] release-dir` for the one run, so a test of `install` leaves the PATH
-alone, a relative `DIR` taken against the current directory. A workspace with no `[install]
-release-dir`, and no `--dir`, has nothing to install, and `install` says so before building
-anything.
+`DIR` instead of `[install] dir` for the one run, so a test of `install` leaves the PATH alone, a
+relative `DIR` taken against the current directory. A workspace with no `[install] dir`, and no
+`--dir`, has nothing to install, and `install` says so before building anything.
 
 ```
 # At Land, on main after the push: build and smoke-test, then install, its build a no-op
@@ -1014,68 +1041,70 @@ cargo run --locked -- install --dir tmp/bin
 The report, run on a cycle's bookmark with edits in `@`, then the list:
 
 ```
-install: '/home/me/proj/target/release/vc-x1' -> list `install.release`
+install: '/home/me/proj/target/release/vc-x1' -> list `install.commands`
 install:   version 0.85.7-6, a suffixed (pre-release) version
 install:   commit 82e97636b7f6, not `main`
 install:   state dirty
 install: [1/2] cp /home/me/proj/target/release/vc-x1 /home/me/.cargo/bin/vc-x1.new
 install: [2/2] mv /home/me/.cargo/bin/vc-x1.new /home/me/.cargo/bin/vc-x1
-install: 2 command(s) passed (install.release)
+install: 2 command(s) passed (install.commands)
 ```
 
-The build's own lines, `build: [1/1] cargo build --release --locked` and the rest, come first.
+The build's own lines come first, `build: profile release`, then
+`build: [1/1] cargo build --profile release --locked` and the rest.
 Without a list the first line names the destination, `-> '/home/me/.cargo/bin/vc-x1'`, and the
 copy ends `install: copied`. A dry run stops after the report and says so, running and copying
 nothing.
 
 | Option | Description |
 |--------|-------------|
+| `--profile <NAME>` | Build and install the profile `NAME`, its `suffix` appended to the file name [default: `[build] default-profile`, else release] |
 | `--dry-run` | Build and report, and copy nothing |
-| `--dir <DIR>` | Copy into `DIR` instead of `[install] release-dir`, for this run |
+| `--dir <DIR>` | Copy into `DIR` instead of `[install] dir`, for this run |
 | `-R, --repo <DIR>` | Workspace to install from [default: the one containing the current directory] |
 
-### install --dev
+### install --profile
 
-Build the dev build, then copy it into the install directory with `[install] dev-suffix`, `-dev`
-when absent, appended to its file name. It first runs `[build] dev` exactly as
-[build --dev](#build) does, then copies `[build] dev-bin`, `target/debug/vc-x1` here, into the directory `[install]
-dev-dir` or `--dir` names, as `vc-x1-dev`. The landed `vc-x1` and the cycle's `vc-x1-dev` then sit
-side by side on the PATH, so the dev build can be tried from any directory, another project's
-included, where `vc-x1 run --dev` would run that project's dev build instead. The suffix is what lets
-`dev-dir` be `release-dir`'s own directory, the dev build beside the release without replacing it,
-and without a list `install --dev` refuses before the build when its destination would be the
-release's, as an empty suffix in that directory or a `--dir` onto it would make it. A list writes
-where it says, so it names the suffix itself, `{install.dev-suffix}`, as this workspace's does.
-
-The report, the refusals, the copy, `--dry-run`, and `--dir` are [install](#install)'s, the binary
-being the dev build's, and an `[install] dev` list runs in place of the copy as `[install] release`
-does for `install`, its placeholders `{build.dev-bin}` and `{install.dev-dir}`. With a list the
-`-dev` name is the list's to write, as this workspace's does: a list that left it off would write
-the release's name and, with `dev-dir` the release's own directory, replace the release.
+Any profile installs as the release does, its `suffix` appended to the file name, so builds of
+several profiles sit side by side on the PATH. `vc-x1 install --profile dev` runs the dev build,
+then copies `target/debug/vc-x1` into `~/.cargo/bin` as `vc-x1-dev`. The landed `vc-x1` and the
+cycle's `vc-x1-dev` then sit side by side, so the dev build can be tried from any directory,
+another project's included, where `vc-x1 run --profile dev` would run that project's dev build
+instead. The report, the refusals, the copy, the list, `--dry-run`, and `--dir` are
+[install](#install)'s, the binary being the profile's. The old `install-dev` and `install --dev`
+are refused, naming `install --profile dev`.
 
 ```
 # Mid-cycle: put the rung's code on the PATH as vc-x1-dev, and try it in another project
-vc-x1 install --dev
+vc-x1 install --profile dev
 cd ../other-project
 vc-x1-dev status
 ```
 
-| Option | Description |
-|--------|-------------|
-| `--dry-run` | Build and report, and copy nothing |
-| `--dir <DIR>` | Copy into `DIR` instead of `[install] dev-dir`, for this run |
+A soak, a release candidate installed under another name for a period of use beside the landed
+binary, is just another profile, here the release build installed as `vc-x1-rc`:
 
-The old `install-dev` is refused, naming `install --dev`.
-| `-R, --repo <DIR>` | Workspace to install from [default: the one containing the current directory] |
+```toml
+[profile.rc]
+cargo = "release"
+bin = "target/release/vc-x1"
+suffix = "-rc"
+```
+
+```
+# Install the cycle's release build as vc-x1-rc, leaving the landed vc-x1 in place
+vc-x1 install --profile rc
+```
 
 ### run
 
-Build, then run the build's binary with the given arguments, as `cargo run` builds before it runs.
-`vc-x1 run` runs `[build] release` exactly as [build](#build) does, then `[build] release-bin`,
-and `vc-x1 run --dev` runs `[build] dev`, then `[build] dev-bin`, so what runs is always the current
-code. Neither touches the PATH, so a build is tried before [install](#install), `--dev` or not,
-copies it. `--dev` comes before the arguments, which are the binary's, and the old `run-dev` is
-refused, naming `run --dev`.
+Build the chosen profile, then run its binary with the given arguments, as `cargo run` builds
+before it runs. The profile is chosen as [build](#build)'s is: `vc-x1 run` runs `[build] commands`
+exactly as `build` does for the release, then the release's `bin`, and `vc-x1 run --profile dev`
+builds the dev profile, then runs `target/debug/vc-x1`, so what runs is always the current code.
+It does not touch the PATH, so a build is tried before [install](#install) copies it. `--profile`
+comes before the arguments, which are the binary's, and the old `run-dev` and `run --dev` are
+refused, naming `run --profile dev`.
 
 - The arguments go to the binary untouched. One that starts with `-` comes after `--`, as with
   `cargo run`, since vc-x1's own flags are read first: `vc-x1 run -V` prints vc-x1's banner,
@@ -1083,28 +1112,29 @@ refused, naming `run --dev`.
 - The binary runs in the current directory, with the terminal, and its exit code is vc-x1's, so
   a failing run fails the same way.
 - Before it runs, its `-V` is read, and a version other than the manifest's is a warning naming
-  the key: the build passed but left an older binary where the config says. A binary whose `-V`
-  prints no version, another project's, is run without the check.
+  the profile's `bin`: the build passed but left an older binary where the config says. A binary
+  whose `-V` prints no version, another project's, is run without the check.
 - `--dry-run` prints the build's list and the command, and runs nothing.
-- Completion is the binary's own: `vc-x1 run --dev <words><TAB>` asks the dev build, in clap's
-  completion mode, to complete `<words>`, so in iiac-perf `vc-x1 run --dev run <TAB>` offers its
-  benches. The binary is asked as it stands, never built, and one that is not there, or answers
-  nothing, offers nothing. A binary built with clap's dynamic completion answers; another offers
-  nothing.
+- Completion is the binary's own: `vc-x1 run --profile dev <words><TAB>` asks the dev build, in
+  clap's completion mode, to complete `<words>`, so in iiac-perf
+  `vc-x1 run --profile dev run <TAB>` offers its benches. The binary is asked as it stands, never
+  built, and one that is not there, or answers nothing, offers nothing. A binary built with clap's
+  dynamic completion answers; another offers nothing.
 
 ```
 # The smoke check before install: build the release and print its version
 vc-x1 run -- -V
 
 # Try the rung's code: build the dev build and run its status
-vc-x1 run --dev status -s b
+vc-x1 run --profile dev status -s b
 
 # See what would run
-vc-x1 run --dev --dry-run status -s b
+vc-x1 run --profile dev --dry-run status -s b
 ```
 
 | Option | Description |
 |--------|-------------|
+| `--profile <NAME>` | Build and run the profile `NAME`, given before the arguments [default: `[build] default-profile`, else release] |
 | `--dry-run` | Print the build's list and the command, and run nothing |
 | `-R, --repo <DIR>` | Workspace to run from [default: the one containing the current directory] |
 | `[ARGS]...` | Arguments for the binary, after `--` when the first starts with `-` |
@@ -1306,7 +1336,8 @@ default = 68
 
 ### Workspace config tables
 
-A work-side `.vc-config.md` holds up to eight tables:
+A work-side `.vc-config.md` holds up to eight tables, and a `[profile.<name>]` table per build
+profile:
 
 - `[repos]`: the two repos' local paths, written by `init`. The one table the agent repo's config
   carries too.
@@ -1320,12 +1351,17 @@ A work-side `.vc-config.md` holds up to eight tables:
   layer before.
 - `[validate]` (0.80.0): the commands that validate this repo, also prose in the project layer
   before.
-- `[build]` (0.85.7): the dev and release builds, and the binaries they leave, read by `build`,
-  `build --dev`, `run`, `run --dev`, `install`, and `install --dev` ([Build and
-  install](#build-and-install)).
-- `[install]` (0.85.7): in `[build]`'s order, `release` and `dev`, optional lists run in place of
-  the copy, and `release-dir` and `dev-dir`, where `install` copies the release build and
-  `install --dev` the dev build, `~` expanded.
+- `[build]` (0.85.7): `commands`, the build for every profile, and `default-profile`, the profile
+  `build`, `run`, and `install` use when `--profile` is left out, else `release`
+  ([Build and install](#build-and-install)).
+- `[install]` (0.85.7): `dir`, where `install` copies every profile's binary, `~` expanded, and
+  `commands`, an optional list run in place of the copy.
+- `[profile.<name>]` (0.85.15): one table per profile `--profile` chooses among, its `cargo`, the
+  `Cargo.toml` profile, or `flags`, its `bin`, required, its `suffix`, and any other property the
+  lists fill as `{profile.<property>}`. The nine per-build keys before them, `[build]` `release`,
+  `dev`, `release-bin`, and `dev-bin` and `[install]` `release`, `dev`, `release-dir`, `dev-dir`,
+  and `dev-suffix`, are retired: `validate-config` reports each with its replacement, and the
+  commands refuse a config still on the old form, naming the profile form.
 - `[agent-files.diff]` and `[agent-files.copy]` (0.83.0): the defaults for the `agent-files`
   commands' `DIR` operand and `--custom` choice.
 
@@ -1363,24 +1399,28 @@ fast = ["cargo test --bins"]      # the subset a ladder rung runs
 
 ```toml
 [build]
-release = ["cargo build --release --locked"]  # the release build
-release-bin = "target/release/vc-x1"  # its binary, copied by install
-dev = ["cargo build --locked"]    # the dev build
-dev-bin = "target/debug/vc-x1"    # its binary, run by run --dev, copied by install --dev
+commands = ["cargo build --profile {profile.cargo} --locked"]  # the build for every profile
+default-profile = "release"       # used when --profile is left out, release when absent
 ```
 
 ```toml
 [install]
-release = [                       # the release install, the copy written out
-  "cp {build.release-bin} {install.release-dir}/vc-x1.new",
-  "mv {install.release-dir}/vc-x1.new {install.release-dir}/vc-x1",
+dir = "~/.cargo/bin"              # where install copies every profile's binary
+commands = [                      # the install, the copy written out
+  "cp {profile.bin} {install.dir}/vc-x1{profile.suffix}.new",
+  "mv {install.dir}/vc-x1{profile.suffix}.new {install.dir}/vc-x1{profile.suffix}",
 ]
-release-dir = "~/.cargo/bin"      # where install copies the release build
-dev = [                           # the dev install, as vc-x1-dev
-  "cp {build.dev-bin} {install.dev-dir}/vc-x1-dev.new",
-  "mv {install.dev-dir}/vc-x1-dev.new {install.dev-dir}/vc-x1-dev",
-]
-dev-dir = "~/.cargo/bin"          # where install --dev copies the dev build
+```
+
+```toml
+[profile.release]
+cargo = "release"                 # the Cargo.toml profile, filled as {profile.cargo}
+bin = "target/release/vc-x1"      # its binary, run by run, copied by install
+
+[profile.dev]
+cargo = "dev"
+bin = "target/debug/vc-x1"
+suffix = "-dev"                   # installed as vc-x1-dev, beside vc-x1
 ```
 
 ```toml

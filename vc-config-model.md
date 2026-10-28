@@ -92,38 +92,41 @@ fast = ["cargo test --bins"]
 ```
 
 The `[build]` table
-- release: The release build, in order, one invocation per element, run by `vc-x1 build` [[17]]
-- release-bin: The release build's binary, run by `vc-x1 run` and copied by `vc-x1 install` [[18]]
-- dev: The dev build, in order, one invocation per element, run by `vc-x1 build --dev` [[19]]
-- dev-bin: The dev build's binary, run by `vc-x1 run --dev` and copied by `vc-x1 install --dev`
-  [[20]]
+- commands: The build for every profile, in order, `{profile.<property>}` filled from the chosen
+  profile [[17]]
+- default-profile: The profile used when --profile is left out [[18]]
 ```toml
 [build]
-release = ["cargo build --release --locked"]
-release-bin = "target/release/vc-x1"
-dev = ["cargo build --locked"]
-dev-bin = "target/debug/vc-x1"
+commands = ["cargo build --profile {profile.cargo} --locked"]
+default-profile = "release"
 ```
 
 The `[install]` table
-- release: Optional, the release install run by `vc-x1 install` in place of its own copy [[21]]
-- release-dir: Where `vc-x1 install` copies the release build, `~` expanded [[22]]
-- dev: Optional, the dev install run by `vc-x1 install --dev` in place of its own copy [[23]]
-- dev-dir: Where `vc-x1 install --dev` copies the dev build, `~` expanded [[24]]
-- dev-suffix: Appended to the dev build's file name by `vc-x1 install --dev` [[25]]
+- dir: Where `vc-x1 install` copies the chosen profile's binary, `~` expanded [[19]]
+- commands: Optional, the install for every profile, run in place of the built-in copy [[20]]
 ```toml
 [install]
-release = [
-  "cp {build.release-bin} {install.release-dir}/vc-x1.new",
-  "mv {install.release-dir}/vc-x1.new {install.release-dir}/vc-x1",
+dir = "~/.cargo/bin"
+commands = [
+  "cp {profile.bin} {install.dir}/vc-x1{profile.suffix}.new",
+  "mv {install.dir}/vc-x1{profile.suffix}.new {install.dir}/vc-x1{profile.suffix}",
 ]
-release-dir = "~/.cargo/bin"
-dev = [
-  "cp {build.dev-bin} {install.dev-dir}/vc-x1{install.dev-suffix}.new",
-  "mv {install.dev-dir}/vc-x1{install.dev-suffix}.new {install.dev-dir}/vc-x1{install.dev-suffix}",
-]
-dev-dir = "~/.cargo/bin"
-dev-suffix = "-dev"
+```
+
+The `[profile.<name>]` table
+- cargo: The Cargo.toml profile this profile builds, filled as {profile.cargo} [[21]]
+- flags: The build's flags, filled as {profile.flags}, one word per item [[22]]
+- bin: The binary the profile's build leaves, run by `vc-x1 run` and copied by `vc-x1 install`
+  [[23]]
+- suffix: Appended to the installed binary's file name, empty when absent [[24]]
+- <property>: Any other property of a profile, filled as {profile.<property>} [[25]]
+```toml
+[profile.<name>]
+cargo = "release"
+flags = ["--release"]
+bin = "target/release/vc-x1"
+suffix = "-dev"
+<property> = "value"
 ```
 
 The `[commit]` table
@@ -182,15 +185,15 @@ fixtures = ".fixtures"
 [14]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#squash-pushyes
 [15]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefull
 [16]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefast
-[17]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#buildrelease
-[18]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#buildrelease-bin
-[19]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#builddev
-[20]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#builddev-bin
-[21]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installrelease
-[22]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installrelease-dir
-[23]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev
-[24]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev-dir
-[25]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdev-suffix
+[17]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#buildcommands
+[18]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#builddefault-profile
+[19]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdir
+[20]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installcommands
+[21]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamecargo
+[22]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenameflags
+[23]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamebin
+[24]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamesuffix
+[25]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenameproperty
 [26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#commitpush
 [27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recorddoing
 [28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recordclosed
