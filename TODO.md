@@ -61,6 +61,28 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### abandon and revert set a mistake aside
+
+(wink + agent, 2026-10-29) The dead end of **feat: undo takes back the last vc-x1 run**: what the
+agent made, or a trailer names, is never deleted, so a mistake is set aside going forward rather
+than taken back.
+
+- Abandon: a line's tail is kept under a permanent `dead-end-<id>` bookmark, pushed so every
+  `ochid:` still resolves, the cycle's bookmark moved back to the chosen commit with a leased push,
+  and a `commit -s b` on top saying what was dropped and why. The `<id>` sorts by time.
+- Revert: a change in the middle is taken back by a new commit at the tip applying its inverse,
+  never by removing it and rebasing what followed, which rewrites published commits into trees no
+  validation saw.
+- Draft lines only: nothing on the trunk's remote is abandoned or reverted by these, the trunk
+  fixed forward by a new cycle, and a bad release marked rather than renamed.
+- The agent-repo is never rewound while the agent runs. After `/exit` a rewind is possible, and it
+  truncates the transcript, so it is a deliberate act, never a side effect.
+- Work only a person touched and nothing references is theirs, raw `jj undo` included.
+- Open: the name, `dead-end-<id>` beside the dead-end closing's own term, the `<id>`'s form, and
+  whether abandon discards when nothing references the tail.
+- **squash-push shows what it takes, and push follows jj** leaned on undo, its "local acts are not
+  refused, since undo takes them back", and is to be reread against this.
+
 ### squash-push shows what it takes, and push follows jj
 
 (wink + agent, 2026-10-28) The rules for rewriting what is published, from the opening that became
@@ -143,6 +165,82 @@ than the draft.
 
 - Push's dry run takes the target the advance would leave, or commit's dry run says the push
   without asking push.
+
+### A bookmark set to where it is commits no operation
+
+(agent, 2026-10-29) `Session::bookmark_set` commits a transaction whether or not the bookmark moves,
+so a `commit -s b` leaves two identical "point bookmark ... to commit ..." operations, the commit's
+advance and push's, 3 s apart. Found in `jj op log` at the rung **feat: op lists each run and its
+operations** of **feat: undo takes back the last vc-x1 run**.
+
+- A transaction with no change is dropped rather than committed, `repo_mut().has_changes()`, in
+  `bookmark_set` or in `finish_tx` for every caller.
+- Each wasted operation is one more line in the op log and one more step an undo walks back.
+
+### The run record misses workspace init
+
+(agent, 2026-10-29) A `clone` run's first operation in each repo, jj-lib's `add workspace
+'default'`, carries no run record, since it is made before vc-x1 opens a transaction. The record is
+set at four places, `Session::start_tx` and the snapshot and the two git imports, and workspace
+init is a fifth. Seen in a fresh `vc-x1-dev clone`, whose other three operations per repo carry
+the run.
+
+- Tag it, or treat the operation before a run's first as the run's base, which is what an undo
+  restores to either way.
+- `init` makes the same operation and is the other case to check.
+
+### vc-x1 stamps no user, host, or workspace on its operations
+
+(agent, 2026-10-29) In `jj op log` raw jj's operations read `wink@3900x default@` and vc-x1's read
+`@`, with no user or host, and its snapshots carry no workspace either. In this work-repo 543
+operations are raw jj's, 427 vc-x1's with a workspace, and 389 vc-x1's without.
+
+- Set the user and host through jj-lib's settings, as jj-cli does, so vc-x1's operations read as
+  jj's own, the run record saying which run made them.
+- The snapshot path sets the workspace as the transactions do.
+- A missing stamp tells vc-x1's operations from raw jj's today, and is how a stable vc-x1's
+  untagged ones were recognized. The run record replaces that test.
+
+### undo refuses clone and init runs
+
+(wink + agent, 2026-10-29) In a fresh clone the one run `undo --list` offers is the clone, and
+undoing it would restore each repo to its first operation, no remote and nothing fetched. There is
+no state before a `clone` or an `init` worth returning to, and removing the directory is its undo.
+
+- `undo` refuses a run whose command is `clone` or `init`, naming why, and `undo --list` marks it
+  or leaves it out.
+- For **feat: undo takes back the last vc-x1 run** or a cycle after it.
+
+### undo across clones
+
+(wink + agent, 2026-10-28, confirmed 2026-10-29) The op log is local to `.jj` and never pushed, so a
+run made in one clone cannot be listed or undone from another. A fresh `vc-x1-dev clone` of this
+pair begins both op logs at the clone, none of the original's operations carried. Commits carry
+their change ids, `c594f1c0`, `c1e9e653`, and `de2e9af7` identical in both, so `ochid:` trailers
+resolve in a clone.
+
+- The idea: a `vc-x1-run: <id>` trailer on the commits a run makes, so a clone finds a run's
+  commits by their trailer where it has no op log to read.
+- What a clone could undo is open: the commits and pushes a trailer finds, not the local operations
+  only the original saw.
+
+### land lands @- by default
+
+(wink + agent, 2026-10-29) `land`'s `--source` defaults to "the one local bookmark besides
+`--onto`", which depends on every bookmark in the repo and fails once there are two. The rest of
+vc-x1 works from the line's `@-`, `push` moving its bookmark there and `commit --closing` naming it.
+
+- `--source` left out is `@-`, with the work `@` empty: what lands is then the tree validation ran
+  on, and nothing uncommitted is left behind. `commit --closing` without `--land` leaves exactly
+  this, the closing at `@-` and an empty `@`.
+- A non-empty work `@` is refused, naming `--source`, rather than warned about, since a land is
+  pushed and permanent on the trunk. A merge `@`, whose `@-` is ambiguous, is refused too.
+- The empty check is the work-repo's alone: the agent `@` holds the session and is never empty.
+- An explicit `--source` lands what it names, with no check of `@`.
+- The cycle's bookmark is found from `@-` as today: its own, else its nearest parent's above
+  `--onto`, several refused with the list.
+- The help: `--source <BM|REV>`, "The cycle's last commit, a bookmark or a revision [default: @-,
+  with @ empty]".
 
 ### Dry runs interleave: commit, push, and sync
 

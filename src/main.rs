@@ -869,10 +869,9 @@ fn main() -> ExitCode {
     }
 
     // The run record every operation this process commits carries,
-    // begun before any repo is opened, named by the subcommand clap
-    // parsed.
-    // OK: `cmd` is a subcommand, so clap has its name
-    jj::run::begin_run(matches.subcommand_name().unwrap_or("?"));
+    // begun before any repo is opened, the program named as the
+    // banner names it.
+    jj::run::begin_run(banner());
 
     // The version gate: every subcommand, no exceptions beyond
     // `version`, which returned above. Not scoped to the write path,

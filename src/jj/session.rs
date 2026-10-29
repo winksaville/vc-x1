@@ -1526,7 +1526,7 @@ impl git::GitSubprocessCallback for DebugCallback {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::jj::run::{self, RUN_FORMAT, RunAttribute};
+    use crate::jj::run::{self, ARGS_KEY};
 
     /// A gix error classified `class` over an `io::Error` of `kind`,
     /// under a message, built the way gix-lock builds its own.
@@ -1859,17 +1859,9 @@ mod tests {
                 "no {want:?} operation: {descs:?}"
             );
         }
-        let run = run::run();
-        let want = [
-            format!("{}: {}", RunAttribute::Id.key(), run.id),
-            format!("{}: {}", RunAttribute::Command.key(), run.command),
-            format!("{}: ", RunAttribute::Args.key()),
-            format!("{}: {RUN_FORMAT}", RunAttribute::Format.key()),
-        ];
+        let want = format!("{ARGS_KEY}: {}", run::run().args);
         for (desc, attributes) in &ops {
-            for line in &want {
-                assert!(attributes.contains(line), "{desc}: {attributes}");
-            }
+            assert_eq!(attributes, &want, "{desc}");
         }
     }
 }

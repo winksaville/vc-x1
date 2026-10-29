@@ -193,7 +193,8 @@ fn attributes_after(home: &std::path::Path, repo: &std::path::Path, since: &str)
 }
 
 /// `commit -s b` records its run in both repos: every operation it
-/// commits in either carries the same run id and its command line.
+/// commits in either carries one `args` line, the program and its
+/// build, then the arguments, the title kept and the body left out.
 #[test]
 fn cli_commit_records_its_run_in_both_repos() {
     let fx = CliFixture::new("commit-run");
@@ -221,32 +222,26 @@ fn cli_commit_records_its_run_in_both_repos() {
         "--no-push",
     ]));
 
-    let mut ids = Vec::new();
+    let program = format!("vc-x1 {}", env!("CARGO_PKG_VERSION"));
+    let mut lines = Vec::new();
     for (repo, since) in [&work, &agent].into_iter().zip(&since) {
         let ops = attributes_after(&fx.home, repo, since);
         assert!(!ops.is_empty(), "{}: no operations", repo.display());
         for attributes in &ops {
-            let id = attributes
-                .lines()
-                .find_map(|l| l.strip_prefix("vc-x1-run: "))
-                .unwrap_or_else(|| panic!("no run id: {attributes}")); // OK: the assertion
+            assert_eq!(attributes.lines().count(), 1, "one line: {attributes}");
+            let line = attributes
+                .strip_prefix("args: ")
+                .unwrap_or_else(|| panic!("no args line: {attributes}")); // OK: the assertion
+            assert!(line.starts_with(&program), "the program first: {line}");
             assert!(
-                id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit()),
-                "a 128-bit id: {id}"
+                line.ends_with(" commit -s b --title 'feat: hello' --no-push"),
+                "the title kept, the body left out: {line}"
             );
-            ids.push(id.to_string());
-            for line in ["vc-x1-command: commit", "vc-x1-run-format: 1"] {
-                assert!(attributes.lines().any(|l| l == line), "{attributes}");
-            }
-            assert!(
-                attributes.contains("vc-x1-args: ") && attributes.contains(" commit -s b "),
-                "{attributes}"
-            );
-            assert!(attributes.contains("'feat: hello'"), "{attributes}");
+            lines.push(line.to_string());
         }
     }
-    ids.dedup();
-    assert_eq!(ids.len(), 1, "one run, one id: {ids:?}");
+    lines.dedup();
+    assert_eq!(lines.len(), 1, "one run, one line: {lines:?}");
 }
 
 /// A bare `push` is refused: `-s` is required, and the retired

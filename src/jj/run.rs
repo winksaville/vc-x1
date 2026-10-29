@@ -1,148 +1,61 @@
 //! The run record: what every operation a vc-x1 run commits says
 //! about the run that made it.
 //!
-//! A run is one vc-x1 invocation. Its record is written as operation
-//! attributes, jj's string-to-string map, the one jj-cli keeps its
-//! own `args` in, so `jj op log` shows it with no template of ours.
-//! This module is the typed side of that map: the keys are
-//! [`RunAttribute`], the id a [`RunId`], so the strings are made and
-//! read in one place. Every session the process opens shares the
-//! run, so a `-s b` run stamps both repos with one id.
+//! A run is one vc-x1 invocation. Its record is one operation
+//! attribute, `args`, the key jj-cli keeps its own command line in,
+//! so `jj op log` shows `args: vc-x1-dev 0.85.16+c594f1c06ba1 status
+//! -s b` beside `args: jj diff --stat`, the first word naming the
+//! program that ran. Ours carries the build after the program's name,
+//! as the banner does, so an operation says which vc-x1 made it. Every
+//! session the process opens shares the run, so a `-s b` run stamps
+//! both repos with the same line.
 
-use std::fmt;
-use std::str::FromStr;
 use std::sync::OnceLock;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use jj_lib::transaction::Transaction;
 
-/// The run record's format, written with every record, so a later
-/// vc-x1 reading an older operation knows what it is reading.
-pub const RUN_FORMAT: u32 = 1;
-
-/// The keys of the run record in an operation's attributes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RunAttribute {
-    /// The run's [`RunId`].
-    Id,
-    /// The run's subcommand, as clap names it: `commit`, `squash-push`.
-    Command,
-    /// The run's command line, each argument a shell word, for people.
-    Args,
-    /// The record's format, [`RUN_FORMAT`].
-    Format,
-}
-
-impl RunAttribute {
-    /// The attribute's key, as the op store keeps it.
-    pub fn key(self) -> &'static str {
-        match self {
-            Self::Id => "vc-x1-run",
-            Self::Command => "vc-x1-command",
-            Self::Args => "vc-x1-args",
-            Self::Format => "vc-x1-run-format",
-        }
-    }
-}
-
-/// A run's id: 128 bits in the UUID v7 layout, 48 bits of Unix
-/// milliseconds, the version 7, 12 random bits, the variant `0b10`,
-/// and 62 random bits. So ids sort by when their runs began, and
-/// stay unique beyond the one op log they are written in. Written as
-/// 32 lowercase hex digits.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RunId(pub u128);
-
-impl RunId {
-    /// A new id for a run beginning now.
-    pub fn now() -> Self {
-        let ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_millis())
-            .unwrap_or(0); // OK: a clock before 1970 sorts first, its random bits keep it unique
-        Self::from_parts(ms, rand::random::<u128>())
-    }
-
-    /// The id for a run begun at `ms` Unix milliseconds, its random
-    /// fields taken from `random`.
-    fn from_parts(ms: u128, random: u128) -> Self {
-        let timestamp = (ms & 0xffff_ffff_ffff) << 80;
-        let version = 0x7 << 76;
-        let rand_a = ((random >> 64) & 0xfff) << 64;
-        let variant = 0b10 << 62;
-        let rand_b = random & ((1 << 62) - 1);
-        Self(timestamp | version | rand_a | variant | rand_b)
-    }
-}
-
-impl fmt::Display for RunId {
-    /// 32 lowercase hex digits.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:032x}", self.0)
-    }
-}
-
-impl FromStr for RunId {
-    type Err = String;
-
-    /// Exactly 32 hex digits, so a value that is not ours never reads
-    /// as a run.
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() != 32 || !s.bytes().all(|b| b.is_ascii_hexdigit()) {
-            return Err(format!("not a run id, 32 hex digits: {s:?}"));
-        }
-        u128::from_str_radix(s, 16)
-            .map(Self)
-            .map_err(|e| format!("not a run id: {s:?}: {e}"))
-    }
-}
+/// The attribute the record is written under, jj-cli's own.
+pub const ARGS_KEY: &str = "args";
 
 /// One run's record, made once per process.
 #[derive(Debug)]
 pub struct Run {
-    /// The run's id.
-    pub id: RunId,
-    /// The subcommand, as clap names it.
-    pub command: String,
-    /// The command line, each argument a shell word.
+    /// The program and its build, the banner's `<name> <version>`,
+    /// then the command line's arguments, each a shell word, the body
+    /// left out.
     pub args: String,
 }
 
 impl Run {
-    /// A run of `command` beginning now, its command line this
-    /// process's.
-    fn new(command: &str) -> Self {
+    /// A run of `program`, the banner's `<name> <version>`, its
+    /// arguments this process's.
+    fn new(program: &str) -> Self {
+        let args: Vec<String> = std::env::args_os()
+            .skip(1)
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        let params = recorded_args(&args);
         Run {
-            id: RunId::now(),
-            command: command.to_string(),
-            args: std::env::args_os()
-                .map(|arg| shell_word(&arg.to_string_lossy()))
-                .collect::<Vec<_>>()
-                .join(" "),
+            args: if params.is_empty() {
+                program.to_string()
+            } else {
+                format!("{program} {params}")
+            },
         }
-    }
-
-    /// The record as the op store keeps it, key and value.
-    fn attributes(&self) -> [(RunAttribute, String); 4] {
-        [
-            (RunAttribute::Id, self.id.to_string()),
-            (RunAttribute::Command, self.command.clone()),
-            (RunAttribute::Args, self.args.clone()),
-            (RunAttribute::Format, RUN_FORMAT.to_string()),
-        ]
     }
 }
 
 static RUN: OnceLock<Run> = OnceLock::new();
 
-/// Begin this process's run as `command`, the subcommand clap parsed,
-/// before any session commits an operation. Called once, by `main`.
-pub fn begin_run(command: &str) {
-    RUN.get_or_init(|| Run::new(command));
+/// Begin this process's run as `program`, the banner's `<name>
+/// <version>`, before any session commits an operation. Called once,
+/// by `main`.
+pub fn begin_run(program: &str) {
+    RUN.get_or_init(|| Run::new(program));
 }
 
 /// This process's run: the one `begin_run` made, or where nothing
-/// began one, a test, one made on first use with the command `?`.
+/// began one, a test, one made on first use with the program `?`.
 pub fn run() -> &'static Run {
     RUN.get_or_init(|| Run::new("?"))
 }
@@ -152,9 +65,45 @@ pub fn run() -> &'static Run {
 /// takes it: `RepoSession::start_tx` and the three the snapshot cycle
 /// starts on its own.
 pub fn tag_run(tx: &mut Transaction) {
-    for (attribute, value) in run().attributes() {
-        tx.set_attribute(attribute.key().to_string(), value);
+    tx.set_attribute(ARGS_KEY.to_string(), run().args.clone());
+}
+
+/// The flag the record leaves out whole, flag and value: a commit's
+/// body, which the commit carries and which would otherwise repeat on
+/// every operation of the run. A `--title` is kept with its text, one
+/// line that names the run.
+const DROPPED_FLAG: &str = "--body";
+
+/// A value longer than this, in characters, or holding a newline, is
+/// kept as its length whatever flag it follows, so free text another
+/// flag carries stays out. Long enough to keep a deep path.
+const LONG_VALUE: usize = 100;
+
+/// The arguments as the record keeps them: each a shell word,
+/// [`DROPPED_FLAG`] and its value left out, in the `=` form too, and
+/// any other value over [`LONG_VALUE`] or with a newline as its
+/// length.
+fn recorded_args(args: &[String]) -> String {
+    let mut words = Vec::new();
+    let mut drop_next = false;
+    for arg in args {
+        if std::mem::take(&mut drop_next) {
+            continue;
+        }
+        if arg == DROPPED_FLAG {
+            drop_next = true;
+        } else if arg
+            .split_once('=')
+            .is_some_and(|(flag, _)| flag == DROPPED_FLAG)
+        {
+            // Dropped with its value.
+        } else if arg.contains('\n') || arg.chars().count() > LONG_VALUE {
+            words.push(format!("<{} chars>", arg.chars().count()));
+        } else {
+            words.push(shell_word(arg));
+        }
     }
+    words.join(" ")
 }
 
 /// `arg` as a shell word: bare when plain, single-quoted otherwise.
@@ -183,35 +132,47 @@ mod tests {
         assert_eq!(shell_word(""), "''");
     }
 
-    /// The id has the UUID v7 layout: the milliseconds on top, then
-    /// the version and the variant where the layout puts them, and
-    /// random bits everywhere else.
-    #[test]
-    fn run_id_has_the_uuid_v7_layout() {
-        let ms = 0x0123_4567_89ab;
-        let id = RunId::from_parts(ms, u128::MAX);
-        assert_eq!(id.0 >> 80, ms);
-        assert_eq!((id.0 >> 76) & 0xf, 0x7);
-        assert_eq!((id.0 >> 62) & 0b11, 0b10);
-        assert_eq!(id.to_string(), "0123456789ab7fffbfffffffffffffff");
-        let zero = RunId::from_parts(ms, 0);
-        assert_eq!(zero.to_string(), "0123456789ab70008000000000000000");
+    fn args(line: &[&str]) -> String {
+        recorded_args(&line.iter().map(|s| s.to_string()).collect::<Vec<_>>())
     }
 
-    /// Ids sort by when their runs began, whatever their random bits.
+    /// A body is left out whole, flag and value, in the `=` form and
+    /// as a path too, and a title keeps its text.
     #[test]
-    fn run_ids_sort_by_time() {
-        assert!(RunId::from_parts(1, u128::MAX) < RunId::from_parts(2, 0));
+    fn recorded_args_drop_the_body_and_keep_the_title() {
+        assert_eq!(
+            args(&[
+                "commit", "-s", "b", "--title", "feat: x", "--body", "A\n\nB."
+            ]),
+            "commit -s b --title 'feat: x'"
+        );
+        assert_eq!(
+            args(&["squash", "--title=feat: x", "--body=b", "--body", "@b.md"]),
+            "squash '--title=feat: x'"
+        );
     }
 
-    /// An id reads back as itself, and a value that is not 32 hex
-    /// digits is no id.
+    /// Text another flag carries is left out by its shape, a newline
+    /// or a length over the limit, and a deep path is kept.
     #[test]
-    fn run_id_round_trips_and_refuses_other_values() {
-        let id = RunId::now();
-        assert_eq!(id.to_string().parse::<RunId>(), Ok(id));
-        for other in ["", "97d669fcc2f1e9c9", &format!("{id}0"), &"g".repeat(32)] {
-            assert!(other.parse::<RunId>().is_err(), "{other:?}");
-        }
+    fn recorded_args_leave_out_long_or_multiline_values() {
+        let long = "x".repeat(LONG_VALUE + 1);
+        let path = format!("/{}", "d/".repeat(40));
+        assert_eq!(
+            args(&["x", "--note", "a\nb", "--other", &long, "-R", &path]),
+            format!(
+                "x --note <3 chars> --other <{} chars> -R {path}",
+                LONG_VALUE + 1
+            )
+        );
+    }
+
+    /// The record is the program, then the arguments, and the program
+    /// alone when there are none.
+    #[test]
+    fn a_run_is_its_program_then_its_arguments() {
+        let run = Run::new("vc-x1 0.1.0+abc");
+        assert!(run.args.starts_with("vc-x1 0.1.0+abc"), "{}", run.args);
+        assert_eq!(recorded_args(&[]), "");
     }
 }

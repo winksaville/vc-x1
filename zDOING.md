@@ -15,7 +15,23 @@ Where the agent was, for the agent that comes next. Ephemeral, never a record: r
 on, and reset to `_None._` by the reader. Kept here by the trial and no longer in `TODO.md`,
 where [Acquaint](AGENTS.md#acquaint) still says to look.
 
-_None._
+Written 2026-10-29, the rung reshaped in review, wink's go:
+
+- Next: the closing, [feat: undo takes back the last vc-x1 run dead-end closing][p3], once
+  [feat: each vc-x1 operation records its command line][p2] is pushed. `vc-x1-dev` is installed
+  from that rung's work, and its operations show the one `args` line.
+- The cycle closes as a dead end after this rung, wink's (2026-10-29): the undo rungs are out of the
+  ladder, the Solution and Acceptance check cut to the record, and **abandon and revert set a
+  mistake aside** filed first in `## Todo`.
+- Open threads, not acted on:
+  - `src/jj/session.rs.orig`, 59 KB, dated 2026-10-15, is tracked in the repo. Asked whether to
+    file a Todo to remove it, with no answer yet.
+  - Seven Todos filed 2026-10-29 in `TODO.md`. With no undo, **undo refuses clone and init runs**
+    and **undo across clones** are moot, asked whether to delete them, no answer yet.
+  - Land's terminology: `vc-x1 land` integrates onto any `--onto`, the rules' Land also installs
+    and assumes `main`. Fold the fix into the v0.3.1 proposal or file it, asked with no answer.
+  - The two record rungs were committed with `vc-x1-dev`, a bend covering each commit alone. Ask
+    before the closing which binary to use.
 
 ## In Progress
 
@@ -39,70 +55,26 @@ lease that the restore has made stale.
 
 - Each vc-x1 run records itself in the op log jj already keeps, with no state file to disagree
   with it:
-  - a run is one vc-x1 invocation, and a write is a run that commits an operation other than a
-    working-copy snapshot or a git import, the operations nearly every run makes first
-  - every operation a run commits carries the run's record as operation attributes,
-    `Transaction::set_attribute`, the map jj-cli keeps its own `args` in, so `jj op log` shows them
-  - the record is typed on our side, the map being strings: its keys an enum, its id a 128-bit
-    `RunId` in the UUID v7 layout, its command the subcommand clap parsed, its command line for
-    people, and a format version
-  - they are set where each transaction starts: `Session::start_tx` and the three that start their
+  - a run is one vc-x1 invocation, and it commits several operations, possibly in both repos
+  - every operation a run commits carries one attribute, `args`, the key jj-cli keeps its own
+    command line in, set by jj-lib's `Transaction::set_attribute`, so `jj op log` shows `args:
+    vc-x1-dev 0.85.16-2+c594f1c06ba1 validate --fast` beside `args: jj diff --stat`
+  - its value is the banner's program and build, then the arguments, the body left out and the
+    title kept
+  - it is set where each transaction starts: `Session::start_tx` and the three that start their
     own, the working-copy snapshot and the git HEAD and git refs imports.
-- `op log -s w|a|b|p` shows the op log by run, read with jj-lib (`op_walk::walk_ancestors` and each
-  operation's metadata), the display ours since jj's templates and graph are jj-cli's:
-  - a line per run, newest first: its id, when it ran, its command, and its operations in each
-    scoped repo, a write told apart from a run that only snapshotted, `-s b` showing a run that
-    touched both repos as one line
-  - `--ops` lists each run's operations, and the untagged ones too, raw jj commands and operations
-    from before the recording, and `--limit N` bounds it
-  - read-only, with no snapshot, so looking at the log adds nothing to it
-  - its reader, the operations walked, grouped by run, and each run's pushes found by comparing the
-    remote-tracking bookmarks before and after it, is the one `undo --list` uses.
-- `undo --list -s w|a|b|p` shows what undo can take, a run being the unit, so a `commit --closing
-  --land` is one line however many operations it made:
-  - a line per write, newest first: its id, when it ran, its command, the repos it touched with
-    each one's operation count, and what it pushed, `main` from O to N or a bookmark deleted at O
-  - a run that also acted outside the repos, an install or files init wrote, is flagged, since undo
-    reaches the repos alone
-  - `--ops` lists the operations under each line, `-v` being the global verbose flag already.
-- `undo -s w|a|b|p` takes back the last write in the scoped repos, `-s b` both together, its
-  operations in every repo as one unit:
-  - the commits and bookmarks the write changed are reverted, the way `jj op revert` does it, a
-    three-way merge of the state after the write's last operation back to the state before its
-    first, onto the current one, so the named-run case below reuses it
-  - the working copy keeps what is on disk now, `@` made to hold it, so an edit after the write and
-    the agent journal the session keeps appending to are never cut back
-  - an operation after the write other than a working-copy snapshot, another vc-x1 write or a raw
-    jj command, is refused and named, since undoing the write would undo it too.
-- undo rolls back what the write pushed: each remote bookmark it moved, from O to N, is shown and
-  asked for, then pushed back to O with the lease at N, so a remote someone moved since is reported
-  rather than overwritten, and one it deleted is recreated at O, the lease that it is still absent.
-- `undo --run <id>` takes back an earlier write, later writes kept, when what followed is
-  independent of it:
-  - the id is the one `undo --list` shows
-  - the revert is computed without being committed, and a result with a conflicted bookmark, a
-    divergent change, or a remote bookmark moved since the write is refused, what tangled named
-  - a clean result is shown and asked for, its push-backs as above.
-- One undo per write: a redo is later, the attributes carrying it.
-- The help, the README, and the agent-files name undo as how a mistake is taken back.
+- `jj op log` is the view of it: vc-x1 adds no reader of its own.
+- No undo: the cycle stops after the record, a dead end, wink's (2026-10-29), the reasons in the
+  Deliberation. A mistake is set aside going forward instead, a line's tail abandoned under a
+  `dead-end-<id>` bookmark and a change reverted by a new commit, **abandon and revert set a mistake
+  aside** in `TODO.md`.
 
 #### Acceptance check
 
 `cargo test` passes with tests that:
 
-- every write command's operations carry the run's attributes, in each repo it touches
-- `op log` shows a `-s b` run as one line with each repo's operations, a snapshot-only run as no
-  write, and with `--ops` the untagged operations, and commits no operation itself
-- `undo --list` shows a `commit --closing --land` as one write with both repos' counts and its
-  pushes, leaves out snapshot-only runs and raw jj commands, and with `--ops` lists the operations
-- the mistake: hours of work in the work `@`, `squash-push -s b`, then `undo -s b` puts the work back
-  in `@`, `@-` as it was, and the work bookmark on `origin` back at O, and an agent journal written
-  in between survives
-- `undo -s w`, `-s a`, and `-s p` take back their own repo's run alone
-- an operation after the run is refused and named, a declined push-back leaves the remote as it is,
-  and a remote moved since the run fails its lease and is reported
-- `undo --run` takes back an earlier write with an independent write after it, the later one kept,
-  and refuses one whose later writes built on it or moved its bookmark, naming them.
+- every write command's operations carry the run's one `args` line, in each repo it touches, the
+  program and its build first, the title kept and the body left out.
 
 #### Deliberation
 
@@ -122,7 +94,22 @@ lease that the restore has made stale.
   by time at no visible cost, since people type a prefix. A random id needs no counter to
   coordinate, which a sequence would. The command is its own attribute, so undo can reason by
   command without parsing the command line, and the format version lets a later vc-x1 read an
-  older record.
+  older record. Replaced by one `args` line on 2026-10-29, below.
+- The record is one `args` line, wink's (2026-10-29), after reading `jj op log` beside `op --list`:
+  - four lines per operation were noise, `vc-x1-command` the first word of `vc-x1-args`, and the
+    format meaningful only to a reader, which `op` was alone
+  - the run id groups a run's operations exactly, needed only to tell apart identical commands run
+    back to back, rare enough to give up, and an id can come back under its own key if a need does
+  - the build is worth more than the id: an operation then says which vc-x1 made it, so a bug is
+    pinned to the builds that have it, the redundant bookmark operation found this way
+  - the key is jj-cli's `args`, wink's pick over `app`, so every operation reads alike and the
+    first word names the program, `jj` or `vc-x1`.
+- No undo, wink's (2026-10-29): what the agent made or a trailer names is never deleted, only
+  abandoned forward, a `dead-end-<id>` bookmark and a `commit -s b` saying so, a change in the
+  middle reverted by a new commit, and the agent-repo never rewound while the agent runs. Work only a person touched and nothing references is theirs to change, raw jj included. So
+  the undo rungs went, and the cycle closes as a dead end after the record, wink's call over
+  rescoping it to abandon and revert: the closing keeps the opening's title, which would claim
+  undo, and that design deserves its own opening.
 - The files on disk are not restored: a plain `jj op restore` checks out the old `@`, which would cut
   the live session's journal back and overwrite edits made since.
 - The push-back asks: it is an outward action, so it takes the user's go like any push.
@@ -132,30 +119,29 @@ lease that the restore has made stale.
   named run as its own rung. In the squash-push case the later work usually builds on the folded
   `@-`, so the named run helps most when the mistake is caught early or the later work was
   elsewhere.
-- `op log`, wink's (2026-10-28): once runs are recorded, vc-x1 should show them itself, vc-x1
+- `op --list`, wink's (2026-10-28): once runs are recorded, vc-x1 should show them itself, vc-x1
   being the interface and jj the engine. jj-lib walks the op log and gives each operation's
   metadata, and only the display is jj-cli's, so ours is shaped by runs, which jj knows nothing
-  of. It comes right after the recording so the undo rungs have it while they are built.
-- `undo --list` beside `op log`, wink's call (2026-10-28), held open to see how it feels: the run is
+  of. It comes right after the recording so the undo rungs have it while they are built. Dropped in
+  review, wink's (2026-10-29): `jj op log` read better, counting operations where `op --list -n`
+  counted runs, with one order throughout, and once the record is one line it shows everything.
+- `undo --list` beside `op --list`, wink's call (2026-10-28), held open to see how it feels: the run is
   the unit a person thinks in, so `commit --closing --land` is undone whole, its ten-odd operations
   and its pushes, and the pieces stay out of sight until asked for. `undo --list` shows exactly what
-  undo can take, and `op log` everything, from one reader. `--ops` opens the pieces, not `-v`, which
+  undo can take, and `op --list` everything, from one reader. `--ops` opens the pieces, not `-v`, which
   is the global debug log. A trial undo for every listed run was weighed and left out: it costs a
   revert per line and goes stale with the next operation.
-- **sync --undo takes back the last sync** may become a case of it, a sync being a vc-x1 run.
+- **sync --undo takes back the last sync** may become a case of it, a sync being a vc-x1 run. With
+  no undo it stays its own Todo.
 - Multi-step: the recording, the op log, the local undo, the push-back, the named run, and the
-  docs, each reviewable alone.
+  docs, each reviewable alone. The dead end cut it to the recording.
 
 #### Ladder
 
 - [feat: undo takes back the last vc-x1 run opening][p0] (done)
 - [feat: each vc-x1 write records its run in the op log][p1] (done)
-- [feat: op log shows each run and its operations][p2]
-- [feat: undo restores the repos to before the last run][p3]
-- [feat: undo rolls back the last run's pushes][p4]
-- [feat: undo takes back a chosen run when what followed is independent][p5]
-- [docs: undo is how a mistake is taken back][p6]
-- [feat: undo takes back the last vc-x1 run closing][p7]
+- [feat: each vc-x1 operation records its command line][p2] (done)
+- [feat: undo takes back the last vc-x1 run dead-end closing][p3]
 
 ##### feat: undo takes back the last vc-x1 run opening
 
@@ -190,39 +176,47 @@ Every operation a vc-x1 run commits now says which run made it:
   the work in progress being typical: the rule names `vc-x1 commit`, and the bend covers this
   commit and its push alone. It is the first write whose operations carry the record.
 
-##### feat: op log shows each run and its operations
+##### feat: each vc-x1 operation records its command line
 
-`op log -s w|a|b|p`: the op log by run, read with jj-lib, `--ops` for each run's operations.
+The run record becomes one line, `args: <program> <version+commit> <arguments>`, and `jj op log` its
+view:
 
-##### feat: undo restores the repos to before the last run
+- The record is one attribute, `args`, jj-cli's own key, wink's (2026-10-29), so a vc-x1 operation
+  reads as a jj one does, `args: vc-x1-dev 0.85.16-2+c594f1c06ba1 validate --fast` beside `args: jj
+  diff --stat`.
+- The program is the banner's, `<invoked name> <version>`, `main` passing it as it begins the run,
+  so the line says which build made the operation, `.dirty` included, and a test with no `main`
+  gets `?`.
+- The arguments keep the rules this rung first wrote, wink's (2026-10-28), after the first tagged
+  commit repeated its whole title and body on each of its operations:
+  - `--body` is left out whole, flag and value, in the `=` form and as `@PATH` too, since the
+    commit carries it and every commit has one
+  - a `--title` keeps its text, one line that names the run, wink's call in review after `<text>`
+    for both was tried
+  - any other value with a newline or over 100 characters is kept as its length, `<N chars>`, so
+    text a later flag carries stays out while a deep path is kept.
+- Gone with it: the run id and its UUID v7 layout, the command and format attributes, and the
+  typed record's reading side. The operations recorded under the four keys keep them, an operation
+  never being rewritten, local to `.jj`, read by nothing now.
+- `op --list`, built here first and dropped in review, wink's (2026-10-29), with its op log reader
+  and the shared scope resolution and timestamp it brought: `jj op log` counts operations where
+  `op --list -n` counted runs, keeps one order where `--ops` mixed two, and with the record one
+  line shows all of it.
+- Tests: in-process, every operation from the four places a transaction starts carries exactly the
+  run's line, and as a command `commit -s b` leaves one identical line in both repos' new
+  operations, program and version first, the title kept and the body left out. The argument rules
+  are tested alone.
+- Committed with `vc-x1-dev commit -s b`, installed from this rung's work first, wink's call
+  (2026-10-29), dogfooding: the rule names `vc-x1 commit`, and the bend covers this commit and its
+  push alone. Its operations are the first to carry the one `args` line.
 
-`undo --list` and `undo -s w|a|b|p`: the writes listed, and the last one's commits and bookmarks
-reverted as one unit, the files on disk kept, later activity refused.
+##### feat: undo takes back the last vc-x1 run dead-end closing
 
-##### feat: undo rolls back the last run's pushes
-
-Each remote bookmark the run moved is shown, asked for, and pushed back under a lease.
-
-##### feat: undo takes back a chosen run when what followed is independent
-
-`undo --run <id>`, the id from `op log`: an earlier write reverted with the later writes kept, refused
-when they built on it.
-
-##### docs: undo is how a mistake is taken back
-
-The help, the README, and the agent-files.
-
-##### feat: undo takes back the last vc-x1 run closing
-
-Closing out the cycle.
+Closing out the cycle as a dead end: the record kept, undo dropped.
 
 # References
 
 [p0]: #feat-undo-takes-back-the-last-vc-x1-run-opening
 [p1]: #feat-each-vc-x1-write-records-its-run-in-the-op-log
-[p2]: #feat-op-log-shows-each-run-and-its-operations
-[p3]: #feat-undo-restores-the-repos-to-before-the-last-run
-[p4]: #feat-undo-rolls-back-the-last-runs-pushes
-[p5]: #feat-undo-takes-back-a-chosen-run-when-what-followed-is-independent
-[p6]: #docs-undo-is-how-a-mistake-is-taken-back
-[p7]: #feat-undo-takes-back-the-last-vc-x1-run-closing
+[p2]: #feat-each-vc-x1-operation-records-its-command-line
+[p3]: #feat-undo-takes-back-the-last-vc-x1-run-dead-end-closing
