@@ -200,29 +200,11 @@ operations are raw jj's, 427 vc-x1's with a workspace, and 389 vc-x1's without.
 - The snapshot path sets the workspace as the transactions do.
 - A missing stamp tells vc-x1's operations from raw jj's today, and is how a stable vc-x1's
   untagged ones were recognized. The run record replaces that test.
-
-### undo refuses clone and init runs
-
-(wink + agent, 2026-10-29) In a fresh clone the one run `undo --list` offers is the clone, and
-undoing it would restore each repo to its first operation, no remote and nothing fetched. There is
-no state before a `clone` or an `init` worth returning to, and removing the directory is its undo.
-
-- `undo` refuses a run whose command is `clone` or `init`, naming why, and `undo --list` marks it
-  or leaves it out.
-- For **feat: undo takes back the last vc-x1 run** or a cycle after it.
-
-### undo across clones
-
-(wink + agent, 2026-10-28, confirmed 2026-10-29) The op log is local to `.jj` and never pushed, so a
-run made in one clone cannot be listed or undone from another. A fresh `vc-x1-dev clone` of this
-pair begins both op logs at the clone, none of the original's operations carried. Commits carry
-their change ids, `c594f1c0`, `c1e9e653`, and `de2e9af7` identical in both, so `ochid:` trailers
-resolve in a clone.
-
-- The idea: a `vc-x1-run: <id>` trailer on the commits a run makes, so a clone finds a run's
-  commits by their trailer where it has no op log to read.
-- What a clone could undo is open: the commits and pushes a trailer finds, not the local operations
-  only the original saw.
+- The op log is local to `.jj` and never pushed, so these stamps and the run record stay in the
+  clone that made them: a fresh `vc-x1-dev clone` of this pair begins both op logs at the clone,
+  none of the original's operations carried. Commits carry their change ids, `c594f1c0`,
+  `c1e9e653`, and `de2e9af7` identical in both, so `ochid:` trailers resolve in a clone (confirmed
+  2026-10-29).
 
 ### land lands @- by default
 
@@ -567,6 +549,25 @@ verified. The cost, notes written before the Land they describe, suits a close-o
 
 The rule was broken through a whole session with nothing failing, and a deny at the moment of the
 slip is the one fix that does not rely on remembering it.
+
+#### Land is the sequence, and `vc-x1 land` its integrate step
+
+- Land stays the rules' word for the whole sequence that makes a cycle permanent: sync, integrate,
+  install. `vc-x1 land` names the command alone, its integrate step: `--onto` fast-forwarded and
+  pushed and the cycle's bookmark deleted, with no sync and no install. A rule writes "Land" for the
+  sequence and `vc-x1 land` for the command, and never one for the other.
+- Land is onto the trunk, `[cycle] trunk`, `main` when absent, where the rules now assume `main`:
+  Terminology, Sync's "Land syncs", Close-out step 6, and `jj.md`'s Land.
+- `vc-x1 land --onto` a bookmark that is not the trunk, a stack of cycles landing together, is the
+  command and not the sequence: nothing is installed, and the cycle is permanent only when it
+  reaches the trunk.
+
+##### Why: two names for two things
+
+`vc-x1 land` integrates onto any `--onto` and leaves the install to `vc-x1 install`, while the rules'
+Land also installs and assumes `main`, so a reader of either takes the word to mean what the other
+does. Installing only from the trunk keeps the rule above, that the plain `vc-x1` is replaced only
+by what is on the trunk.
 
 #### Not in it
 
