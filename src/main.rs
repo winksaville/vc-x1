@@ -868,6 +868,11 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
+    // The run record every operation this process commits carries,
+    // begun before any repo is opened, the program named as the
+    // banner names it.
+    jj::run::begin_run(banner());
+
     // The version gate: every subcommand, no exceptions beyond
     // `version`, which returned above. Not scoped to the write path,
     // because "read" in jj-lib means "writes nothing the caller

@@ -258,6 +258,27 @@ names each refused file and its size, and the fixes:
 vc-x1 never sets the limit itself, since a repo's value overrides the one the user chose. A file
 the limit refused stays out until one of these is done, and then the command is run again.
 
+### What vc-x1 records in jj's op log
+
+Every operation a vc-x1 command commits, in every repo it touches, carries one attribute, `args`,
+the key jj itself keeps its command line in, so `jj op log` shows which program made each operation
+and with what:
+
+```
+○  5b27bdf2dba6 @ default@ 1 minute ago, lasted 30 milliseconds
+│  commit 53373a7ee89e3c3f5b5ef86de7d688f9731fae12
+│  args: vc-x1-dev 0.85.16-2+c594f1c06ba1.dirty commit -s b --title 'feat: ...'
+○  862268e5f481 wink@3900x default@ 48 minutes ago, lasted 25 milliseconds
+│  snapshot working copy
+│  args: jj diff --stat --no-pager
+```
+
+- The value is the banner's program and build, the commit it was built from and `.dirty` when
+  edits were compiled in, then the arguments.
+- A commit's `--body` is left out, since the commit carries it, and its `--title` is kept. Any
+  other value with a newline or over 100 characters is shown as its length, `<N chars>`.
+- vc-x1 adds no view of its own: `jj op log` reads it, and `jj op restore` is the recovery by hand.
+
 ### Shell completion
 
 vc-x1 provides tab completion for all subcommands and flags using claps

@@ -24,6 +24,9 @@
 //!   repo-creating constructor): each snapshots, mutates in
 //!   one transaction, and finishes (one op per verb, so the op log
 //!   keeps the shape push re-run and manual op restore rely on).
+//! - The run: every operation a session commits, the snapshot cycle's
+//!   included, carries the run's record as operation attributes
+//!   (`super::run`), shared by every session the process opens.
 //!
 //! A session lives as long as its owner wants: `Context` caches one
 //! per repo for a whole invocation, the facade's one-shot wrappers
@@ -65,6 +68,8 @@ use jj_lib::workspace::Workspace;
 use log::{debug, warn};
 use pollster::FutureExt;
 use rand_chacha::ChaCha20Rng;
+
+use super::run::tag_run;
 
 /// Crate-standard boxed-error result, aliased locally for brevity.
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -466,6 +471,7 @@ impl RepoSession {
     /// out the new head and reset the working-copy state to it.
     fn import_git_head(&mut self) -> Result<()> {
         let mut tx = self.repo.start_transaction();
+        tag_run(&mut tx);
         git::import_head(
             tx.repo_mut(),
             self.workspace.workspace_name(),
@@ -576,6 +582,7 @@ impl RepoSession {
         if new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels() {
             debug!("working-copy tree changed; committing snapshot operation");
             let mut tx = self.repo.start_transaction();
+            tag_run(&mut tx);
             tx.set_is_snapshot(true);
             let mut_repo = tx.repo_mut();
             let new_wc_commit = mut_repo
@@ -609,6 +616,7 @@ impl RepoSession {
     fn import_git_refs(&mut self) -> Result<()> {
         let import_options = self.import_options()?;
         let mut tx = self.repo.start_transaction();
+        tag_run(&mut tx);
         git::import_refs(tx.repo_mut(), &import_options).block_on()?;
         if !tx.repo().has_changes() {
             return Ok(());
@@ -677,9 +685,11 @@ impl RepoSession {
         Ok(ignores)
     }
 
-    /// Start a transaction stamped with this workspace's name.
+    /// Start a transaction stamped with this workspace's name and
+    /// this process's run.
     pub fn start_tx(&self) -> Transaction {
         let mut tx = self.repo.start_transaction();
+        tag_run(&mut tx);
         tx.set_workspace_name(self.workspace.workspace_name());
         tx
     }
@@ -1516,6 +1526,7 @@ impl git::GitSubprocessCallback for DebugCallback {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::jj::run::{self, ARGS_KEY};
 
     /// A gix error classified `class` over an `io::Error` of `kind`,
     /// under a message, built the way gix-lock builds its own.
@@ -1780,5 +1791,77 @@ mod tests {
         assert_eq!(let_in, vec![("big.bin".to_string(), 2048)]);
         let listed = files_at(&fx.work, "@-");
         assert!(listed.contains("big.bin"), "{listed}");
+    }
+
+    /// `repo`'s operations after `since`, newest first, each its
+    /// description's first line and its attributes, read by `jj`.
+    fn ops_after(repo: &Path, since: &str) -> Vec<(String, String)> {
+        let template =
+            r#"id ++ "\n" ++ description.first_line() ++ "\n" ++ attributes ++ "\n@@\n""#;
+        let log = op_log(repo, template);
+        let mut ops = Vec::new();
+        for record in log.split("@@") {
+            let mut lines = record.trim().lines();
+            let id = lines.next().unwrap_or_default(); // OK: a record has an id line
+            if id == since {
+                return ops;
+            }
+            let desc = lines.next().unwrap_or_default().to_string(); // OK: checked by the caller
+            ops.push((desc, lines.collect::<Vec<_>>().join("\n")));
+        }
+        panic!("{since} is not in the op log:\n{log}");
+    }
+
+    /// `jj op log` in `repo` with `template`, the working copy left
+    /// alone so `jj` commits no operation of its own.
+    fn op_log(repo: &Path, template: &str) -> String {
+        crate::test_helpers::jj_ok(
+            repo,
+            &[
+                "op",
+                "log",
+                "--no-graph",
+                "--ignore-working-copy",
+                "-T",
+                template,
+            ],
+        )
+    }
+
+    /// Every operation a session commits carries the run, from each
+    /// place a transaction starts: the snapshot, the git refs import,
+    /// a verb's `start_tx`, and the git HEAD import.
+    #[test]
+    fn every_operation_carries_the_run() {
+        let fx = crate::test_helpers::Fixture::new("run-attributes");
+        let since = op_log(&fx.work, r#"id ++ "\n""#)
+            .lines()
+            .next()
+            .expect("the op log's head")
+            .to_string();
+        std::fs::write(fx.work.join("new.txt"), "new\n").expect("write new.txt");
+        crate::test_helpers::git_ok(&fx.work, &["branch", "from-git"]);
+        let mut ses = RepoSession::open(&fx.work).expect("open the repo");
+        ses.commit("feat: new").expect("commit");
+        crate::test_helpers::git_ok(&fx.work, &["checkout", "-q", "--detach", "HEAD~"]);
+        ses.snapshot().expect("snapshot");
+
+        let ops = ops_after(&fx.work, &since);
+        let descs: Vec<&str> = ops.iter().map(|(d, _)| d.as_str()).collect();
+        for want in [
+            "snapshot working copy",
+            "import git refs",
+            "commit ",
+            "import git head",
+        ] {
+            assert!(
+                descs.iter().any(|d| d.starts_with(want)),
+                "no {want:?} operation: {descs:?}"
+            );
+        }
+        let want = format!("{ARGS_KEY}: {}", run::run().args);
+        for (desc, attributes) in &ops {
+            assert_eq!(attributes, &want, "{desc}");
+        }
     }
 }

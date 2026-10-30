@@ -7,246 +7,207 @@ commit's copy of the record.
 
 ## Closed
 
-### feat: build, install, and run take --profile
+### feat: undo takes back the last vc-x1 run
 
-Picked from `## Todo` as **install --dev --release soaks a release candidate** (wink + agent,
-2026-10-27), deferred from **feat: build, install, and run take --dev**, and widened at its
-opening's review into named build profiles, `--profile` replacing `--dev` (wink + agent,
-2026-10-27). The first cycle run in the v0.3.1 form, wink's call (2026-10-27): it begins with
-`commit --opening`, its commit bodies are two paragraphs, the problem and "Solution:", its ladder
-labels count from `[0]`, and its continuation notes go in the closing.
+Picked from `## Todo` as **undo takes back the last operation** (wink + agent, 2026-10-28), at the
+opening of **push refuses rewriting the work trunk**, which this opening first carried and gave up
+for this, wink's call (2026-10-28): undo is the safety net the push and squash rules lean on, so it
+comes first. Run in the v0.3.1 form, wink's call (2026-10-28): every cycle from now on.
 
 #### Problem
 
-A build is chosen by two fixed names, `release` and `dev`, each with its own keys in `[build]` and
-`[install]`, and `--dev` chooses the dev build and the `-dev` name at once. So no other build can be
-made, a custom `Cargo.toml` profile included, and a release build cannot be installed under another
-name for a period of use beside the landed one, a soak: the `[install] dev` list names
-`{build.dev-bin}`, so the dev list with the release build would copy the debug binary.
+A vc-x1 write is local and so can be taken back, but only by raw jj, `jj op restore` in each repo,
+two op logs for `-s b`, the agent-repo's moving with every session write. A `squash-push -s b` that
+folds hours of uncommitted work into `@-` by mistake and pushes it leaves the work recoverable from
+the op log and the remote rewritten, and getting both back means finding the right operation in each
+repo by hand, restoring without clobbering the files on disk, and pushing the bookmark back past a
+lease that the restore has made stale.
 
 #### Solution
 
-What was done:
-
-- A profile is a `[profile.<name>]` table of properties: `cargo`, the `Cargo.toml` profile, the
-  encouraged form, `flags`, a list for a build by flags, `bin`, the binary, required, `suffix`,
-  appended to the installed name, and any other, all filled as `{profile.<property>}`.
-- `build`, `run`, and `install` take `--profile NAME`, else `[build] default-profile`, else
-  `release`, an unknown name refused naming the profiles defined. One `[build] commands` and one
-  optional `[install] commands`, with `[install] dir`, serve every profile, and a copy onto
-  another profile's name in the same directory is refused.
-- `command_list::expand` fills a list-valued placeholder with its items, a word each, none for an
-  empty list, and `run` and `run_one` take lists.
-- `--dev` and the `-dev` commands are refused naming `<command> --profile dev`.
-- The nine old `[build]` and `[install]` keys left the schema and this workspace's config,
-  `validate-config` reporting each with its replacement and the commands refusing a config still
-  on the old form.
-- This workspace defines `release` and `dev`, `dev` with suffix `-dev`, and a soak is one more
-  profile, as `[profile.rc]` installing `vc-x1-rc` showed.
-- The README, `vc-config.md` and its model, the help, `hooks.sh`'s guard test, and the v0.3.1
-  proposal follow.
+- Each vc-x1 run records itself in the op log jj already keeps, with no state file to disagree
+  with it:
+  - a run is one vc-x1 invocation, and it commits several operations, possibly in both repos
+  - every operation a run commits carries one attribute, `args`, the key jj-cli keeps its own
+    command line in, set by jj-lib's `Transaction::set_attribute`, so `jj op log` shows `args:
+    vc-x1-dev 0.85.16-2+c594f1c06ba1 validate --fast` beside `args: jj diff --stat`
+  - its value is the banner's program and build, then the arguments, the body left out and the
+    title kept
+  - it is set where each transaction starts: `Session::start_tx` and the three that start their
+    own, the working-copy snapshot and the git HEAD and git refs imports.
+- `jj op log` is the view of it: vc-x1 adds no reader of its own.
+- No undo: the cycle stops after the record, a dead end, wink's (2026-10-29), the reasons in the
+  Deliberation. A mistake is set aside going forward instead, a line's tail abandoned under a
+  `dead-end-<id>` bookmark and a change reverted by a new commit, **abandon and revert set a mistake
+  aside** in `TODO.md`.
 
 #### Acceptance check
 
-`cargo test` passes with tests that a list-valued placeholder expands to its words, that
-`--profile` chooses the profile's properties for `build`, `run`, and `install`, that an unknown
-profile and `--dev` are refused naming the fix, and that `validate-config` reports the old keys.
-Live, from the rung that lands `--profile` on: `vc-x1-dev install --profile dev` installs
-`vc-x1-dev`, `vc-x1-dev run --profile dev -- -V` prints the dev build's banner, and `vc-x1-dev
-install --profile rc --dir tmp/soak`, with a `[profile.rc]` building `release` under suffix `-rc`,
-installs `tmp/soak/vc-x1-rc`, which `cmp` finds identical to `target/release/vc-x1`.
+`cargo test` passes with tests that:
 
-Result (2026-10-27, at the closing, `vc-x1-dev` 0.85.15): passed.
-
-- Tests: the full validation passed at every rung, the profile rung's 891 tests and the retirement
-  rung's 895 among them, covering list expansion, profile resolution, an unknown profile, `--dev`,
-  the collision guard, the forwarder, and each retired key.
-- Live: `vc-x1-dev install --profile dev` built `cargo build --profile dev` and installed
-  `vc-x1-dev` through `install.commands`; `vc-x1-dev run --profile dev -- -V` printed `vc-x1
-  0.85.15+a9fe7ae2d774.dirty`; `vc-x1-dev build --profile nope` was refused naming `dev, release`.
-- Live, with a `[profile.rc]` added for the check and removed after: `vc-x1-dev install --profile
-  rc --dir tmp/soak` built `cargo build --profile release` and installed `tmp/soak/vc-x1-rc`,
-  which `cmp` found identical to `target/release/vc-x1`, its `-V` naming 0.85.15.
+- every write command's operations carry the run's one `args` line, in each repo it touches, the
+  program and its build first, the title kept and the body left out.
 
 #### Deliberation
 
-- Named profiles over a `--release` beside `--dev`, wink's call at the opening's review
-  (2026-10-27): a profile names the build and the installed name together, so a soak is a profile
-  and not two flags composed, and any build can be made, a custom `Cargo.toml` profile included.
-- Named properties over positions, the agent's suggestion taken (2026-10-27): wink's sketch,
-  `release = ["--release", "--locked", "target/release/vc-x1"]` read as `{profile.release[2]}`,
-  put the meaning in the index, which differed between profiles.
-- One `[build] commands` and one `[install] commands` filled from the chosen profile, rather than a
-  list per profile, since `{profile.<property>}` is the chosen profile's.
-- `Cargo.toml` profiles encouraged, wink's call (2026-10-27), read as a `cargo` property naming the
-  profile, "simpler" since cargo then owns the flags and the directory: wink wrote
-  `{profile.full}` with `[profile].full = "xyz"`, and the name `cargo` is the agent's, provisional.
-  The flags form works too.
-- `release` and `dev` are examples, not built in, wink's call (2026-10-27): any profile can be
-  built. The default when `--profile` is left out is provisional, `[build] default-profile`, else
-  `release`.
-- A list-valued property expands to words, since lists are split before they are filled and an
-  empty value would otherwise be an empty argument cargo refuses.
-- The old keys are refused, not kept working beside the new: two shapes would be two code paths,
-  and `validate-config` names the fix for an adopter on the old one. `install` also refuses an
-  old install list beside no `install.commands`, so a custom list is never silently replaced.
-- Three rungs' work was delegated to subagents, the profile code, the key retirement, and the
-  README, each from a full brief, the agent reviewing each diff and running the full validation
-  before its commit, AGENTS.md's Delegate practice applied to work too long for one context.
-- `cargo` kept as the property's name and `[build] default-profile`, else `release`, as the
-  default, the provisional choices standing at the opening's "lg".
-- `--dev`, landed one cycle ago, retires to `--profile dev`, the treatment the positionals got.
-- Multi-step: the placeholder expansion, the schema, the three commands, the retirement, and the
-  docs, each reviewable on its own.
-- Waiver, wink's "go, complete cycle except for landing on main using the new prototype v0.3.1
-  agent-file version" (2026-10-27), after the opening's push.
-  - Covers every rung from [1] through the closing: the work review, the description review, the
-    per-push approval, and the hard stop after each push.
-  - Does not cover Land: the closing is pushed without `--land`, its shape the default,
-    trapezoid, until wink chooses at the Land.
-  - The v0.3.1 form throughout: two-paragraph bodies ending "See details in zDOING.md.", the rung
-    subsection the full account in `*` and `-` form, and the continuation notes in the closing.
-  - Validation still runs before every push, and a deviation from the plan is still a stop.
+- Undo first, wink's call (2026-10-28): the rules that stop refusing rewrites rest on everything
+  local being undoable, so the net is built before the rules change. The push material went back
+  to `## Todo` as **squash-push shows what it takes, and push follows jj**.
+- The scenario that decided it, wink's (2026-10-28): a `squash-push -s b` folding hours of work by
+  mistake and pushing it. jj keeps every earlier state, so nothing is lost locally, and the push is
+  the part with no one-command way back.
+- The op log is the record, not a file: the attributes travel with the operations, so the last run
+  is found by reading the log, and what it pushed by comparing the remote-tracking bookmarks before
+  and after it.
+- The run record typed, wink's (2026-10-28): the attribute keys an enum and the id an integer, the
+  strings jj stores made and read in one place, and a value that does not parse is no run of ours.
+  The id is 128 bits, not 64: a u64 is ample while ids stay in one repo's local op log, but they
+  will likely leave it, in a trailer, a message, or another engine, and the UUID v7 layout sorts
+  by time at no visible cost, since people type a prefix. A random id needs no counter to
+  coordinate, which a sequence would. The command is its own attribute, so undo can reason by
+  command without parsing the command line, and the format version lets a later vc-x1 read an
+  older record. Replaced by one `args` line on 2026-10-29, below.
+- The record is one `args` line, wink's (2026-10-29), after reading `jj op log` beside `op --list`:
+  - four lines per operation were noise, `vc-x1-command` the first word of `vc-x1-args`, and the
+    format meaningful only to a reader, which `op` was alone
+  - the run id groups a run's operations exactly, needed only to tell apart identical commands run
+    back to back, rare enough to give up, and an id can come back under its own key if a need does
+  - the build is worth more than the id: an operation then says which vc-x1 made it, so a bug is
+    pinned to the builds that have it, the redundant bookmark operation found this way
+  - the key is jj-cli's `args`, wink's pick over `app`, so every operation reads alike and the
+    first word names the program, `jj` or `vc-x1`.
+- No undo, wink's (2026-10-29): what the agent made or a trailer names is never deleted, only
+  abandoned forward, a `dead-end-<id>` bookmark and a `commit -s b` saying so, a change in the
+  middle reverted by a new commit, and the agent-repo never rewound while the agent runs. Work only a person touched and nothing references is theirs to change, raw jj included. So
+  the undo rungs went, and the cycle closes as a dead end after the record, wink's call over
+  rescoping it to abandon and revert: the closing keeps the opening's title, which would claim
+  undo, and that design deserves its own opening.
+- The files on disk are not restored: a plain `jj op restore` checks out the old `@`, which would cut
+  the live session's journal back and overwrite edits made since.
+- The push-back asks: it is an outward action, so it takes the user's go like any push.
+- A mistake noticed late, wink's (2026-10-28): writes made after it may be independent of it, so
+  undoing them too loses good work. jj's revert undoes one operation and keeps the later ones, and
+  the run attributes say which operations make up the write, so undo is built on revert and takes a
+  named run as its own rung. In the squash-push case the later work usually builds on the folded
+  `@-`, so the named run helps most when the mistake is caught early or the later work was
+  elsewhere.
+- `op --list`, wink's (2026-10-28): once runs are recorded, vc-x1 should show them itself, vc-x1
+  being the interface and jj the engine. jj-lib walks the op log and gives each operation's
+  metadata, and only the display is jj-cli's, so ours is shaped by runs, which jj knows nothing
+  of. It comes right after the recording so the undo rungs have it while they are built. Dropped in
+  review, wink's (2026-10-29): `jj op log` read better, counting operations where `op --list -n`
+  counted runs, with one order throughout, and once the record is one line it shows everything.
+- `undo --list` beside `op --list`, wink's call (2026-10-28), held open to see how it feels: the run is
+  the unit a person thinks in, so `commit --closing --land` is undone whole, its ten-odd operations
+  and its pushes, and the pieces stay out of sight until asked for. `undo --list` shows exactly what
+  undo can take, and `op --list` everything, from one reader. `--ops` opens the pieces, not `-v`, which
+  is the global debug log. A trial undo for every listed run was weighed and left out: it costs a
+  revert per line and goes stale with the next operation.
+- **sync --undo takes back the last sync** may become a case of it, a sync being a vc-x1 run. With
+  no undo it stays its own Todo.
+- Multi-step: the recording, the op log, the local undo, the push-back, the named run, and the
+  docs, each reviewable alone. The dead end cut it to the recording.
 
 #### Ladder
 
-- [feat: build, install, and run take --profile opening][p0] (done)
-- [feat: a list-valued placeholder expands to its words][p1] (done)
-- [feat: the config defines named build profiles][p2] (done)
-- [feat: --profile chooses the build and the install][p3] (done)
-- [feat: the old build and install keys are refused][p4] (done)
-- [docs: the README and the agent-files name --profile][p5] (done)
-- [feat: build, install, and run take --profile closing][p6] (done)
+- [feat: undo takes back the last vc-x1 run opening][p0] (done)
+- [feat: each vc-x1 write records its run in the op log][p1] (done)
+- [feat: each vc-x1 operation records its command line][p2] (done)
+- [feat: undo takes back the last vc-x1 run dead-end closing][p3] (done)
 
-##### feat: build, install, and run take --profile opening
+##### feat: undo takes back the last vc-x1 run opening
 
-Opens the cycle: the Todo moved here and widened into profiles, the version bumped.
+Opens the cycle: the Todo moved here, the version bumped.
 
-##### feat: a list-valued placeholder expands to its words
+##### feat: each vc-x1 write records its run in the op log
 
-`command_list`'s filling learns list values: a word that is a list-valued placeholder alone becomes
-its words, none for an empty list.
+Every operation a vc-x1 run commits now says which run made it:
 
-* A list's words are split before its placeholders are filled, so a value is one word, and an
-  empty value would be an empty argument, which cargo refuses.
-  - `command_list::expand` takes list values beside the string ones: a word that is `{name}` alone,
-    for a list, becomes the list's items, one word each, none for an empty one.
-  - `words` stays, the strings-only form, delegating to `expand`, so its callers are unchanged until
-    the profile rung passes lists.
-* A list inside a longer word, `x{flags}`, has no word for its items to share.
-  - It is refused, naming the list and the word, rather than joined with a guessed separator.
-* The refusal for an unknown name offered the string placeholders alone.
-  - It offers the lists too, so a typo is told every name the list may use.
+- The run record is its own module, `src/jj/run.rs`, typed on our side of jj's string map:
+  - `RunAttribute`, an enum, is the keys, each with its one spelling: `vc-x1-run`,
+    `vc-x1-command`, `vc-x1-args`, and `vc-x1-run-format`
+  - `RunId` is a `u128` in the UUID v7 layout, 48 bits of Unix milliseconds, the version, the
+    variant, and 74 random bits, written as 32 hex digits and read back only from exactly that
+  - the command is the subcommand clap parsed, the command line has each argument quoted as a
+    shell word where it needs it, and the format is 1.
+- `main` begins the run before any repo is opened, and a test, with no `main`, gets one on first
+  use with the command `?`.
+- Every transaction a session starts is stamped with the record in jj's own attribute map, the one
+  jj-cli keeps `args` in, so `jj op log` shows it with no template of ours.
+- The stamp goes where each transaction starts: `start_tx`, which every verb uses, and the three
+  the snapshot cycle starts on its own, the working-copy snapshot and the git HEAD and git refs
+  imports. Every session the process opens shares the run, so `-s b` stamps both repos with one
+  id.
+- Tests: in-process, a commit, a git branch, and a git HEAD move make an operation at each of the
+  four places, and every one carries the whole record. As a command, `commit -s b` leaves the same
+  128-bit id in both repos' new operations, with its command, command line, and format. The id's
+  layout, its order by time, and its round trip are tested alone.
+- Not done: vc-x1's operations still carry no hostname or username, since the settings it builds
+  lack the defaults jj-cli adds. The run attributes are what identify them.
+- Committed with `vc-x1-dev commit -s b`, the rung's own build, wink's call (2026-10-28), dogfooding
+  the work in progress being typical: the rule names `vc-x1 commit`, and the bend covers this
+  commit and its push alone. It is the first write whose operations carry the record.
 
-##### feat: the config defines named build profiles
+##### feat: each vc-x1 operation records its command line
 
-The schema's `[profile."<name>"]` tables, `[build] commands` and `default-profile`, and `[install]
-dir` and `commands`, with this workspace's config and the model carrying `release` and `dev`.
+The run record becomes one line, `args: <program> <version+commit> <arguments>`, and `jj op log` its
+view:
 
-* The schema has no key for a profile, a build for every profile, or an install for every profile.
-  - `profile."<name>".cargo`, `flags`, `bin`, and `suffix`, documented each, `flags` a list and
-    the rest strings, and `profile."<name>"."<property>"`, a catch-all, so any property is known:
-    `validate-config` matches a dynamic key by its path, a `<...>` segment matching any one.
-  - `build.commands` and `build.default-profile`, `release` by default, and `install.dir` and
-    `install.commands`, the old keys left beside them until the rung that refuses them.
-* This workspace has no profiles.
-  - `[profile.release]` and `[profile.dev]` name their `Cargo.toml` profiles, `dev` with suffix
-    `-dev`, and `[build] commands` and `[install] dir` and `commands` are added to the existing
-    tables, the config's fences being one TOML document where a table is declared once. The old
-    keys stay, since the installed 0.85.14 reads them for `install --dev` until this cycle lands.
-  - The model is regenerated, and `schema::tests::profile_form` checks the new keys.
+- The record is one attribute, `args`, jj-cli's own key, wink's (2026-10-29), so a vc-x1 operation
+  reads as a jj one does, `args: vc-x1-dev 0.85.16-2+c594f1c06ba1 validate --fast` beside `args: jj
+  diff --stat`.
+- The program is the banner's, `<invoked name> <version>`, `main` passing it as it begins the run,
+  so the line says which build made the operation, `.dirty` included, and a test with no `main`
+  gets `?`.
+- The arguments keep the rules this rung first wrote, wink's (2026-10-28), after the first tagged
+  commit repeated its whole title and body on each of its operations:
+  - `--body` is left out whole, flag and value, in the `=` form and as `@PATH` too, since the
+    commit carries it and every commit has one
+  - a `--title` keeps its text, one line that names the run, wink's call in review after `<text>`
+    for both was tried
+  - any other value with a newline or over 100 characters is kept as its length, `<N chars>`, so
+    text a later flag carries stays out while a deep path is kept.
+- Gone with it: the run id and its UUID v7 layout, the command and format attributes, and the
+  typed record's reading side. The operations recorded under the four keys keep them, an operation
+  never being rewritten, local to `.jj`, read by nothing now.
+- `op --list`, built here first and dropped in review, wink's (2026-10-29), with its op log reader
+  and the shared scope resolution and timestamp it brought: `jj op log` counts operations where
+  `op --list -n` counted runs, keeps one order where `--ops` mixed two, and with the record one
+  line shows all of it.
+- Tests: in-process, every operation from the four places a transaction starts carries exactly the
+  run's line, and as a command `commit -s b` leaves one identical line in both repos' new
+  operations, program and version first, the title kept and the body left out. The argument rules
+  are tested alone.
+- Committed with `vc-x1-dev commit -s b`, installed from this rung's work first, wink's call
+  (2026-10-29), dogfooding: the rule names `vc-x1 commit`, and the bend covers this commit and its
+  push alone. Its operations are the first to carry the one `args` line.
 
-##### feat: --profile chooses the build and the install
+##### feat: undo takes back the last vc-x1 run dead-end closing
 
-The three commands take `--profile`, resolve the chosen profile, and fill `{profile.<property>}`,
-`--dev` refused naming `--profile dev`.
+Closing out the cycle as a dead end: the record kept, undo dropped.
 
-* A build was chosen by `--dev` between two fixed key sets.
-  - `build_cmd::resolve_profile` takes `--profile`, else `build.default-profile`, else `release`,
-    and reads `[profile.<name>]`: string properties become `{profile.<property>}`, list ones, by
-    their bracketed text, list placeholders, `bin` is resolved against the config's directory and
-    required, and `suffix` is offered empty when absent. An unknown name is refused naming the
-    profiles defined.
-  - `build` runs `build.commands` with the profile's placeholders, checked before anything runs,
-    and checks the profile's `bin` after it for every profile, the provenance best effort for all.
-  - `run` runs the profile's build, then its `bin`, and its completion forward skips `--profile x`
-    and `--profile=x`, resolving that profile's binary.
-  - `install` copies to `--dir`, else `install.dir`, under the bin's file name with the suffix, or
-    runs `install.commands` with the profile's placeholders and `{install.dir}`.
-* A dev install was guarded only against the release's name.
-  - Without an install list, a copy whose name equals another profile's in the same directory is
-    refused, both ways, naming both suffix keys and `--dir`.
-* `--dev` was the dev build's flag.
-  - It is hidden and refused naming `<command> --profile dev`, and `build-dev`, `install-dev`, and
-    `run-dev` name it too.
-* The list runner filled strings alone.
-  - `command_list::run` and `run_one` take lists and fill through `expand`, and
-    `check_placeholders` takes list names, `words` kept for the tests alone.
-* The code was written by a subagent from the agent's brief, and the agent reviewed its diff and
-  ran the full validation, 891 tests passing.
-
-##### feat: the old build and install keys are refused
-
-The commands and `validate-config` name the profile form for each old key, and `init` writes it.
-
-* The nine old keys, `[build] release`, `dev`, `release-bin`, `dev-bin`, and `[install]
-  release`, `dev`, `release-dir`, `dev-dir`, `dev-suffix`, were in the schema and this workspace's
-  config, read by nothing since the profile rung.
-  - They leave the schema, `vc-config.md`'s links that named them pointing at the profile keys,
-    and the model is regenerated.
-  - `build_cmd::RETIRED_KEYS` maps each to its replacement, and `validate-config` reports a
-    retired key once, with that sentence, before its unknown-key check.
-* A config on the old form would fail with a missing key and no way forward.
-  - `build`, `run`, and `install` refuse when `build.commands`, `install.dir`, or
-    `install.commands` is absent and an old key is present, naming the keys held, the profile form,
-    and `validate-config`. Without the old keys the errors are as before.
-  - `install` refuses an old install list beside no `install.commands`, so a custom list, a signing
-    step say, is never silently replaced by the built-in copy.
-* This workspace held both forms.
-  - Its `.vc-config.md` keeps the profile form alone, its prose rewritten and its references
-    renumbered, the `--locked`, `.new`-then-move, and under-a-second facts kept.
-* `init` writes no `[build]` or `[install]` keys, so it needed no change: its commented optional
-  keys come from the schema, and `install.dev-suffix` left with it.
-* Written by a subagent from the agent's brief, the diff reviewed and the full validation run by
-  the agent.
-
-##### docs: the README and the agent-files name --profile
-
-The README, the help, and the agent-files' `install --dev`, told to the v0.3.1 proposal.
-
-* The README described two fixed builds, `--dev`, and the nine old keys.
-  - Its overview, Usage, flag table, build, install, and run sections, and its config tables
-    describe profiles, `--profile`, `{profile.<property>}`, and the profile form, with a soak
-    profile, `[profile.rc]` installing `vc-x1-rc`, and a custom `Cargo.toml` profile as examples.
-  - `### install --dev` is `### install --profile`, its one link following, and the retired forms
-    are named where the README says what was retired.
-  - Written by a subagent from the agent's brief, its anchors checked at 0 failed, and the
-    agent tagged the new `[profile.<name>]` table bullet with this cycle's version.
-* `agent-data/hooks.sh`'s guard test named `install --dev`.
-  - It names `install --profile dev`, still a deny, `hooks.sh test` passing its thirteen.
-* **agent-files(proposal): v0.3.1** records the profile rename beside the flags cycles' notes.
-* The help was written with the commands, in the profile rung.
-
-##### feat: build, install, and run take --profile closing
-
-Closing out the cycle.
-
-- Close-out shape: trapezoid, the default, recorded under the waiver, which leaves the choice to
-  wink at the Land, `commit --closing` making the merge, pushed without `--land`.
-- `notes/agent-files-size.md` gained this cycle's column and row, 1855 lines, unchanged, the one
-  agent-file touched being `hooks.sh`.
-- The continuation notes are written in this closing, the first under v0.3.1's rule, and say what
-  the next session checks after the Land.
-- What closing taught: the acceptance check needed a profile this workspace does not keep, so it
-  was added for the check and removed, the check's config not the committed one. A standing
-  `[profile.rc]` would make the soak one command, a choice for wink rather than this closing.
+- Acceptance check: pass (2026-10-29), `every_operation_carries_the_run` and
+  `cli_commit_records_its_run_in_both_repos`, the one `args` line on every operation in each repo a
+  write touches.
+- Tried: undo of the last vc-x1 run, the repos restored to before it, its pushes rolled back, and an
+  earlier run taken back when what followed was independent, with `op --list` and a typed record of
+  four attributes built to serve it.
+- Why it stopped, wink's (2026-10-29): what the agent made or a trailer names is never deleted.
+  Restoring the agent-repo while the session writes it risks the transcript, and removes part of the
+  record from the remote, and undoing the work-repo alone leaves agent trailers naming changes that
+  are gone.
+- What replaces it: **abandon and revert set a mistake aside**, first in `## Todo`, its own cycle.
+- Kept: the record, one `args` line, and a `README.md` section on it. Nothing is reverted, since
+  `op --list` and the typed record never left the rung that built them.
+- Nothing in the block needs a `notes/` file: the principle is in the Todo, and the record is
+  documented in `README.md` and `src/jj/run.rs`.
+- Close-out shape: trapezoid, the default, wink's choice (2026-10-29).
+- Committed with `vc-x1-dev commit -s b --closing`, installed from the closing's work first, wink's
+  call (2026-10-29), dogfooding: the bend covers this commit and its push alone, not the Land.
 
 # References
 
-[p0]: #feat-build-install-and-run-take---profile-opening
-[p1]: #feat-a-list-valued-placeholder-expands-to-its-words
-[p2]: #feat-the-config-defines-named-build-profiles
-[p3]: #feat---profile-chooses-the-build-and-the-install
-[p4]: #feat-the-old-build-and-install-keys-are-refused
-[p5]: #docs-the-readme-and-the-agent-files-name---profile
-[p6]: #feat-build-install-and-run-take---profile-closing
+[p0]: #feat-undo-takes-back-the-last-vc-x1-run-opening
+[p1]: #feat-each-vc-x1-write-records-its-run-in-the-op-log
+[p2]: #feat-each-vc-x1-operation-records-its-command-line
+[p3]: #feat-undo-takes-back-the-last-vc-x1-run-dead-end-closing
