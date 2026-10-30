@@ -547,7 +547,7 @@ mod tests {
             closing: None,
             opening: None,
             advance: crate::commit::Advance::Line,
-            push: Some(false),
+            push: false,
             land: None,
             skip: None,
             dry_run: false,

@@ -23,12 +23,12 @@
 //!   its change id when committed, so the work commit's trailer still
 //!   resolves, and a warning says the back-trailer is missing.
 //! - The commit is pushed in the same invocation, as `vc-x1 push`
-//!   would after it: a pair by `push -s b`, its agent half completed
+//!   would after it, when asked: a pair by `push -s b`, its agent half completed
 //!   as the partner and its bookmark published, a plain repo by
 //!   `push -s p`, and an agent commit by publishing the agent `main`.
-//!   `--no-push` keeps it local, and `--push` pushes it over
-//!   `[commit] push = false`, true when absent. A commit with
-//!   `--no-advance` pushes only with `--push`.
+//!   Only with `--push`: a commit otherwise stays on the machine,
+//!   `--opening`'s bookmark included, which `--local`, or its alias
+//!   `--no-push`, says outright.
 //! - `-s p` commits a plain repo with the title and body and no
 //!   trailer, the same description discipline on a repo with no
 //!   partner.
@@ -76,11 +76,11 @@
 //! - `--opening <BOOKMARK>` makes the work commit the cycle's
 //!   opening: `--title` is the bare cycle title and " opening" is
 //!   appended. The bookmark is created at the work `@-`, where the
-//!   cycle's branch starts, and pushed to `origin`, a name for a
-//!   commit already public, so nothing unreviewed goes out, and the
-//!   opening itself stays local until the push after its review.
-//!   `--skip local` takes a bookmark already at `@-` and pushes it,
-//!   `--skip remote` creates it and pushes nothing, and `--skip both`
+//!   cycle's branch starts, and stays local like the rest unless
+//!   `--push` asks. With `--no-advance --push` it alone is pushed, a
+//!   name for a commit already public, and the opening stays local.
+//!   `--skip local` takes a bookmark already at `@-`, `--skip remote`
+//!   creates it and pushes nothing even with `--push`, and `--skip both`
 //!   only checks it is there. Every check runs before the commit.
 //! - The line's bookmark advances to the work commit, locally: the
 //!   nearest bookmark below the work `@-`, as `push` resolves it, or
@@ -176,14 +176,14 @@ pub struct CommitArgs {
 
     /// Make the work commit the cycle's opening: " opening" is
     /// appended to the bare cycle title, and BOOKMARK is created at
-    /// the work `@-` and pushed to `origin` [default: the bare
-    /// title's slug]
+    /// the work `@-`, and pushed to `origin` with `--push` [default:
+    /// the bare title's slug]
     #[arg(long, value_name = "BOOKMARK")]
     pub opening: Option<Option<String>>,
 
     /// With `--opening`, what it leaves out: `local`, the bookmark is
-    /// already at the work `@-` and is pushed; `remote`, it is created
-    /// and not pushed; `both`, it is only checked. With `--land`, which
+    /// already at the work `@-`; `remote`, it is not pushed even with
+    /// `--push`; `both`, it is only checked. With `--land`, which
     /// side of the cycle's bookmark is kept: `local`, `remote`, or
     /// `both`, none deleted
     #[arg(long, value_enum, value_name = "SIDE")]
@@ -196,7 +196,7 @@ pub struct CommitArgs {
         long,
         value_name = "TRUNK",
         requires = "closing",
-        conflicts_with = "no_push"
+        conflicts_with = "local"
     )]
     pub land: Option<Option<String>>,
 
@@ -211,13 +211,15 @@ pub struct CommitArgs {
     #[arg(long)]
     pub no_advance: bool,
 
-    /// Push what was committed, over `[commit] push = false`
-    #[arg(long, conflicts_with = "no_push")]
+    /// Publish what was committed, a commit otherwise staying on the
+    /// machine
+    #[arg(long, conflicts_with = "local")]
     pub push: bool,
 
-    /// Keep the commit local, over `[commit] push`, true when absent
-    #[arg(long)]
-    pub no_push: bool,
+    /// Keep it on the machine, the default, saying so: nothing is
+    /// pushed, `--opening`'s bookmark included
+    #[arg(long, visible_alias = "no-push")]
+    pub local: bool,
 
     /// Print the descriptions it would write, trailers included, and
     /// commit nothing
@@ -229,9 +231,9 @@ pub struct CommitArgs {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
 pub enum Skip {
     /// The bookmark exists at the work `@-` already, so it is not
-    /// created, only pushed.
+    /// created, and is pushed with `--push`.
     Local,
-    /// The bookmark is created and not pushed.
+    /// The bookmark is created and not pushed, even with `--push`.
     Remote,
     /// The bookmark exists and is neither created nor pushed.
     Both,
@@ -333,7 +335,7 @@ pub struct CommitParams {
     /// The local bookmark advanced to the work commit.
     pub advance: Advance,
     /// Push what was committed: the flag given, else `[commit] push`.
-    pub push: Option<bool>,
+    pub push: bool,
     /// Land the cycle on the trunk named, or the closing's `REV`.
     pub land: Option<Option<String>>,
     /// With `--land`, the side of the cycle's bookmark kept.
@@ -463,11 +465,7 @@ impl TryFrom<&CommitArgs> for CommitParams {
             },
             land: a.land.clone(),
             skip: a.skip,
-            push: match (a.push, a.no_push) {
-                (true, _) => Some(true),
-                (_, true) => Some(false),
-                _ => None,
-            },
+            push: a.push,
             dry_run: a.dry_run.value,
             rev: a.rev.clone(),
         })
@@ -986,31 +984,6 @@ impl Publish {
     }
 }
 
-/// Whether to push what was committed: the flag given, else the
-/// repo's `[commit] push`, else true. A commit that left its bookmark
-/// where it was, `--no-advance`, pushes only when `--push` asks, since
-/// a push would move that bookmark.
-fn wants_push(repo: &Path, params: &CommitParams) -> Result<bool, Box<dyn std::error::Error>> {
-    if let Some(push) = params.push {
-        return Ok(push);
-    }
-    if params.advance == Advance::Off {
-        return Ok(false);
-    }
-    let Some(cfg) = crate::config_md::load(repo)? else {
-        return Ok(crate::config_schema::COMMIT_PUSH_DEFAULT);
-    };
-    match crate::toml_simple::toml_get(&cfg.map, "commit.push").map(String::as_str) {
-        None => Ok(crate::config_schema::COMMIT_PUSH_DEFAULT),
-        Some("true") => Ok(true),
-        Some("false") => Ok(false),
-        Some(other) => Err(format!(
-            "commit.push: invalid bool {other:?}: expected true or false, unquoted"
-        )
-        .into()),
-    }
-}
-
 /// Push what was committed, as `vc-x1 push` would after it, when the
 /// commit asks: the bookmark advanced, or the line's when none was,
 /// and with `dry` the push's dry run, so a dry run shows it too. A
@@ -1043,8 +1016,14 @@ fn push_after(
         );
         return Ok(());
     }
-    if !wants_push(repo, params)? {
+    if !params.push {
         info!("commit: kept local, `vc-x1 push` publishes it");
+        return Ok(());
+    }
+    if params.opening.is_some() && params.advance == Advance::Off {
+        info!(
+            "commit: the opening is kept local, its bookmark left at the start and published there"
+        );
         return Ok(());
     }
     let scope = publish.scope();
@@ -1086,7 +1065,7 @@ fn commit_agent(
             work.chid
         );
     }
-    let push = wants_push(&pair.work, params)?;
+    let push = params.push;
     if params.dry_run {
         info!(
             "commit: [dry-run] the agent commit {chid}, in {}:\n{text}",
@@ -1409,6 +1388,8 @@ fn finalize(
 #[derive(Debug)]
 struct BookmarkPlan {
     start: Option<String>,
+    /// Whether `--opening`'s bookmark is pushed.
+    push_opening: bool,
     advance: Option<String>,
     /// Where the advance goes: the work `@-` once `@` is committed,
     /// or a draft's change id, which its describe keeps.
@@ -1428,8 +1409,10 @@ fn plan_bookmarks(
     draft: Option<&Draft>,
     closing_bm: Option<&str>,
 ) -> Result<BookmarkPlan, Box<dyn std::error::Error>> {
+    // A cycle kept local publishes nothing at its opening.
+    let push_opening = params.push && params.opening.as_ref().is_some_and(Opening::pushes);
     let start = match &params.opening {
-        Some(o) => Some(check_opening(repo, o)?),
+        Some(o) => Some(check_opening(repo, o, push_opening)?),
         None => None,
     };
     // The line below the work commit: `@-` when `@` is committed, the
@@ -1465,6 +1448,7 @@ fn plan_bookmarks(
     };
     Ok(BookmarkPlan {
         start,
+        push_opening,
         advance,
         target,
     })
@@ -1473,7 +1457,7 @@ fn plan_bookmarks(
 /// What the bookmark plan would do, for a dry run.
 fn dry_run_bookmarks(params: &CommitParams, plan: &BookmarkPlan) {
     if let (Some(o), Some(start)) = (&params.opening, &plan.start) {
-        dry_run_opening(o, start);
+        dry_run_opening(o, start, plan.push_opening);
     }
     if let Some(name) = &plan.advance {
         info!("commit: [dry-run] advance '{name}' to the work commit, locally");
@@ -1491,7 +1475,7 @@ fn finish_bookmarks(
     plan: &BookmarkPlan,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if let (Some(o), Some(start)) = (&params.opening, &plan.start) {
-        make_opening_bookmark(ctx, repo, o, start)?;
+        make_opening_bookmark(ctx, repo, o, start, plan.push_opening)?;
     }
     if let Some(name) = &plan.advance {
         info!("commit: advance '{name}' to the work commit, locally");
@@ -1506,7 +1490,11 @@ fn finish_bookmarks(
 /// taken by `--skip` must be at `@-` already. A push must not move a
 /// remote bookmark elsewhere, and `@-` must already be on a remote, so
 /// the push publishes a name and nothing unreviewed.
-fn check_opening(repo: &Path, o: &Opening) -> Result<String, Box<dyn std::error::Error>> {
+fn check_opening(
+    repo: &Path,
+    o: &Opening,
+    pushes: bool,
+) -> Result<String, Box<dyn std::error::Error>> {
     let name = &o.bookmark;
     let start = jj::cid_of(repo, "@-")?;
     let exists = jj::local_bookmark_exists(repo, name)?;
@@ -1526,7 +1514,7 @@ fn check_opening(repo: &Path, o: &Opening) -> Result<String, Box<dyn std::error:
         )
         .into());
     }
-    if o.pushes() {
+    if pushes {
         if let Some(at) = jj::remote_bookmark_targets(repo, "origin")?.get(name.as_str())
             && *at != start
         {
@@ -1539,7 +1527,7 @@ fn check_opening(repo: &Path, o: &Opening) -> Result<String, Box<dyn std::error:
         if !jj::matches(repo, "@- & ::remote_bookmarks()")? {
             return Err(format!(
                 "commit --opening: the work @- {start} is on no remote, so pushing '{name}' at it \
-                 would publish unreviewed commits: --skip remote creates it and pushes nothing"
+                 would publish unreviewed commits: --local creates it and pushes nothing"
             )
             .into());
         }
@@ -1548,9 +1536,9 @@ fn check_opening(repo: &Path, o: &Opening) -> Result<String, Box<dyn std::error:
 }
 
 /// What `--opening` would do to its bookmark, for a dry run.
-fn dry_run_opening(o: &Opening, start: &str) {
+fn dry_run_opening(o: &Opening, start: &str, pushes: bool) {
     let name = &o.bookmark;
-    match (o.creates(), o.pushes()) {
+    match (o.creates(), pushes) {
         (true, true) => info!("commit: [dry-run] create '{name}' at {start} and push it to origin"),
         (true, false) => info!("commit: [dry-run] create '{name}' at {start}, pushing nothing"),
         (false, true) => info!("commit: [dry-run] push '{name}', at {start} already, to origin"),
@@ -1567,13 +1555,14 @@ fn make_opening_bookmark(
     repo: &Path,
     o: &Opening,
     start: &str,
+    pushes: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let name = &o.bookmark;
     if o.creates() {
         info!("commit --opening: create '{name}' at {start}");
         ctx.session(repo)?.bookmark_set(name, start)?;
     }
-    if o.pushes() {
+    if pushes {
         info!("commit --opening: push '{name}' to origin");
         ctx.session(repo)?.git_push_bookmark(name).map_err(|e| {
             format!(
@@ -1751,9 +1740,6 @@ mod tests {
         ])
         .expect("parses");
         a.repo = Some(repo.to_path_buf());
-        // Local unless a test asks, so a test's assertions see the
-        // commit and not a push it did not ask for.
-        a.no_push = true;
         a
     }
 
@@ -1790,7 +1776,7 @@ mod tests {
         let agent_at = chid(&fx.bot, "@");
         let work_at = chid(&fx.work, "@");
         let mut a = args("a", &fx.work);
-        a.no_push = false;
+        a.push = true;
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("the agent commit is made");
 
@@ -1808,12 +1794,11 @@ mod tests {
         assert_eq!(chid(&fx.work, "@"), work_at, "the work repo is untouched");
     }
 
-    /// A commit pushes what it committed by default: the pair, its
-    /// bookmark advanced and published and the agent `main` with it.
-    /// `--no-push` keeps it local, and `[commit] push = false` too,
-    /// which `--push` overrides.
+    /// A commit stays local by default, `--local` and `--no-push` saying
+    /// so, and `--push` publishes the pair, its bookmark advanced and
+    /// published and the agent `main` with it.
     #[test]
-    fn a_commit_pushes_unless_kept_local() {
+    fn a_commit_stays_local_unless_push_asks() {
         let fx = Fixture::new("commit-push");
         jj_ok(&fx.work, &["bookmark", "create", "topic", "-r", "@-"]);
         jj_ok(&fx.work, &["bookmark", "delete", "main"]);
@@ -1829,40 +1814,29 @@ mod tests {
         fs::write(fx.work.join("one.txt"), "one\n").expect("write");
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("kept local");
-        assert_eq!(remote("topic"), None, "--no-push publishes nothing");
+        assert_eq!(remote("topic"), None, "the default publishes nothing");
 
         fs::write(fx.work.join("two.txt"), "two\n").expect("write");
+        a.local = true;
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("kept local");
+        assert_eq!(remote("topic"), None, "--local says the same");
+        a.local = false;
+
+        fs::write(fx.work.join("three.txt"), "three\n").expect("write");
         fs::write(fx.bot.join("session.jsonl"), "{\"line\":2}\n").expect("write");
-        a.no_push = false;
+        a.push = true;
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("pushed");
         assert_eq!(
             remote("topic"),
             Some(commit_id(&fx.work, "@-")),
-            "the default pushes"
+            "--push publishes"
         );
         assert_eq!(
             chid(&fx.bot, "main@origin"),
             chid(&fx.bot, "@-"),
             "with the agent main"
-        );
-
-        let path = fx.work.join(".vc-config.md");
-        let mut cfg = fs::read_to_string(&path).expect("read the config");
-        cfg.push_str("\n```toml\n[commit]\npush = false\n```\n");
-        fs::write(&path, cfg).expect("write the config");
-        let pushed = remote("topic");
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("kept local by the key");
-        assert_eq!(remote("topic"), pushed, "the key keeps it local");
-        fs::write(fx.work.join("three.txt"), "three\n").expect("write");
-        a.push = true;
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("pushed by the flag");
-        assert_eq!(
-            remote("topic"),
-            Some(commit_id(&fx.work, "@-")),
-            "--push overrides"
         );
     }
 
@@ -2222,31 +2196,32 @@ mod tests {
 
     /// `--opening` makes the opening under the bare title with
     /// " opening" appended, and creates the bookmark at the work `@-`,
-    /// where the cycle starts, and pushes it, tracked, while the
-    /// opening itself stays local.
+    /// where the cycle starts, and pushes it, tracked, and the commit's
+    /// own push then publishes the opening on it.
     #[test]
     fn opening_creates_and_pushes_the_bookmark() {
         let fx = Fixture::new("commit-opening");
-        let start = commit_id(&fx.work, "@-");
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
         fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write");
         let mut a = args("b", &fx.work);
         a.title = Some("feat: a cycle".to_string());
         a.opening = Some(Some("feat-a-cycle".to_string()));
+        a.push = true;
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("the opening is made");
 
         let desc = description(&fx.work, "@-");
         assert!(desc.starts_with("feat: a cycle opening\n\n"), "{desc}");
+        let opening = commit_id(&fx.work, "@-");
         assert_eq!(
             bookmark_state(&fx.work, "feat-a-cycle"),
-            (Some(commit_id(&fx.work, "@-")), Some(start)),
-            "advanced to the opening locally, at the start on origin"
+            (Some(opening.clone()), Some(opening)),
+            "the opening, locally and on origin"
         );
         assert!(jj::has_tracked_remote(&fx.work, "feat-a-cycle", "origin").expect("tracked"));
         assert!(
-            !jj::matches(&fx.work, "@- & ::remote_bookmarks()").expect("matches"),
-            "the opening is not published"
+            jj::matches(&fx.work, "@- & ::remote_bookmarks()").expect("matches"),
+            "the opening is published"
         );
     }
 
@@ -2272,7 +2247,6 @@ mod tests {
         assert_eq!(a.title.as_deref(), Some("feat: vc-x1 single-step commit"));
 
         let fx = Fixture::new("commit-opening-slug");
-        let start = commit_id(&fx.work, "@-");
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
         let mut a = args("w", &fx.work);
         a.title = Some("feat: vc-x1 single-step commit".to_string());
@@ -2284,8 +2258,8 @@ mod tests {
         );
         commit(&mut test_ctx(), &params).expect("the opening is made");
         assert_eq!(
-            bookmark_state(&fx.work, "feat-vc-x1-single-step-commit"),
-            (Some(commit_id(&fx.work, "@-")), Some(start))
+            bookmark_state(&fx.work, "feat-vc-x1-single-step-commit").0,
+            Some(commit_id(&fx.work, "@-"))
         );
 
         a.title = Some("?!".to_string());
@@ -2312,12 +2286,56 @@ mod tests {
             let mut a = args("w", &fx.work);
             a.opening = Some(Some("feat-x".to_string()));
             a.skip = Some(skip);
+            // Not `--local`, which would keep the bookmark too, and no
+            // advance, so what `--skip` does is all that is pushed.
+            a.push = true;
+            a.no_advance = true;
             let params = CommitParams::try_from(&a).expect("params");
             commit(&mut test_ctx(), &params).expect("the opening is made");
             let (local, remote) = bookmark_state(&fx.work, "feat-x");
-            assert_eq!(local, Some(commit_id(&fx.work, "@-")), "{skip:?}");
+            assert_eq!(local, Some(start.clone()), "{skip:?}");
             assert_eq!(remote, pushed.then_some(start), "{skip:?}");
         }
+    }
+
+    /// An opening's bookmark stays off the remote by default, and by
+    /// `--local` and its alias, and `--push` publishes it. A `@-` on no
+    /// remote is no refusal then, since nothing is published.
+    #[test]
+    fn an_opening_kept_local_pushes_no_bookmark() {
+        let open = |tag: &str, flag: Option<&str>| {
+            let fx = Fixture::new(&format!("commit-opening-local-{tag}"));
+            fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
+            let mut argv = vec![
+                "vc-x1",
+                "commit",
+                "-s",
+                "w",
+                "--opening",
+                "feat-x",
+                "--title",
+                "feat: x",
+                "--body",
+                "why",
+            ];
+            argv.extend(flag);
+            let mut a = parse(&argv).expect("parses");
+            a.repo = Some(fx.work.clone());
+            let params = CommitParams::try_from(&a).expect("params");
+            commit(&mut test_ctx(), &params).expect("the opening is made");
+            bookmark_state(&fx.work, "feat-x")
+        };
+        for (tag, flag) in [
+            ("default", None),
+            ("flag", Some("--local")),
+            ("alias", Some("--no-push")),
+        ] {
+            let (local, remote) = open(tag, flag);
+            assert!(local.is_some(), "{tag}: the bookmark is made");
+            assert_eq!(remote, None, "{tag}: nothing is pushed");
+        }
+        let (_, remote) = open("push", Some("--push"));
+        assert!(remote.is_some(), "--push publishes it");
     }
 
     /// Every refusal comes before anything is committed: a title that
@@ -2378,6 +2396,7 @@ mod tests {
         fs::write(fx.work.join("local.txt"), "local\n").expect("write");
         jj_ok(&fx.work, &["commit", "-m", "feat: unpublished"]);
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
+        a.push = true;
         let params = CommitParams::try_from(&a).expect("params");
         let err = commit(&mut test_ctx(), &params)
             .expect_err("unpublished")
@@ -2399,6 +2418,7 @@ mod tests {
         let work_at = chid(&fx.work, "@");
         let mut a = args("w", &fx.work);
         a.opening = Some(Some("feat-x".to_string()));
+        a.push = true;
         let params = CommitParams::try_from(&a).expect("params");
         let err = commit(&mut test_ctx(), &params)
             .expect_err("published elsewhere")
@@ -2531,6 +2551,7 @@ mod tests {
         let mut a = args("w", &fx.work);
         a.opening = Some(Some("feat-x".to_string()));
         a.no_advance = true;
+        a.push = true;
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("the opening is made");
         assert_eq!(
@@ -3107,7 +3128,7 @@ mod tests {
     fn a_branch_with_no_bookmark_lands_and_deletes_none() {
         let (fx, mut a) = unbookmarked_branch("commit-close-none");
         let main = commit_id(&fx.work, "main");
-        a.no_push = false;
+        a.push = true;
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("closed, kept local");
         assert_eq!(parents(&fx.work, "@-").len(), 2, "the closing is made");
@@ -3155,7 +3176,7 @@ mod tests {
         a.title = Some("feat: add line-2".to_string());
         a.body = Some("Added line 2 to opening.txt".to_string());
         a.bookmark = Some("feat-a-cycle".to_string());
-        a.no_push = false;
+        a.push = true;
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("line 1");
         assert_eq!(chid(&fx.work, "@-"), draft, "described in place");
@@ -3433,7 +3454,7 @@ mod tests {
         let deep = chid(&fx.work, "@--");
         let remote_before = jj::remote_bookmark_targets(&fx.work, "origin").expect("remote");
         let mut a = args("b", &fx.work);
-        a.no_push = false;
+        a.push = true;
         a.rev = Some("@--".to_string());
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("described in place");

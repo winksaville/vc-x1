@@ -69,10 +69,8 @@ decided. Found trying a cycle held local, every commit by `commit -s w --no-push
 commit made at the Land. Folds in **commit and land take the same scopes**, which planned to drop
 `commit -s a`, the opposite.
 
-- `--local` is a synonym for `--no-push`, and both mean nothing leaves the machine. Today
-  `commit --opening --no-push` still pushes the bookmark, `--skip remote` being what keeps it, and
-  that bug is fixed here so `--local` never inherits it. `[commit] push = false` is the same promise
-  as a default.
+- `--local` and `--no-push` mean nothing leaves the machine, the default since **feat: ochid trailers
+  are URLs**, where a bare `commit` stays local and `--push` publishes.
 - A matrix of command against scope, each cell what it does or why it refuses, in the README's `###
   Write scopes` table and checked by a table-driven test, so a new flag leaves no gap. Goes with
   **docs: each command's -s help names the scopes it takes**, which checks the help against that
@@ -119,6 +117,36 @@ commit made at the Land. Folds in **commit and land take the same scopes**, whic
   rungs only through their own trailers. **vc-x1 push: record uncovered work commits (N:1
   work<->agent)** plans one `ochid:` line per commit. We think `lookup` from a rung gets the whole
   cycle's agent commit, not yet tried.
+
+### bookmark takes create, delete, and move
+
+(wink + agent, 2026-10-30) `move-bookmark` and `delete-bookmark` become `vc-x1 bookmark
+create|delete|move`, and `commit --no-advance` becomes `--no-move`, the same word as the command.
+
+- Subcommands and not flags: each verb takes different options, so each gets help of its own and clap
+  refuses what does not apply. It matches `jj bookmark`, **Nest the validate and fix commands**, and
+  `agent-files copy|diff`. "Every argument is a flag" binds a command's arguments, not its verbs.
+- The retired names are refused, naming the new ones, as the retired flags are.
+- Only push publishes, in **agent-files(proposal): v0.3.1**: the verbs are local, so `delete` stops
+  removing the bookmark on `origin` and the remote side takes `--push`. `move-bookmark` is to be
+  checked for the same. This answers a Land's deletion of a published bookmark.
+
+### init defaults to --local
+
+(wink, 2026-10-30) `vc-x1 init` makes the workspace on the machine and creates and publishes nothing
+unless `--push` asks, as `commit` does in **Only push publishes**. Today it creates the remotes and
+pushes, public on GitHub unless `--private`, so a bare `init` publishes a repo.
+
+- `--push` is what creates the remotes and publishes, and the approval it needs is the rest of that
+  section's. `--private` and `--push-retries` take effect with it.
+- Publishing later needs a way: a workspace with no `origin` has nothing for `vc-x1 push` to push to,
+  so `push`, or a command of its own, creates the remotes.
+- The trailers: `init`'s cross-links then have no URL to stamp, so they take the path form **feat:
+  ochid trailers are URLs** defines, `/.agent-session/<chid>`, and they stay valid after a remote
+  appears, the URL being checked only on a URL form.
+- The name: `--repo local` is already a category, a local directory of bare repos, which is a remote
+  of a kind and not this `--local`, so one of the two is renamed or explained. `clone` is to be
+  checked for the same default.
 
 ### abandon and revert set a mistake aside
 
@@ -599,13 +627,29 @@ Some checks run only mid-ladder, as in **fix: a missing fixture fails instead of
 The cycle's agent-repo commits are on `main` and their `ochid:` trailers name its work-repo rungs,
 so dropping the bookmark would leave them naming nothing, and landing keeps every rung reachable.
 
+#### Only push publishes
+
+- A bare `vc-x1 commit`, with or without `--land`, and `vc-x1 land`, which is exactly like it, are
+  local and need no approval. `vc-x1 push`, exactly like `commit --push`, publishes and needs approval
+  unless `--yes`, wink's (2026-10-30). `squash-push` publishes too.
+- `[commit] push` goes, so no workspace setting changes what a bare `commit` does.
+- Open: the approval's mechanism. We think it is the Bash hook sending what publishes to the
+  permission prompt, since an agent can type `--yes` as easily as anything else. And a Land's deletion
+  of a published bookmark, which is itself publishing, so `land` deletes the local one and `push` the
+  remote one.
+
+##### Why: only push publishes
+
+A local commit can be reworked and a push cannot easily be taken back, so the safe act is the one
+done by doing nothing, and publishing has one place to gate.
+
 #### A cycle stays local until its Land
 
 On trial, from **feat: ochid trailers are URLs**, wink's (2026-10-30), and the cycle of record if
 that cycle's Land works. A new cycle type, for every cycle and not that one alone.
 
-- Every commit is the work half alone, made and kept local: `commit -s w --local`, the opening's
-  bookmark created and not pushed. The agent `@` is neither committed nor pushed before the Land, so
+- Every commit is the work half alone, made and kept local: `commit -s w`, the opening's bookmark
+  created and not pushed. The agent `@` is neither committed nor pushed before the Land, so
   its change id holds for the whole cycle.
 - The work review stays on every commit. The description review goes, wink's (2026-10-30), since a
   local description can still be changed before the Land. Approval per push reduces to one go, the

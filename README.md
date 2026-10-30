@@ -1953,9 +1953,9 @@ details.
 ### commit
 
 Commit the working copies as a rung's pair, one commit per repo of a dual workspace, each stamped
-with the other's change id, and push it in the same invocation. The diff and the description are
-reviewed before the commit, so what is pushed is what was reviewed, and `--no-push` keeps a commit
-local for a look at it by `vc-x1 show -s both @-` before `push`. Both change ids are
+with the other's change id, and with `--push` publish it in the same invocation. The diff and the
+description are reviewed before the commit, so what is pushed is what was reviewed, and a commit stays
+on the machine unless `--push` asks, for a look at it by `vc-x1 show -s both @-` before `push`. Both change ids are
 known before either commit is made, since a jj commit keeps the working copy's change id, so each
 trailer is written once.
 
@@ -2057,11 +2057,12 @@ vc-x1 commit -s b --closing @- --land dev    # the same, landed on dev, which is
 `--opening [BOOKMARK]` makes the cycle's opening: `--title` is the bare cycle title and " opening"
 is appended, a title carrying it already refused. The bookmark is the one named, else the bare
 title's slug, the anchor a heading of the title gets, `feat: a cycle` naming `feat-a-cycle`. The bookmark is created at the work `@-`, where
-the cycle's branch starts, and pushed to `origin`, a name for a commit already public, so nothing
-unreviewed goes out, and the opening itself stays local until the push after its review. `--skip
-local` takes a bookmark already at `@-` and pushes it, `--skip remote` creates it and pushes
-nothing, and `--skip both` only checks it. Every check runs before the commit: a bookmark to create
-must not exist, a push must not move one published elsewhere, and `@-` must already be on a remote.
+the cycle's branch starts, and it stays local like the rest unless `--push` asks. With `--no-advance
+--push` it alone is pushed, a name for a commit already public, and the opening stays local. `--skip
+local` takes a bookmark already at `@-`, `--skip remote` creates it and pushes nothing even with
+`--push`, and `--skip both` only checks it. Every check runs before the commit: a bookmark to create
+must not exist, and with `--push` a push must not move one published elsewhere, and `@-` must already
+be on a remote.
 
 The line's bookmark advances to the work commit, locally: the nearest bookmark below the work
 `@-`, as `push` resolves it, the one `--bookmark` names, or `--opening`'s. jj moves a bookmark with
@@ -2079,8 +2080,8 @@ committed with a warning, its change id kept, so the work commit's trailer still
 The commit is pushed in the same invocation, as `vc-x1 push` would after it: a pair by `push -s
 b`, a plain repo by `push -s p`, and an agent commit by publishing the agent repo's `main`. The diff
 and the description are reviewed before the commit, so what is pushed is what was reviewed.
-`--no-push` keeps one commit local, for a look at it before `vc-x1 push`, `[commit] push = false`
-makes that the default, and `--push` overrides the key. A commit with `--no-advance` pushes only
+A commit stays on the machine unless `--push` asks, `--opening`'s bookmark included, for a look at it
+before `vc-x1 push`, and `--local`, or its alias `--no-push`, says so outright. A commit with `--no-advance` pushes only
 with `--push`, since its bookmark was left where it was.
 `-R` is optional and says where. `--body` is the text, or `@PATH` to read it from a file, since a
 body in commit-body form has markers and blank lines a shell quote mangles. The work repo's `@`

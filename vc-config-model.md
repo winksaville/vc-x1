@@ -129,16 +129,9 @@ suffix = "-dev"
 <property> = "value"
 ```
 
-The `[commit]` table
-- push: Default for commit: push what it commits, `--no-push` / `--push` override [[26]]
-```toml
-[commit]
-push = true
-```
-
 The `[record]` table
-- doing: The file whose `## In Progress` block `commit --closing` moves to record.closed [[27]]
-- closed: The file whose `## Closed` block `commit --closing` replaces with record.doing's [[28]]
+- doing: The file whose `## In Progress` block `commit --closing` moves to record.closed [[26]]
+- closed: The file whose `## Closed` block `commit --closing` replaces with record.doing's [[27]]
 ```toml
 [record]
 doing = "zDOING.md"
@@ -146,14 +139,14 @@ closed = "zCLOSED.md"
 ```
 
 The `[closing]` table
-- body: The closing commit's default body, `{title}` the cycle title [[29]]
+- body: The closing commit's default body, `{title}` the cycle title [[28]]
 ```toml
 [closing]
 body = "Closes the cycle {title}. See details in zCLOSED.md."
 ```
 
 The `[cycle]` table
-- trunk: The trunk a closing merges onto and a bare `--land` lands on [[30]]
+- trunk: The trunk a closing merges onto and a bare `--land` lands on [[29]]
 ```toml
 [cycle]
 trunk = "main"
@@ -161,7 +154,7 @@ trunk = "main"
 
 The `[test]` table
 - fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
-  test` [[31]]
+  test` [[30]]
 ```toml
 [test]
 fixtures = ".fixtures"
@@ -194,9 +187,8 @@ fixtures = ".fixtures"
 [23]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamebin
 [24]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamesuffix
 [25]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenameproperty
-[26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#commitpush
-[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recorddoing
-[28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recordclosed
-[29]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
-[30]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#cycletrunk
-[31]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
+[26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recorddoing
+[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recordclosed
+[28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
+[29]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#cycletrunk
+[30]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures

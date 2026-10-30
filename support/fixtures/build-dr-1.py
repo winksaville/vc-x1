@@ -299,7 +299,7 @@ class Agent:
         self.clock.tick(30)
         before = self._snapshot()
         self._files()
-        self.j.run([VC, "commit", "-s", "b", "--bookmark", bookmark, "--title", title, "--body", body], self.work)
+        self.j.run([VC, "commit", "-s", "b", "--push", "--bookmark", bookmark, "--title", title, "--body", body], self.work)
         work_chid = self.j.chid(self.work, bookmark)
         agent_chid = self.j.chid(self.agent, "main")
         window = []
