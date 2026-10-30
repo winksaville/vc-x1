@@ -193,7 +193,7 @@ impl Snapshots {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::{Fixture, cid, jj_ok};
+    use crate::test_helpers::{Fixture, chid, cid, jj_ok};
     use std::fs;
 
     /// The pair resolves from either repo, and `restore` rewinds
@@ -225,5 +225,31 @@ mod tests {
         snapshots.restore(&pair, "test", err.as_ref());
         assert_eq!(cid(&fx.work, "main"), main_work_start);
         assert_eq!(cid(&fx.bot, "main"), main_bot_start);
+    }
+
+    /// A URL-form trailer on the work `@-` names the same partner the
+    /// path form does: the agent `@` while it is pending, and the
+    /// agent `@-` once a URL-form trailer there names the work commit.
+    #[test]
+    fn a_url_form_trailer_finds_its_partner() {
+        let fx = Fixture::new("pair-url");
+        let pair = resolve_pair(Some(&fx.work)).expect("pair");
+        let agent_at = chid(&fx.bot, "@");
+        let desc = format!("feat: x\n\nochid: https://example.com/o/r.agent-session#{agent_at}\n");
+        jj_ok(&fx.work, &["commit", "-m", &desc]);
+
+        let work = work_commit(&pair).expect("read").expect("a trailer");
+        assert_eq!(work.stamped, agent_at);
+        assert_eq!(
+            partner(&pair, &work).expect("partner"),
+            Partner::Pending(agent_at.clone())
+        );
+
+        let desc = format!("feat: x\n\nochid: https://example.com/o/r#{}\n", work.chid);
+        jj_ok(&fx.bot, &["commit", "-m", &desc]);
+        assert_eq!(
+            partner(&pair, &work).expect("partner"),
+            Partner::Committed(agent_at)
+        );
     }
 }

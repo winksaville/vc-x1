@@ -90,6 +90,19 @@ impl OchidIssues {
     }
 }
 
+/// Whether a prefix, what precedes the bare ID, is a URL form's:
+/// `<scheme>://<repo>#`.
+fn is_url_prefix(prefix: &str) -> bool {
+    prefix.contains("://") && prefix.ends_with('#')
+}
+
+/// Whether a trailer's prefix is valid: the side's label, or a URL. A
+/// URL naming the wrong repo is not caught here, only an ID that does
+/// not resolve in the other repo.
+fn prefix_is_valid(actual: &str, label: &str) -> bool {
+    actual == label || is_url_prefix(actual)
+}
+
 /// Validate an ochid trailer value against expected prefix, length, and other repo.
 pub fn validate_ochid(
     value: &str,
@@ -102,7 +115,7 @@ pub fn validate_ochid(
     let bare_id = extract_bare_id(value);
     let actual_prefix = &value[..value.len() - bare_id.len()];
 
-    let wrong_prefix = if actual_prefix != other_prefix {
+    let wrong_prefix = if !prefix_is_valid(actual_prefix, other_prefix) {
         Some((actual_prefix.to_string(), other_prefix.to_string()))
     } else {
         None
@@ -196,12 +209,24 @@ pub fn resolve_full_change_id(
     }
 }
 
-/// Extract the bare change ID from an ochid value (strip path prefix).
+/// Extract the bare change ID from an ochid value: what follows the
+/// path form's last `/`, or the URL form's `#`.
 pub fn extract_bare_id(ochid_value: &str) -> &str {
-    if let Some(pos) = ochid_value.rfind('/') {
+    if let Some(pos) = ochid_value.rfind(['/', '#']) {
         &ochid_value[pos + 1..]
     } else {
         ochid_value
+    }
+}
+
+/// An ochid value as a column shows it: the URL form's `#<id>`, since
+/// the URL would push the column out, and any other form as it is.
+pub fn ochid_for_display(ochid_value: &str) -> String {
+    let bare_id = extract_bare_id(ochid_value);
+    if is_url_prefix(&ochid_value[..ochid_value.len() - bare_id.len()]) {
+        format!("#{bare_id}")
+    } else {
+        ochid_value.to_string()
     }
 }
 
@@ -209,6 +234,8 @@ pub fn extract_bare_id(ochid_value: &str) -> &str {
 ///
 /// If `resolved_id` is provided, it replaces the bare changeID entirely
 /// (used when the existing ID is too short to extend by truncation alone).
+/// A URL form keeps its URL, since it is a valid prefix and not the
+/// label's to replace.
 pub fn fix_ochid_in_description(
     desc: &str,
     other_prefix: &str,
@@ -230,13 +257,19 @@ pub fn fix_ochid_in_description(
         let trimmed = line.trim();
         if let Some(value) = trimmed.strip_prefix("ochid:") {
             let value = value.trim();
+            let bare_id = extract_bare_id(value);
+            let actual_prefix = &value[..value.len() - bare_id.len()];
+            let prefix = if is_url_prefix(actual_prefix) {
+                actual_prefix
+            } else {
+                other_prefix
+            };
             let id = if let Some(rid) = resolved_id {
                 &rid[..rid.len().min(id_len)]
             } else {
-                let bare_id = extract_bare_id(value);
                 &bare_id[..bare_id.len().min(id_len)]
             };
-            *line = format!("ochid: {other_prefix}{id}");
+            *line = format!("ochid: {prefix}{id}");
         }
     }
 
@@ -359,6 +392,51 @@ mod tests {
         let (base, root) = ws_fixture("prefix-por", None);
         assert_eq!(ochid_prefix_for(&root).unwrap(), "/");
         std::fs::remove_dir_all(&base).ok();
+    }
+
+    const AGENT_URL: &str = "https://github.com/winksaville/vc-x1.agent-session#";
+
+    #[test]
+    fn bare_id_of_each_form() {
+        assert_eq!(extract_bare_id("tzupykyyvnrp"), "tzupykyyvnrp");
+        assert_eq!(extract_bare_id("/tzupykyyvnrp"), "tzupykyyvnrp");
+        assert_eq!(extract_bare_id("/.claude/tzupykyyvnrp"), "tzupykyyvnrp");
+        assert_eq!(
+            extract_bare_id(&format!("{AGENT_URL}tzupykyyvnrp")),
+            "tzupykyyvnrp"
+        );
+    }
+
+    /// The label and any URL are valid, and a URL with no `#` is not,
+    /// since its last path segment would read as the ID.
+    #[test]
+    fn a_prefix_is_the_label_or_a_url() {
+        assert!(prefix_is_valid("/.claude/", "/.claude/"));
+        assert!(prefix_is_valid(AGENT_URL, "/.claude/"));
+        assert!(prefix_is_valid(AGENT_URL, "/"));
+        assert!(!prefix_is_valid("/wrong/", "/.claude/"));
+        assert!(!prefix_is_valid("/", "/.claude/"));
+        assert!(!prefix_is_valid("https://github.com/winksaville/", "/"));
+        assert!(!prefix_is_valid("vc-x1#", "/"));
+    }
+
+    #[test]
+    fn a_column_shows_the_url_form_short() {
+        assert_eq!(
+            ochid_for_display(&format!("{AGENT_URL}tzupykyyvnrp")),
+            "#tzupykyyvnrp"
+        );
+        assert_eq!(
+            ochid_for_display("/.claude/tzupykyyvnrp"),
+            "/.claude/tzupykyyvnrp"
+        );
+    }
+
+    #[test]
+    fn a_fix_keeps_the_url() {
+        let desc = format!("Title\n\nochid: {AGENT_URL}abcdefghijklmnop\n");
+        let result = fix_ochid_in_description(&desc, "/.claude/", DEFAULT_ID_LEN, None, None);
+        assert_eq!(result, format!("Title\n\nochid: {AGENT_URL}abcdefghijkl\n"));
     }
 
     #[test]

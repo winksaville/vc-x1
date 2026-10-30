@@ -67,8 +67,7 @@ ochid](notes/forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid).
   build writes a form it cannot read, across the family's repos on different versions too. The
   readers: `extract_bare_id`, `validate_ochid`, `fix-desc`, `lookup::partner`, the `dr-1` fixture,
   and push's pending-partner check.
-- A cycle's own rungs stamped by the installed binary carry `/.claude/` until the stamping rung is
-  installed, accepted as the last of them rather than using unlanded builds to avoid it.
+- A cycle's own rungs carry the URL too, wink's call (2026-10-30), by the bends in the Deliberation.
 - `jj.md`'s trailer section and the rules naming `/.claude/` follow, so **agent-files(proposal):
   v0.3.1** carries the change.
 - Beyond a work-repo and its partner: the ARM session of 2026-08-31 made six commits in the sibling
@@ -102,15 +101,24 @@ Provisional:
   machine** records.
 - The Land is by `land -s b`, since `land -s w` is refused today: it commits the agent `@` as the
   partner, a trailer back to the closing, and publishes both repos, agent first.
-- This cycle's own trailers carry `/.claude/`, stamped by the installed binary, the last of them,
-  wink's acceptance of the Todo's bullet (2026-10-30).
+- This cycle's own trailers are URLs, wink's call (2026-10-30), replacing `/.claude/` on the opening
+  while it is local. Two bends follow, for this cycle's commits alone and until the Land:
+  - No hand-written trailers: until [feat: commit and init stamp a URL-shaped ochid][c3] stamps it,
+    a commit's trailer is rewritten after the commit by `jj describe`, the value otherwise what
+    `commit` stamped. Nothing is published, so no published commit is re-described.
+  - The `ocid:` trailer, wink's (2026-10-30): the agent commit's SHA as a URL beside `ochid:`, on
+    each commit as `.../commit/xxxx` until the Land, which commits the agent `@` first and replaces
+    the placeholder, the agent-repo being neither committed nor pushed before then.
+  - The binary: commits and the Land run by `vc-x1-dev`, built from the rung before, since the
+    installed `vc-x1` reads `https://...#<chid>` as a change id named `<repo>#<chid>`, so its Land
+    would see a changed partner and restamp the trailer.
 
 #### Ladder
 
 Provisional, the rungs after the opening named as the work is understood:
 
 - [feat: ochid trailers are URLs opening][c0] (done)
-- [feat: the readers take a URL-shaped ochid][c1]
+- [feat: the readers take a URL-shaped ochid][c1] (done)
 - [feat: an ochid URL comes from the repo's origin][c2]
 - [feat: commit and init stamp a URL-shaped ochid][c3]
 - [docs: the rules and README name the URL form][c4]
@@ -123,6 +131,23 @@ works at every scope, and --local keeps it on the machine** filed, folding **com
 the same scopes**, and this entry's own folds.
 
 ##### feat: the readers take a URL-shaped ochid
+
+Every reader of a trailer now takes `<scheme>://<repo>#<chid>` beside the path form, and no writer
+stamps it yet, so nothing on any line changes.
+
+- `extract_bare_id` splits at the last `/` or `#`. Everything that reads a trailer goes through it:
+  `pair`, `validate-desc`, `fix-desc`, and `lookup`.
+- `validate_ochid` accepts the side's label or any URL, a prefix with `://` ending in `#`.
+  - The label stays the check, so a `/` on the agent's side still fails, and a published
+    `/.claude/<id>` passes as it did.
+  - An scp-style `git@host:...#<id>` is not a URL here, since stamps are normalized to https.
+- `fix-desc` keeps a trailer's URL when it fixes the ID, where it would have replaced it with the
+  label.
+- `list`'s ochid column shows the URL form as `#<chid>`, since a whole URL pushes the column out.
+- Not yet: a URL naming the wrong repo passes when its ID resolves, the comparison with `origin`
+  belonging to [feat: an ochid URL comes from the repo's origin][c2]. A URL matching nothing reports
+  not found and fetches nothing.
+- Also files **vc-x1 is an actor** in `## Todo`, from the deliberation on how a Land runs.
 
 ##### feat: an ochid URL comes from the repo's origin
 
