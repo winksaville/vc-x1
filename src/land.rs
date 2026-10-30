@@ -570,6 +570,7 @@ mod tests {
             &[
                 "-s",
                 "b",
+                "--push",
                 "--opening",
                 "--title",
                 "feat: a cycle",
@@ -580,7 +581,15 @@ mod tests {
         fs::write(fx.work.join("rung.txt"), "rung\n").expect("write");
         vc_commit(
             fx,
-            &["-s", "b", "--title", "feat: a rung", "--body", "The rung."],
+            &[
+                "-s",
+                "b",
+                "--push",
+                "--title",
+                "feat: a rung",
+                "--body",
+                "The rung.",
+            ],
         );
         commit_id(&fx.work, "feat-a-cycle")
     }

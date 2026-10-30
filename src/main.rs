@@ -616,15 +616,15 @@ pub(crate) enum Commands {
     )]
     Push(push::PushArgs),
 
-    /// Commit the working copies as a rung's pair and push it, with -s and a title and body
+    /// Commit the working copies as a rung's pair, with -s and a title and body
     #[command(long_about = "\
         Commit the working copies as a rung's pair, one commit per repo of a\n\
-        dual workspace, each stamped with the other's change id, and push it\n\
-        in the same invocation, as `vc-x1 push` would.\n\n\
+        dual workspace, each stamped with the other's change id, and with\n\
+        --push publish it in the same invocation, as `vc-x1 push` would.\n\n\
         The diff and the description are reviewed before the commit, so the\n\
-        push publishes what was reviewed. --no-push keeps the commit local,\n\
-        for a look at it by `vc-x1 show -s both @-` before `vc-x1 push`, and\n\
-        `[commit] push = false` makes that the default, --push overriding it.\n\n\
+        push publishes what was reviewed. It stays on the machine unless\n\
+        --push asks, for a look at it by `vc-x1 show -s both @-` before\n\
+        `vc-x1 push`. --local says so outright.\n\n\
         -r REV is the commit the description is for: `@` by default,\n\
         committed as the working copy, else `@-` or any draft below it,\n\
         described in place with no new commit and its trailer stamped, so a\n\

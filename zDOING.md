@@ -103,7 +103,7 @@ Provisional:
   partner, a trailer back to the closing, and publishes both repos, agent first.
 - This cycle's own trailers are URLs, wink's call (2026-10-30), replacing `/.claude/` on the opening
   while it is local. Two bends follow, for this cycle's commits alone and until the Land:
-  - No hand-written trailers: until [feat: commit and init stamp a URL-shaped ochid and ocid][3] stamps it,
+  - No hand-written trailers: until [feat: commit and init stamp a URL-shaped ochid and ocid][4] stamps it,
     a commit's trailer is rewritten after the commit by `jj describe`, the value otherwise what
     `commit` stamped. Nothing is published, so no published commit is re-described.
   - The `ocid:` trailer, wink's (2026-10-30): the agent commit's SHA as a URL beside `ochid:`, on
@@ -123,6 +123,11 @@ Provisional:
   since staying in `@` for the next cycle, since a fold changes the SHA every `ocid:` names.
 - No `squash-push -s a` from now on, wink's (2026-10-30): the session's tail is bookkeeping, and it
   rides the next cycle's agent commit. At rest's item 2 goes in **agent-files(proposal): v0.3.1**.
+- What publishes, wink's (2026-10-30): `vc-x1 commit`, with or without `--land`, and `vc-x1 land`, which
+  is exactly like it, are local and need no approval. `vc-x1 push`, exactly like `commit --push`, is
+  what publishes, and it needs approval unless `--yes`. The approval's mechanism is open, and we think
+  it is the Bash hook sending what publishes to the permission prompt, since an agent can type
+  `--yes` as easily as anything else.
 - A spawned Land, running after the agent goes quiet, is out of this cycle, wink's (2026-10-30), and
   is in **vc-x1 is an actor**.
 
@@ -133,11 +138,12 @@ Provisional, the rungs after the opening named as the work is understood:
 - [feat: ochid trailers are URLs opening][0] (done)
 - [feat: the readers take a URL-shaped ochid][1] (done)
 - [feat: an ochid URL comes from the repo's origin][2] (done)
-- [feat: commit and init stamp a URL-shaped ochid and ocid][3]
-- [feat: land stamps a local cycle's trailers][4]
-- [feat: land sets the ocid trailer to the agent commit's SHA][5]
-- [docs: the rules and README name the URL form][6]
-- [feat: ochid trailers are URLs closing][7]
+- [fix: commit stays local unless --push asks][3] (done)
+- [feat: commit and init stamp a URL-shaped ochid and ocid][4]
+- [feat: land stamps a local cycle's trailers][5]
+- [feat: land sets the ocid trailer to the agent commit's SHA][6]
+- [docs: the rules and README name the URL form][7]
+- [feat: ochid trailers are URLs closing][8]
 
 ##### feat: ochid trailers are URLs opening
 
@@ -181,6 +187,26 @@ yet.
 - `fix-desc` reports a wrong URL and does not rewrite it, since a renamed repo would otherwise have
   all its history rewritten. The mapping of old URL to new stays open, not in this cycle.
 
+##### fix: commit stays local unless --push asks
+
+Inserted, wink's call (2026-10-30), since **A cycle stays local until its Land** relies on it, and
+forgetting `--skip remote` published the bookmark. It grew into the default itself.
+
+- A bare `vc-x1 commit` publishes nothing, `--opening`'s bookmark included. `--push` is the one thing
+  that publishes, a rung's pair or the opening with its bookmark.
+- `--local` and its visible alias `--no-push` say the default outright, so what already says
+  `--no-push`, `jj.md` among it, stays true until **agent-files(proposal): v0.3.1** runs.
+- `[commit] push` is gone, wink's (2026-10-30): "always require `--push`" means no workspace setting
+  changes what a bare `commit` does. `commit` no longer reads the key, and `validate-config` reports
+  one still in a config as an unknown key.
+- `--opening --no-advance --push` publishes the bookmark at the start and keeps the opening local, the
+  one way left to publish a cycle's name alone.
+- With nothing to push, the check that `@-` is on a remote does not run, so a cycle can open on a
+  line that is not published.
+- Also files **bookmark takes create, delete, and move** and **init defaults to --local** in `## Todo`.
+- Not yet: `--land` still pushes. That goes in [feat: land stamps a local cycle's trailers][5], with
+  `vc-x1 land`. `build-dr-1.py` asks for `--push`, since it builds a published ladder.
+
 ##### feat: commit and init stamp a URL-shaped ochid and ocid
 
 ##### feat: land stamps a local cycle's trailers
@@ -194,8 +220,9 @@ yet.
 [0]: #feat-ochid-trailers-are-urls-opening
 [1]: #feat-the-readers-take-a-url-shaped-ochid
 [2]: #feat-an-ochid-url-comes-from-the-repos-origin
-[3]: #feat-commit-and-init-stamp-a-url-shaped-ochid-and-ocid
-[4]: #feat-land-stamps-a-local-cycles-trailers
-[5]: #feat-land-sets-the-ocid-trailer-to-the-agent-commits-sha
-[6]: #docs-the-rules-and-readme-name-the-url-form
-[7]: #feat-ochid-trailers-are-urls-closing
+[3]: #fix-commit-stays-local-unless---push-asks
+[4]: #feat-commit-and-init-stamp-a-url-shaped-ochid-and-ocid
+[5]: #feat-land-stamps-a-local-cycles-trailers
+[6]: #feat-land-sets-the-ocid-trailer-to-the-agent-commits-sha
+[7]: #docs-the-rules-and-readme-name-the-url-form
+[8]: #feat-ochid-trailers-are-urls-closing
