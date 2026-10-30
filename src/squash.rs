@@ -32,7 +32,9 @@ use clap::Args;
 use log::{debug, info, warn};
 
 use crate::context::Context;
-use crate::desc_helpers::{read_body, with_trailer};
+use crate::desc_helpers::{
+    is_url_form, ochid_value_in_form, read_body, with_trailer, with_trailers,
+};
 use crate::jj;
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::scope::{
@@ -360,8 +362,10 @@ fn squash_pair(
                 "squash work: re-describe @- {}, its trailer kept",
                 work.chid
             );
-            ctx.session(&pair.work)?
-                .describe("@-", &with_trailer(text, &work.trailer))?;
+            ctx.session(&pair.work)?.describe(
+                "@-",
+                &with_trailers(text, &work.trailer, work.ocid.as_deref()),
+            )?;
         }
         if agent_fold {
             info!("squash agent: @ -> @-, the journal into the partner");
@@ -371,8 +375,9 @@ fn squash_pair(
             && agent == AgentStep::Fold
         {
             info!("squash agent: re-describe @-, its trailer kept");
+            let ochid = ochid_value_in_form(is_url_form(&work.trailer), &pair.work, &work.chid)?;
             ctx.session(&pair.agent)?
-                .describe("@-", &with_trailer(text, &format!("/{}", work.chid)))?;
+                .describe("@-", &with_trailer(text, &ochid))?;
         }
         Ok(())
     })();
@@ -552,6 +557,7 @@ mod tests {
             skip: None,
             dry_run: false,
             rev: None,
+            no_url_trailer: false,
         };
         commit(&mut test_ctx(), &params).expect("the pair is made");
     }

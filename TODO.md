@@ -71,6 +71,22 @@ commit made at the Land. Folds in **commit and land take the same scopes**, whic
 
 - `--local` and `--no-push` mean nothing leaves the machine, the default since **feat: ochid trailers
   are URLs**, where a bare `commit` stays local and `--push` publishes.
+- `--scope` is optional and defaults to `work`, `por` in a plain repo, wink's (2026-10-30), since
+  `-s w --local` is a plain repo's commit with a link back, and a plain `vc-x1 commit` is then a
+  rung. This holds for `--opening`, `--closing`, and `--push`, and `vc-x1 push`, the same as `commit
+  --push`.
+- `--land` requires `--scope`, and `vc-x1 land` the same, dropping its default of `both`, wink's
+  (2026-10-30): a Land has a new destination, so it is assumed dangerous for now.
+- A pushed work commit whose `ochid:` names an unpushed agent commit is not dangerous, wink's
+  (2026-10-30). The link is dead until the agent side is pushed, which is obvious to the user. The
+  commit is still work, to modify, squash, fork, or merge, and `--push` makes it durable while it
+  stays fluid. Whether a Land's result is durable is the user's to decide.
+- `--closing --squash` folds a ladder into one commit with the bare cycle title, no " opening" and no
+  " closing", a single-step cycle by its commit count. Considered, not decided, wink + agent
+  (2026-10-30). We think it refuses a merge in the range, a bottom title with no " opening" and no
+  `--title`, `-s a`, and any range whose commits carry different `ochid:` values, a `--local -s b`
+  ladder among them, since its rungs each have an agent commit. Whether a pushed range refuses is
+  open, since a pushed commit is still fluid by the entry above.
 - A matrix of command against scope, each cell what it does or why it refuses, in the README's `###
   Write scopes` table and checked by a table-driven test, so a new flag leaves no gap. Goes with
   **docs: each command's -s help names the scopes it takes**, which checks the help against that
@@ -98,7 +114,7 @@ commit made at the Land. Folds in **commit and land take the same scopes**, whic
   `--step` gates, so that one is reconciled or renamed, and **squash-push shows what it takes, and
   push follows jj** retires `squash --yes`, so the two entries agree first.
 - Candidates for dangerous, to be decided:
-  - publishing a trailer that names an unpublished agent commit, a work-only Land
+  - landing a trailer that names an unpublished agent commit, a work-only Land
   - landing a range with a trailer naming an agent change that no longer exists
   - rewriting a commit on the trunk's remote, which `squash` already guards
   - `-s p` in a dual workspace, giving up the rung's link to the transcript.

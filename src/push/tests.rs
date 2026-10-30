@@ -102,4 +102,6 @@ fn without_trailers_strips_the_ochid_lines() {
     let desc = "feat: x\n\nBody.\n\nochid: /.claude/abc\n";
     assert_eq!(without_trailers(desc), "feat: x\n\nBody.");
     assert_eq!(without_trailers("feat: y\n"), "feat: y");
+    let desc = "feat: x\n\nBody.\n\nochid: https://h/o/r#abc\nocid: https://h/o/r/commit/xxxx\n";
+    assert_eq!(without_trailers(desc), "feat: x\n\nBody.");
 }
