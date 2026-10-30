@@ -96,17 +96,68 @@ fn is_url_prefix(prefix: &str) -> bool {
     prefix.contains("://") && prefix.ends_with('#')
 }
 
-/// Whether a trailer's prefix is valid: the side's label, or a URL. A
-/// URL naming the wrong repo is not caught here, only an ID that does
-/// not resolve in the other repo.
-fn prefix_is_valid(actual: &str, label: &str) -> bool {
-    actual == label || is_url_prefix(actual)
+/// The forms a trailer naming one repo may take.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OchidForms {
+    /// The side's label, what every published trailer carries.
+    pub label: String,
+    /// The path form by the directory's own name, for a repo with no
+    /// URL to stamp: `/` on the work side, `/<dir>/` on the agent's.
+    pub path: String,
+    /// The repo's canonical URL, from its `origin`, when it has one.
+    pub url: Option<String>,
 }
 
-/// Validate an ochid trailer value against expected prefix, length, and other repo.
+impl OchidForms {
+    /// Whether a trailer's prefix is one of these forms. A URL naming
+    /// another repo is not, compared canonically, and with no `url` to
+    /// compare against any URL passes on its ID alone.
+    fn accepts(&self, actual: &str) -> bool {
+        if is_url_prefix(actual) {
+            let named = crate::url::canonical_repo_url(actual.trim_end_matches('#'));
+            self.url.is_none() || named == self.url
+        } else {
+            actual == self.label || actual == self.path
+        }
+    }
+
+    /// The form a wrong prefix is reported against.
+    fn wanted(&self, actual: &str) -> String {
+        match &self.url {
+            Some(url) if is_url_prefix(actual) => format!("{url}#"),
+            _ => self.label.clone(),
+        }
+    }
+}
+
+/// The forms a trailer naming `repo` may take, the URL read from its
+/// `origin`.
+pub fn ochid_forms_for(repo: &std::path::Path) -> Result<OchidForms, Box<dyn std::error::Error>> {
+    let label = ochid_prefix_for(repo)?;
+    let path = if label == OCHID_WORK_LABEL {
+        label.clone()
+    } else {
+        let canonical = repo.canonicalize()?;
+        match canonical.file_name().and_then(|n| n.to_str()) {
+            Some(name) => format!("/{name}/"),
+            None => label.clone(),
+        }
+    };
+    let url =
+        crate::jj::remote_url(repo, "origin")?.and_then(|u| crate::url::canonical_repo_url(&u));
+    Ok(OchidForms { label, path, url })
+}
+
+/// Whether an ochid value is the URL form, naming a repo by URL.
+pub fn is_url_form(ochid_value: &str) -> bool {
+    let bare_id = extract_bare_id(ochid_value);
+    is_url_prefix(&ochid_value[..ochid_value.len() - bare_id.len()])
+}
+
+/// Validate an ochid trailer value against the repo's forms, length, and other repo.
 pub fn validate_ochid(
     value: &str,
-    other_prefix: &str,
+    forms: &OchidForms,
     id_len: usize,
     other_workspace: &Workspace,
     other_repo: &Arc<ReadonlyRepo>,
@@ -115,8 +166,8 @@ pub fn validate_ochid(
     let bare_id = extract_bare_id(value);
     let actual_prefix = &value[..value.len() - bare_id.len()];
 
-    let wrong_prefix = if !prefix_is_valid(actual_prefix, other_prefix) {
-        Some((actual_prefix.to_string(), other_prefix.to_string()))
+    let wrong_prefix = if !forms.accepts(actual_prefix) {
+        Some((actual_prefix.to_string(), forms.wanted(actual_prefix)))
     } else {
         None
     };
@@ -222,9 +273,8 @@ pub fn extract_bare_id(ochid_value: &str) -> &str {
 /// An ochid value as a column shows it: the URL form's `#<id>`, since
 /// the URL would push the column out, and any other form as it is.
 pub fn ochid_for_display(ochid_value: &str) -> String {
-    let bare_id = extract_bare_id(ochid_value);
-    if is_url_prefix(&ochid_value[..ochid_value.len() - bare_id.len()]) {
-        format!("#{bare_id}")
+    if is_url_form(ochid_value) {
+        format!("#{}", extract_bare_id(ochid_value))
     } else {
         ochid_value.to_string()
     }
@@ -407,17 +457,43 @@ mod tests {
         );
     }
 
-    /// The label and any URL are valid, and a URL with no `#` is not,
-    /// since its last path segment would read as the ID.
+    fn agent_forms(url: Option<&str>) -> OchidForms {
+        OchidForms {
+            label: "/.claude/".to_string(),
+            path: "/.agent-session/".to_string(),
+            url: url.map(str::to_string),
+        }
+    }
+
+    /// The label, the path form, and with no URL to compare any URL
+    /// are valid, and a URL with no `#` is not, since its last path
+    /// segment would read as the ID.
     #[test]
-    fn a_prefix_is_the_label_or_a_url() {
-        assert!(prefix_is_valid("/.claude/", "/.claude/"));
-        assert!(prefix_is_valid(AGENT_URL, "/.claude/"));
-        assert!(prefix_is_valid(AGENT_URL, "/"));
-        assert!(!prefix_is_valid("/wrong/", "/.claude/"));
-        assert!(!prefix_is_valid("/", "/.claude/"));
-        assert!(!prefix_is_valid("https://github.com/winksaville/", "/"));
-        assert!(!prefix_is_valid("vc-x1#", "/"));
+    fn a_prefix_is_a_form_of_the_repo() {
+        let forms = agent_forms(None);
+        assert!(forms.accepts("/.claude/"));
+        assert!(forms.accepts("/.agent-session/"));
+        assert!(forms.accepts(AGENT_URL));
+        assert!(!forms.accepts("/wrong/"));
+        assert!(!forms.accepts("/"));
+        assert!(!forms.accepts("https://github.com/winksaville/"));
+        assert!(!forms.accepts("vc-x1#"));
+    }
+
+    /// With a URL to compare, the trailer's URL must name that repo,
+    /// in any spelling of it, and a wrong one reports the right one.
+    #[test]
+    fn a_url_must_name_the_repo() {
+        let want = "https://github.com/winksaville/vc-x1.agent-session";
+        let forms = agent_forms(Some(want));
+        assert!(forms.accepts(AGENT_URL));
+        assert!(forms.accepts("https://github.com/winksaville/vc-x1.agent-session.git#"));
+        assert!(!forms.accepts("https://github.com/winksaville/vc-x1#"));
+        assert_eq!(
+            forms.wanted("https://github.com/winksaville/vc-x1#"),
+            format!("{want}#")
+        );
+        assert_eq!(forms.wanted("/wrong/"), "/.claude/");
     }
 
     #[test]

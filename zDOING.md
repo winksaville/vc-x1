@@ -103,7 +103,7 @@ Provisional:
   partner, a trailer back to the closing, and publishes both repos, agent first.
 - This cycle's own trailers are URLs, wink's call (2026-10-30), replacing `/.claude/` on the opening
   while it is local. Two bends follow, for this cycle's commits alone and until the Land:
-  - No hand-written trailers: until [feat: commit and init stamp a URL-shaped ochid][c3] stamps it,
+  - No hand-written trailers: until [feat: commit and init stamp a URL-shaped ochid and ocid][3] stamps it,
     a commit's trailer is rewritten after the commit by `jj describe`, the value otherwise what
     `commit` stamped. Nothing is published, so no published commit is re-described.
   - The `ocid:` trailer, wink's (2026-10-30): the agent commit's SHA as a URL beside `ochid:`, on
@@ -112,17 +112,32 @@ Provisional:
   - The binary: commits and the Land run by `vc-x1-dev`, built from the rung before, since the
     installed `vc-x1` reads `https://...#<chid>` as a change id named `<repo>#<chid>`, so its Land
     would see a changed partner and restamp the trailer.
+  - The description review, wink's (2026-10-30): no separate review of each commit's description,
+    since a local one can still be changed before the Land. The work review stays.
+- Ladder labels are the rung's `-N`, `[0]`, `[1]`, and so on, as the specimen numbers them, wink's
+  catch (2026-10-30), replacing `[cN]` from this commit on.
+- The Land stamps a local cycle's commits, wink's and the agent's (2026-10-30): it commits the agent
+  `@` first, with one `ochid:` URL per work commit, then writes `ochid:` and `ocid:` on each work
+  commit from opening to closing, its trees unchanged, and pushes the agent repo first and the work
+  repo after. So a Land pushes the agent commit as stamped and folds nothing into it, what arrived
+  since staying in `@` for the next cycle, since a fold changes the SHA every `ocid:` names.
+- No `squash-push -s a` from now on, wink's (2026-10-30): the session's tail is bookkeeping, and it
+  rides the next cycle's agent commit. At rest's item 2 goes in **agent-files(proposal): v0.3.1**.
+- A spawned Land, running after the agent goes quiet, is out of this cycle, wink's (2026-10-30), and
+  is in **vc-x1 is an actor**.
 
 #### Ladder
 
 Provisional, the rungs after the opening named as the work is understood:
 
-- [feat: ochid trailers are URLs opening][c0] (done)
-- [feat: the readers take a URL-shaped ochid][c1] (done)
-- [feat: an ochid URL comes from the repo's origin][c2]
-- [feat: commit and init stamp a URL-shaped ochid][c3]
-- [docs: the rules and README name the URL form][c4]
-- [feat: ochid trailers are URLs closing][c5]
+- [feat: ochid trailers are URLs opening][0] (done)
+- [feat: the readers take a URL-shaped ochid][1] (done)
+- [feat: an ochid URL comes from the repo's origin][2] (done)
+- [feat: commit and init stamp a URL-shaped ochid and ocid][3]
+- [feat: land stamps a local cycle's trailers][4]
+- [feat: land sets the ocid trailer to the agent commit's SHA][5]
+- [docs: the rules and README name the URL form][6]
+- [feat: ochid trailers are URLs closing][7]
 
 ##### feat: ochid trailers are URLs opening
 
@@ -145,21 +160,42 @@ stamps it yet, so nothing on any line changes.
   label.
 - `list`'s ochid column shows the URL form as `#<chid>`, since a whole URL pushes the column out.
 - Not yet: a URL naming the wrong repo passes when its ID resolves, the comparison with `origin`
-  belonging to [feat: an ochid URL comes from the repo's origin][c2]. A URL matching nothing reports
+  belonging to [feat: an ochid URL comes from the repo's origin][2]. A URL matching nothing reports
   not found and fetches nothing.
 - Also files **vc-x1 is an actor** in `## Todo`, from the deliberation on how a Land runs.
 
 ##### feat: an ochid URL comes from the repo's origin
 
-##### feat: commit and init stamp a URL-shaped ochid
+A repo now has a canonical URL, and a trailer's URL is checked against it, while nothing stamps one
+yet.
+
+- `url::canonical_repo_url` turns `https`, `http`, `ssh`, and scp-style remotes into
+  `https://<host>/<path>`, so ssh and https clones agree. It drops a user, password, and port, since
+  the value goes into published commits, and a trailing `/` and `.git`. A local path and `file://`
+  have none.
+- `OchidForms`, by `ochid_forms_for`, is what a trailer naming a repo may be: the published label,
+  the path form by the directory's own name, `/.agent-session/`, the fallback for a repo with no URL,
+  and the URL from its `origin`.
+- `validate_ochid` checks against it, so a URL naming another repo is now wrong, in any spelling of
+  the right one being accepted, and with no hosted `origin` to compare a URL passes on its ID.
+- `fix-desc` reports a wrong URL and does not rewrite it, since a renamed repo would otherwise have
+  all its history rewritten. The mapping of old URL to new stays open, not in this cycle.
+
+##### feat: commit and init stamp a URL-shaped ochid and ocid
+
+##### feat: land stamps a local cycle's trailers
+
+##### feat: land sets the ocid trailer to the agent commit's SHA
 
 ##### docs: the rules and README name the URL form
 
 ##### feat: ochid trailers are URLs closing
 
-[c0]: #feat-ochid-trailers-are-urls-opening
-[c1]: #feat-the-readers-take-a-url-shaped-ochid
-[c2]: #feat-an-ochid-url-comes-from-the-repos-origin
-[c3]: #feat-commit-and-init-stamp-a-url-shaped-ochid
-[c4]: #docs-the-rules-and-readme-name-the-url-form
-[c5]: #feat-ochid-trailers-are-urls-closing
+[0]: #feat-ochid-trailers-are-urls-opening
+[1]: #feat-the-readers-take-a-url-shaped-ochid
+[2]: #feat-an-ochid-url-comes-from-the-repos-origin
+[3]: #feat-commit-and-init-stamp-a-url-shaped-ochid-and-ocid
+[4]: #feat-land-stamps-a-local-cycles-trailers
+[5]: #feat-land-sets-the-ocid-trailer-to-the-agent-commits-sha
+[6]: #docs-the-rules-and-readme-name-the-url-form
+[7]: #feat-ochid-trailers-are-urls-closing

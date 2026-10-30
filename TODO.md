@@ -142,6 +142,34 @@ than taken back.
 - **squash-push shows what it takes, and push follows jj** leaned on undo, its "local acts are not
   refused, since undo takes them back", and is to be reread against this.
 
+### The exit code says what failed
+
+(wink, 2026-10-30) `vc-x1 <...>`'s exit code should indicate what failed as precisely as possible.
+Today nearly every failure exits 1 by the runner's Ok-or-1 mapping, clap's usage errors 2, and only
+`agent-files diff` returns a code of its own.
+
+- A documented table, stable once published, with an error type that carries its code, so a command
+  returns one by what happened and not by a string. The message stays the explanation, and the code
+  is for what acts on the result: a script, a hook, an actor's reply, an agent.
+- What the code most needs to say, a first cut:
+  - which step of a composed command failed, so `land -s b` says the agent closing, the work closing,
+    the agent push, or the work push, and a retry knows what was done
+  - refused before anything moved, as against failed partway
+  - a guard `--yes` would pass, as against an error it would not
+  - a push rejected by a lease, as against the network.
+- The shape, wink's (2026-10-30): read in hex, the upper digit is the stage, broader, and the lower
+  digit the type, narrower.
+  - The upper digit runs 0 to 7, since the shell owns 0x7E and up: 126, 127, and 128 plus a signal.
+    So a set top bit always means killed, never one of ours.
+  - Stage 0 is before anything moved, so `refused` needs no type of its own and today's 1 and clap's
+    2 keep their meanings. Stages are a command's own, `land -s b`'s being the agent closing, the
+    work closing, the agent push, the work push, and so on, and each is documented with it.
+  - Types are global, the same digit meaning the same thing in every command: a guard `--yes` would
+    pass, a rejected lease, the network, a conflict. A lower digit of 0 is unspecified.
+- Open: **status prints a verdict per repo and exits with a bit per side** uses 1, 2, and 3 for a
+  verdict, which collides with stage 0's types, so one of the two moves. Eight stages may be short
+  for a long composed command.
+
 ### vc-x1 is an actor
 
 (wink + agent, 2026-10-30) `vc-x1` becomes a service the user installs, and a client sends it
@@ -570,6 +598,60 @@ Some checks run only mid-ladder, as in **fix: a missing fixture fails instead of
 
 The cycle's agent-repo commits are on `main` and their `ochid:` trailers name its work-repo rungs,
 so dropping the bookmark would leave them naming nothing, and landing keeps every rung reachable.
+
+#### A cycle stays local until its Land
+
+On trial, from **feat: ochid trailers are URLs**, wink's (2026-10-30), and the cycle of record if
+that cycle's Land works. A new cycle type, for every cycle and not that one alone.
+
+- Every commit is the work half alone, made and kept local: `commit -s w --local`, the opening's
+  bookmark created and not pushed. The agent `@` is neither committed nor pushed before the Land, so
+  its change id holds for the whole cycle.
+- The work review stays on every commit. The description review goes, wink's (2026-10-30), since a
+  local description can still be changed before the Land. Approval per push reduces to one go, the
+  Land's.
+- The Land commits the agent `@` first, one `ochid:` URL per work commit, then writes `ochid:` and
+  `ocid:` on each work commit from opening to closing, trees unchanged, and pushes the agent repo
+  first and the work repo after. It folds nothing into the agent commit, so the SHA every `ocid:`
+  names holds, and what arrives after it rides the next cycle's agent commit.
+- No `squash-push -s a`: At rest's item 2 goes, and "clean" means the work `@` is empty, the agent's
+  `@` being the session's data and no finding, as [Acquaint](AGENTS.md#acquaint) says.
+- A single-step cycle is the same with one commit.
+- The sections it rewrites: Opening step 2, the per-rung flow's step 9, Committing vs pushing, At
+  rest, Before any push, and Land. It replaces **A local commit pair before every push** above, a
+  rung no longer making a pair, and Every cycle starts with `commit --opening` holds with the
+  bookmark local.
+- Open:
+  - One machine: a local cycle cannot move between machines or survive a lost disk. We think an
+    explicit backup push of the work bookmark answers it, and that runs into the rule that what is
+    published names nothing unpublished, and into the Land rewriting those commits.
+  - Shared repos: **Cycles in a shared repo, by fork and pull request** needs a branch pushed before
+    anything lands, so stamping and publishing are separate steps of the Land.
+  - One large agent commit: a cycle's whole transcript in one commit nears the limit **fix: snapshot
+    fails on a file the size limit refused** dealt with, and `lookup` gets less precise per rung.
+  - The published form: publishing per rung stays for a cycle someone wants visible while it runs,
+    so this is the default and not the only form.
+
+##### Why: local until the Land
+
+The Land is where the decision is, so one approval belongs there. Nothing published can name a rung,
+so reshaping a ladder costs nothing, and the agent commit made first lets every commit link to it, a
+SHA included. The first cycle run this way changed its ladder several times at no cost.
+
+#### A local cycle's record may be reworked
+
+- [Cycle-record](AGENTS.md#cycle-record) gains: while a cycle's work commits are local and its agent
+  `@` is neither committed nor pushed, an earlier commit's record may be reworked. By default it is
+  unnecessary, a later rung revising the record, and it is permissible when the error is significant,
+  a word left to the judgment of whoever is reading, with no test fixed, wink's (2026-10-30).
+- A reworked commit's tree is validated again, since no validation saw it.
+- Once published, Never amended and Re-describing hold as they do. No backfill keeps its own subject,
+  that a rung carries no `[[N]]` placeholder, no SHA, and no version.
+
+##### Why: reworking is permitted and not expected
+
+Nothing published names a local commit, so a rework breaks no link. Each commit's ladder is the plan
+as it stood then, and seeing it change has value, so reworking stays the exception.
 
 #### Warn rather than refuse
 
