@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 
 use log::{info, warn};
 
-use crate::desc_helpers::{extract_bare_id, extract_ochid_from_desc};
+use crate::desc_helpers::{extract_bare_id, extract_ochid_from_desc, extract_ocid_from_desc};
 use crate::jj;
 use crate::jj::{current_op_id, op_restore};
 use crate::options_flags::scope::{RepoScope, Scope, Side};
@@ -70,6 +70,8 @@ pub struct WorkCommit {
     pub chid: String,
     pub trailer: String,
     pub stamped: String,
+    /// Its `ocid:` value, a rewrite keeping it with the trailer.
+    pub ocid: Option<String>,
 }
 
 /// Read the work commit of the pair, `None` when it has no trailer.
@@ -81,6 +83,7 @@ pub fn work_commit(pair: &Pair) -> Result<Option<WorkCommit>, Box<dyn std::error
     Ok(Some(WorkCommit {
         chid: jj::chid_of(&pair.work, "@-")?,
         stamped: extract_bare_id(&trailer).to_string(),
+        ocid: extract_ocid_from_desc(&desc),
         trailer,
     }))
 }

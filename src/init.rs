@@ -20,7 +20,8 @@ use crate::options_flags::repo::RepoOption;
 use crate::options_flags::scope::{Scope, Side};
 use crate::options_flags::use_template::UseTemplateOption;
 use crate::repo_utils::{
-    INITIAL_TITLE, OchidStrategy, commit_initial, cross_ref_ochids, prepare_local_repo,
+    CrossRefSide, INITIAL_TITLE, OchidStrategy, commit_initial, cross_ref_ochids,
+    prepare_local_repo,
 };
 use crate::subcommand::SubcommandRunner;
 use crate::symlink;
@@ -109,6 +110,12 @@ pub struct InitArgs {
     /// refused, having nothing to grow.
     #[arg(long)]
     pub adopt: bool,
+
+    /// Name each side's initial commit by the other's label,
+    /// `/.claude/<id>` or `/<id>`, rather than its URL. A plain repo
+    /// stamps no trailer, so it changes nothing there.
+    #[arg(long)]
+    pub no_url_trailer: bool,
 
     /// The agent repo's directory, one name inside the project
     /// directory [default: .agent-session]. Dual only.
@@ -1714,12 +1721,19 @@ fn create_dual(
     )?;
 
     steps.begin(Step::CrossLink);
+    let trailer_url = |url| (!params.no_url_trailer).then_some(url);
     cross_ref_ochids(
-        &plan.project_dir,
+        CrossRefSide {
+            dir: &plan.project_dir,
+            url: trailer_url(plan.work_url.as_str()),
+            chid: &work_chid,
+        },
         work_title,
-        &work_chid,
-        &agent.path,
-        &agent_chid,
+        CrossRefSide {
+            dir: &agent.path,
+            url: trailer_url(agent.url.as_str()),
+            chid: &agent_chid,
+        },
     )?;
 
     steps.begin(Step::PublishAgent);

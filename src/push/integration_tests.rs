@@ -84,6 +84,7 @@ fn make_pair(fx: &Fixture, title: &str, agent_now: bool) -> (String, String) {
         skip: None,
         dry_run: false,
         rev: None,
+        no_url_trailer: false,
     };
     commit(&mut test_ctx(), &params).expect("the pair is made");
     (work_at, agent_at)
@@ -632,6 +633,7 @@ fn push_por_publishes_the_commit_on_its_bookmark() {
         skip: None,
         dry_run: false,
         rev: None,
+        no_url_trailer: false,
     };
     commit(&mut test_ctx(), &params).expect("plain commit");
     fs::write(fx.work.join("next.txt"), "the next rung").expect("write");

@@ -57,6 +57,80 @@ pub fn with_trailer(text: &str, value: &str) -> String {
     format!("{}\n\nochid: {value}", text.trim_end())
 }
 
+/// A description with its `ochid:` trailer and, when there is one, the
+/// `ocid:` trailer below it.
+pub fn with_trailers(text: &str, ochid: &str, ocid: Option<&str>) -> String {
+    let desc = with_trailer(text, ochid);
+    match ocid {
+        Some(ocid) => format!("{desc}\nocid: {ocid}"),
+        None => desc,
+    }
+}
+
+/// What an `ocid:` trailer holds until the Land knows the agent
+/// commit's SHA.
+const OCID_PLACEHOLDER: &str = "xxxx";
+
+/// The `ochid:` value naming `chid`: by the repo's canonical URL when
+/// `url` has one, else by the side's `label`, the form a repo with no
+/// hosted `origin` stamps.
+pub fn ochid_value(url: Option<&str>, label: &str, chid: &str) -> String {
+    match url.and_then(crate::url::canonical_repo_url) {
+        Some(url) => format!("{url}#{chid}"),
+        None => format!("{label}{chid}"),
+    }
+}
+
+/// The `ochid:` value naming `chid` in `repo`, the URL read from its
+/// `origin`.
+pub fn ochid_value_for(
+    repo: &std::path::Path,
+    chid: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let url = crate::jj::remote_url(repo, "origin")?;
+    Ok(ochid_value(url.as_deref(), &ochid_prefix_for(repo)?, chid))
+}
+
+/// The `ochid:` value naming `chid` in `repo` by the side's label, the
+/// form `--no-url-trailer` asks for.
+pub fn ochid_label_value_for(
+    repo: &std::path::Path,
+    chid: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    Ok(ochid_value(None, &ochid_prefix_for(repo)?, chid))
+}
+
+/// The `ochid:` value naming `chid` in `repo`, by URL only when
+/// `url_form`, so a partner follows the form its work commit took.
+pub fn ochid_value_in_form(
+    url_form: bool,
+    repo: &std::path::Path,
+    chid: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    match url_form {
+        true => ochid_value_for(repo, chid),
+        false => ochid_label_value_for(repo, chid),
+    }
+}
+
+/// The placeholder `ocid:` value for a commit in `repo`, `None` when
+/// it has no canonical URL, since the value is a link.
+pub fn ocid_placeholder_for(
+    repo: &std::path::Path,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let url = crate::jj::remote_url(repo, "origin")?;
+    Ok(url
+        .as_deref()
+        .and_then(crate::url::canonical_repo_url)
+        .map(|url| format!("{url}/commit/{OCID_PLACEHOLDER}")))
+}
+
+/// A description without its `ochid:` and `ocid:` lines.
+pub fn without_trailer_lines(desc: &str) -> impl Iterator<Item = &str> {
+    desc.lines()
+        .filter(|l| !l.starts_with("ochid:") && !l.starts_with("ocid:"))
+}
+
 /// Problems found with an ochid trailer, with details for reporting.
 #[derive(Debug)]
 pub struct OchidIssues {
@@ -376,9 +450,59 @@ pub fn extract_ochid_from_desc(desc: &str) -> Option<String> {
     extract_ochids(desc).pop()
 }
 
+/// Extract the `ocid:` value from a description string, the last one.
+pub fn extract_ocid_from_desc(desc: &str) -> Option<String> {
+    desc.lines()
+        .filter_map(|line| line.strip_prefix("ocid:"))
+        .map(|value| value.trim().to_string())
+        .rfind(|value| !value.is_empty())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A value is by URL, canonically, when there is a hosted one, and
+    /// by the side's label otherwise.
+    #[test]
+    fn ochid_value_prefers_the_canonical_url() {
+        assert_eq!(
+            ochid_value(
+                Some("git@github.com:o/r.agent-session.git"),
+                "/.claude/",
+                "abc"
+            ),
+            "https://github.com/o/r.agent-session#abc"
+        );
+        assert_eq!(
+            ochid_value(Some("/tmp/remote.git"), "/.claude/", "abc"),
+            "/.claude/abc"
+        );
+        assert_eq!(ochid_value(None, "/", "abc"), "/abc");
+    }
+
+    /// The `ocid:` sits below the `ochid:`, and both come back out.
+    #[test]
+    fn trailers_round_trip() {
+        let desc = with_trailers("feat: x\n\nBody.\n", "/.claude/abc", Some("u/commit/xxxx"));
+        assert_eq!(
+            desc,
+            "feat: x\n\nBody.\n\nochid: /.claude/abc\nocid: u/commit/xxxx"
+        );
+        assert_eq!(
+            extract_ocid_from_desc(&desc).as_deref(),
+            Some("u/commit/xxxx")
+        );
+        assert_eq!(
+            without_trailer_lines(&desc)
+                .collect::<Vec<_>>()
+                .join("\n")
+                .trim_end(),
+            "feat: x\n\nBody."
+        );
+        assert_eq!(with_trailers("t", "/a", None), "t\n\nochid: /a");
+        assert_eq!(extract_ocid_from_desc("t\n\nochid: /a"), None);
+    }
 
     /// Build `<base>/ws` (+ optional `<bot-dir>`) with per-side
     /// file-relative `[repos]` registries in each repo dir.

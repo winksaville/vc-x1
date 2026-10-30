@@ -139,7 +139,7 @@ Provisional, the rungs after the opening named as the work is understood:
 - [feat: the readers take a URL-shaped ochid][1] (done)
 - [feat: an ochid URL comes from the repo's origin][2] (done)
 - [fix: commit stays local unless --push asks][3] (done)
-- [feat: commit and init stamp a URL-shaped ochid and ocid][4]
+- [feat: commit and init stamp a URL-shaped ochid and ocid][4] (done)
 - [feat: land stamps a local cycle's trailers][5]
 - [feat: land sets the ocid trailer to the agent commit's SHA][6]
 - [docs: the rules and README name the URL form][7]
@@ -208,6 +208,31 @@ forgetting `--skip remote` published the bookmark. It grew into the default itse
   `vc-x1 land`. `build-dr-1.py` asks for `--push`, since it builds a published ladder.
 
 ##### feat: commit and init stamp a URL-shaped ochid and ocid
+
+Every writer now stamps `<url>#<chid>`, so hand-written trailers end here.
+
+- `desc_helpers::ochid_value` is the one place a value is formed: the canonical URL, or the side's
+  label for a repo with no hosted `origin`, which keeps local-remote workspaces and test fixtures as
+  they were.
+- `commit`, `push`, and `squash` read the URL from `origin`. `init` takes it from its plan, since the
+  cross-link runs before `origin` is added, by `CrossRefSide`.
+- `-s w` adds `ocid: <agent-url>/commit/xxxx` below the `ochid:`, none with no hosted URL. `-s b` and
+  `init` stamp `ochid:` alone, my call. `push`'s partner commit names the work repo by URL, and
+  stamps no `ocid:`.
+- A rewrite keeps the `ocid:`: `--closing`'s finalize, `squash`'s re-describe, and `push`'s restamp,
+  by `WorkCommit::ocid`. The text a partner shares and the opening's body leave it out.
+- `--no-url-trailer`, on `commit` and `init`, wink's (2026-10-30): the side's label stamped with no
+  `ocid:`, whatever the `origin`. `-s p` and a plain `init` take it, stamping no trailer anyway, and
+  `-s a` the same. `push`'s partner and restamp and `squash`'s re-describe follow the form the work
+  commit took, so a pair stays in one form. [feat: land stamps a local cycle's trailers][5] does the
+  same. The README's flag tables get it in [docs: the rules and README name the URL form][7].
+- `fix-desc`'s inference of a missing trailer still writes the label, since published forms stay
+  valid and it is a repair of old history.
+- Not yet: an `ocid:` keeps `xxxx` until [feat: land sets the ocid trailer to the agent commit's
+  SHA][6], so one published by `-s w --push` then `push` keeps it.
+- Also records wink's scope decisions in **commit works at every scope**: `--scope` defaults to
+  `work`, `--land` requires it, and `--closing --squash` as considered. None of that is built here.
+- `--opening`'s help says the bookmark is pushed only with `--push`.
 
 ##### feat: land stamps a local cycle's trailers
 
