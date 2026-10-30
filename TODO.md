@@ -142,6 +142,35 @@ than taken back.
 - **squash-push shows what it takes, and push follows jj** leaned on undo, its "local acts are not
   refused, since undo takes them back", and is to be reread against this.
 
+### vc-x1 is an actor
+
+(wink + agent, 2026-10-30) `vc-x1` becomes a service the user installs, and a client sends it
+asynchronous messages. From **feat: ochid trailers are URLs**, where a Land is to run after the agent
+goes quiet, so the transcript it commits is whole: first as a detached process, wink's technique
+from the olden days, and then as a message to the actor.
+
+- Its lifetime is the user's: the service is installed, started, and restarted by them, systemd or
+  the like, and no agent manages it.
+- One actor handles one message at a time, so writes through it queue rather than collide. Raw `jj`
+  never goes through it, so that stays a rule.
+- A reply is the outcome, so "land finished or failed" has a defined form and place. A reply does not
+  wake the agent, since waking it writes to the transcript the Land is waiting to go quiet.
+- The client:
+  - no service running fails at once and says so, rather than queueing a message nothing reads
+  - client and service compare versions and report a mismatch, since a Land installs a new binary
+    and a running service keeps the old code until restarted
+  - the Land stays an ordinary function, so it runs in the foreground with no service.
+- Authority: any local process can send a message, so the user's go still comes through the agent and
+  the rules.
+- What a finished Land can start, by another message:
+  - an agent that checks `main` in both repos, the deleted bookmarks, and the installed version,
+    read-only and outside the dual-repo protocol
+  - a restart of the agent for the next step, automating [Close-out](AGENTS.md#close-out) step 7,
+    which begins with an acquaint and inherits no approval, so a restart is no unattended chain of
+    pushes.
+- Open: the transport, we think a file mailbox in a gitignored directory, which survives a crash and
+  works on every platform **vc-x1 runs on Windows and macOS** names.
+
 ### squash-push shows what it takes, and push follows jj
 
 (wink + agent, 2026-10-28) The rules for rewriting what is published, from the opening that became

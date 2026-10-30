@@ -344,7 +344,7 @@ fn validate_side(
 mod tests {
     use super::*;
     use crate::options_flags::scope::{Scope, Side};
-    use crate::test_helpers::{Fixture, FixturePor};
+    use crate::test_helpers::{Fixture, FixturePor, chid, jj_ok};
     use crate::{Cli, Commands};
     use clap::Parser;
 
@@ -392,5 +392,26 @@ mod tests {
         let params = ValidateDescParams::try_from(&a).expect("params");
         assert_eq!(params.repos.len(), 1);
         assert_eq!(params.repos[0].0, "agent");
+    }
+
+    /// A URL-form trailer passes when its ID resolves in the other
+    /// repo and fails when it does not, the URL itself not checked.
+    #[test]
+    fn a_url_form_trailer_is_valid_when_its_id_resolves() {
+        let fx = Fixture::new("vdesc-url");
+        let ctx = Context::load().expect("load user config");
+        let mut a = parse(&["vc-x1", "validate-desc", "-r", "@", "-s", "w"]).expect("parses");
+        a.repo = Some(fx.work.clone());
+        let params = ValidateDescParams::try_from(&a).expect("params");
+        let url = "https://example.com/o/r.agent-session";
+
+        let agent_at = chid(&fx.bot, "@");
+        let desc = format!("feat: x\n\nochid: {url}#{agent_at}\n");
+        jj_ok(&fx.work, &["describe", "-m", &desc]);
+        validate_desc(&ctx, &params).expect("the ID resolves");
+
+        let desc = format!("feat: x\n\nochid: {url}#zzzzzzzzzzzk\n");
+        jj_ok(&fx.work, &["describe", "-m", &desc]);
+        validate_desc(&ctx, &params).expect_err("the ID resolves to nothing");
     }
 }
