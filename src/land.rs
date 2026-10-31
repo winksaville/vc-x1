@@ -12,8 +12,9 @@
 //!   as merged and left as they are.
 //! - [`run`] lands what the plan names: a conflicted target is refused,
 //!   the agent `@` is committed with one `ochid:` per work commit naming
-//!   it, oldest first, the trunk is fast-forwarded, and the cycle's
-//!   bookmark is deleted, `--skip` keeping a side. A dry run makes every
+//!   it, oldest first, each placeholder `ocid:` gets its SHA, the trunk
+//!   is fast-forwarded, and the cycle's bookmark is deleted, `--skip`
+//!   keeping a side. A dry run makes every
 //!   check and says each step, and does none: each step is its line and
 //!   then the step behind `if !dry`, so a step added brings its dry-run
 //!   line.
@@ -43,13 +44,13 @@
 use std::path::{Path, PathBuf};
 
 use clap::Args;
-use log::{debug, info};
+use log::{debug, info, warn};
 
 use crate::commit::Skip;
 use crate::context::Context;
 use crate::desc_helpers::{
-    extract_bare_id, extract_ochid_from_desc, is_url_form, ochid_value_in_form, with_ochids,
-    without_trailer_lines,
+    extract_bare_id, extract_ochid_from_desc, extract_ocid_from_desc, is_url_form,
+    ochid_value_in_form, ocid_with_sha, with_ochids, with_ocid_value, without_trailer_lines,
 };
 use crate::jj;
 use crate::options_flags::dry_run::DryRunFlag;
@@ -457,6 +458,73 @@ fn land_agent_desc(
     Ok(Some(with_ochids(&text, &values)))
 }
 
+/// What [`set_ocids`] reads: the commits from the trunk to `target`, and
+/// `partner_rev`, the agent commit they name, `@` in a dry run that has
+/// not committed it.
+struct LandOcids<'a> {
+    label: &'a str,
+    trunk_cid: &'a str,
+    target: &'a str,
+    partner_rev: &'a str,
+    dry: bool,
+}
+
+/// Set the placeholder `ocid:` of each commit from the trunk to `target`
+/// that names the agent commit to that commit's SHA, oldest first, the
+/// tree checked unchanged. A published commit is left with a warning,
+/// since this would rewrite it. Finding nothing is no error, so a Land
+/// rerun after a failure finishes what it left.
+fn set_ocids(
+    ctx: &mut Context,
+    pair: &crate::pair::Pair,
+    o: &LandOcids,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let LandOcids { label, dry, .. } = *o;
+    let work = pair.work.as_path();
+    let partner = jj::chid_of(&pair.agent, o.partner_rev)?;
+    let sha = jj::cid_of(&pair.agent, o.partner_rev)?;
+    let mut todo = Vec::new();
+    for rev in jj::cids_of(work, &format!("{}..({})", o.trunk_cid, o.target))? {
+        let desc = jj::desc_of(work, &rev)?;
+        let names = extract_ochid_from_desc(&desc).is_some_and(|c| extract_bare_id(&c) == partner);
+        let value = extract_ocid_from_desc(&desc).and_then(|v| ocid_with_sha(&v, &sha));
+        let (true, Some(value)) = (names, value) else {
+            continue;
+        };
+        let chid = jj::chid_of(work, &rev)?;
+        if crate::pair::is_published(work, &rev)? {
+            warn!("{label}: {chid} is published, so its `ocid:` keeps its placeholder");
+            continue;
+        }
+        todo.push((
+            chid,
+            with_ocid_value(&desc, &value),
+            jj::tree_of(work, &rev)?,
+        ));
+    }
+    if dry {
+        for (chid, _, _) in &todo {
+            info!("{label}: [dry-run] set the `ocid:` of {chid} to the agent commit's SHA");
+        }
+        return Ok(());
+    }
+    let snapshot = crate::pair::Snapshot::take(work)?;
+    for (chid, desc, tree) in &todo {
+        info!("{label}: set the `ocid:` of {chid} to {sha}");
+        let stamped = ctx.session(work)?.describe(chid, desc).and_then(|_| {
+            match jj::tree_of(work, chid)? == *tree {
+                true => Ok(()),
+                false => Err(format!("{label}: setting the `ocid:` changed {chid}'s tree").into()),
+            }
+        });
+        if let Err(e) = stamped {
+            snapshot.restore(label, e.as_ref());
+            return Err(e);
+        }
+    }
+    Ok(())
+}
+
 /// Land what `land` plans onto `target`, named `what` in messages:
 /// refuse a conflicted target, commit the agent `@` when the cycle's
 /// commits name it, fast-forward the trunk to it, delete the cycle's
@@ -531,9 +599,28 @@ pub(crate) fn run(
             }
         }
     }
+    // By change id, since setting a commit's `ocid:` changes its SHA.
+    let target_chid = jj::chid_of(repo, target)?;
+    if let Some(pair) = &pair {
+        set_ocids(
+            ctx,
+            pair,
+            &LandOcids {
+                label,
+                trunk_cid,
+                target,
+                partner_rev: if dry && agent_desc.is_some() {
+                    "@"
+                } else {
+                    "@-"
+                },
+                dry,
+            },
+        )?;
+    }
     info!("{label}:{tag} fast-forward '{trunk}' from {trunk_cid} to {what}");
     if !dry {
-        ctx.session(repo)?.bookmark_set(trunk, target)?;
+        ctx.session(repo)?.bookmark_set(trunk, &target_chid)?;
     }
     if push && at_work_head {
         info!("{label}:{tag} push '{trunk}', the work @-, with its pair");
@@ -808,6 +895,92 @@ mod tests {
         assert!(
             !jj::is_empty(&fx.bot, "@").expect("empty"),
             "the journal stays in @"
+        );
+    }
+
+    /// With hosted origins a Land sets each `ocid:` to the agent commit's
+    /// SHA: the change ids, trees, and `ochid:` unchanged, the trunk at the
+    /// rewritten tip, and the cycle's bookmark gone. Its dry run sets none.
+    #[test]
+    fn a_land_sets_each_ocid_to_the_agent_commits_sha() {
+        let fx = Fixture::new("land-ocid");
+        let agent_url = "https://github.com/o/r.agent-session";
+        crate::test_helpers::git_ok(
+            &fx.work,
+            &["remote", "set-url", "origin", "https://github.com/o/r"],
+        );
+        crate::test_helpers::git_ok(&fx.bot, &["remote", "set-url", "origin", agent_url]);
+        let rungs = local_cycle(&fx);
+        let agent_at = chid(&fx.bot, "@");
+        let trees: Vec<String> = rungs
+            .iter()
+            .map(|c| jj::tree_of(&fx.work, c).expect("tree"))
+            .collect();
+
+        let args = ["-s", "b", "--onto", "main"];
+        let mut dry = args.to_vec();
+        dry.push("--dry-run");
+        land(&mut test_ctx(), &local_land_params(&fx, &dry)).expect("planned");
+        let placeholder = format!("ocid: {agent_url}/commit/xxxx");
+        for c in &rungs {
+            assert!(
+                jj::desc_of(&fx.work, c)
+                    .expect("desc")
+                    .contains(&placeholder)
+            );
+        }
+
+        land(&mut test_ctx(), &local_land_params(&fx, &args)).expect("landed");
+        let sha = commit_id(&fx.bot, "@-");
+        for (c, tree) in rungs.iter().zip(&trees) {
+            let desc = jj::desc_of(&fx.work, c).expect("desc");
+            assert!(
+                desc.ends_with(&format!(
+                    "\n\nochid: {agent_url}#{agent_at}\nocid: {agent_url}/commit/{sha}"
+                )),
+                "{desc}"
+            );
+            assert_eq!(&jj::tree_of(&fx.work, c).expect("tree"), tree);
+        }
+        assert_eq!(chid(&fx.work, "main"), rungs[1]);
+        assert!(!jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("local"));
+        assert_eq!(chid(&fx.work, "@-"), rungs[1]);
+        assert!(jj::is_empty(&fx.work, "@").expect("empty"));
+        assert_eq!(commit_id(&fx.bot, "@-"), sha, "no fold");
+    }
+
+    /// A published commit keeps its placeholder, and the rung above it
+    /// is still set.
+    #[test]
+    fn a_published_commits_ocid_is_left() {
+        let fx = Fixture::new("land-ocid-published");
+        local_cycle(&fx);
+        let placeholder = "ocid: https://h/o/r.agent-session/commit/xxxx";
+        for rev in ["@--", "@-"] {
+            let desc = format!(
+                "{}\n{placeholder}\n",
+                crate::test_helpers::description(&fx.work, rev).trim_end()
+            );
+            jj_ok(&fx.work, &["describe", "-r", rev, "-m", &desc]);
+        }
+        jj_ok(&fx.work, &["git", "push", "--named", "shared=@--"]);
+        land(
+            &mut test_ctx(),
+            &local_land_params(
+                &fx,
+                &["-s", "b", "--source", "feat-a-cycle", "--onto", "main"],
+            ),
+        )
+        .expect("landed");
+        let sha = commit_id(&fx.bot, "@-");
+        assert!(
+            crate::test_helpers::description(&fx.work, "main-").contains(placeholder),
+            "the published one"
+        );
+        assert!(
+            crate::test_helpers::description(&fx.work, "main")
+                .contains(&format!("ocid: https://h/o/r.agent-session/commit/{sha}")),
+            "the one above it"
         );
     }
 

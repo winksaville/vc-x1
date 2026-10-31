@@ -136,6 +136,27 @@ pub fn ocid_placeholder_for(
         .map(|url| format!("{url}/commit/{OCID_PLACEHOLDER}")))
 }
 
+/// A placeholder `ocid:` value with `sha` in its place, `None` when
+/// `value` is not a placeholder, so one already set stays as it is.
+pub fn ocid_with_sha(value: &str, sha: &str) -> Option<String> {
+    value
+        .strip_suffix(OCID_PLACEHOLDER)
+        .and_then(|url| url.strip_suffix("/commit/"))
+        .map(|url| format!("{url}/commit/{sha}"))
+}
+
+/// A description with its `ocid:` line's value replaced, the rest and
+/// the line's place kept.
+pub fn with_ocid_value(desc: &str, value: &str) -> String {
+    desc.lines()
+        .map(|line| match line.starts_with("ocid:") {
+            true => format!("ocid: {value}"),
+            false => line.to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// A description without its `ochid:` and `ocid:` lines.
 pub fn without_trailer_lines(desc: &str) -> impl Iterator<Item = &str> {
     desc.lines()
@@ -490,6 +511,21 @@ mod tests {
             "/.claude/abc"
         );
         assert_eq!(ochid_value(None, "/", "abc"), "/abc");
+    }
+
+    /// A placeholder takes the SHA, once, and the line keeps its place.
+    #[test]
+    fn a_placeholder_ocid_takes_the_sha() {
+        let placeholder = "https://h/o/r/commit/xxxx";
+        assert_eq!(
+            ocid_with_sha(placeholder, "abc").as_deref(),
+            Some("https://h/o/r/commit/abc")
+        );
+        assert_eq!(ocid_with_sha("https://h/o/r/commit/abc", "def"), None);
+        assert_eq!(
+            with_ocid_value("t\n\nochid: /a\nocid: old\n", "new"),
+            "t\n\nochid: /a\nocid: new"
+        );
     }
 
     /// The `ocid:` sits below the `ochid:`, and both come back out.
