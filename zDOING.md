@@ -142,7 +142,7 @@ Provisional, the rungs after the opening named as the work is understood:
 - [fix: commit stays local unless --push asks][3] (done)
 - [feat: commit and init stamp a URL-shaped ochid and ocid][4] (done)
 - [feat: land stamps a local cycle's trailers][5] (done)
-- [feat: land sets the ocid trailer to the agent commit's SHA][6]
+- [feat: land sets the ocid trailer to the agent commit's SHA][6] (done)
 - [docs: the rules and README name the URL form][7]
 - [feat: ochid trailers are URLs closing][8]
 
@@ -263,6 +263,20 @@ A Land now finishes the agent side of a cycle held local, and stays on the machi
   the closing, which is not made yet.
 
 ##### feat: land sets the ocid trailer to the agent commit's SHA
+
+After committing the agent `@`, a Land now replaces the `xxxx` in each work commit's `ocid:` with that
+commit's SHA, so the links work once published.
+
+- Each commit from the trunk to the target whose `ochid:` names the agent commit and whose `ocid:` is
+  a placeholder is re-described, oldest first, by change id, and its tree is checked unchanged. A
+  failure restores the work repo.
+- The trunk moves to the target by change id, since the rewrite changes the target's SHA.
+- It keys on the agent `@-`, not on the commit just made, so a Land stopped partway finishes on a
+  rerun. A value already set is left.
+- A published commit keeps its placeholder, with a warning, since this would rewrite it, my call. A
+  rung published by `-s w --push` is the case, its agent commit already made by `push`.
+- `push`'s own partner commit sets no SHA, so a `-s w --push` ladder keeps `xxxx`. Only a Land sets it.
+- Also files **desc takes a title, body, and trailers** in `## Todo`.
 
 ##### docs: the rules and README name the URL form
 

@@ -171,6 +171,22 @@ A proposal, the agent's, wink's to try (2026-10-30):
 - A config with `suffix` under a profile is refused naming the move, or read as the role's for a
   while. Open.
 
+### desc takes a title, body, and trailers
+
+(wink + agent, 2026-10-30) Overwriting a commit's description takes three commands and leaves gaps:
+`squash --title --body` on `@-` alone, needing both and folding `@`, `fix-desc --title` with no body,
+and a hand-run `jj describe` for a trailer. Wink's: `vc-x1 desc` gains optional `--title`, `--body`,
+`--ochid`, and `--ocid`, in any combination, what is left out kept. With none it reads as it does
+today. The agent's, to be agreed:
+
+- A write requires `-r`, one commit in one repo, so a default of `@` or a range writes nothing by
+  accident, and `-s both` is refused, each repo's trailers being its own.
+- `--ochid` repeats and replaces every `ochid:` line, since a Land's agent commit carries several, and
+  `--ocid ""` removes the line.
+- Only the description changes, nothing folds, and the tree is checked unchanged.
+- A published commit is refused unless `--yes`, and `--dry-run` prints the result.
+- `squash --title --body` and `fix-desc --title` then retire, and `commit -r`'s refusal names `desc`.
+
 ### init defaults to --local
 
 (wink, 2026-10-30) `vc-x1 init` makes the workspace on the machine and creates and publishes nothing
