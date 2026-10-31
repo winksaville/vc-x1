@@ -67,6 +67,17 @@ pub fn with_trailers(text: &str, ochid: &str, ocid: Option<&str>) -> String {
     }
 }
 
+/// A description with one `ochid:` trailer per value, in order, the
+/// agent commit a Land makes for a whole cycle.
+pub fn with_ochids(text: &str, values: &[String]) -> String {
+    let trailers = values
+        .iter()
+        .map(|v| format!("ochid: {v}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!("{}\n\n{trailers}", text.trim_end())
+}
+
 /// What an `ocid:` trailer holds until the Land knows the agent
 /// commit's SHA.
 const OCID_PLACEHOLDER: &str = "xxxx";

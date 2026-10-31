@@ -444,6 +444,16 @@ fn agent_half(
     // The intent lines carry the dry-run tag too, or they read as done.
     let dry = if params.dry_run { "[dry-run] " } else { "" };
     let (partner, commit_journal) = match crate::pair::partner(pair, work)? {
+        Partner::Landed(partner) => {
+            info!(
+                "push agent: {dry}publish {BOT_BOOKMARK} at the partner @- {partner}, which a Land \
+                 made, leaving the journal in @"
+            );
+            if !params.dry_run {
+                publish_agent_main(ctx, &pair.agent)?;
+            }
+            return Ok(partner);
+        }
         Partner::Committed(partner) => {
             info!(
                 "push agent: {dry}fold the journal into the partner at @- {partner}, which names the \
@@ -522,6 +532,18 @@ fn agent_half(
     Ok(partner)
 }
 
+/// Set the agent `main` at `@-` and push it, folding nothing, so the
+/// commit a Land made goes out with the SHA `ocid:` names.
+pub(crate) fn publish_agent_main(
+    ctx: &mut Context,
+    agent: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    ctx.session(agent)?.bookmark_set(BOT_BOOKMARK, "@-")?;
+    crate::common::verify_tracking(agent, BOT_BOOKMARK)?;
+    ctx.session(agent)?.git_push_bookmark(BOT_BOOKMARK)?;
+    Ok(())
+}
+
 /// The work half: restamp the unpublished work commit when its
 /// trailer does not name the partner, then set and push the bookmark.
 fn work_half(
@@ -532,7 +554,7 @@ fn work_half(
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let target = match crate::pair::partner(pair, work)? {
-        Partner::Committed(partner) => partner,
+        Partner::Committed(partner) | Partner::Landed(partner) => partner,
         Partner::Pending(agent_at) | Partner::Changed { agent_at, .. } => agent_at,
     };
     let restamp = work.stamped != target;

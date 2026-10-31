@@ -197,14 +197,11 @@ pub struct CommitArgs {
     pub skip: Option<Skip>,
 
     /// With `--closing`, land the cycle on TRUNK, the closing's first
-    /// parent: fast-forward it to the closing, push it, and delete the
-    /// cycle's bookmark [default: `[cycle] trunk`, else `main`]
-    #[arg(
-        long,
-        value_name = "TRUNK",
-        requires = "closing",
-        conflicts_with = "local"
-    )]
+    /// parent: commit the agent `@` when the cycle's commits name it,
+    /// fast-forward TRUNK to the closing, and delete the cycle's
+    /// bookmark, locally unless `--push` [default: `[cycle] trunk`, else
+    /// `main`]
+    #[arg(long, value_name = "TRUNK", requires = "closing")]
     pub land: Option<Option<String>>,
 
     /// The bookmark to advance to the work commit, locally, any on the
@@ -683,6 +680,9 @@ fn commit_pair(
     let tip = closing_tip(closing.as_ref()).to_string();
     let closing_bm = closing_bookmark(work, params, &tip)?;
     let land = plan_land(work, params, &tip, closing_bm.as_deref())?;
+    // A Land commits the agent `@`, naming every commit that names it,
+    // the closing among them.
+    let agent_now = agent_now && land.is_none();
     let record = match &closing {
         Some(_) => RecordMove::plan(work)?,
         None => None,
@@ -994,7 +994,11 @@ fn plan_land(
     }
     let skip = params.opening.as_ref().map_or(params.skip, |_| None);
     let trunk = trunk_name(repo, params)?;
-    crate::land::plan(repo, "commit --land", trunk, tip, bookmark, skip, false).map(Some)
+    let plan = crate::land::plan(repo, "commit --land", trunk, tip, bookmark, skip, false)?;
+    Ok(Some(LandPlan {
+        push: params.push,
+        ..plan
+    }))
 }
 
 /// Which push publishes a commit.
@@ -3140,6 +3144,7 @@ mod tests {
         let opening = open_cycle(&fx);
         let mut a = closing_args(&fx, "b", "@-");
         a.land = Some(Some("main".to_string()));
+        a.push = true;
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("landed");
 
@@ -3176,6 +3181,7 @@ mod tests {
         let mut a = closing_args(&fx, "b", "@-");
         a.body = Some("Closing.".to_string());
         a.land = Some(None);
+        a.push = true;
         a.skip = Some(Skip::Both);
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("landed");
@@ -3218,6 +3224,7 @@ mod tests {
         let mut a = closing_args(&fx, "b", "@-");
         a.body = Some("Closing.".to_string());
         a.land = Some(None);
+        a.push = true;
         let params = CommitParams::try_from(&a).expect("params");
         let err = commit(&mut test_ctx(), &params)
             .expect_err("several")
@@ -3255,6 +3262,7 @@ mod tests {
         let mut a = closing_args(&fx, "b", "@-");
         a.body = Some("Closing.".to_string());
         a.land = Some(None);
+        a.push = true;
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("landed");
         assert_eq!(parents(&fx.work, "main").len(), 2, "main is the closing");
@@ -3292,6 +3300,7 @@ mod tests {
 
         let (fx, mut a) = unbookmarked_branch("commit-land-none");
         a.land = Some(None);
+        a.push = true;
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("landed");
         assert_eq!(parents(&fx.work, "main").len(), 2, "main is the closing");
@@ -3352,6 +3361,7 @@ mod tests {
         let mut a = closing_args(&fx, "b", "@-");
         a.body = Some("Closing.".to_string());
         a.land = Some(Some("main".to_string()));
+        a.push = true;
         let params = CommitParams::try_from(&a).expect("params");
         let err = commit(&mut test_ctx(), &params)
             .expect_err("two bookmarks")
@@ -3414,6 +3424,7 @@ mod tests {
         };
         let mut a = closing_args(&fx, "w", "@-");
         a.land = Some(None);
+        a.push = true;
         jj_ok(
             &fx.work,
             &["new", "--no-edit", "main", "-m", "a side commit"],
@@ -3468,9 +3479,11 @@ mod tests {
         let mut a = closing_args(&fx, "w", "@-");
         a.body = Some("Closing.".to_string());
         a.land = Some(Some("no-such-trunk".to_string()));
+        a.push = true;
         refused(&a, "'no-such-trunk' does not resolve");
 
         a.land = Some(None);
+        a.push = true;
         set_trunk(&fx, &main);
         refused(&a, "is not a local bookmark");
     }

@@ -436,6 +436,13 @@ fn agent_step(
             };
             (AgentStep::Fold, published)
         }
+        Partner::Landed(partner) => {
+            info!(
+                "squash agent: the partner at @- {partner} is a Land's, so the journal stays in \
+                 @ for the next cycle"
+            );
+            (AgentStep::Leave, None)
+        }
         Partner::Pending(agent_at) => {
             info!(
                 "squash agent: the agent @ {agent_at} is the pending partner, the journal is \
