@@ -9,6 +9,12 @@ This file is a trial (2026-10-09). The agent-files still name `TODO.md > ## In P
 record's home, and the cycle that makes this file the rule is [The cycle-record moves out of
 TODO.md into zDOING.md](TODO.md#the-cycle-record-moves-out-of-todomd-into-zdoingmd).
 
+**Rule:** a cycle changing `vc-x1` runs its own latest build, wink's (2026-10-30): `vc-x1-dev`,
+installed after the rung before, for every command, `validate` and `install` as well as `commit`. The
+landed `vc-x1` is used only for a sequence `vc-x1-dev` cannot run, and saying so. Until **install has a role and a
+profile** runs, `vc-x1-dev install` needs `--profile dev`, since bare it builds and replaces the landed
+`vc-x1`.
+
 ## Continuation notes
 
 Where the agent was, for the agent that comes next. Ephemeral, never a record: read first, acted
@@ -143,7 +149,7 @@ Provisional, the rungs after the opening named as the work is understood:
 - [feat: commit and init stamp a URL-shaped ochid and ocid][4] (done)
 - [feat: land stamps a local cycle's trailers][5] (done)
 - [feat: land sets the ocid trailer to the agent commit's SHA][6] (done)
-- [docs: the rules and README name the URL form][7]
+- [docs: the rules and README name the URL form][7] (done)
 - [feat: ochid trailers are URLs closing][8]
 
 ##### feat: ochid trailers are URLs opening
@@ -279,6 +285,16 @@ commit's SHA, so the links work once published.
 - Also files **desc takes a title, body, and trailers** in `## Todo`.
 
 ##### docs: the rules and README name the URL form
+
+The README describes what this cycle built, and the rules are drafted for the proposal.
+
+- README: the trailer section leads with the URL form, `ocid:`, and the label as the fallback, and
+  `commit` and `land` say a Land is local and `--push` publishes.
+- The rules: `agent-data/jj.md` and `AGENTS.md` are unchanged, and **agent-files(proposal): v0.3.1**
+  gains **ochid trailers are URLs**, as the Problem says, since an agent-file changes by its proposal.
+  So `jj.md` still reads `/.claude/` until that proposal runs. My call.
+- **Only push publishes** and **A cycle stays local until its Land** now say what was built, `land`
+  local and `--push` publishing.
 
 ##### feat: ochid trailers are URLs closing
 
