@@ -14,7 +14,9 @@ use std::path::{Path, PathBuf};
 
 use log::{info, warn};
 
-use crate::desc_helpers::{extract_bare_id, extract_ochid_from_desc};
+use crate::desc_helpers::{
+    extract_bare_id, extract_ochid_from_desc, extract_ochids, extract_ocid_from_desc,
+};
 use crate::jj;
 use crate::jj::{current_op_id, op_restore};
 use crate::options_flags::scope::{RepoScope, Scope, Side};
@@ -70,6 +72,8 @@ pub struct WorkCommit {
     pub chid: String,
     pub trailer: String,
     pub stamped: String,
+    /// Its `ocid:` value, a rewrite keeping it with the trailer.
+    pub ocid: Option<String>,
 }
 
 /// Read the work commit of the pair, `None` when it has no trailer.
@@ -81,6 +85,7 @@ pub fn work_commit(pair: &Pair) -> Result<Option<WorkCommit>, Box<dyn std::error
     Ok(Some(WorkCommit {
         chid: jj::chid_of(&pair.work, "@-")?,
         stamped: extract_bare_id(&trailer).to_string(),
+        ocid: extract_ocid_from_desc(&desc),
         trailer,
     }))
 }
@@ -91,6 +96,10 @@ pub enum Partner {
     /// The agent `@-` names the work commit, the pair made at once
     /// (`commit -s b`): the journal in `@` folds into it. Its id.
     Committed(String),
+    /// The agent `@-` names the work commit and a Land made it: it
+    /// names several, or the work commit's `ocid:` links it, so the
+    /// journal in `@` stays out, since a fold changes its SHA. Its id.
+    Landed(String),
     /// The agent `@` is the change the work commit names (`commit
     /// -s w`): the journal is the partner, for push to commit. Its id.
     Pending(String),
@@ -104,9 +113,13 @@ pub enum Partner {
 /// caller here, before any mutation.
 pub fn partner(pair: &Pair, work: &WorkCommit) -> Result<Partner, Box<dyn std::error::Error>> {
     let agent_at = jj::chid_of(&pair.agent, "@")?;
-    let names_work = extract_ochid_from_desc(&jj::desc_of(&pair.agent, "@-")?)
-        .is_some_and(|o| extract_bare_id(&o) == work.chid);
-    Ok(if names_work {
+    let ochids = extract_ochids(&jj::desc_of(&pair.agent, "@-")?);
+    let names_work = ochids
+        .last()
+        .is_some_and(|o| extract_bare_id(o) == work.chid);
+    Ok(if names_work && (ochids.len() > 1 || work.ocid.is_some()) {
+        Partner::Landed(jj::chid_of(&pair.agent, "@-")?)
+    } else if names_work {
         Partner::Committed(jj::chid_of(&pair.agent, "@-")?)
     } else if agent_at == work.stamped {
         Partner::Pending(agent_at)
@@ -193,7 +206,7 @@ impl Snapshots {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::{Fixture, cid, jj_ok};
+    use crate::test_helpers::{Fixture, chid, cid, jj_ok};
     use std::fs;
 
     /// The pair resolves from either repo, and `restore` rewinds
@@ -225,5 +238,31 @@ mod tests {
         snapshots.restore(&pair, "test", err.as_ref());
         assert_eq!(cid(&fx.work, "main"), main_work_start);
         assert_eq!(cid(&fx.bot, "main"), main_bot_start);
+    }
+
+    /// A URL-form trailer on the work `@-` names the same partner the
+    /// path form does: the agent `@` while it is pending, and the
+    /// agent `@-` once a URL-form trailer there names the work commit.
+    #[test]
+    fn a_url_form_trailer_finds_its_partner() {
+        let fx = Fixture::new("pair-url");
+        let pair = resolve_pair(Some(&fx.work)).expect("pair");
+        let agent_at = chid(&fx.bot, "@");
+        let desc = format!("feat: x\n\nochid: https://example.com/o/r.agent-session#{agent_at}\n");
+        jj_ok(&fx.work, &["commit", "-m", &desc]);
+
+        let work = work_commit(&pair).expect("read").expect("a trailer");
+        assert_eq!(work.stamped, agent_at);
+        assert_eq!(
+            partner(&pair, &work).expect("partner"),
+            Partner::Pending(agent_at.clone())
+        );
+
+        let desc = format!("feat: x\n\nochid: https://example.com/o/r#{}\n", work.chid);
+        jj_ok(&fx.bot, &["commit", "-m", &desc]);
+        assert_eq!(
+            partner(&pair, &work).expect("partner"),
+            Partner::Committed(agent_at)
+        );
     }
 }

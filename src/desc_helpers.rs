@@ -57,6 +57,112 @@ pub fn with_trailer(text: &str, value: &str) -> String {
     format!("{}\n\nochid: {value}", text.trim_end())
 }
 
+/// A description with its `ochid:` trailer and, when there is one, the
+/// `ocid:` trailer below it.
+pub fn with_trailers(text: &str, ochid: &str, ocid: Option<&str>) -> String {
+    let desc = with_trailer(text, ochid);
+    match ocid {
+        Some(ocid) => format!("{desc}\nocid: {ocid}"),
+        None => desc,
+    }
+}
+
+/// A description with one `ochid:` trailer per value, in order, the
+/// agent commit a Land makes for a whole cycle.
+pub fn with_ochids(text: &str, values: &[String]) -> String {
+    let trailers = values
+        .iter()
+        .map(|v| format!("ochid: {v}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!("{}\n\n{trailers}", text.trim_end())
+}
+
+/// What an `ocid:` trailer holds until the Land knows the agent
+/// commit's SHA.
+const OCID_PLACEHOLDER: &str = "xxxx";
+
+/// The `ochid:` value naming `chid`: by the repo's canonical URL when
+/// `url` has one, else by the side's `label`, the form a repo with no
+/// hosted `origin` stamps.
+pub fn ochid_value(url: Option<&str>, label: &str, chid: &str) -> String {
+    match url.and_then(crate::url::canonical_repo_url) {
+        Some(url) => format!("{url}#{chid}"),
+        None => format!("{label}{chid}"),
+    }
+}
+
+/// The `ochid:` value naming `chid` in `repo`, the URL read from its
+/// `origin`.
+pub fn ochid_value_for(
+    repo: &std::path::Path,
+    chid: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let url = crate::jj::remote_url(repo, "origin")?;
+    Ok(ochid_value(url.as_deref(), &ochid_prefix_for(repo)?, chid))
+}
+
+/// The `ochid:` value naming `chid` in `repo` by the side's label, the
+/// form `--no-url-trailer` asks for.
+pub fn ochid_label_value_for(
+    repo: &std::path::Path,
+    chid: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    Ok(ochid_value(None, &ochid_prefix_for(repo)?, chid))
+}
+
+/// The `ochid:` value naming `chid` in `repo`, by URL only when
+/// `url_form`, so a partner follows the form its work commit took.
+pub fn ochid_value_in_form(
+    url_form: bool,
+    repo: &std::path::Path,
+    chid: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    match url_form {
+        true => ochid_value_for(repo, chid),
+        false => ochid_label_value_for(repo, chid),
+    }
+}
+
+/// The placeholder `ocid:` value for a commit in `repo`, `None` when
+/// it has no canonical URL, since the value is a link.
+pub fn ocid_placeholder_for(
+    repo: &std::path::Path,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let url = crate::jj::remote_url(repo, "origin")?;
+    Ok(url
+        .as_deref()
+        .and_then(crate::url::canonical_repo_url)
+        .map(|url| format!("{url}/commit/{OCID_PLACEHOLDER}")))
+}
+
+/// A placeholder `ocid:` value with `sha` in its place, `None` when
+/// `value` is not a placeholder, so one already set stays as it is.
+pub fn ocid_with_sha(value: &str, sha: &str) -> Option<String> {
+    value
+        .strip_suffix(OCID_PLACEHOLDER)
+        .and_then(|url| url.strip_suffix("/commit/"))
+        .map(|url| format!("{url}/commit/{sha}"))
+}
+
+/// A description with its `ocid:` line's value replaced, the rest and
+/// the line's place kept.
+pub fn with_ocid_value(desc: &str, value: &str) -> String {
+    desc.lines()
+        .map(|line| match line.starts_with("ocid:") {
+            true => format!("ocid: {value}"),
+            false => line.to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// A description without its `ochid:` and `ocid:` lines.
+pub fn without_trailer_lines(desc: &str) -> impl Iterator<Item = &str> {
+    desc.lines()
+        .filter(|l| !l.starts_with("ochid:") && !l.starts_with("ocid:"))
+}
+
 /// Problems found with an ochid trailer, with details for reporting.
 #[derive(Debug)]
 pub struct OchidIssues {
@@ -90,10 +196,74 @@ impl OchidIssues {
     }
 }
 
-/// Validate an ochid trailer value against expected prefix, length, and other repo.
+/// Whether a prefix, what precedes the bare ID, is a URL form's:
+/// `<scheme>://<repo>#`.
+fn is_url_prefix(prefix: &str) -> bool {
+    prefix.contains("://") && prefix.ends_with('#')
+}
+
+/// The forms a trailer naming one repo may take.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OchidForms {
+    /// The side's label, what every published trailer carries.
+    pub label: String,
+    /// The path form by the directory's own name, for a repo with no
+    /// URL to stamp: `/` on the work side, `/<dir>/` on the agent's.
+    pub path: String,
+    /// The repo's canonical URL, from its `origin`, when it has one.
+    pub url: Option<String>,
+}
+
+impl OchidForms {
+    /// Whether a trailer's prefix is one of these forms. A URL naming
+    /// another repo is not, compared canonically, and with no `url` to
+    /// compare against any URL passes on its ID alone.
+    fn accepts(&self, actual: &str) -> bool {
+        if is_url_prefix(actual) {
+            let named = crate::url::canonical_repo_url(actual.trim_end_matches('#'));
+            self.url.is_none() || named == self.url
+        } else {
+            actual == self.label || actual == self.path
+        }
+    }
+
+    /// The form a wrong prefix is reported against.
+    fn wanted(&self, actual: &str) -> String {
+        match &self.url {
+            Some(url) if is_url_prefix(actual) => format!("{url}#"),
+            _ => self.label.clone(),
+        }
+    }
+}
+
+/// The forms a trailer naming `repo` may take, the URL read from its
+/// `origin`.
+pub fn ochid_forms_for(repo: &std::path::Path) -> Result<OchidForms, Box<dyn std::error::Error>> {
+    let label = ochid_prefix_for(repo)?;
+    let path = if label == OCHID_WORK_LABEL {
+        label.clone()
+    } else {
+        let canonical = repo.canonicalize()?;
+        match canonical.file_name().and_then(|n| n.to_str()) {
+            Some(name) => format!("/{name}/"),
+            None => label.clone(),
+        }
+    };
+    let url =
+        crate::jj::remote_url(repo, "origin")?.and_then(|u| crate::url::canonical_repo_url(&u));
+    Ok(OchidForms { label, path, url })
+}
+
+/// Whether an ochid value is the URL form, naming a repo by URL.
+pub fn is_url_form(ochid_value: &str) -> bool {
+    let bare_id = extract_bare_id(ochid_value);
+    is_url_prefix(&ochid_value[..ochid_value.len() - bare_id.len()])
+}
+
+/// Validate an ochid trailer value against the repo's forms, length, and other repo.
 pub fn validate_ochid(
     value: &str,
-    other_prefix: &str,
+    forms: &OchidForms,
     id_len: usize,
     other_workspace: &Workspace,
     other_repo: &Arc<ReadonlyRepo>,
@@ -102,8 +272,8 @@ pub fn validate_ochid(
     let bare_id = extract_bare_id(value);
     let actual_prefix = &value[..value.len() - bare_id.len()];
 
-    let wrong_prefix = if actual_prefix != other_prefix {
-        Some((actual_prefix.to_string(), other_prefix.to_string()))
+    let wrong_prefix = if !forms.accepts(actual_prefix) {
+        Some((actual_prefix.to_string(), forms.wanted(actual_prefix)))
     } else {
         None
     };
@@ -196,12 +366,23 @@ pub fn resolve_full_change_id(
     }
 }
 
-/// Extract the bare change ID from an ochid value (strip path prefix).
+/// Extract the bare change ID from an ochid value: what follows the
+/// path form's last `/`, or the URL form's `#`.
 pub fn extract_bare_id(ochid_value: &str) -> &str {
-    if let Some(pos) = ochid_value.rfind('/') {
+    if let Some(pos) = ochid_value.rfind(['/', '#']) {
         &ochid_value[pos + 1..]
     } else {
         ochid_value
+    }
+}
+
+/// An ochid value as a column shows it: the URL form's `#<id>`, since
+/// the URL would push the column out, and any other form as it is.
+pub fn ochid_for_display(ochid_value: &str) -> String {
+    if is_url_form(ochid_value) {
+        format!("#{}", extract_bare_id(ochid_value))
+    } else {
+        ochid_value.to_string()
     }
 }
 
@@ -209,6 +390,8 @@ pub fn extract_bare_id(ochid_value: &str) -> &str {
 ///
 /// If `resolved_id` is provided, it replaces the bare changeID entirely
 /// (used when the existing ID is too short to extend by truncation alone).
+/// A URL form keeps its URL, since it is a valid prefix and not the
+/// label's to replace.
 pub fn fix_ochid_in_description(
     desc: &str,
     other_prefix: &str,
@@ -230,13 +413,19 @@ pub fn fix_ochid_in_description(
         let trimmed = line.trim();
         if let Some(value) = trimmed.strip_prefix("ochid:") {
             let value = value.trim();
+            let bare_id = extract_bare_id(value);
+            let actual_prefix = &value[..value.len() - bare_id.len()];
+            let prefix = if is_url_prefix(actual_prefix) {
+                actual_prefix
+            } else {
+                other_prefix
+            };
             let id = if let Some(rid) = resolved_id {
                 &rid[..rid.len().min(id_len)]
             } else {
-                let bare_id = extract_bare_id(value);
                 &bare_id[..bare_id.len().min(id_len)]
             };
-            *line = format!("ochid: {other_prefix}{id}");
+            *line = format!("ochid: {prefix}{id}");
         }
     }
 
@@ -293,9 +482,74 @@ pub fn extract_ochid_from_desc(desc: &str) -> Option<String> {
     extract_ochids(desc).pop()
 }
 
+/// Extract the `ocid:` value from a description string, the last one.
+pub fn extract_ocid_from_desc(desc: &str) -> Option<String> {
+    desc.lines()
+        .filter_map(|line| line.strip_prefix("ocid:"))
+        .map(|value| value.trim().to_string())
+        .rfind(|value| !value.is_empty())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A value is by URL, canonically, when there is a hosted one, and
+    /// by the side's label otherwise.
+    #[test]
+    fn ochid_value_prefers_the_canonical_url() {
+        assert_eq!(
+            ochid_value(
+                Some("git@github.com:o/r.agent-session.git"),
+                "/.claude/",
+                "abc"
+            ),
+            "https://github.com/o/r.agent-session#abc"
+        );
+        assert_eq!(
+            ochid_value(Some("/tmp/remote.git"), "/.claude/", "abc"),
+            "/.claude/abc"
+        );
+        assert_eq!(ochid_value(None, "/", "abc"), "/abc");
+    }
+
+    /// A placeholder takes the SHA, once, and the line keeps its place.
+    #[test]
+    fn a_placeholder_ocid_takes_the_sha() {
+        let placeholder = "https://h/o/r/commit/xxxx";
+        assert_eq!(
+            ocid_with_sha(placeholder, "abc").as_deref(),
+            Some("https://h/o/r/commit/abc")
+        );
+        assert_eq!(ocid_with_sha("https://h/o/r/commit/abc", "def"), None);
+        assert_eq!(
+            with_ocid_value("t\n\nochid: /a\nocid: old\n", "new"),
+            "t\n\nochid: /a\nocid: new"
+        );
+    }
+
+    /// The `ocid:` sits below the `ochid:`, and both come back out.
+    #[test]
+    fn trailers_round_trip() {
+        let desc = with_trailers("feat: x\n\nBody.\n", "/.claude/abc", Some("u/commit/xxxx"));
+        assert_eq!(
+            desc,
+            "feat: x\n\nBody.\n\nochid: /.claude/abc\nocid: u/commit/xxxx"
+        );
+        assert_eq!(
+            extract_ocid_from_desc(&desc).as_deref(),
+            Some("u/commit/xxxx")
+        );
+        assert_eq!(
+            without_trailer_lines(&desc)
+                .collect::<Vec<_>>()
+                .join("\n")
+                .trim_end(),
+            "feat: x\n\nBody."
+        );
+        assert_eq!(with_trailers("t", "/a", None), "t\n\nochid: /a");
+        assert_eq!(extract_ocid_from_desc("t\n\nochid: /a"), None);
+    }
 
     /// Build `<base>/ws` (+ optional `<bot-dir>`) with per-side
     /// file-relative `[repos]` registries in each repo dir.
@@ -359,6 +613,77 @@ mod tests {
         let (base, root) = ws_fixture("prefix-por", None);
         assert_eq!(ochid_prefix_for(&root).unwrap(), "/");
         std::fs::remove_dir_all(&base).ok();
+    }
+
+    const AGENT_URL: &str = "https://github.com/winksaville/vc-x1.agent-session#";
+
+    #[test]
+    fn bare_id_of_each_form() {
+        assert_eq!(extract_bare_id("tzupykyyvnrp"), "tzupykyyvnrp");
+        assert_eq!(extract_bare_id("/tzupykyyvnrp"), "tzupykyyvnrp");
+        assert_eq!(extract_bare_id("/.claude/tzupykyyvnrp"), "tzupykyyvnrp");
+        assert_eq!(
+            extract_bare_id(&format!("{AGENT_URL}tzupykyyvnrp")),
+            "tzupykyyvnrp"
+        );
+    }
+
+    fn agent_forms(url: Option<&str>) -> OchidForms {
+        OchidForms {
+            label: "/.claude/".to_string(),
+            path: "/.agent-session/".to_string(),
+            url: url.map(str::to_string),
+        }
+    }
+
+    /// The label, the path form, and with no URL to compare any URL
+    /// are valid, and a URL with no `#` is not, since its last path
+    /// segment would read as the ID.
+    #[test]
+    fn a_prefix_is_a_form_of_the_repo() {
+        let forms = agent_forms(None);
+        assert!(forms.accepts("/.claude/"));
+        assert!(forms.accepts("/.agent-session/"));
+        assert!(forms.accepts(AGENT_URL));
+        assert!(!forms.accepts("/wrong/"));
+        assert!(!forms.accepts("/"));
+        assert!(!forms.accepts("https://github.com/winksaville/"));
+        assert!(!forms.accepts("vc-x1#"));
+    }
+
+    /// With a URL to compare, the trailer's URL must name that repo,
+    /// in any spelling of it, and a wrong one reports the right one.
+    #[test]
+    fn a_url_must_name_the_repo() {
+        let want = "https://github.com/winksaville/vc-x1.agent-session";
+        let forms = agent_forms(Some(want));
+        assert!(forms.accepts(AGENT_URL));
+        assert!(forms.accepts("https://github.com/winksaville/vc-x1.agent-session.git#"));
+        assert!(!forms.accepts("https://github.com/winksaville/vc-x1#"));
+        assert_eq!(
+            forms.wanted("https://github.com/winksaville/vc-x1#"),
+            format!("{want}#")
+        );
+        assert_eq!(forms.wanted("/wrong/"), "/.claude/");
+    }
+
+    #[test]
+    fn a_column_shows_the_url_form_short() {
+        assert_eq!(
+            ochid_for_display(&format!("{AGENT_URL}tzupykyyvnrp")),
+            "#tzupykyyvnrp"
+        );
+        assert_eq!(
+            ochid_for_display("/.claude/tzupykyyvnrp"),
+            "/.claude/tzupykyyvnrp"
+        );
+    }
+
+    #[test]
+    fn a_fix_keeps_the_url() {
+        let desc = format!("Title\n\nochid: {AGENT_URL}abcdefghijklmnop\n");
+        let result = fix_ochid_in_description(&desc, "/.claude/", DEFAULT_ID_LEN, None, None);
+        assert_eq!(result, format!("Title\n\nochid: {AGENT_URL}abcdefghijkl\n"));
     }
 
     #[test]

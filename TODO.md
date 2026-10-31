@@ -61,6 +61,149 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### commit works at every scope, and --local keeps it on the machine
+
+(wink + agent, 2026-10-30) Wink's desire: every variation of `vc-x1 commit` works at every scope,
+and a dangerous combination is an error unless `--yes` is given, what is dangerous still to be
+decided. Found trying a cycle held local, every commit by `commit -s w --no-push` with one agent
+commit made at the Land. Folds in **commit and land take the same scopes**, which planned to drop
+`commit -s a`, the opposite.
+
+- `--local` and `--no-push` mean nothing leaves the machine, the default since **feat: ochid trailers
+  are URLs**, where a bare `commit` stays local and `--push` publishes.
+- `--scope` is optional and defaults to `work`, `por` in a plain repo, wink's (2026-10-30), since
+  `-s w --local` is a plain repo's commit with a link back, and a plain `vc-x1 commit` is then a
+  rung. This holds for `--opening`, `--closing`, and `--push`, and `vc-x1 push`, the same as `commit
+  --push`.
+- `--land` requires `--scope`, and `vc-x1 land` the same, dropping its default of `both`, wink's
+  (2026-10-30): a Land has a new destination, so it is assumed dangerous for now.
+- A pushed work commit whose `ochid:` names an unpushed agent commit is not dangerous, wink's
+  (2026-10-30). The link is dead until the agent side is pushed, which is obvious to the user. The
+  commit is still work, to modify, squash, fork, or merge, and `--push` makes it durable while it
+  stays fluid. Whether a Land's result is durable is the user's to decide.
+- `--closing --squash` folds a ladder into one commit with the bare cycle title, no " opening" and no
+  " closing", a single-step cycle by its commit count. Considered, not decided, wink + agent
+  (2026-10-30). We think it refuses a merge in the range, a bottom title with no " opening" and no
+  `--title`, `-s a`, and any range whose commits carry different `ochid:` values, a `--local -s b`
+  ladder among them, since its rungs each have an agent commit. Whether a pushed range refuses is
+  open, since a pushed commit is still fluid by the entry above.
+- A matrix of command against scope, each cell what it does or why it refuses, in the README's `###
+  Write scopes` table and checked by a table-driven test, so a new flag leaves no gap. Goes with
+  **docs: each command's -s help names the scopes it takes**, which checks the help against that
+  table. Today, by trial on 0.85.17, the `-s a` refusals read from the code and `land`'s help:
+  - `b` and `w` take a rung, `--opening`, `--closing`, and `--closing --land`, and `-s w` with
+    `--land` or a push publishes both repos.
+  - `a` takes a rung, unpaired, and refuses both bookends.
+  - `p` takes all of them in a plain repo, and refuses everything in a dual workspace.
+  - `land` takes `b` and `p`, and refuses `w` and `a`.
+- `-s p` in a dual workspace: `p` stays "no partner", so it works there as an explicit opt-out with
+  no trailer. A trailer would make it `-s w --local`, which exists, and a plain repo has no agent
+  repo to name.
+- A Land is local since **feat: ochid trailers are URLs**, `--push` publishing it, and a later
+  `vc-x1 push -s b` does the same. Open: the name of `--land`'s target beside `--bookmark <BM|REV>`,
+  and `push` deleting a published cycle's bookmark on `origin`, which a bare Land leaves there.
+- `--closing` at `-s a` does what `--closing -s b` does on the agent side, wink's (2026-10-30): a
+  regular commit, no trapezoid, the merge being the work-repo's. We think `--opening` at `-s a` is
+  the same, with no bookmark. Open: its title with no opening to read it from in the agent-repo,
+  and its trailer, since `-s b`'s names the work closing and `-s a` makes none, today's `-s a`
+  commit being unpaired.
+- `--yes` passes the danger guard and nothing else. The description review stays the agent's, in
+  conversation, at [The per-rung flow](AGENTS.md#the-per-rung-flow) step 8, with no gate in the tool,
+  so `--yes` does not excuse it and a waiver is the user's to say. `push`'s `--yes` passes its
+  `--step` gates, so that one is reconciled or renamed, and **squash-push shows what it takes, and
+  push follows jj** retires `squash --yes`, so the two entries agree first.
+- Candidates for dangerous, to be decided:
+  - landing a trailer that names an unpublished agent commit, a work-only Land
+  - landing a range with a trailer naming an agent change that no longer exists
+  - rewriting a commit on the trunk's remote, which `squash` already guards
+  - `-s p` in a dual workspace, giving up the rung's link to the transcript.
+- The worst danger found is outside `commit`: `squash-push -s a --yes` between `-s w` rungs folds
+  the agent `@` the earlier trailers name, so they dangle, and commit and land both still succeed.
+  Only `validate-desc` over the range reports it, `[not found]`. A check at the Land or in
+  `squash-push` closes it, and until then a cycle held local runs no `squash-push -s a`.
+- From the folded entry:
+  - the rule that a scope is valid when what it publishes names nothing it leaves unpublished,
+    which binds publishing and not committing, so every local cell can work
+  - `merge` keeps `w` and `p`, a trapezoid being the work-repo's
+  - the repo commands keep `a`: `sync`, `squash`, `squash-push`, `push`, `status`, `move-bookmark`,
+    `delete-bookmark`, and `validate-desc` act on the agent-repo as a repo of its own and link
+    nothing.
+- Open: a held-local cycle's agent commit names only the closing, so the transcript reaches the
+  rungs only through their own trailers. **vc-x1 push: record uncovered work commits (N:1
+  work<->agent)** plans one `ochid:` line per commit. We think `lookup` from a rung gets the whole
+  cycle's agent commit, not yet tried.
+
+### bookmark takes create, delete, and move
+
+(wink + agent, 2026-10-30) `move-bookmark` and `delete-bookmark` become `vc-x1 bookmark
+create|delete|move`, and `commit --no-advance` becomes `--no-move`, the same word as the command.
+
+- Subcommands and not flags: each verb takes different options, so each gets help of its own and clap
+  refuses what does not apply. It matches `jj bookmark`, **Nest the validate and fix commands**, and
+  `agent-files copy|diff`. "Every argument is a flag" binds a command's arguments, not its verbs.
+- The retired names are refused, naming the new ones, as the retired flags are.
+- Only push publishes, in **agent-files(proposal): v0.3.1**: the verbs are local, so `delete` stops
+  removing the bookmark on `origin` and the remote side takes `--push`. `move-bookmark` is to be
+  checked for the same. This answers a Land's deletion of a published bookmark.
+
+### install has a role and a profile
+
+(wink + agent, 2026-10-30) `[profile.dev]` holds both how a binary is built and what it is installed
+as, so `vc-x1-dev` reads as the `dev` profile. Wink's model: they are two choices. The profile is how
+it is compiled, `target/<profile>/<name>`, the name from `Cargo.toml`. The role is what it is: bare
+`vc-x1` the released version and `vc-x1-dev` the development version, either from any profile.
+`build` and `run` take a profile alone, and `install` alone has a role. Historically the install was
+`cargo install --path . --locked`, sometimes with `--root` and a copy, before profiles existed.
+
+A proposal, the agent's, wink's to try (2026-10-30):
+
+- `[role.released]`, `default-profile = "release"`, and `[role.development]`, `suffix = "-dev"` and
+  `default-profile = "dev"`. `suffix` leaves `[profile.*]`, and `[install] commands` says
+  `{role.suffix}`.
+- `install --as released|development`, the default the running binary's role by its name, so
+  `vc-x1-dev install` stays development, and `--profile` overrides the role's default.
+- A released install refuses a dirty build, a commit not on `main`, and a suffixed version unless
+  `--force`, where today it only reports them. A development install reports them.
+- The copy stays configured: `[install] commands` holds `cp {profile.bin}` and `mv`, or a project may
+  list `cargo install --path . --locked --profile {profile.cargo} --root <dir>` and copy from
+  `<dir>/bin`, which needs no path rule and, by cargo's help, shares the workspace's target directory.
+  `bin` stays either way, since `run` needs it and `[build] commands` is not cargo-specific.
+- A config with `suffix` under a profile is refused naming the move, or read as the role's for a
+  while. Open.
+
+### desc takes a title, body, and trailers
+
+(wink + agent, 2026-10-30) Overwriting a commit's description takes three commands and leaves gaps:
+`squash --title --body` on `@-` alone, needing both and folding `@`, `fix-desc --title` with no body,
+and a hand-run `jj describe` for a trailer. Wink's: `vc-x1 desc` gains optional `--title`, `--body`,
+`--ochid`, and `--ocid`, in any combination, what is left out kept. With none it reads as it does
+today. The agent's, to be agreed:
+
+- A write requires `-r`, one commit in one repo, so a default of `@` or a range writes nothing by
+  accident, and `-s both` is refused, each repo's trailers being its own.
+- `--ochid` repeats and replaces every `ochid:` line, since a Land's agent commit carries several, and
+  `--ocid ""` removes the line.
+- Only the description changes, nothing folds, and the tree is checked unchanged.
+- A published commit is refused unless `--yes`, and `--dry-run` prints the result.
+- `squash --title --body` and `fix-desc --title` then retire, and `commit -r`'s refusal names `desc`.
+
+### init defaults to --local
+
+(wink, 2026-10-30) `vc-x1 init` makes the workspace on the machine and creates and publishes nothing
+unless `--push` asks, as `commit` does in **Only push publishes**. Today it creates the remotes and
+pushes, public on GitHub unless `--private`, so a bare `init` publishes a repo.
+
+- `--push` is what creates the remotes and publishes, and the approval it needs is the rest of that
+  section's. `--private` and `--push-retries` take effect with it.
+- Publishing later needs a way: a workspace with no `origin` has nothing for `vc-x1 push` to push to,
+  so `push`, or a command of its own, creates the remotes.
+- The trailers: `init`'s cross-links then have no URL to stamp, so they take the path form **feat:
+  ochid trailers are URLs** defines, `/.agent-session/<chid>`, and they stay valid after a remote
+  appears, the URL being checked only on a URL form.
+- The name: `--repo local` is already a category, a local directory of bare repos, which is a remote
+  of a kind and not this `--local`, so one of the two is renamed or explained. `clone` is to be
+  checked for the same default.
+
 ### abandon and revert set a mistake aside
 
 (wink + agent, 2026-10-29) The dead end of **feat: undo takes back the last vc-x1 run**: what the
@@ -82,6 +225,63 @@ than taken back.
   whether abandon discards when nothing references the tail.
 - **squash-push shows what it takes, and push follows jj** leaned on undo, its "local acts are not
   refused, since undo takes them back", and is to be reread against this.
+
+### The exit code says what failed
+
+(wink, 2026-10-30) `vc-x1 <...>`'s exit code should indicate what failed as precisely as possible.
+Today nearly every failure exits 1 by the runner's Ok-or-1 mapping, clap's usage errors 2, and only
+`agent-files diff` returns a code of its own.
+
+- A documented table, stable once published, with an error type that carries its code, so a command
+  returns one by what happened and not by a string. The message stays the explanation, and the code
+  is for what acts on the result: a script, a hook, an actor's reply, an agent.
+- What the code most needs to say, a first cut:
+  - which step of a composed command failed, so `land -s b` says the agent closing, the work closing,
+    the agent push, or the work push, and a retry knows what was done
+  - refused before anything moved, as against failed partway
+  - a guard `--yes` would pass, as against an error it would not
+  - a push rejected by a lease, as against the network.
+- The shape, wink's (2026-10-30): read in hex, the upper digit is the stage, broader, and the lower
+  digit the type, narrower.
+  - The upper digit runs 0 to 7, since the shell owns 0x7E and up: 126, 127, and 128 plus a signal.
+    So a set top bit always means killed, never one of ours.
+  - Stage 0 is before anything moved, so `refused` needs no type of its own and today's 1 and clap's
+    2 keep their meanings. Stages are a command's own, `land -s b`'s being the agent closing, the
+    work closing, the agent push, the work push, and so on, and each is documented with it.
+  - Types are global, the same digit meaning the same thing in every command: a guard `--yes` would
+    pass, a rejected lease, the network, a conflict. A lower digit of 0 is unspecified.
+- Open: **status prints a verdict per repo and exits with a bit per side** uses 1, 2, and 3 for a
+  verdict, which collides with stage 0's types, so one of the two moves. Eight stages may be short
+  for a long composed command.
+
+### vc-x1 is an actor
+
+(wink + agent, 2026-10-30) `vc-x1` becomes a service the user installs, and a client sends it
+asynchronous messages. From **feat: ochid trailers are URLs**, where a Land is to run after the agent
+goes quiet, so the transcript it commits is whole: first as a detached process, wink's technique
+from the olden days, and then as a message to the actor.
+
+- Its lifetime is the user's: the service is installed, started, and restarted by them, systemd or
+  the like, and no agent manages it.
+- One actor handles one message at a time, so writes through it queue rather than collide. Raw `jj`
+  never goes through it, so that stays a rule.
+- A reply is the outcome, so "land finished or failed" has a defined form and place. A reply does not
+  wake the agent, since waking it writes to the transcript the Land is waiting to go quiet.
+- The client:
+  - no service running fails at once and says so, rather than queueing a message nothing reads
+  - client and service compare versions and report a mismatch, since a Land installs a new binary
+    and a running service keeps the old code until restarted
+  - the Land stays an ordinary function, so it runs in the foreground with no service.
+- Authority: any local process can send a message, so the user's go still comes through the agent and
+  the rules.
+- What a finished Land can start, by another message:
+  - an agent that checks `main` in both repos, the deleted bookmarks, and the installed version,
+    read-only and outside the dual-repo protocol
+  - a restart of the agent for the next step, automating [Close-out](AGENTS.md#close-out) step 7,
+    which begins with an acquaint and inherits no approval, so a restart is no unattended chain of
+    pushes.
+- Open: the transport, we think a file mailbox in a gitignored directory, which survives a crash and
+  works on every platform **vc-x1 runs on Windows and macOS** names.
 
 ### squash-push shows what it takes, and push follows jj
 
@@ -268,28 +468,6 @@ refused.
   refused, in `land`'s and `merge`'s form.
 - `tests/cli_complete.rs` still offers each command's scopes, since the values are hidden from
   help alone.
-
-### commit and land take the same scopes
-
-(wink + agent, 2026-10-26) A cycle command, one that makes or publishes a cycle's commits, takes
-`w`, `b`, and `p`, and the repo commands keep all four. The rule: a scope is valid when what it
-publishes names nothing it leaves unpublished. Found at **feat: vc-x1 land**, where `commit` takes
-all four and `land` takes `b` and `p`.
-
-- `commit` drops `-s a`. The agent-repo has no cycle, its own publishing is `squash-push`'s, and
-  `commit` already refuses `a` with REV, with a bookend, and on an agent `@` paired to a work
-  commit, while nothing documented uses it.
-- `land` takes `-s w` when no commit in `trunk..tip` carries an `ochid:` trailer, the range
-  `commit -s w` makes, and refuses it naming the first commit that does. A trailer names an agent
-  commit a work-only Land leaves unpublished, and `--no-push` only defers that to the push.
-- `merge` keeps `w` and `p`, a trapezoid being the work-repo's.
-- The repo commands keep `a`: `sync`, `squash`, `squash-push`, `push`, `status`, `move-bookmark`,
-  `delete-bookmark`, and `validate-desc` act on the agent-repo as a repo of its own and link
-  nothing.
-- The README's `### Write scopes` table gets `commit`'s and `land`'s new rows, its rule
-  paragraph unchanged.
-- Goes with **docs: each command's -s help names the scopes it takes**, which checks the help
-  against that table.
 
 ### commit --closing reads the nearest opening's title
 
@@ -504,6 +682,102 @@ Some checks run only mid-ladder, as in **fix: a missing fixture fails instead of
 
 The cycle's agent-repo commits are on `main` and their `ochid:` trailers name its work-repo rungs,
 so dropping the bookmark would leave them naming nothing, and landing keeps every rung reachable.
+
+#### Only push publishes
+
+- A bare `vc-x1 commit`, with or without `--land`, and `vc-x1 land`, which is exactly like it, are
+  local and need no approval. `vc-x1 push`, exactly like `commit --push`, publishes and needs approval
+  unless `--yes`, wink's (2026-10-30). `squash-push` publishes too.
+- `[commit] push` goes, so no workspace setting changes what a bare `commit` does.
+- `land --push` and `commit --land --push` publish in one step, as `commit --push` does, and delete
+  the published bookmark on `origin`, built in **feat: ochid trailers are URLs**.
+- Open: the approval's mechanism. We think it is the Bash hook sending what publishes to the
+  permission prompt, since an agent can type `--yes` as easily as anything else. And a bare Land's
+  deletion of a published bookmark, which is itself publishing, so `land` deletes the local one and
+  `delete-bookmark` the remote one today, wink's preference being that `push` does.
+
+##### Why: only push publishes
+
+A local commit can be reworked and a push cannot easily be taken back, so the safe act is the one
+done by doing nothing, and publishing has one place to gate.
+
+#### A cycle stays local until its Land
+
+On trial, from **feat: ochid trailers are URLs**, wink's (2026-10-30), and the cycle of record if
+that cycle's Land works. A new cycle type, for every cycle and not that one alone.
+
+- Every commit is the work half alone, made and kept local: `commit -s w`, the opening's bookmark
+  created and not pushed. The agent `@` is neither committed nor pushed before the Land, so
+  its change id holds for the whole cycle.
+- The work review stays on every commit. The description review goes, wink's (2026-10-30), since a
+  local description can still be changed before the Land. Approval per push reduces to one go, the
+  Land's.
+- The Land commits the agent `@` first, one `ochid:` per work commit, and sets each work commit's
+  `ocid:` to its SHA, trees unchanged, all on the machine. `push -s b --bookmark <TRUNK>` then pushes
+  the agent repo first and the work repo after. It folds nothing into the agent commit, so the SHA
+  every `ocid:` names holds, and what arrives after it rides the next cycle's agent commit.
+- Each rung's `ochid:` is the same agent change, so it stays right when the Land commits it, and only
+  `ocid:` is written then.
+- No `squash-push -s a`: At rest's item 2 goes, and "clean" means the work `@` is empty, the agent's
+  `@` being the session's data and no finding, as [Acquaint](AGENTS.md#acquaint) says.
+- A single-step cycle is the same with one commit.
+- A rung that changes the code ends with `vc-x1 install --profile dev`, after validate, wink's
+  (2026-10-30), so the next rung runs the code just reviewed.
+- The sections it rewrites: Opening step 2, the per-rung flow's step 9, Committing vs pushing, At
+  rest, Before any push, and Land. It replaces **A local commit pair before every push** above, a
+  rung no longer making a pair, and Every cycle starts with `commit --opening` holds with the
+  bookmark local.
+- Open:
+  - One machine: a local cycle cannot move between machines or survive a lost disk. We think an
+    explicit backup push of the work bookmark answers it, and that runs into the rule that what is
+    published names nothing unpublished, and into the Land rewriting those commits.
+  - Shared repos: **Cycles in a shared repo, by fork and pull request** needs a branch pushed before
+    anything lands, so stamping and publishing are separate steps of the Land.
+  - One large agent commit: a cycle's whole transcript in one commit nears the limit **fix: snapshot
+    fails on a file the size limit refused** dealt with, and `lookup` gets less precise per rung.
+  - The published form: publishing per rung stays for a cycle someone wants visible while it runs,
+    so this is the default and not the only form.
+
+##### Why: local until the Land
+
+The Land is where the decision is, so one approval belongs there. Nothing published can name a rung,
+so reshaping a ladder costs nothing, and the agent commit made first lets every commit link to it, a
+SHA included. The first cycle run this way changed its ladder several times at no cost.
+
+#### ochid trailers are URLs
+
+From **feat: ochid trailers are URLs**, wink's (2026-10-30). In [ochid
+trailers](agent-data/jj.md#cross-repo-linking-ochid-trailers), and **No hand-written trailers** with
+it, which now names `vc-x1 commit`:
+
+- `ochid: <repo-url>#<chid>` names a change in the other repo, by the URL from its `origin` normalized
+  to https, or by `/<chid>` and `/.claude/<chid>` with no hosted `origin` or with `--no-url-trailer`.
+  Published labels stay valid, and nothing rewrites them.
+- `ocid: <repo-url>/commit/<sha>` is a link a browser can follow, stamped on a work half as
+  `.../commit/xxxx`, its SHA set by a Land. Tools resolve `ochid:`, so `ocid:` is a convenience.
+- The count is per agent commit, one `ochid:` per work commit it covers, so a local cycle's Land makes
+  one agent commit naming them all.
+
+##### Why: ochid trailers are URLs
+
+A label names a side, not a repo, so nothing in a published commit says where its partner lives, and
+anyone holding only the work-repo cannot resolve it. The URL carries that, and a change id rather
+than a SHA survives a rewrite, which `ocid:` then adds for a reader in a browser.
+
+#### A local cycle's record may be reworked
+
+- [Cycle-record](AGENTS.md#cycle-record) gains: while a cycle's work commits are local and its agent
+  `@` is neither committed nor pushed, an earlier commit's record may be reworked. By default it is
+  unnecessary, a later rung revising the record, and it is permissible when the error is significant,
+  a word left to the judgment of whoever is reading, with no test fixed, wink's (2026-10-30).
+- A reworked commit's tree is validated again, since no validation saw it.
+- Once published, Never amended and Re-describing hold as they do. No backfill keeps its own subject,
+  that a rung carries no `[[N]]` placeholder, no SHA, and no version.
+
+##### Why: reworking is permitted and not expected
+
+Nothing published names a local commit, so a rework breaks no link. Each commit's ladder is the plan
+as it stood then, and seeing it change has value, so reworking stays the exception.
 
 #### Warn rather than refuse
 
@@ -1626,9 +1900,7 @@ paragraph. A multi-step cycle, one rung per group:
   `.claude` label among them, print the configured directory rather than a literal.
 - Fallbacks: `symlink` and `validate-bot` fall back to `.claude` when no config resolves, and
   whether that becomes `.agent-session` or an error is a decision.
-- The ochid label: trailers are stamped `/.claude/<id>` whatever the directory is called, and
-  every published commit carries that spelling, so changing it is a format change, decided on its
-  own or ruled out at the opening.
+- The ochid label: goes to **ochid trailers are URLs**.
 - Tests and fixtures: `.claude` as an arbitrary directory name is harmless and mostly stays.
 - Overlap: [The code says agent where it still says
   bot](#the-code-says-agent-where-it-still-says-bot) and [repos.agent becomes repos.agent-dir, and
@@ -2488,26 +2760,6 @@ refactor program.
   Claude tends to create it otherwise), so init emits it like `.vc-config.md` instead of copying,
   leaving no "is it still empty?" invariant in the template.
 
-### ochid: agent-repo location qualifier
-
-An ochid is workspace-relative (`/.claude/<chid>`), so nothing in a published commit says *where*
-the companion agent-repo lives (vc-x1's is `github.com/winksaville/vc-x1.claude`, discoverable only
-by convention). Anyone cloning just the work-repo can't resolve agent-side ochids. Design already
-sketched in forks-multi-user.md [Per-user bot repos via URL-shaped
-ochid](notes/forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid): URL-shaped trailers, plus
-the complementary `.vc-config.md` repo-index form, and resolver dispatch is one rule (URL -> fetch,
-else workspace-relative), existing path-form trailers stay the backward-compatible case.
-- Cheap first rung: declare the companion's URL once in the committed `.vc-config.md` (no
-  trailer-format change, so any work-repo clone then knows where the agent-repo lives). Rides
-  naturally with the refactor program's facade-owns-topology stage (agent-repo-location config).
-- Link rot + mirroring mitigations are in the same doc section.
-- A real case of our own (2026-08-31): the ARM session made six commits in the sibling
-  `vc-x1-messages` clone (the read and done marks plus the marked-done revision record, `main`
-  at `5cf8aad7`), while its transcript rode vc-x1's agent-repo squash-push with no work-repo
-  commit to pair with, so nothing links the two histories. A URL-shaped ochid on the transcript
-  commit could have named the messages-repo commit, the same shape as a pull request whose real
-  history lives in another repo.
-
 ### sync follow-up: extract `move-bookmark` command
 
 The "put the bookmark / `@` where it belongs" step at the end of sync (reposition logic) is useful
@@ -2928,17 +3180,8 @@ own directory) are separate traversals over the same three values today, and fou
   rules where there were two, which is the surface the change exists to shrink.
 - The gain is not identical configs: a file has to know where it sits, so one line always differs.
   The gain is that it is one named line and the rest of the table is shared.
-- Related: [ochid values may be URLs](#ochid-values-may-be-urls). An anchored `[repos]` would let a
+- Related: [ochid trailers are URLs](#ochid-trailers-are-urls). An anchored `[repos]` would let a
   trailer prefix be derived rather than the constant it is now.
-
-### ochid values may be URLs
-
-(wink, 2026-09-04) An `ochid:` is a side label and a chid, resolvable only inside the workspace
-that wrote it. Letting the value be a URL would let a commit point at a counterpart in a repo the
-reader holds no checkout of, which is what a family member reading another member's history
-needs. Surfaced at the **agent-files(proposal): v0.2.2** close-out, from wink's direction that it
-is coming soon, and that cycle's wording was kept side-based rather than path-based so it does not
-have to be undone when it arrives.
 
 # References
 

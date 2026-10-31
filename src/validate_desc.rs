@@ -22,8 +22,8 @@ use log::{debug, info};
 use crate::common;
 use crate::context::Context;
 use crate::desc_helpers::{
-    DEFAULT_ID_LEN, TitleMatch, extract_bare_id, find_matching_commit, ochid_prefix_for,
-    validate_ochid,
+    DEFAULT_ID_LEN, TitleMatch, extract_bare_id, find_matching_commit, ochid_forms_for,
+    ochid_prefix_for, validate_ochid,
 };
 use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, repo_scope_parser, side_keyword};
 use crate::subcommand::SubcommandRunner;
@@ -218,6 +218,7 @@ fn validate_side(
 
     let (other_workspace, other_repo) = common::load_repo(&other_repo_path)?;
     let other_prefix = ochid_prefix_for(&other_repo_path)?;
+    let other_forms = ochid_forms_for(&other_repo_path)?;
 
     let spec = common::resolve_spec(&params.revision, params.limit);
 
@@ -268,7 +269,7 @@ fn validate_side(
             } else {
                 let issues = validate_ochid(
                     ochid_val,
-                    &other_prefix,
+                    &other_forms,
                     params.id_len,
                     &other_workspace,
                     &other_repo,
@@ -344,7 +345,7 @@ fn validate_side(
 mod tests {
     use super::*;
     use crate::options_flags::scope::{Scope, Side};
-    use crate::test_helpers::{Fixture, FixturePor};
+    use crate::test_helpers::{Fixture, FixturePor, chid, git_ok, jj_ok};
     use crate::{Cli, Commands};
     use clap::Parser;
 
@@ -392,5 +393,61 @@ mod tests {
         let params = ValidateDescParams::try_from(&a).expect("params");
         assert_eq!(params.repos.len(), 1);
         assert_eq!(params.repos[0].0, "agent");
+    }
+
+    /// A URL-form trailer passes when its ID resolves in the other
+    /// repo and fails when it does not. With a hosted `origin` there,
+    /// its URL must name that repo too, and with none it is not checked.
+    #[test]
+    fn a_url_form_trailer_is_valid_when_it_names_the_repo_and_its_id_resolves() {
+        let fx = Fixture::new("vdesc-url");
+        let ctx = Context::load().expect("load user config");
+        let mut a = parse(&["vc-x1", "validate-desc", "-r", "@", "-s", "w"]).expect("parses");
+        a.repo = Some(fx.work.clone());
+        let params = ValidateDescParams::try_from(&a).expect("params");
+        let url = "https://example.com/o/r.agent-session";
+        let agent_at = chid(&fx.bot, "@");
+        let describe = |value: &str| {
+            let desc = format!("feat: x\n\nochid: {value}\n");
+            jj_ok(&fx.work, &["describe", "-m", &desc]);
+        };
+
+        describe(&format!("{url}#{agent_at}"));
+        validate_desc(&ctx, &params).expect("a local origin: the ID alone is checked");
+
+        describe(&format!("{url}#zzzzzzzzzzzk"));
+        validate_desc(&ctx, &params).expect_err("the ID resolves to nothing");
+
+        git_ok(
+            &fx.bot,
+            &["remote", "set-url", "origin", &format!("{url}.git")],
+        );
+        describe(&format!("{url}#{agent_at}"));
+        validate_desc(&ctx, &params).expect("it names the repo, canonically");
+
+        describe(&format!("https://example.com/o/other#{agent_at}"));
+        validate_desc(&ctx, &params).expect_err("it names another repo");
+
+        describe(&format!("/.claude/{agent_at}"));
+        validate_desc(&ctx, &params).expect("the published label stays valid");
+    }
+
+    /// With no URL to stamp the path form names the directory, and it
+    /// is valid beside the published label.
+    #[test]
+    fn the_path_form_names_the_directory() {
+        let fx = Fixture::new("vdesc-path");
+        let ctx = Context::load().expect("load user config");
+        let mut a = parse(&["vc-x1", "validate-desc", "-r", "@", "-s", "w"]).expect("parses");
+        a.repo = Some(fx.work.clone());
+        let params = ValidateDescParams::try_from(&a).expect("params");
+        let dir = fx
+            .bot
+            .file_name()
+            .and_then(|n| n.to_str())
+            .expect("a directory name");
+        let desc = format!("feat: x\n\nochid: /{dir}/{}\n", chid(&fx.bot, "@"));
+        jj_ok(&fx.work, &["describe", "-m", &desc]);
+        validate_desc(&ctx, &params).expect("the directory's own name");
     }
 }

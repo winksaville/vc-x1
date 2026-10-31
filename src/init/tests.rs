@@ -652,6 +652,7 @@ fn args_for(target: &str) -> InitArgs {
         use_template: UseTemplateOption::default(),
         config: ConfigOption::default(),
         adopt: false,
+        no_url_trailer: false,
         agent_dir: None,
         agent_repo: None,
         agent_suffix: None,

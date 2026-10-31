@@ -321,6 +321,14 @@ pub fn chid_of(repo: &Path, rev: &str) -> Result<String> {
         .collect())
 }
 
+/// `rev`'s tree ids as text, to compare a tree across a rewrite.
+pub fn tree_of(repo: &Path, rev: &str) -> Result<String> {
+    Ok(commits_of(repo, rev)?
+        .iter()
+        .map(|c| format!("{:?}", c.tree_ids()))
+        .collect())
+}
+
 /// The full commit id of `rev`.
 pub fn cid_of(repo: &Path, rev: &str) -> Result<String> {
     Ok(commits_of(repo, rev)?

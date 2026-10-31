@@ -1,7 +1,9 @@
-//! Land: make a finished cycle permanent on its trunk. The trunk is
-//! fast-forwarded to the cycle's last commit and pushed with the agent
-//! half as its partner, and the cycle's bookmark is deleted locally and
-//! on `origin`, every check made before anything moves.
+//! Land: make a finished cycle permanent on its trunk. The agent `@` is
+//! committed when the cycle's commits name it, the trunk is
+//! fast-forwarded to the cycle's last commit, and the cycle's bookmark
+//! is deleted, all on the machine, every check made before anything
+//! moves. `--push` also publishes, the agent repo first, and deletes
+//! the bookmark on `origin`, and without it `vc-x1 push` publishes.
 //!
 //! - [`plan`] refuses before anything is made: the trunk is a local
 //!   bookmark at its `origin` position, so the sync a Land begins with
@@ -9,10 +11,13 @@
 //!   landed is the reviewed one. The branch's other bookmarks are named
 //!   as merged and left as they are.
 //! - [`run`] lands what the plan names: a conflicted target is refused,
-//!   the trunk is fast-forwarded and pushed, and the cycle's bookmark is
-//!   deleted, `--skip` keeping a side. A dry run makes every check and
-//!   says each step, and does none: each step is its line and then the
-//!   step behind `if !dry`, so a step added brings its dry-run line.
+//!   the agent `@` is committed with one `ochid:` per work commit naming
+//!   it, oldest first, each placeholder `ocid:` gets its SHA, the trunk
+//!   is fast-forwarded, and the cycle's bookmark is deleted, `--skip`
+//!   keeping a side. A dry run makes every
+//!   check and says each step, and does none: each step is its line and
+//!   then the step behind `if !dry`, so a step added brings its dry-run
+//!   line.
 //!
 //! `vc-x1 land -s b|p --source <BM|REV> --onto <BOOKMARK>` lands a cycle
 //! whose last commit is already made, and `commit --closing ... --land`
@@ -39,10 +44,14 @@
 use std::path::{Path, PathBuf};
 
 use clap::Args;
-use log::{debug, info};
+use log::{debug, info, warn};
 
 use crate::commit::Skip;
 use crate::context::Context;
+use crate::desc_helpers::{
+    extract_bare_id, extract_ochid_from_desc, extract_ocid_from_desc, is_url_form,
+    ochid_value_in_form, ocid_with_sha, with_ochids, with_ocid_value, without_trailer_lines,
+};
 use crate::jj;
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::scope::{RepoScope, repo_scope_parser};
@@ -50,7 +59,7 @@ use crate::options_flags::squash::SquashSpec;
 use crate::subcommand::SubcommandRunner;
 
 /// Land a cycle whose last commit is made: `--onto` fast-forwarded to
-/// `--source` and pushed, and the cycle's bookmark deleted.
+/// `--source` and the cycle's bookmark deleted, locally unless `--push`.
 #[derive(Args, Debug)]
 pub struct LandArgs {
     /// The cycle's last commit: a bookmark, the cycle's, or a revision,
@@ -74,6 +83,12 @@ pub struct LandArgs {
     /// of cycles landing together [default: named as merged and kept]
     #[arg(long)]
     pub delete_intermediate_bookmarks: bool,
+
+    /// Publish the Land, the agent repo first, and delete the cycle's
+    /// bookmark on `origin` as well, a Land otherwise staying on the
+    /// machine
+    #[arg(long)]
+    pub push: bool,
 
     /// Where: a path in the workspace for `-s b`, or the repo itself for
     /// `-s p` [default: the current directory]
@@ -110,6 +125,7 @@ pub struct LandParams {
     pub onto: String,
     pub skip: Option<Skip>,
     pub delete_intermediate: bool,
+    pub push: bool,
     pub dry_run: bool,
 }
 
@@ -150,6 +166,7 @@ impl TryFrom<&LandArgs> for LandParams {
             onto: a.onto.clone(),
             skip: a.skip,
             delete_intermediate: a.delete_intermediate_bookmarks,
+            push: a.push,
             dry_run: a.dry_run.value,
         })
     }
@@ -213,7 +230,10 @@ pub fn land(ctx: &mut Context, params: &LandParams) -> Result<(), Box<dyn std::e
         ctx,
         repo,
         params.scope.clone(),
-        &plan,
+        &LandPlan {
+            push: params.push,
+            ..plan
+        },
         &tip,
         &format!("'{source}'"),
         params.dry_run,
@@ -319,6 +339,9 @@ pub(crate) struct LandPlan {
     /// The branch's other bookmarks, merged by the Land and left as
     /// they are, named after it.
     pub merged: Vec<String>,
+    /// Publish the Land and delete on `origin` too. [`plan`] leaves it
+    /// off, for the caller to set.
+    pub push: bool,
 }
 
 /// Plan a Land of the branch read up to `tip` onto `trunk`, refusing
@@ -387,14 +410,127 @@ pub(crate) fn plan(
         skip,
         intermediate,
         merged,
+        push: false,
     })
 }
 
+/// The agent commit a Land makes: its description, the target's text
+/// with one `ochid:` per commit from the trunk to `target` that names
+/// the agent `@`, oldest first, in the form each took. `None` when none
+/// does, the cycle's pairs being made already. A commit above `target`
+/// naming it is refused, since it would be left behind by the commit.
+fn land_agent_desc(
+    pair: &crate::pair::Pair,
+    label: &str,
+    trunk_cid: &str,
+    target: &str,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let work = pair.work.as_path();
+    let agent_at = jj::chid_of(&pair.agent, "@")?;
+    let names_agent_at = |rev: &str| -> Result<Option<String>, Box<dyn std::error::Error>> {
+        Ok(extract_ochid_from_desc(&jj::desc_of(work, rev)?)
+            .filter(|ochid| extract_bare_id(ochid) == agent_at))
+    };
+    for rev in jj::cids_of(work, &format!("({target})..@-"))? {
+        if names_agent_at(&rev)?.is_some() {
+            return Err(format!(
+                "{label}: {rev}, above what is landed, also names the agent @ {agent_at}, which a \
+                 Land commits, so land the line up to it"
+            )
+            .into());
+        }
+    }
+    let mut values = Vec::new();
+    for rev in jj::cids_of(work, &format!("{trunk_cid}..({target})"))? {
+        if let Some(ochid) = names_agent_at(&rev)? {
+            values.push(ochid_value_in_form(
+                is_url_form(&ochid),
+                work,
+                &jj::chid_of(work, &rev)?,
+            )?);
+        }
+    }
+    if values.is_empty() {
+        return Ok(None);
+    }
+    let desc = jj::desc_of(work, target)?;
+    let text = without_trailer_lines(&desc).collect::<Vec<_>>().join("\n");
+    Ok(Some(with_ochids(&text, &values)))
+}
+
+/// What [`set_ocids`] reads: the commits from the trunk to `target`, and
+/// `partner_rev`, the agent commit they name, `@` in a dry run that has
+/// not committed it.
+struct LandOcids<'a> {
+    label: &'a str,
+    trunk_cid: &'a str,
+    target: &'a str,
+    partner_rev: &'a str,
+    dry: bool,
+}
+
+/// Set the placeholder `ocid:` of each commit from the trunk to `target`
+/// that names the agent commit to that commit's SHA, oldest first, the
+/// tree checked unchanged. A published commit is left with a warning,
+/// since this would rewrite it. Finding nothing is no error, so a Land
+/// rerun after a failure finishes what it left.
+fn set_ocids(
+    ctx: &mut Context,
+    pair: &crate::pair::Pair,
+    o: &LandOcids,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let LandOcids { label, dry, .. } = *o;
+    let work = pair.work.as_path();
+    let partner = jj::chid_of(&pair.agent, o.partner_rev)?;
+    let sha = jj::cid_of(&pair.agent, o.partner_rev)?;
+    let mut todo = Vec::new();
+    for rev in jj::cids_of(work, &format!("{}..({})", o.trunk_cid, o.target))? {
+        let desc = jj::desc_of(work, &rev)?;
+        let names = extract_ochid_from_desc(&desc).is_some_and(|c| extract_bare_id(&c) == partner);
+        let value = extract_ocid_from_desc(&desc).and_then(|v| ocid_with_sha(&v, &sha));
+        let (true, Some(value)) = (names, value) else {
+            continue;
+        };
+        let chid = jj::chid_of(work, &rev)?;
+        if crate::pair::is_published(work, &rev)? {
+            warn!("{label}: {chid} is published, so its `ocid:` keeps its placeholder");
+            continue;
+        }
+        todo.push((
+            chid,
+            with_ocid_value(&desc, &value),
+            jj::tree_of(work, &rev)?,
+        ));
+    }
+    if dry {
+        for (chid, _, _) in &todo {
+            info!("{label}: [dry-run] set the `ocid:` of {chid} to the agent commit's SHA");
+        }
+        return Ok(());
+    }
+    let snapshot = crate::pair::Snapshot::take(work)?;
+    for (chid, desc, tree) in &todo {
+        info!("{label}: set the `ocid:` of {chid} to {sha}");
+        let stamped = ctx.session(work)?.describe(chid, desc).and_then(|_| {
+            match jj::tree_of(work, chid)? == *tree {
+                true => Ok(()),
+                false => Err(format!("{label}: setting the `ocid:` changed {chid}'s tree").into()),
+            }
+        });
+        if let Err(e) = stamped {
+            snapshot.restore(label, e.as_ref());
+            return Err(e);
+        }
+    }
+    Ok(())
+}
+
 /// Land what `land` plans onto `target`, named `what` in messages:
-/// refuse a conflicted target, fast-forward the trunk to it, publish
-/// it, `scope` saying which repos, and delete the cycle's bookmark,
-/// `--skip` keeping a side. A dry run makes every check and says each
-/// step, and does none.
+/// refuse a conflicted target, commit the agent `@` when the cycle's
+/// commits name it, fast-forward the trunk to it, delete the cycle's
+/// bookmark, `--skip` keeping a side, and with `land.push` publish it,
+/// `scope` saying which repos, and delete on `origin` too. A dry run
+/// makes every check and says each step, and does none.
 pub(crate) fn run(
     ctx: &mut Context,
     repo: &Path,
@@ -412,12 +548,16 @@ pub(crate) fn run(
         skip,
         intermediate,
         merged,
+        push,
     } = land;
-    let keep = match skip {
-        Some(Skip::Both) => None,
-        Some(Skip::Local) => Some(Some(crate::delete_bookmark::Keep::Local)),
-        Some(Skip::Remote) => Some(Some(crate::delete_bookmark::Keep::Remote)),
-        None => Some(None),
+    let push = *push;
+    // Local, the remote side is left whatever is asked, so `--skip
+    // local`, which would delete only the remote, deletes nothing.
+    let keep = match (skip, push) {
+        (Some(Skip::Both), _) | (Some(Skip::Local), false) => None,
+        (Some(Skip::Local), true) => Some(Some(crate::delete_bookmark::Keep::Local)),
+        (Some(Skip::Remote), _) | (None, false) => Some(Some(crate::delete_bookmark::Keep::Remote)),
+        (None, true) => Some(None),
     };
     // Checks run in both modes, so a dry run refuses what a Land would.
     if jj::matches(repo, &format!("({target}) & conflicts()"))? {
@@ -433,11 +573,56 @@ pub(crate) fn run(
     // The work @-'s pair may be unfinished, which push finishes. A
     // commit below it has a finished pair, so its trunk goes alone.
     let at_work_head = jj::matches(repo, &format!("({target}) & @-"))?;
+    let pair = match scope {
+        RepoScope::Por => None,
+        RepoScope::Sides(_) => Some(crate::pair::resolve_pair(Some(repo))?),
+    };
+    let agent_desc = match &pair {
+        Some(pair) => land_agent_desc(pair, label, trunk_cid, target)?,
+        None => None,
+    };
+    if let (Some(pair), Some(desc)) = (&pair, &agent_desc) {
+        info!(
+            "{label}:{tag} commit the agent @ {} as the partner, in {}:\n{desc}",
+            jj::chid_of(&pair.agent, "@")?,
+            pair.agent.display()
+        );
+        if !dry {
+            let snapshot = crate::pair::Snapshot::take(&pair.agent)?;
+            let made = ctx
+                .session(&pair.agent)?
+                .commit(desc)
+                .and_then(|_| ctx.session(&pair.agent)?.bookmark_set("main", "@-"));
+            if let Err(e) = made {
+                snapshot.restore(label, e.as_ref());
+                return Err(e);
+            }
+        }
+    }
+    // By change id, since setting a commit's `ocid:` changes its SHA.
+    let target_chid = jj::chid_of(repo, target)?;
+    if let Some(pair) = &pair {
+        set_ocids(
+            ctx,
+            pair,
+            &LandOcids {
+                label,
+                trunk_cid,
+                target,
+                partner_rev: if dry && agent_desc.is_some() {
+                    "@"
+                } else {
+                    "@-"
+                },
+                dry,
+            },
+        )?;
+    }
     info!("{label}:{tag} fast-forward '{trunk}' from {trunk_cid} to {what}");
     if !dry {
-        ctx.session(repo)?.bookmark_set(trunk, target)?;
+        ctx.session(repo)?.bookmark_set(trunk, &target_chid)?;
     }
-    if at_work_head {
+    if push && at_work_head {
         info!("{label}:{tag} push '{trunk}', the work @-, with its pair");
         if !dry {
             crate::push::push(
@@ -446,27 +631,28 @@ pub(crate) fn run(
                     revision: None,
                     bookmark: Some(trunk.clone()),
                     repo: Some(repo.to_path_buf()),
-                    scope,
+                    scope: scope.clone(),
                     step: false,
                     dry_run: false,
                     yes: true,
                 },
             )?;
         }
-    } else {
+    } else if push {
         info!("{label}:{tag} push '{trunk}'");
         if !dry {
             crate::common::verify_tracking(repo, trunk)?;
             ctx.session(repo)?.git_push_bookmark(trunk)?;
         }
-        if scope != RepoScope::Por {
-            let agent = crate::pair::resolve_pair(Some(repo))?.agent;
+        if let Some(pair) = &pair {
             info!("{label}:{tag} publish the agent main");
-            if !dry {
+            if !dry && agent_desc.is_some() {
+                crate::push::publish_agent_main(ctx, &pair.agent)?;
+            } else if !dry {
                 crate::squash_push::squash_push(
                     ctx,
                     &crate::squash_push::SquashPushParams {
-                        repo: agent,
+                        repo: pair.agent.clone(),
                         squash: SquashSpec {
                             source: "@".to_string(),
                             target: "@-".to_string(),
@@ -501,11 +687,33 @@ pub(crate) fn run(
             merged.join(", ")
         );
     }
-    if !dry {
+    if !dry && push {
         info!(
             "{label}: landed on '{trunk}', the undo being a revert, the trunk having moved \
              from {trunk_cid}. `vc-x1 install` installs the artifact"
         );
+    } else if !dry {
+        let flag = if pair.is_some() { "b" } else { "p" };
+        let publish = if at_work_head {
+            format!("`vc-x1 push -s {flag} --bookmark {trunk}`")
+        } else if pair.is_some() {
+            format!("`vc-x1 push -s w -r {trunk}` and `vc-x1 push -s a`")
+        } else {
+            format!("`vc-x1 push -s p -r {trunk}`")
+        };
+        info!(
+            "{label}: landed on '{trunk}' on this machine, the trunk having moved from \
+             {trunk_cid}, and {publish} publishes it. `vc-x1 install` installs the artifact"
+        );
+        for t in topic.iter().chain(intermediate) {
+            if jj::remote_bookmark_targets(repo, "origin")?.contains_key(t) && keep.is_some() {
+                info!(
+                    "{label}: '{t}' is still on origin, and `vc-x1 delete-bookmark -s {} \
+                     --bookmark {t} --skip local` deletes it",
+                    if pair.is_some() { "w" } else { "p" }
+                );
+            }
+        }
     }
     Ok(())
 }
@@ -546,8 +754,15 @@ mod tests {
         commit(&mut test_ctx(), &params).expect("the commit is made");
     }
 
-    /// `vc-x1 land <args>` in the fixture's work repo, parsed.
+    /// `vc-x1 land <args> --push` in the fixture's work repo, parsed.
     fn land_params(fx: &Fixture, args: &[&str]) -> LandParams {
+        let mut args = args.to_vec();
+        args.push("--push");
+        local_land_params(fx, &args)
+    }
+
+    /// `vc-x1 land <args>` in the fixture's work repo, parsed.
+    fn local_land_params(fx: &Fixture, args: &[&str]) -> LandParams {
         let mut argv = vec!["vc-x1", "land"];
         argv.extend_from_slice(args);
         let Ok(Cli {
@@ -570,6 +785,7 @@ mod tests {
             &[
                 "-s",
                 "b",
+                "--push",
                 "--opening",
                 "--title",
                 "feat: a cycle",
@@ -580,9 +796,237 @@ mod tests {
         fs::write(fx.work.join("rung.txt"), "rung\n").expect("write");
         vc_commit(
             fx,
-            &["-s", "b", "--title", "feat: a rung", "--body", "The rung."],
+            &[
+                "-s",
+                "b",
+                "--push",
+                "--title",
+                "feat: a rung",
+                "--body",
+                "The rung.",
+            ],
         );
         commit_id(&fx.work, "feat-a-cycle")
+    }
+
+    /// A cycle held local: an opening and a rung, each the work half
+    /// alone, so both name the agent `@`. Their change ids, oldest first.
+    fn local_cycle(fx: &Fixture) -> Vec<String> {
+        let mut made = Vec::new();
+        fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
+        vc_commit(
+            fx,
+            &[
+                "-s",
+                "w",
+                "--opening",
+                "--title",
+                "feat: a cycle",
+                "--body",
+                "Why.",
+            ],
+        );
+        made.push(chid(&fx.work, "@-"));
+        fs::write(fx.work.join("rung.txt"), "rung\n").expect("write");
+        vc_commit(
+            fx,
+            &["-s", "w", "--title", "feat: a rung", "--body", "The rung."],
+        );
+        made.push(chid(&fx.work, "@-"));
+        made
+    }
+
+    /// A local cycle lands on the machine: the agent `@` committed with
+    /// one `ochid:` per work commit, the trunk moved, the bookmark gone,
+    /// nothing on origin, and its dry run doing none of it. `push` then
+    /// publishes both, and the journal stays out of the agent commit.
+    #[test]
+    fn a_local_cycle_lands_locally_and_push_publishes_it() {
+        let fx = Fixture::new("land-local");
+        let rungs = local_cycle(&fx);
+        let tip = commit_id(&fx.work, "feat-a-cycle");
+        let main_origin = commit_id(&fx.work, "main@origin");
+        let agent_origin = commit_id(&fx.bot, "main@origin");
+        let agent_at = chid(&fx.bot, "@");
+
+        let args = ["-s", "b", "--onto", "main"];
+        let mut dry = args.to_vec();
+        dry.push("--dry-run");
+        land(&mut test_ctx(), &local_land_params(&fx, &dry)).expect("planned");
+        assert_eq!(chid(&fx.bot, "@"), agent_at, "a dry run commits nothing");
+        assert_eq!(commit_id(&fx.work, "main"), main_origin);
+
+        land(&mut test_ctx(), &local_land_params(&fx, &args)).expect("landed");
+        assert_eq!(commit_id(&fx.work, "main"), tip);
+        assert_eq!(commit_id(&fx.work, "main@origin"), main_origin);
+        assert!(!jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("local"));
+        assert_eq!(
+            chid(&fx.bot, "@-"),
+            agent_at,
+            "the change the trailers name"
+        );
+        let desc = crate::test_helpers::description(&fx.bot, "@-");
+        assert!(desc.starts_with("feat: a rung\n\nThe rung.\n"), "{desc}");
+        assert_eq!(
+            crate::desc_helpers::extract_ochids(&desc),
+            rungs.iter().map(|c| format!("/{c}")).collect::<Vec<_>>(),
+            "{desc}"
+        );
+        assert_eq!(commit_id(&fx.bot, "main"), commit_id(&fx.bot, "@-"));
+        assert_eq!(commit_id(&fx.bot, "main@origin"), agent_origin);
+
+        let stamped = commit_id(&fx.bot, "@-");
+        fs::write(fx.bot.join("journal.jsonl"), "{\"later\":1}\n").expect("write");
+        crate::push::push(
+            &mut test_ctx(),
+            &crate::push::PushParams {
+                revision: None,
+                bookmark: Some("main".to_string()),
+                repo: Some(fx.work.clone()),
+                scope: RepoScope::Sides(Scope(vec![Side::Work, Side::Bot])),
+                step: false,
+                dry_run: false,
+                yes: true,
+            },
+        )
+        .expect("published");
+        assert_eq!(commit_id(&fx.work, "main@origin"), tip);
+        assert_eq!(commit_id(&fx.bot, "main@origin"), stamped, "nothing folded");
+        assert!(
+            !jj::is_empty(&fx.bot, "@").expect("empty"),
+            "the journal stays in @"
+        );
+    }
+
+    /// With hosted origins a Land sets each `ocid:` to the agent commit's
+    /// SHA: the change ids, trees, and `ochid:` unchanged, the trunk at the
+    /// rewritten tip, and the cycle's bookmark gone. Its dry run sets none.
+    #[test]
+    fn a_land_sets_each_ocid_to_the_agent_commits_sha() {
+        let fx = Fixture::new("land-ocid");
+        let agent_url = "https://github.com/o/r.agent-session";
+        crate::test_helpers::git_ok(
+            &fx.work,
+            &["remote", "set-url", "origin", "https://github.com/o/r"],
+        );
+        crate::test_helpers::git_ok(&fx.bot, &["remote", "set-url", "origin", agent_url]);
+        let rungs = local_cycle(&fx);
+        let agent_at = chid(&fx.bot, "@");
+        let trees: Vec<String> = rungs
+            .iter()
+            .map(|c| jj::tree_of(&fx.work, c).expect("tree"))
+            .collect();
+
+        let args = ["-s", "b", "--onto", "main"];
+        let mut dry = args.to_vec();
+        dry.push("--dry-run");
+        land(&mut test_ctx(), &local_land_params(&fx, &dry)).expect("planned");
+        let placeholder = format!("ocid: {agent_url}/commit/xxxx");
+        for c in &rungs {
+            assert!(
+                jj::desc_of(&fx.work, c)
+                    .expect("desc")
+                    .contains(&placeholder)
+            );
+        }
+
+        land(&mut test_ctx(), &local_land_params(&fx, &args)).expect("landed");
+        let sha = commit_id(&fx.bot, "@-");
+        for (c, tree) in rungs.iter().zip(&trees) {
+            let desc = jj::desc_of(&fx.work, c).expect("desc");
+            assert!(
+                desc.ends_with(&format!(
+                    "\n\nochid: {agent_url}#{agent_at}\nocid: {agent_url}/commit/{sha}"
+                )),
+                "{desc}"
+            );
+            assert_eq!(&jj::tree_of(&fx.work, c).expect("tree"), tree);
+        }
+        assert_eq!(chid(&fx.work, "main"), rungs[1]);
+        assert!(!jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("local"));
+        assert_eq!(chid(&fx.work, "@-"), rungs[1]);
+        assert!(jj::is_empty(&fx.work, "@").expect("empty"));
+        assert_eq!(commit_id(&fx.bot, "@-"), sha, "no fold");
+    }
+
+    /// A published commit keeps its placeholder, and the rung above it
+    /// is still set.
+    #[test]
+    fn a_published_commits_ocid_is_left() {
+        let fx = Fixture::new("land-ocid-published");
+        local_cycle(&fx);
+        let placeholder = "ocid: https://h/o/r.agent-session/commit/xxxx";
+        for rev in ["@--", "@-"] {
+            let desc = format!(
+                "{}\n{placeholder}\n",
+                crate::test_helpers::description(&fx.work, rev).trim_end()
+            );
+            jj_ok(&fx.work, &["describe", "-r", rev, "-m", &desc]);
+        }
+        jj_ok(&fx.work, &["git", "push", "--named", "shared=@--"]);
+        land(
+            &mut test_ctx(),
+            &local_land_params(
+                &fx,
+                &["-s", "b", "--source", "feat-a-cycle", "--onto", "main"],
+            ),
+        )
+        .expect("landed");
+        let sha = commit_id(&fx.bot, "@-");
+        assert!(
+            crate::test_helpers::description(&fx.work, "main-").contains(placeholder),
+            "the published one"
+        );
+        assert!(
+            crate::test_helpers::description(&fx.work, "main")
+                .contains(&format!("ocid: https://h/o/r.agent-session/commit/{sha}")),
+            "the one above it"
+        );
+    }
+
+    /// Landing below a commit that also names the agent `@` is refused
+    /// before anything moves, since the commit would leave it behind.
+    #[test]
+    fn a_land_below_a_commit_naming_the_agent_at_is_refused() {
+        let fx = Fixture::new("land-local-below");
+        local_cycle(&fx);
+        let main = commit_id(&fx.work, "main");
+        let agent_at = chid(&fx.bot, "@");
+        let err = land(
+            &mut test_ctx(),
+            &local_land_params(&fx, &["-s", "b", "--source", "@--", "--onto", "main"]),
+        )
+        .expect_err("refused")
+        .to_string();
+        assert!(err.contains("also names the agent @"), "{err}");
+        assert_eq!(commit_id(&fx.work, "main"), main);
+        assert_eq!(chid(&fx.bot, "@"), agent_at);
+    }
+
+    /// `--skip local` deletes only the remote, so a local Land, which
+    /// touches no remote, deletes nothing, and a published cycle's
+    /// bookmark stays on origin until it is deleted there.
+    #[test]
+    fn a_local_land_leaves_the_remote_bookmark() {
+        let fx = Fixture::new("land-local-remote");
+        pushed_cycle(&fx);
+        land(
+            &mut test_ctx(),
+            &local_land_params(&fx, &["-s", "b", "--onto", "main", "--skip", "local"]),
+        )
+        .expect("landed");
+        assert!(jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("local"));
+        assert!(on_origin(&fx.work, "feat-a-cycle"));
+
+        let fx = Fixture::new("land-local-remote-kept");
+        pushed_cycle(&fx);
+        land(
+            &mut test_ctx(),
+            &local_land_params(&fx, &["-s", "b", "--onto", "main"]),
+        )
+        .expect("landed");
+        assert!(!jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("local"));
+        assert!(on_origin(&fx.work, "feat-a-cycle"));
     }
 
     /// The cycle at the work `@-` lands: `main` at its tip locally and on
@@ -650,6 +1094,7 @@ mod tests {
             "feat-a-cycle",
             "--onto",
             "main",
+            "--push",
         ];
         let Ok(Cli {
             command: Some(Commands::Land(mut a)),
@@ -901,6 +1346,7 @@ mod tests {
             skip: None,
             intermediate: Vec::new(),
             merged: Vec::new(),
+            push: true,
         };
         (fx, plan, main)
     }

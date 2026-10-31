@@ -17,8 +17,8 @@ use crate::common;
 use crate::context::Context;
 use crate::desc_helpers::{
     DEFAULT_ID_LEN, OchidIssues, TitleMatch, append_ochid_trailer, extract_bare_id,
-    extract_ochid_from_desc, find_matching_commit, fix_ochid_in_description, ochid_prefix_for,
-    resolve_full_change_id, validate_ochid,
+    extract_ochid_from_desc, find_matching_commit, fix_ochid_in_description, is_url_form,
+    ochid_forms_for, ochid_prefix_for, resolve_full_change_id, validate_ochid,
 };
 use crate::subcommand::SubcommandRunner;
 
@@ -163,6 +163,7 @@ pub fn fix_desc(_ctx: &Context, params: &FixDescParams) -> Result<(), Box<dyn st
 
     let (other_workspace, other_repo) = common::load_repo(&other_repo_path)?;
     let other_prefix = ochid_prefix_for(&other_repo_path)?;
+    let other_forms = ochid_forms_for(&other_repo_path)?;
 
     let spec = common::resolve_spec(&params.revision, params.limit);
 
@@ -204,7 +205,7 @@ pub fn fix_desc(_ctx: &Context, params: &FixDescParams) -> Result<(), Box<dyn st
         let issues = if let Some(ref ochid_val) = current_ochid {
             validate_ochid(
                 ochid_val,
-                &other_prefix,
+                &other_forms,
                 params.id_len,
                 &other_workspace,
                 &other_repo,
@@ -291,6 +292,17 @@ pub fn fix_desc(_ctx: &Context, params: &FixDescParams) -> Result<(), Box<dyn st
             continue;
         }
 
+        // A URL naming another repo is reported and never rewritten: a
+        // renamed repo would have all its history rewritten by a fix.
+        if issues.wrong_prefix.is_some() && current_ochid.as_deref().is_some_and(is_url_form) {
+            errors += 1;
+            info!(
+                "err  {change_short}  {display_title}  ({})",
+                issues.summary()
+            );
+            continue;
+        }
+
         // Resolve the full change ID from the other repo when length is wrong
         let resolved_id = if issues.wrong_length.is_some() {
             let ochid_val = current_ochid.as_deref().unwrap_or(""); // OK: obvious
@@ -315,7 +327,7 @@ pub fn fix_desc(_ctx: &Context, params: &FixDescParams) -> Result<(), Box<dyn st
         let post_issues = if let Some(ref v) = fixed_ochid {
             validate_ochid(
                 v,
-                &other_prefix,
+                &other_forms,
                 params.id_len,
                 &other_workspace,
                 &other_repo,
@@ -401,7 +413,7 @@ fn jj_describe(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::FixturePor;
+    use crate::test_helpers::{Fixture, FixturePor, chid, description, git_ok, jj_ok};
 
     /// A POR workspace has no bot side: fix-desc no-ops with
     /// `Ok(())` instead of erroring (por equalization).
@@ -422,5 +434,41 @@ mod tests {
             add_missing: false,
         };
         fix_desc(&ctx, &params).expect("por workspace should no-op, not error");
+    }
+
+    /// A URL naming another repo is an error, written or dry-run, and
+    /// the description stays as it was.
+    #[test]
+    fn a_wrong_url_is_reported_and_never_rewritten() {
+        let fx = Fixture::new("fdesc-wrong-url");
+        let ctx = Context::load().expect("load user config");
+        git_ok(
+            &fx.bot,
+            &[
+                "remote",
+                "set-url",
+                "origin",
+                "https://example.com/o/r.agent-session.git",
+            ],
+        );
+        let desc = format!(
+            "feat: x\n\nochid: https://example.com/o/other#{}\n",
+            chid(&fx.bot, "@")
+        );
+        jj_ok(&fx.work, &["describe", "-m", &desc]);
+        let params = FixDescParams {
+            revision: "@".to_string(),
+            limit: None,
+            max_fixes: None,
+            repo: fx.work.clone(),
+            other_repo: None,
+            id_len: DEFAULT_ID_LEN,
+            title: None,
+            fallback: None,
+            no_dry_run: true,
+            add_missing: false,
+        };
+        fix_desc(&ctx, &params).expect_err("a wrong URL is an error");
+        assert_eq!(description(&fx.work, "@").trim_end(), desc.trim_end());
     }
 }
