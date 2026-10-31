@@ -689,10 +689,12 @@ so dropping the bookmark would leave them naming nothing, and landing keeps ever
   local and need no approval. `vc-x1 push`, exactly like `commit --push`, publishes and needs approval
   unless `--yes`, wink's (2026-10-30). `squash-push` publishes too.
 - `[commit] push` goes, so no workspace setting changes what a bare `commit` does.
+- `land --push` and `commit --land --push` publish in one step, as `commit --push` does, and delete
+  the published bookmark on `origin`, built in **feat: ochid trailers are URLs**.
 - Open: the approval's mechanism. We think it is the Bash hook sending what publishes to the
-  permission prompt, since an agent can type `--yes` as easily as anything else. And a Land's deletion
-  of a published bookmark, which is itself publishing, so `land` deletes the local one and `push` the
-  remote one.
+  permission prompt, since an agent can type `--yes` as easily as anything else. And a bare Land's
+  deletion of a published bookmark, which is itself publishing, so `land` deletes the local one and
+  `delete-bookmark` the remote one today, wink's preference being that `push` does.
 
 ##### Why: only push publishes
 
@@ -710,10 +712,12 @@ that cycle's Land works. A new cycle type, for every cycle and not that one alon
 - The work review stays on every commit. The description review goes, wink's (2026-10-30), since a
   local description can still be changed before the Land. Approval per push reduces to one go, the
   Land's.
-- The Land commits the agent `@` first, one `ochid:` URL per work commit, then writes `ochid:` and
-  `ocid:` on each work commit from opening to closing, trees unchanged, and pushes the agent repo
-  first and the work repo after. It folds nothing into the agent commit, so the SHA every `ocid:`
-  names holds, and what arrives after it rides the next cycle's agent commit.
+- The Land commits the agent `@` first, one `ochid:` per work commit, and sets each work commit's
+  `ocid:` to its SHA, trees unchanged, all on the machine. `push -s b --bookmark <TRUNK>` then pushes
+  the agent repo first and the work repo after. It folds nothing into the agent commit, so the SHA
+  every `ocid:` names holds, and what arrives after it rides the next cycle's agent commit.
+- Each rung's `ochid:` is the same agent change, so it stays right when the Land commits it, and only
+  `ocid:` is written then.
 - No `squash-push -s a`: At rest's item 2 goes, and "clean" means the work `@` is empty, the agent's
   `@` being the session's data and no finding, as [Acquaint](AGENTS.md#acquaint) says.
 - A single-step cycle is the same with one commit.
@@ -739,6 +743,26 @@ that cycle's Land works. A new cycle type, for every cycle and not that one alon
 The Land is where the decision is, so one approval belongs there. Nothing published can name a rung,
 so reshaping a ladder costs nothing, and the agent commit made first lets every commit link to it, a
 SHA included. The first cycle run this way changed its ladder several times at no cost.
+
+#### ochid trailers are URLs
+
+From **feat: ochid trailers are URLs**, wink's (2026-10-30). In [ochid
+trailers](agent-data/jj.md#cross-repo-linking-ochid-trailers), and **No hand-written trailers** with
+it, which now names `vc-x1 commit`:
+
+- `ochid: <repo-url>#<chid>` names a change in the other repo, by the URL from its `origin` normalized
+  to https, or by `/<chid>` and `/.claude/<chid>` with no hosted `origin` or with `--no-url-trailer`.
+  Published labels stay valid, and nothing rewrites them.
+- `ocid: <repo-url>/commit/<sha>` is a link a browser can follow, stamped on a work half as
+  `.../commit/xxxx`, its SHA set by a Land. Tools resolve `ochid:`, so `ocid:` is a convenience.
+- The count is per agent commit, one `ochid:` per work commit it covers, so a local cycle's Land makes
+  one agent commit naming them all.
+
+##### Why: ochid trailers are URLs
+
+A label names a side, not a repo, so nothing in a published commit says where its partner lives, and
+anyone holding only the work-repo cannot resolve it. The URL carries that, and a change id rather
+than a SHA survives a rewrite, which `ocid:` then adds for a reader in a browser.
 
 #### A local cycle's record may be reworked
 

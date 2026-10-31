@@ -166,7 +166,7 @@ vc-x1 symlink [--target P] [OPTS]         # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
 vc-x1 squash-push -s a [--bookmark NAME]  # Squash @ into @-, advance a bookmark, push
 vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
-vc-x1 land -s b --onto T [--source S]      # Land a made cycle: fast-forward, push, delete its bookmark
+vc-x1 land -s b --onto T [--source S]      # Land a made cycle: fast-forward, delete its bookmark, locally
 vc-x1 squash -s b [--title T --body B]     # Fold the working copies into the pair
 vc-x1 merge -s w --target T --from S...    # Add sources to a target's parents, keeping its change
 vc-x1 move-bookmark -s w --bookmark B --target T  # Point an existing bookmark at a commit, locally
@@ -1581,6 +1581,7 @@ vc-x1 init --target my-project --use-template ../tmpl,../tmpl.claude
 | `--repo <CAT[=VAL]>` | Repo target, e.g. `local=<PARENT>` for local bare remotes |
 | `-s, --scope <SCOPE>` | `both`, a dual workspace, or `por`, a plain single repo (no agent repo) [default: both] |
 | `--adopt` | Grow an existing TARGET into a dual workspace (see below) |
+| `--no-url-trailer` | Name each side's initial commit by the other's label, rather than its URL |
 | `--agent-dir <DIR>` | The agent repo's directory, one name [default: .agent-session] |
 | `--agent-repo <NAME>` | The agent repo's whole remote name |
 | `--agent-suffix <SUFFIX>` | The work repo's name plus this names the agent repo [default: .agent-session] |
@@ -2029,14 +2030,13 @@ closed file's `## Closed` block and references, and the doing file's `## In Prog
 <closed>.". The move is planned and checked before anything is made, so nothing in progress, or a
 missing heading, is refused with both files as they were.
 
-`--land [TRUNK]` lands the cycle in the same invocation: the closing is made, the trunk is
-fast-forwarded to it and pushed with the agent half as its partner, and the closing's bookmark is
-deleted locally and on `origin`, `--skip local|remote|both` keeping what it names. The trunk is
-`--land`'s value, else `[cycle] trunk`, else `main`, the closing's first parent either way, so a
-cycle lands with `commit --closing @- --land`. The closing's own push to the cycle's bookmark is
-skipped, the bookmark being deleted. `--land` is the closing then [`land`](#land), one code path,
-in one step: to install and test the closing before it is published, close without `--land` and
-run `land` after.
+`--land [TRUNK]` lands the cycle in the same invocation, on the machine: the closing is made, the
+agent `@` committed when the cycle's commits name it, the trunk fast-forwarded to the closing, and
+the closing's bookmark deleted, `--skip local|remote|both` keeping what it names. `--push` also
+publishes it and deletes the bookmark on `origin`. The trunk is `--land`'s value, else `[cycle]
+trunk`, else `main`, the closing's first parent either way, so a cycle lands with `commit --closing
+@- --land`. The closing's own push to the cycle's bookmark is skipped, the bookmark being deleted.
+`--land` is the closing then [`land`](#land), one code path, in one step.
 
 The closing's bookmark is the one its commit carries and a Land deletes, and `--closing`'s
 argument decides it. A bookmark named is that one. A revision means the current bookmark on the
@@ -2052,6 +2052,7 @@ install stays `vc-x1 install`, after.
 ```bash
 vc-x1 commit -s b --closing @- --land        # the cycle at @-, finalized or merged, landed on main
 vc-x1 commit -s b --closing @- --land dev    # the same, landed on dev, which is also the merge's base
+vc-x1 commit -s b --closing @- --land --push # landed on main, and published
 ```
 
 `--opening [BOOKMARK]` makes the cycle's opening: `--title` is the bare cycle title and " opening"
@@ -2083,6 +2084,9 @@ and the description are reviewed before the commit, so what is pushed is what wa
 A commit stays on the machine unless `--push` asks, `--opening`'s bookmark included, for a look at it
 before `vc-x1 push`, and `--local`, or its alias `--no-push`, says so outright. A commit with `--no-advance` pushes only
 with `--push`, since its bookmark was left where it was.
+A trailer names the other repo by its URL ([Cross-repo Linking](#cross-repo-linking-with-git-trailers)).
+`--no-url-trailer` stamps the side's label instead, with no `ocid:`, and with `-s a` or `-s p`,
+which stamp no trailer, it changes nothing.
 `-R` is optional and says where. `--body` is the text, or `@PATH` to read it from a file, since a
 body in commit-body form has markers and blank lines a shell quote mangles. The work repo's `@`
 must hold a change, and with `b` the agent repo's `@`, the session's journal, is committed as it
@@ -2090,10 +2094,19 @@ stands. A failure after the first commit restores both repos from `jj op` snapsh
 
 ### land
 
-Land a cycle whose last commit is already made: `--onto` fast-forwarded to `--source` and pushed,
-and the cycle's bookmark deleted locally and on `origin`, every check made before anything moves.
-It is the Land of a closing made without `--land`, or of a single-step commit, and the second half
-of `commit --closing ... --land`, which runs the same code.
+Land a cycle whose last commit is already made, on the machine: the agent `@` committed when the
+cycle's commits name it, `--onto` fast-forwarded to `--source`, and the cycle's bookmark deleted,
+every check made before anything moves. `--push` also publishes it, the agent repo first, and
+deletes the bookmark on `origin`, and without it `vc-x1 push -s b --bookmark <ONTO>` publishes, a
+published cycle's bookmark left on `origin` for `delete-bookmark`. It is the Land of a closing made
+without `--land`, or of a single-step commit, and the second half of `commit --closing ... --land`,
+which runs the same code.
+
+The agent commit carries the last commit's text and one `ochid:` per work commit naming the agent
+`@`, oldest first. A work commit's placeholder `ocid:` then takes that commit's SHA, its tree
+checked unchanged, and a published commit keeps its placeholder, with a warning. The agent commit
+is published as it is, so what arrives in the agent `@` afterwards rides the next cycle rather than
+changing the SHA. A commit above `--source` naming the agent `@` is refused.
 
 ```bash
 vc-x1 land -s b --onto main                          # the one bookmark besides main, landed on it
@@ -2101,6 +2114,7 @@ vc-x1 land -s b --source feat-a-cycle --onto main    # the cycle's bookmark name
 vc-x1 land -s b --source @- --onto dev               # a revision, its bookmark the nearest one
 vc-x1 land -s b --source feat-c --onto main --delete-intermediate-bookmarks   # a stack of cycles
 vc-x1 land -s p -R ../other --onto main --dry-run    # a plain repo, every check, nothing moved
+vc-x1 land -s b --onto main --push                   # landed and published
 ```
 
 Testing before publishing is the reason to use it over `commit --land`. A Land only fast-forwards,
@@ -2108,13 +2122,13 @@ so `main` becomes the source commit itself, its id and its tree, and the release
 committed source, installed off the PATH by `install --dir`, is the binary that ships:
 
 ```bash
-vc-x1 commit -s b --closing @-             # the closing, pushed to the cycle's bookmark, main unmoved
+vc-x1 commit -s b --closing @-             # the closing, on the cycle's bookmark, main unmoved
 mkdir -p tmp/candidate                     # install --dir takes a directory that exists
 vc-x1 install --dir tmp/candidate          # its release build, the plain name, off the PATH
 tmp/candidate/vc-x1 -V                     # the closing's commit, clean
 # ... the final testing, with tmp/candidate/vc-x1 ...
 tmp/candidate/vc-x1 land -s b --onto main --dry-run   # the steps it would take
-tmp/candidate/vc-x1 land -s b --onto main             # the tree tested, landed and published
+tmp/candidate/vc-x1 land -s b --onto main --push      # the tree tested, landed and published
 tmp/candidate/vc-x1 install                # now on main, it installs itself under the plain name
 cmp tmp/candidate/vc-x1 ~/.cargo/bin/vc-x1 # the binary tested is the one installed
 ```
@@ -2124,8 +2138,8 @@ never runs a candidate, and the candidate makes its own Land. A binary embeds it
 whether the tree was clean, no time, so the build after the fast-forward is the build tested. A
 `main` that moved meanwhile is refused, and the rebase it needs makes a new tree, built and tested
 again. A longer test is the same with a directory that lasts, put first on the PATH of the shell
-it is tried from. `commit --closing ... --land` is the one step when no test pause is wanted. A Land
-is always published: `--dry-run` makes every check and says each step, and is the look before it.
+it is tried from. `commit --closing ... --land` is the one step when no test pause is wanted, and
+`--dry-run` makes every check and says each step, the look before either.
 
 `--source <BM|REV>` names the cycle's last commit, a bookmark, the cycle's, or a revision, whose
 current bookmark, else its nearest parent's above `--onto`, is the cycle's, several at that height
@@ -2136,15 +2150,15 @@ position that `--source` descends from, so a bushy tree lands anywhere, and one 
 ancestor is refused: `land` makes no merge, which is `commit --closing`'s. A conflicted source is
 not landed.
 
-The publish follows where the source is. At the work `@-`, whose pair may be unfinished, the trunk
-goes through `push`, which finishes it. Below it, the pair is finished, so the trunk is pushed
-alone and the agent `main` published. `--skip local|remote|both` keeps that side of the cycle's
-bookmark. The branch's other bookmarks are merged by the Land and left as they are, each named
+With `--push` the publish follows where the source is. At the work `@-`, whose pair may be
+unfinished, the trunk goes through `push`, which finishes it. Below it, the pair is finished, so
+the trunk is pushed alone and the agent `main` published. `--skip local|remote|both` keeps that side
+of the cycle's bookmark, and with no `--push` the remote side is left whatever it says. The branch's other bookmarks are merged by the Land and left as they are, each named
 after it, and `--delete-intermediate-bookmarks` deletes those strictly between `--onto` and
 `--source`, locally and on origin as `--skip` allows, a stack of cycles landing together. A
 bookmark at the tip beside the cycle's is kept either way, since it may be one you put there.
 
-`-s` is required: `b` a dual workspace, the agent `main` published with the trunk, and `p` a
+`-s` is required: `b` a dual workspace, the agent `main` moved with the trunk, and `p` a
 plain repo. `w` alone could publish trailers naming agent commits not yet published, and `a`
 alone has no cycle to land, so both are refused ([Write scopes](#write-scopes)). The install
 stays `vc-x1 install`.
@@ -2430,15 +2444,40 @@ squash-push: done
 
 Commits in each repo use [git trailers](https://git-scm.com/docs/git-interpret-trailers) to
 cross-reference their counterpart in the other repo. The `ochid` (Other Change ID) trailer contains
-a workspace-root-relative path and jj changeID:
+the other repo's URL and a jj changeID:
 
 ```
-ochid: /.claude/xvzvruqo   # points to a .claude repo change
-ochid: /wtpmottv            # points to an work repo change
+ochid: https://github.com/winksaville/vc-x1.agent-session#qrxovvvqxnrq   # an agent repo change
+ochid: https://github.com/winksaville/vc-x1#xwvlonzwkzpo                 # a work repo change
 ```
 
-Paths always start with `/` (the workspace root, i.e. vc-x1). Each repo has a `.vc-config.md` that
-identifies its location within the workspace, so tools can resolve these paths locally.
+The URL comes from the repo's `origin`, normalized to https with any user, password, port, and
+`.git` dropped, so ssh and https clones stamp the same value. It is the change ID and not a SHA, since
+a SHA changes on every rewrite, so `vc-x1` resolves it, in the workspace's repo when the URL names
+one, and GitHub knows nothing of it.
+
+A work half made by `commit -s w` also carries `ocid` (Other Commit ID), a link a browser can follow:
+
+```
+ocid: https://github.com/winksaville/vc-x1.agent-session/commit/xxxx
+```
+
+`xxxx` stands in until a Land commits the agent repo and sets the SHA, and the link resolves once the
+agent repo is pushed. `commit -s b` and `init` stamp `ochid` alone. It is a display convenience, and
+`ochid` is what the tools resolve.
+
+A repo with no hosted `origin`, a local path or none, and `--no-url-trailer`, stamp the side's label
+and no `ocid`:
+
+```
+ochid: /.claude/xvzvruqo   # points to an agent repo change
+ochid: /wtpmottv           # points to a work repo change
+```
+
+Published labels stay valid for good. `/` is the workspace root, `/.claude` always means the agent
+repo whatever its directory is called, and `/.agent-session/`, the directory's own name, is accepted
+beside it. `validate-desc` also reports a URL naming another repo, and `fix-desc` reports it without
+rewriting it, since a renamed repo would otherwise have all its history rewritten.
 
 For full details see:
 - [Git trailer convention](./notes/chores/chores-01.md#git-trailer-convention)
