@@ -99,10 +99,9 @@ commit made at the Land. Folds in **commit and land take the same scopes**, whic
 - `-s p` in a dual workspace: `p` stays "no partner", so it works there as an explicit opt-out with
   no trailer. A trailer would make it `-s w --local`, which exists, and a plain repo has no agent
   repo to name.
-- `--land --local` lands on `--bookmark <BM|REV>` without invoking `vc-x1 push`, wink's (2026-10-30):
-  the bookmark moves on the machine and nothing is published, so today's refusal of `--land` with
-  `--no-push` goes. A later `vc-x1 push -s b` publishes it, the agent commit made then. Open: `land`'s
-  deletion of the cycle's bookmark, which has no remote side when the opening was local too.
+- A Land is local since **feat: ochid trailers are URLs**, `--push` publishing it, and a later
+  `vc-x1 push -s b` does the same. Open: the name of `--land`'s target beside `--bookmark <BM|REV>`,
+  and `push` deleting a published cycle's bookmark on `origin`, which a bare Land leaves there.
 - `--closing` at `-s a` does what `--closing -s b` does on the agent side, wink's (2026-10-30): a
   regular commit, no trapezoid, the merge being the work-repo's. We think `--opening` at `-s a` is
   the same, with no bookmark. Open: its title with no opening to read it from in the agent-repo,
@@ -146,6 +145,31 @@ create|delete|move`, and `commit --no-advance` becomes `--no-move`, the same wor
 - Only push publishes, in **agent-files(proposal): v0.3.1**: the verbs are local, so `delete` stops
   removing the bookmark on `origin` and the remote side takes `--push`. `move-bookmark` is to be
   checked for the same. This answers a Land's deletion of a published bookmark.
+
+### install has a role and a profile
+
+(wink + agent, 2026-10-30) `[profile.dev]` holds both how a binary is built and what it is installed
+as, so `vc-x1-dev` reads as the `dev` profile. Wink's model: they are two choices. The profile is how
+it is compiled, `target/<profile>/<name>`, the name from `Cargo.toml`. The role is what it is: bare
+`vc-x1` the released version and `vc-x1-dev` the development version, either from any profile.
+`build` and `run` take a profile alone, and `install` alone has a role. Historically the install was
+`cargo install --path . --locked`, sometimes with `--root` and a copy, before profiles existed.
+
+A proposal, the agent's, wink's to try (2026-10-30):
+
+- `[role.released]`, `default-profile = "release"`, and `[role.development]`, `suffix = "-dev"` and
+  `default-profile = "dev"`. `suffix` leaves `[profile.*]`, and `[install] commands` says
+  `{role.suffix}`.
+- `install --as released|development`, the default the running binary's role by its name, so
+  `vc-x1-dev install` stays development, and `--profile` overrides the role's default.
+- A released install refuses a dirty build, a commit not on `main`, and a suffixed version unless
+  `--force`, where today it only reports them. A development install reports them.
+- The copy stays configured: `[install] commands` holds `cp {profile.bin}` and `mv`, or a project may
+  list `cargo install --path . --locked --profile {profile.cargo} --root <dir>` and copy from
+  `<dir>/bin`, which needs no path rule and, by cargo's help, shares the workspace's target directory.
+  `bin` stays either way, since `run` needs it and `[build] commands` is not cargo-specific.
+- A config with `suffix` under a profile is refused naming the move, or read as the role's for a
+  while. Open.
 
 ### init defaults to --local
 
@@ -677,6 +701,8 @@ that cycle's Land works. A new cycle type, for every cycle and not that one alon
 - No `squash-push -s a`: At rest's item 2 goes, and "clean" means the work `@` is empty, the agent's
   `@` being the session's data and no finding, as [Acquaint](AGENTS.md#acquaint) says.
 - A single-step cycle is the same with one commit.
+- A rung that changes the code ends with `vc-x1 install --profile dev`, after validate, wink's
+  (2026-10-30), so the next rung runs the code just reviewed.
 - The sections it rewrites: Opening step 2, the per-rung flow's step 9, Committing vs pushing, At
   rest, Before any push, and Land. It replaces **A local commit pair before every push** above, a
   rung no longer making a pair, and Every cycle starts with `commit --opening` holds with the

@@ -100,7 +100,8 @@ Provisional:
   those trailers dangling, a hazard **commit works at every scope, and --local keeps it on the
   machine** records.
 - The Land is by `land -s b`, since `land -s w` is refused today: it commits the agent `@` as the
-  partner, a trailer back to the closing, and publishes both repos, agent first.
+  partner, a trailer back to each work commit. `push -s b --bookmark main`, the part that needs
+  approval, then publishes both repos, agent first.
 - This cycle's own trailers are URLs, wink's call (2026-10-30), replacing `/.claude/` on the opening
   while it is local. Two bends follow, for this cycle's commits alone and until the Land:
   - No hand-written trailers: until [feat: commit and init stamp a URL-shaped ochid and ocid][4] stamps it,
@@ -140,7 +141,7 @@ Provisional, the rungs after the opening named as the work is understood:
 - [feat: an ochid URL comes from the repo's origin][2] (done)
 - [fix: commit stays local unless --push asks][3] (done)
 - [feat: commit and init stamp a URL-shaped ochid and ocid][4] (done)
-- [feat: land stamps a local cycle's trailers][5]
+- [feat: land stamps a local cycle's trailers][5] (done)
 - [feat: land sets the ocid trailer to the agent commit's SHA][6]
 - [docs: the rules and README name the URL form][7]
 - [feat: ochid trailers are URLs closing][8]
@@ -235,6 +236,31 @@ Every writer now stamps `<url>#<chid>`, so hand-written trailers end here.
 - `--opening`'s help says the bookmark is pushed only with `--push`.
 
 ##### feat: land stamps a local cycle's trailers
+
+A Land now finishes the agent side of a cycle held local, and stays on the machine unless asked.
+
+- `land` and `commit --land` are local: the trunk moves and the bookmark goes, locally. `--push`
+  publishes, the agent repo first, and deletes the bookmark on `origin` too, which is today's Land.
+  `land` gains the flag and `--land` no longer conflicts with `--local`.
+- A bare Land leaves a published cycle's bookmark on `origin` and prints the command that deletes it.
+  We discussed `push` deleting it, and that stays out, since it would also delete one kept by `--skip
+  remote`. Bends "land deletes the local bookmark, push the remote", my call.
+- The agent `@` is committed when the cycle's commits name it, with one `ochid:` per such commit,
+  oldest first, in the form each took, and its `main` follows. The text is the last commit's. A work
+  half alone, or a mix, needs nothing more, and a cycle of finished pairs makes no agent commit.
+- `--closing --land` at `-s b` leaves the agent commit to the Land, so it names the rungs too.
+- `Partner::Landed`: an agent `@-` naming the work commit and either naming several or linked by an
+  `ocid:`. `push` publishes it unfolded, and `squash` leaves the journal, so what arrives after stays
+  in `@` for the next cycle. A single-step cycle with `--no-url-trailer` has neither and still folds,
+  harmless with no `ocid:` to break.
+- A commit above the Land's target naming the agent `@` is refused, since the agent commit would
+  leave it behind.
+- A rung that changes the code ends with `vc-x1 install --profile dev`, after validate, wink's
+  (2026-10-30), recorded in **A cycle stays local until its Land**.
+- Also files **install has a role and a profile** in `## Todo`.
+- Not yet: the `ocid:` keeps `xxxx`, for [feat: land sets the ocid trailer to the agent commit's
+  SHA][6]. A `commit --land --dry-run` lists the agent commit's trailers as they stand, so without
+  the closing, which is not made yet.
 
 ##### feat: land sets the ocid trailer to the agent commit's SHA
 

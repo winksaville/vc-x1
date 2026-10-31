@@ -14,7 +14,9 @@ use std::path::{Path, PathBuf};
 
 use log::{info, warn};
 
-use crate::desc_helpers::{extract_bare_id, extract_ochid_from_desc, extract_ocid_from_desc};
+use crate::desc_helpers::{
+    extract_bare_id, extract_ochid_from_desc, extract_ochids, extract_ocid_from_desc,
+};
 use crate::jj;
 use crate::jj::{current_op_id, op_restore};
 use crate::options_flags::scope::{RepoScope, Scope, Side};
@@ -94,6 +96,10 @@ pub enum Partner {
     /// The agent `@-` names the work commit, the pair made at once
     /// (`commit -s b`): the journal in `@` folds into it. Its id.
     Committed(String),
+    /// The agent `@-` names the work commit and a Land made it: it
+    /// names several, or the work commit's `ocid:` links it, so the
+    /// journal in `@` stays out, since a fold changes its SHA. Its id.
+    Landed(String),
     /// The agent `@` is the change the work commit names (`commit
     /// -s w`): the journal is the partner, for push to commit. Its id.
     Pending(String),
@@ -107,9 +113,13 @@ pub enum Partner {
 /// caller here, before any mutation.
 pub fn partner(pair: &Pair, work: &WorkCommit) -> Result<Partner, Box<dyn std::error::Error>> {
     let agent_at = jj::chid_of(&pair.agent, "@")?;
-    let names_work = extract_ochid_from_desc(&jj::desc_of(&pair.agent, "@-")?)
-        .is_some_and(|o| extract_bare_id(&o) == work.chid);
-    Ok(if names_work {
+    let ochids = extract_ochids(&jj::desc_of(&pair.agent, "@-")?);
+    let names_work = ochids
+        .last()
+        .is_some_and(|o| extract_bare_id(o) == work.chid);
+    Ok(if names_work && (ochids.len() > 1 || work.ocid.is_some()) {
+        Partner::Landed(jj::chid_of(&pair.agent, "@-")?)
+    } else if names_work {
         Partner::Committed(jj::chid_of(&pair.agent, "@-")?)
     } else if agent_at == work.stamped {
         Partner::Pending(agent_at)
