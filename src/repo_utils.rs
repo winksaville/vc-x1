@@ -21,7 +21,7 @@ use std::path::Path;
 use log::{debug, info};
 
 use crate::common::mkdir_p;
-use crate::desc_helpers::{OCHID_BOT_LABEL, OCHID_WORK_LABEL};
+use crate::desc_helpers::{Trailers, commit_url, with_trailer, with_trailers};
 use crate::init::{copy_template_recursive, rewrite_readme_first_line};
 use crate::jj;
 
@@ -144,44 +144,65 @@ pub fn commit_initial(
     Ok(chid)
 }
 
+/// One side of a dual-repo workspace as [`cross_ref_ochids`] takes it.
+pub struct CrossRefSide<'a> {
+    /// The repo on disk.
+    pub dir: &'a Path,
+    /// Its remote, passed in since it is not yet the repo's `origin`,
+    /// `None` for no links.
+    pub url: Option<&'a str>,
+    /// Its initial commit's chid, embedded into the other's trailer.
+    pub chid: &'a str,
+}
+
 /// Rewrite the placeholder `ochid: /none` trailers on both sides
 /// of a dual-repo workspace so each initial commit points at its
 /// counterpart's chid (init step 6).
 ///
 /// Both sides must already have an initial commit shaped by
 /// `OchidStrategy::Placeholder`. After the rewrite, each commit's
-/// ochid trailer is a workspace-root-relative path: the work side
-/// points at `/.claude/<bot_chid>` and the bot side points at
-/// `/<work_chid>`.
+/// ochid trailer is the other's change id, and the work side also links
+/// by URL: `ocid:` the bot commit,
+/// rewritten first so its SHA is final, and `pcid:` each parent.
 ///
 /// Parameters:
-/// - `work_dir`: work repo on disk, receiving `/.claude/<chid>`.
+/// - `work`: the work side, receiving the bot side's value.
 /// - `work_title`: the work commit's title, kept as it is: an adopted
 ///   repo's commit is not its first.
-/// - `work_chid`: work-side initial-commit chid, embedded into
-///   the bot-side trailer.
-/// - `bot_dir`: bot repo on disk, receiving `/<chid>`.
-/// - `bot_chid`: bot-side initial-commit chid, embedded
-///   into the work-side trailer.
+/// - `bot`: the bot side, receiving the work side's value.
 pub fn cross_ref_ochids(
-    work_dir: &Path,
+    work: CrossRefSide,
     work_title: &str,
-    work_chid: &str,
-    bot_dir: &Path,
-    bot_chid: &str,
+    bot: CrossRefSide,
 ) -> Result<(), Box<dyn std::error::Error>> {
     debug!("set ochid cross-references");
-    // Each side is named by its canonical label, never by its
-    // directory: `/.claude` is the agent side's whatever the
-    // directory is called, the label `push` writes and `validate-desc`
-    // checks.
-    let work_desc = format!("{work_title}\n\nochid: {OCHID_BOT_LABEL}/{bot_chid}");
-    let bot_desc = format!("{INITIAL_TITLE}\n\nochid: {OCHID_WORK_LABEL}{work_chid}");
+    let (work_dir, work_chid) = (work.dir, work.chid);
+    let (bot_dir, bot_chid) = (bot.dir, bot.chid);
 
-    debug!("work side: rewrite initial commit's ochid to point at bot chid");
-    jj::describe(work_dir, "@-", &work_desc)?;
     debug!("bot side: rewrite initial commit's ochid to point at work chid");
-    jj::describe(bot_dir, "@-", &bot_desc)?;
+    jj::describe(bot_dir, "@-", &with_trailer(INITIAL_TITLE, work_chid))?;
+    let cwd = std::env::current_dir()?;
+    let canonical = |url: Option<&str>| url.and_then(|url| crate::url::link_repo_url(url, &cwd));
+    let trailers = Trailers {
+        ochids: vec![bot_chid.to_string()],
+        ocid: match canonical(bot.url) {
+            Some(url) => Some(commit_url(&url, &jj::cid_of(bot_dir, "@-")?)),
+            None => None,
+        },
+        pcids: match canonical(work.url) {
+            Some(url) => {
+                let root = jj::cid_of(work_dir, "root()")?;
+                jj::parent_cids_of(work_dir, "@-")?
+                    .iter()
+                    .filter(|parent| **parent != root)
+                    .map(|parent| commit_url(&url, parent))
+                    .collect()
+            }
+            None => Vec::new(),
+        },
+    };
+    debug!("work side: rewrite initial commit's trailers to point at bot commit");
+    jj::describe(work_dir, "@-", &with_trailers(work_title, &trailers))?;
 
     debug!("surface post-describe commit ids for the debug log");
     // Colocated, so the jj commit id is the git hash.
@@ -196,6 +217,67 @@ pub fn cross_ref_ochids(
 mod tests {
     use super::*;
     use crate::test_helpers::git_ok;
+
+    /// Each side holds the other's change id, and with hosted remotes the
+    /// work side links the bot commit's final SHA, an initial commit having
+    /// no parent to link.
+    #[test]
+    fn cross_ref_stamps_change_ids_and_links_the_work_side() {
+        let base = crate::test_helpers::unique_base("create-repo-cross-ref");
+        let (work, bot) = (base.join("work"), base.join("bot"));
+        std::fs::create_dir_all(&base).expect("mkdir base");
+        prepare_local_repo(&work, "work", None, "scratch").expect("prepare work");
+        prepare_local_repo(&bot, "bot", None, "scratch").expect("prepare bot");
+        let wc = commit_initial(&work, "work", INITIAL_TITLE, OchidStrategy::Placeholder)
+            .expect("commit work");
+        let bc = commit_initial(&bot, "bot", INITIAL_TITLE, OchidStrategy::Placeholder)
+            .expect("commit bot");
+
+        let cross_ref = |work_url: Option<&str>, bot_url: Option<&str>| {
+            cross_ref_ochids(
+                CrossRefSide {
+                    dir: &work,
+                    url: work_url,
+                    chid: &wc,
+                },
+                INITIAL_TITLE,
+                CrossRefSide {
+                    dir: &bot,
+                    url: bot_url,
+                    chid: &bc,
+                },
+            )
+            .expect("cross_ref_ochids");
+        };
+        let desc = |repo: &Path| jj::desc_of(repo, "@-").expect("desc");
+
+        cross_ref(
+            Some("git@github.com:o/r.git"),
+            Some("https://github.com/o/r.agent-session.git"),
+        );
+        let sha = jj::cid_of(&bot, "@-").expect("cid");
+        assert!(
+            desc(&work).ends_with(&format!(
+                "\n\nochid: {bc}\nocid: https://github.com/o/r.agent-session/commit/{sha}"
+            )),
+            "{}",
+            desc(&work)
+        );
+        assert!(
+            desc(&bot).ends_with(&format!("\n\nochid: {wc}")),
+            "{}",
+            desc(&bot)
+        );
+
+        cross_ref(None, None);
+        assert!(
+            desc(&work).ends_with(&format!("\n\nochid: {bc}")),
+            "{}",
+            desc(&work)
+        );
+
+        let _ = std::fs::remove_dir_all(&base);
+    }
 
     /// `OchidStrategy::None` produces a plain `Initial commit`
     /// message (POR-shape).

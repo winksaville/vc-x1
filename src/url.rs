@@ -187,9 +187,120 @@ pub fn agent_url(work_url: &str, agent_repo: &str) -> String {
     format!("{}{agent_repo}{git}", &stem[..cut])
 }
 
+/// A hosted repo's canonical URL: `https://<host>/<path>`, whatever
+/// form `url` is in, so ssh and https clones of one repo agree.
+///
+/// - Takes `https://`, `http://`, `ssh://`, and scp-style `user@host:path`.
+/// - Drops any user, password, and port, since the value goes into
+///   published commits, and a trailing `/` and `.git`.
+/// - `None` for what names no hosted repo, a local path or `file://`.
+pub fn canonical_repo_url(url: &str) -> Option<String> {
+    let (authority, path) = if let Some((scheme, rest)) = url.split_once("://") {
+        if !matches!(scheme, "https" | "http" | "ssh") {
+            return None;
+        }
+        rest.split_once('/')?
+    } else {
+        let (authority, path) = url.split_once(':')?;
+        if !authority.contains('@') {
+            return None;
+        }
+        (authority, path)
+    };
+    // OK: rsplit always yields at least one element
+    let host = authority.rsplit('@').next().unwrap_or(authority);
+    let host = host.split(':').next().unwrap_or(host); // OK: split always yields one
+    let path = path.trim_matches('/');
+    let path = path.strip_suffix(".git").unwrap_or(path); // OK: .git suffix is optional
+    if host.is_empty() || path.is_empty() {
+        return None;
+    }
+    Some(format!("https://{host}/{path}"))
+}
+
+/// The URL a trailer links `url`, a remote, by: its canonical form, or
+/// `file:///<absolute path>` for a local path or `file://` remote, a
+/// relative one read from `base`. `None` for what is neither.
+pub fn link_repo_url(url: &str, base: &std::path::Path) -> Option<String> {
+    if let Some(canonical) = canonical_repo_url(url) {
+        return Some(canonical);
+    }
+    let path = url.strip_prefix("file://").unwrap_or(url); // OK: a plain path has no scheme
+    if path.is_empty() || path.contains("://") {
+        return None;
+    }
+    let path = base.join(path);
+    let path = path.canonicalize().unwrap_or(path); // OK: a remote not made yet keeps its spelling
+    Some(format!("file://{}", path.display()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A local remote links by `file:///`, relative ones read from the
+    /// base, a hosted one stays canonical, and an unknown scheme has none.
+    #[test]
+    fn a_local_remote_links_by_file_url() {
+        let base = std::path::Path::new("/no/such/base");
+        assert_eq!(
+            link_repo_url("/no/such/remote.git", base).as_deref(),
+            Some("file:///no/such/remote.git")
+        );
+        assert_eq!(
+            link_repo_url("file:///no/such/remote.git", base).as_deref(),
+            Some("file:///no/such/remote.git")
+        );
+        assert_eq!(
+            link_repo_url("../r.git", base).as_deref(),
+            Some("file:///no/such/base/../r.git")
+        );
+        assert_eq!(
+            link_repo_url("git@github.com:o/r.git", base).as_deref(),
+            Some("https://github.com/o/r")
+        );
+        assert_eq!(link_repo_url("ftp://h/r", base), None);
+    }
+
+    // --- canonical_repo_url ------------------------------------------
+
+    #[test]
+    fn every_hosted_form_has_one_canonical_url() {
+        let want = Some("https://github.com/o/r".to_string());
+        for url in [
+            "https://github.com/o/r",
+            "https://github.com/o/r/",
+            "https://github.com/o/r.git",
+            "http://github.com/o/r",
+            "ssh://git@github.com/o/r.git",
+            "ssh://git@github.com:22/o/r.git",
+            "git@github.com:o/r.git",
+        ] {
+            assert_eq!(canonical_repo_url(url), want, "{url}");
+        }
+    }
+
+    #[test]
+    fn credentials_never_reach_the_canonical_url() {
+        assert_eq!(
+            canonical_repo_url("https://me:secret@github.com/o/r.git").as_deref(),
+            Some("https://github.com/o/r")
+        );
+    }
+
+    #[test]
+    fn what_names_no_hosted_repo_has_no_canonical_url() {
+        for url in [
+            "/home/me/remotes/r.git",
+            "../remotes/r.git",
+            "file:///home/me/r.git",
+            "host:path",
+            "https://github.com",
+            "",
+        ] {
+            assert_eq!(canonical_repo_url(url), None, "{url}");
+        }
+    }
 
     // --- derive_name -------------------------------------------------
 

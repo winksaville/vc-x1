@@ -49,12 +49,149 @@ pub fn read_body(body: &str, who: &str) -> Result<String, String> {
     }
 }
 
-/// A description with its `ochid:` trailer: the text, trailing
-/// blank lines trimmed, a blank line, then `ochid: <value>`, so a
-/// body read from a file ending in a newline gets one blank line
-/// before the trailer, not two.
-pub fn with_trailer(text: &str, value: &str) -> String {
-    format!("{}\n\nochid: {value}", text.trim_end())
+/// The trailers `vc-x1` stamps. `ochid:` is the partner's change id in
+/// the other repo, one per commit an agent commit covers. A work commit
+/// also links by URL: `ocid:` the agent commit, and `pcid:` each parent.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Trailers {
+    pub ochids: Vec<String>,
+    pub ocid: Option<String>,
+    pub pcids: Vec<String>,
+}
+
+impl Trailers {
+    /// The trailers `desc` carries, column 0 only, as `extract_ochids`
+    /// reads them.
+    pub fn of(desc: &str) -> Self {
+        let values = |key: &str| -> Vec<String> {
+            desc.lines()
+                .filter_map(|line| line.strip_prefix(key))
+                .map(str::trim)
+                .filter(|value| is_trailer_value(value))
+                .map(str::to_string)
+                .collect()
+        };
+        Self {
+            ochids: values("ochid:"),
+            ocid: values("ocid:").pop(),
+            pcids: values("pcid:"),
+        }
+    }
+
+    /// The trailers as lines, in the order they are stamped.
+    fn lines(&self) -> Vec<String> {
+        let ochids = self.ochids.iter().map(|v| format!("ochid: {v}"));
+        let ocid = self.ocid.iter().map(|v| format!("ocid: {v}"));
+        let pcids = self.pcids.iter().map(|v| format!("pcid: {v}"));
+        ochids.chain(ocid).chain(pcids).collect()
+    }
+}
+
+/// Whether a value is one a stamped trailer holds: one word, so a body
+/// sentence that happens to start `ochid: ` at column 0 is not a trailer.
+fn is_trailer_value(value: &str) -> bool {
+    !value.is_empty() && !value.contains(char::is_whitespace)
+}
+
+/// Whether a line reads as a git trailer `vc-x1` does not stamp, one
+/// `custom.md` may add: a key of lowercase or hyphenated words, so a
+/// paragraph reading `Solution: ...` stays body.
+fn is_other_trailer(line: &str) -> bool {
+    line.split_once(": ").is_some_and(|(key, value)| {
+        !value.is_empty()
+            && !key.is_empty()
+            && !["ochid", "ocid", "pcid"].contains(&key)
+            && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+            && (key.contains('-') || !key.chars().any(|c| c.is_ascii_uppercase()))
+    })
+}
+
+/// `text` with `trailers` stamped in place of any it carries. The result
+/// ends in one trailer block, the stamped lines and then any other
+/// trailers the text ended in, so a rewrite keeps a custom trailer and
+/// never leaves it stranded in the body.
+pub fn with_trailers(text: &str, trailers: &Trailers) -> String {
+    let stripped = without_trailer_lines(text).collect::<Vec<_>>().join("\n");
+    let stripped = stripped.trim_end();
+    let (body, others) = match stripped.rsplit_once("\n\n") {
+        Some((body, last)) if last.lines().all(is_other_trailer) => (body.trim_end(), Some(last)),
+        _ => (stripped, None),
+    };
+    let mut block = trailers.lines();
+    block.extend(others.into_iter().flat_map(str::lines).map(str::to_string));
+    if block.is_empty() {
+        return body.to_string();
+    }
+    format!("{body}\n\n{}", block.join("\n"))
+}
+
+/// `text` with one `ochid:` trailer, an agent commit's for one work commit.
+pub fn with_trailer(text: &str, chid: &str) -> String {
+    with_ochids(text, &[chid.to_string()])
+}
+
+/// `text` with one `ochid:` per change id, in order, the agent commit a
+/// Land makes for a whole cycle.
+pub fn with_ochids(text: &str, chids: &[String]) -> String {
+    with_trailers(
+        text,
+        &Trailers {
+            ochids: chids.to_vec(),
+            ..Trailers::default()
+        },
+    )
+}
+
+/// What an `ocid:` trailer's SHA is until the agent commit is made.
+pub const OCID_PLACEHOLDER: &str = "xxxx";
+
+/// The link to commit `sha` in the repo at canonical `url`.
+pub fn commit_url(url: &str, sha: &str) -> String {
+    format!("{url}/commit/{sha}")
+}
+
+/// The URL `repo`'s commits are linked by, from its `origin`: canonical,
+/// or `file:///` for a local remote, `None` with no `origin`.
+pub fn repo_url_for(repo: &std::path::Path) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let url = crate::jj::remote_url(repo, "origin")?;
+    Ok(url
+        .as_deref()
+        .and_then(|url| crate::url::link_repo_url(url, repo)))
+}
+
+/// The placeholder `ocid:` value for a commit in `repo`, `None` when
+/// it has no `origin`, since the value is a link.
+pub fn ocid_placeholder_for(
+    repo: &std::path::Path,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    Ok(repo_url_for(repo)?.map(|url| commit_url(&url, OCID_PLACEHOLDER)))
+}
+
+/// The `pcid:` values for `parents`, commit ids in `repo`, none with no
+/// `origin`, and the root commit, which is not a real one, left out.
+pub fn pcids_for(
+    repo: &std::path::Path,
+    parents: &[String],
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let Some(url) = repo_url_for(repo)? else {
+        return Ok(Vec::new());
+    };
+    let root = crate::jj::cid_of(repo, "root()")?;
+    Ok(parents
+        .iter()
+        .filter(|parent| **parent != root)
+        .map(|parent| commit_url(&url, parent))
+        .collect())
+}
+
+/// A description without its `ochid:`, `ocid:`, and `pcid:` lines.
+pub fn without_trailer_lines(desc: &str) -> impl Iterator<Item = &str> {
+    desc.lines().filter(|line| {
+        !["ochid:", "ocid:", "pcid:"].iter().any(|key| {
+            line.strip_prefix(key)
+                .is_some_and(|value| is_trailer_value(value.trim()))
+        })
+    })
 }
 
 /// Problems found with an ochid trailer, with details for reporting.
@@ -90,10 +227,74 @@ impl OchidIssues {
     }
 }
 
-/// Validate an ochid trailer value against expected prefix, length, and other repo.
+/// Whether a prefix, what precedes the bare ID, is a URL form's:
+/// `<scheme>://<repo>#`.
+fn is_url_prefix(prefix: &str) -> bool {
+    prefix.contains("://") && prefix.ends_with('#')
+}
+
+/// The forms a trailer naming one repo may take.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OchidForms {
+    /// The side's label, what every published trailer carries.
+    pub label: String,
+    /// The path form by the directory's own name, for a repo with no
+    /// URL to stamp: `/` on the work side, `/<dir>/` on the agent's.
+    pub path: String,
+    /// The repo's canonical URL, from its `origin`, when it has one.
+    pub url: Option<String>,
+}
+
+impl OchidForms {
+    /// Whether a trailer's prefix is one of these forms. A URL naming
+    /// another repo is not, compared canonically, and with no `url` to
+    /// compare against any URL passes on its ID alone.
+    fn accepts(&self, actual: &str) -> bool {
+        if is_url_prefix(actual) {
+            let named = crate::url::canonical_repo_url(actual.trim_end_matches('#'));
+            self.url.is_none() || named == self.url
+        } else {
+            actual.is_empty() || actual == self.label || actual == self.path
+        }
+    }
+
+    /// The form a wrong prefix is reported against.
+    fn wanted(&self, actual: &str) -> String {
+        match &self.url {
+            Some(url) if is_url_prefix(actual) => format!("{url}#"),
+            _ => self.label.clone(),
+        }
+    }
+}
+
+/// The forms a trailer naming `repo` may take, the URL read from its
+/// `origin`.
+pub fn ochid_forms_for(repo: &std::path::Path) -> Result<OchidForms, Box<dyn std::error::Error>> {
+    let label = ochid_prefix_for(repo)?;
+    let path = if label == OCHID_WORK_LABEL {
+        label.clone()
+    } else {
+        let canonical = repo.canonicalize()?;
+        match canonical.file_name().and_then(|n| n.to_str()) {
+            Some(name) => format!("/{name}/"),
+            None => label.clone(),
+        }
+    };
+    let url =
+        crate::jj::remote_url(repo, "origin")?.and_then(|u| crate::url::canonical_repo_url(&u));
+    Ok(OchidForms { label, path, url })
+}
+
+/// Whether an ochid value is the URL form, naming a repo by URL.
+pub fn is_url_form(ochid_value: &str) -> bool {
+    let bare_id = extract_bare_id(ochid_value);
+    is_url_prefix(&ochid_value[..ochid_value.len() - bare_id.len()])
+}
+
+/// Validate an ochid trailer value against the repo's forms, length, and other repo.
 pub fn validate_ochid(
     value: &str,
-    other_prefix: &str,
+    forms: &OchidForms,
     id_len: usize,
     other_workspace: &Workspace,
     other_repo: &Arc<ReadonlyRepo>,
@@ -102,8 +303,8 @@ pub fn validate_ochid(
     let bare_id = extract_bare_id(value);
     let actual_prefix = &value[..value.len() - bare_id.len()];
 
-    let wrong_prefix = if actual_prefix != other_prefix {
-        Some((actual_prefix.to_string(), other_prefix.to_string()))
+    let wrong_prefix = if !forms.accepts(actual_prefix) {
+        Some((actual_prefix.to_string(), forms.wanted(actual_prefix)))
     } else {
         None
     };
@@ -196,12 +397,23 @@ pub fn resolve_full_change_id(
     }
 }
 
-/// Extract the bare change ID from an ochid value (strip path prefix).
+/// Extract the bare change ID from an ochid value: what follows the
+/// path form's last `/`, or the URL form's `#`.
 pub fn extract_bare_id(ochid_value: &str) -> &str {
-    if let Some(pos) = ochid_value.rfind('/') {
+    if let Some(pos) = ochid_value.rfind(['/', '#']) {
         &ochid_value[pos + 1..]
     } else {
         ochid_value
+    }
+}
+
+/// An ochid value as a column shows it: the URL form's `#<id>`, since
+/// the URL would push the column out, and any other form as it is.
+pub fn ochid_for_display(ochid_value: &str) -> String {
+    if is_url_form(ochid_value) {
+        format!("#{}", extract_bare_id(ochid_value))
+    } else {
+        ochid_value.to_string()
     }
 }
 
@@ -209,6 +421,8 @@ pub fn extract_bare_id(ochid_value: &str) -> &str {
 ///
 /// If `resolved_id` is provided, it replaces the bare changeID entirely
 /// (used when the existing ID is too short to extend by truncation alone).
+/// A URL form keeps its URL, since it is a valid prefix and not the
+/// label's to replace.
 pub fn fix_ochid_in_description(
     desc: &str,
     other_prefix: &str,
@@ -230,13 +444,19 @@ pub fn fix_ochid_in_description(
         let trimmed = line.trim();
         if let Some(value) = trimmed.strip_prefix("ochid:") {
             let value = value.trim();
+            let bare_id = extract_bare_id(value);
+            let actual_prefix = &value[..value.len() - bare_id.len()];
+            let prefix = if is_url_prefix(actual_prefix) {
+                actual_prefix
+            } else {
+                other_prefix
+            };
             let id = if let Some(rid) = resolved_id {
                 &rid[..rid.len().min(id_len)]
             } else {
-                let bare_id = extract_bare_id(value);
                 &bare_id[..bare_id.len().min(id_len)]
             };
-            *line = format!("ochid: {other_prefix}{id}");
+            *line = format!("ochid: {prefix}{id}");
         }
     }
 
@@ -280,8 +500,9 @@ pub fn append_ochid_trailer(
 pub fn extract_ochids(desc: &str) -> Vec<String> {
     desc.lines()
         .filter_map(|line| line.strip_prefix("ochid:"))
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
+        .map(str::trim)
+        .filter(|value| is_trailer_value(value))
+        .map(str::to_string)
         .collect()
 }
 
@@ -296,6 +517,52 @@ pub fn extract_ochid_from_desc(desc: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A body sentence starting `ochid: ` at column 0 is not a trailer, so
+    /// it is not read as one and a rewrite keeps it.
+    #[test]
+    fn a_sentence_is_not_a_trailer() {
+        let desc = "feat: x\n\nochid: trailers. A squash loses them.\n\nochid: abc";
+        assert_eq!(extract_ochids(desc), ["abc"]);
+        assert_eq!(Trailers::of(desc).ochids, ["abc"]);
+        assert_eq!(with_trailer(desc, "def"), desc.replace("abc", "def"));
+    }
+
+    /// Stamped trailers replace what the text carries and sit above a
+    /// custom trailer, and body lines that only look like one stay body.
+    #[test]
+    fn trailers_round_trip_and_keep_a_custom_one() {
+        let t = Trailers {
+            ochids: vec!["abc".to_string()],
+            ocid: Some("u/commit/xxxx".to_string()),
+            pcids: vec!["w/commit/1".to_string(), "w/commit/2".to_string()],
+        };
+        let desc = with_trailers("feat: x\n\nBody.\n", &t);
+        assert_eq!(
+            desc,
+            "feat: x\n\nBody.\n\nochid: abc\nocid: u/commit/xxxx\npcid: w/commit/1\npcid: w/commit/2"
+        );
+        assert_eq!(Trailers::of(&desc), t);
+        assert_eq!(with_trailers(&desc, &t), desc, "stamping again is the same");
+
+        let custom = "feat: x\n\nBody.\n\nochid: old\nreviewed-by: wink\nCo-Authored-By: a <b@c>";
+        assert_eq!(
+            with_trailers(custom, &t),
+            "feat: x\n\nBody.\n\nochid: abc\nocid: u/commit/xxxx\npcid: w/commit/1\npcid: w/commit/2\n\
+             reviewed-by: wink\nCo-Authored-By: a <b@c>"
+        );
+
+        assert_eq!(
+            with_trailer("feat: x\n\nSolution: do it.", "abc"),
+            "feat: x\n\nSolution: do it.\n\nochid: abc",
+            "a one-line paragraph is body"
+        );
+        assert_eq!(with_trailer("feat: x", "abc"), "feat: x\n\nochid: abc");
+        assert_eq!(
+            with_trailers("feat: x\n\nochid: abc", &Trailers::default()),
+            "feat: x"
+        );
+    }
 
     /// Build `<base>/ws` (+ optional `<bot-dir>`) with per-side
     /// file-relative `[repos]` registries in each repo dir.
@@ -359,6 +626,77 @@ mod tests {
         let (base, root) = ws_fixture("prefix-por", None);
         assert_eq!(ochid_prefix_for(&root).unwrap(), "/");
         std::fs::remove_dir_all(&base).ok();
+    }
+
+    const AGENT_URL: &str = "https://github.com/winksaville/vc-x1.agent-session#";
+
+    #[test]
+    fn bare_id_of_each_form() {
+        assert_eq!(extract_bare_id("tzupykyyvnrp"), "tzupykyyvnrp");
+        assert_eq!(extract_bare_id("/tzupykyyvnrp"), "tzupykyyvnrp");
+        assert_eq!(extract_bare_id("/.claude/tzupykyyvnrp"), "tzupykyyvnrp");
+        assert_eq!(
+            extract_bare_id(&format!("{AGENT_URL}tzupykyyvnrp")),
+            "tzupykyyvnrp"
+        );
+    }
+
+    fn agent_forms(url: Option<&str>) -> OchidForms {
+        OchidForms {
+            label: "/.claude/".to_string(),
+            path: "/.agent-session/".to_string(),
+            url: url.map(str::to_string),
+        }
+    }
+
+    /// The label, the path form, and with no URL to compare any URL
+    /// are valid, and a URL with no `#` is not, since its last path
+    /// segment would read as the ID.
+    #[test]
+    fn a_prefix_is_a_form_of_the_repo() {
+        let forms = agent_forms(None);
+        assert!(forms.accepts("/.claude/"));
+        assert!(forms.accepts("/.agent-session/"));
+        assert!(forms.accepts(AGENT_URL));
+        assert!(!forms.accepts("/wrong/"));
+        assert!(!forms.accepts("/"));
+        assert!(!forms.accepts("https://github.com/winksaville/"));
+        assert!(!forms.accepts("vc-x1#"));
+    }
+
+    /// With a URL to compare, the trailer's URL must name that repo,
+    /// in any spelling of it, and a wrong one reports the right one.
+    #[test]
+    fn a_url_must_name_the_repo() {
+        let want = "https://github.com/winksaville/vc-x1.agent-session";
+        let forms = agent_forms(Some(want));
+        assert!(forms.accepts(AGENT_URL));
+        assert!(forms.accepts("https://github.com/winksaville/vc-x1.agent-session.git#"));
+        assert!(!forms.accepts("https://github.com/winksaville/vc-x1#"));
+        assert_eq!(
+            forms.wanted("https://github.com/winksaville/vc-x1#"),
+            format!("{want}#")
+        );
+        assert_eq!(forms.wanted("/wrong/"), "/.claude/");
+    }
+
+    #[test]
+    fn a_column_shows_the_url_form_short() {
+        assert_eq!(
+            ochid_for_display(&format!("{AGENT_URL}tzupykyyvnrp")),
+            "#tzupykyyvnrp"
+        );
+        assert_eq!(
+            ochid_for_display("/.claude/tzupykyyvnrp"),
+            "/.claude/tzupykyyvnrp"
+        );
+    }
+
+    #[test]
+    fn a_fix_keeps_the_url() {
+        let desc = format!("Title\n\nochid: {AGENT_URL}abcdefghijklmnop\n");
+        let result = fix_ochid_in_description(&desc, "/.claude/", DEFAULT_ID_LEN, None, None);
+        assert_eq!(result, format!("Title\n\nochid: {AGENT_URL}abcdefghijkl\n"));
     }
 
     #[test]

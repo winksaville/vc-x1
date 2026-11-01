@@ -19,7 +19,8 @@
 //!   push moving its bookmark. A commit on the trunk's remote is
 //!   history others have, refused without `--yes`. A published
 //!   partner with only the journal to fold is left for push, whose
-//!   agent half folds it.
+//!   agent half folds it. A partner a work commit's `ocid:` links, or a
+//!   Land made, is left as it is, since a fold changes its SHA.
 //! - `--title` with `--body` rewrites the descriptions, keeping each
 //!   trailer, the one sanctioned re-describe of a trailer-carrying
 //!   commit: by this command, warned or refused as a fold is.
@@ -32,7 +33,7 @@ use clap::Args;
 use log::{debug, info, warn};
 
 use crate::context::Context;
-use crate::desc_helpers::{read_body, with_trailer};
+use crate::desc_helpers::{read_body, with_trailer, with_trailers};
 use crate::jj;
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::scope::{
@@ -361,7 +362,7 @@ fn squash_pair(
                 work.chid
             );
             ctx.session(&pair.work)?
-                .describe("@-", &with_trailer(text, &work.trailer))?;
+                .describe("@-", &with_trailers(text, &work.trailers))?;
         }
         if agent_fold {
             info!("squash agent: @ -> @-, the journal into the partner");
@@ -372,7 +373,7 @@ fn squash_pair(
         {
             info!("squash agent: re-describe @-, its trailer kept");
             ctx.session(&pair.agent)?
-                .describe("@-", &with_trailer(text, &format!("/{}", work.chid)))?;
+                .describe("@-", &with_trailer(text, &work.chid))?;
         }
         Ok(())
     })();
@@ -430,6 +431,13 @@ fn agent_step(
                 None
             };
             (AgentStep::Fold, published)
+        }
+        Partner::Landed(partner) => {
+            info!(
+                "squash agent: the partner at @- {partner} is a Land's, so the journal stays in \
+                 @ for the next cycle"
+            );
+            (AgentStep::Leave, None)
         }
         Partner::Pending(agent_at) => {
             info!(
@@ -535,6 +543,11 @@ mod tests {
 
     /// Make a pair the way a rung does, `-s b` or `-s w`.
     fn make_pair(fx: &Fixture, agent_now: bool) {
+        make_pair_with(fx, agent_now, false);
+    }
+
+    /// [`make_pair`], with `no_url_trailer` saying it has no links.
+    fn make_pair_with(fx: &Fixture, agent_now: bool, no_url_trailer: bool) {
         fs::write(fx.work.join("rung.txt"), "work\n").expect("write");
         fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write");
         let params = CommitParams {
@@ -547,11 +560,12 @@ mod tests {
             closing: None,
             opening: None,
             advance: crate::commit::Advance::Line,
-            push: Some(false),
+            push: false,
             land: None,
             skip: None,
             dry_run: false,
             rev: None,
+            no_url_trailer,
         };
         commit(&mut test_ctx(), &params).expect("the pair is made");
     }
@@ -589,7 +603,7 @@ mod tests {
     #[test]
     fn both_folds_each_side_into_its_commit() {
         let fx = Fixture::new("squash-both");
-        make_pair(&fx, true);
+        make_pair_with(&fx, true, true);
         let (work_id, agent_id) = (chid(&fx.work, "@-"), chid(&fx.bot, "@-"));
         let (work_desc, agent_desc) = (description(&fx.work, "@-"), description(&fx.bot, "@-"));
         fs::write(fx.work.join("fix.txt"), "a review fix\n").expect("write");
@@ -604,6 +618,23 @@ mod tests {
         assert_eq!(description(&fx.work, "@-"), work_desc);
         assert_eq!(description(&fx.bot, "@-"), agent_desc);
         assert!(is_empty(&fx.work, "@") && is_empty(&fx.bot, "@"));
+    }
+
+    /// A linked pair: the fix folds into the work commit and the journal
+    /// stays out of the agent commit, whose SHA the `ocid:` names.
+    #[test]
+    fn a_linked_partner_keeps_its_sha() {
+        let fx = Fixture::new("squash-linked");
+        make_pair(&fx, true);
+        let sha = jj::cid_of(&fx.bot, "@-").expect("cid");
+        fs::write(fx.work.join("fix.txt"), "a review fix\n").expect("write");
+        fs::write(fx.bot.join("tail.jsonl"), "{\"line\":2}\n").expect("write");
+
+        run(&fx, both(), None).expect("squash");
+
+        assert!(files(&fx.work, "@-").contains("fix.txt"));
+        assert_eq!(jj::cid_of(&fx.bot, "@-").expect("cid"), sha);
+        assert!(!is_empty(&fx.bot, "@"), "the journal stays in @");
     }
 
     /// A pair made in two steps: the fix folds into the work commit
@@ -631,7 +662,7 @@ mod tests {
     #[test]
     fn a_new_description_keeps_the_trailers() {
         let fx = Fixture::new("squash-describe");
-        make_pair(&fx, true);
+        make_pair_with(&fx, true, true);
         let (work_id, agent_id) = (chid(&fx.work, "@-"), chid(&fx.bot, "@-"));
 
         run(
@@ -650,7 +681,7 @@ mod tests {
         assert!(
             work_desc
                 .trim_end()
-                .ends_with(&format!("ochid: /.claude/{agent_id}")),
+                .ends_with(&format!("ochid: {agent_id}")),
             "{work_desc}"
         );
         assert!(
@@ -660,7 +691,7 @@ mod tests {
         assert!(
             agent_desc
                 .trim_end()
-                .ends_with(&format!("ochid: /{work_id}")),
+                .ends_with(&format!("ochid: {work_id}")),
             "{agent_desc}"
         );
 

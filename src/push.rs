@@ -10,7 +10,8 @@
 //!
 //! - the agent half completes the agent commit by the state it
 //!   finds, folding the journal into a committed partner (`commit
-//!   -s b`), or committing it as the partner with the work commit's
+//!   -s b`) unless the partner is linked by an `ocid:` or names several
+//!   commits, since a fold changes its SHA, or committing it as the partner with the work commit's
 //!   own text when the agent `@` is the change the work commit names
 //!   (`commit -s w`) or the agent repo changed since, then sets and
 //!   pushes `main`;
@@ -42,7 +43,9 @@ use log::{debug, info, warn};
 
 use crate::common::prompt;
 use crate::context::Context;
-use crate::desc_helpers::with_trailer;
+use crate::desc_helpers::{
+    OCID_PLACEHOLDER, Trailers, commit_url, repo_url_for, with_trailer, with_trailers,
+};
 use crate::jj;
 use crate::options_flags::retired_positional::refusal;
 use crate::options_flags::scope::{
@@ -444,6 +447,16 @@ fn agent_half(
     // The intent lines carry the dry-run tag too, or they read as done.
     let dry = if params.dry_run { "[dry-run] " } else { "" };
     let (partner, commit_journal) = match crate::pair::partner(pair, work)? {
+        Partner::Landed(partner) => {
+            info!(
+                "push agent: {dry}publish {BOT_BOOKMARK} at the partner @- {partner}, which a Land \
+                 made, leaving the journal in @"
+            );
+            if !params.dry_run {
+                publish_agent_main(ctx, &pair.agent)?;
+            }
+            return Ok(partner);
+        }
         Partner::Committed(partner) => {
             info!(
                 "push agent: {dry}fold the journal into the partner at @- {partner}, which names the \
@@ -488,7 +501,7 @@ fn agent_half(
     }
     if commit_journal {
         let text = without_trailers(&jj::desc_of(&pair.work, "@-")?);
-        let desc = with_trailer(&text, &format!("/{}", work.chid));
+        let desc = with_trailer(&text, &work.chid);
         let snapshot = Snapshot::take(&pair.agent)?;
         info!("push agent: commit -R {agent_arg}");
         if let Err(e) = ctx.session(&pair.agent)?.commit(&desc) {
@@ -515,6 +528,18 @@ fn agent_half(
     Ok(partner)
 }
 
+/// Set the agent `main` at `@-` and push it, folding nothing, so the
+/// commit a Land made goes out with the SHA `ocid:` names.
+pub(crate) fn publish_agent_main(
+    ctx: &mut Context,
+    agent: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    ctx.session(agent)?.bookmark_set(BOT_BOOKMARK, "@-")?;
+    crate::common::verify_tracking(agent, BOT_BOOKMARK)?;
+    ctx.session(agent)?.git_push_bookmark(BOT_BOOKMARK)?;
+    Ok(())
+}
+
 /// The work half: restamp the unpublished work commit when its
 /// trailer does not name the partner, then set and push the bookmark.
 fn work_half(
@@ -524,11 +549,21 @@ fn work_half(
     bookmark: &str,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let target = match crate::pair::partner(pair, work)? {
-        Partner::Committed(partner) => partner,
+    let found = crate::pair::partner(pair, work)?;
+    let made = matches!(found, Partner::Committed(_) | Partner::Landed(_));
+    let target = match found {
+        Partner::Committed(partner) | Partner::Landed(partner) => partner,
         Partner::Pending(agent_at) | Partner::Changed { agent_at, .. } => agent_at,
     };
     let restamp = work.stamped != target;
+    // The agent half has just made the commit a placeholder stands for.
+    let set_sha = made
+        && work
+            .trailers
+            .ocid
+            .as_deref()
+            .is_some_and(|ocid| ocid.ends_with(&format!("/commit/{OCID_PLACEHOLDER}")))
+        && !is_published(&pair.work, "@-")?;
     let dry = if params.dry_run { "[dry-run] " } else { "" };
     if restamp {
         if is_published(&pair.work, "@-")? {
@@ -546,6 +581,9 @@ fn work_half(
     } else {
         info!("push work: {dry}publish {} on {bookmark}", work.chid);
     }
+    if set_sha {
+        info!("push work: {dry}set the `ocid:` of @- to the agent commit's SHA");
+    }
     let work_arg = pair.work.to_string_lossy();
     if params.dry_run {
         info!("push work: [dry-run] would run jj bookmark set {bookmark} -r @- -R {work_arg}");
@@ -554,12 +592,19 @@ fn work_half(
     }
     let snapshot = Snapshot::take(&pair.work)?;
     let local = (|| -> Result<(), Box<dyn std::error::Error>> {
-        if restamp {
-            let text = without_trailers(&jj::desc_of(&pair.work, "@-")?);
-            let prefix = crate::desc_helpers::ochid_prefix_for(&pair.agent)?;
-            info!("push work: restamp @- to name {target}");
+        if restamp || set_sha {
+            let desc = jj::desc_of(&pair.work, "@-")?;
+            let text = without_trailers(&desc);
+            let mut trailers = Trailers::of(&desc);
+            if restamp {
+                info!("push work: restamp @- to name {target}");
+                trailers.ochids = vec![target.clone()];
+            }
+            if set_sha && let Some(url) = repo_url_for(&pair.agent)? {
+                trailers.ocid = Some(commit_url(&url, &jj::cid_of(&pair.agent, "@-")?));
+            }
             ctx.session(&pair.work)?
-                .describe("@-", &with_trailer(&text, &format!("{prefix}{target}")))?;
+                .describe("@-", &with_trailers(&text, &trailers))?;
         }
         info!("push work: bookmark set {bookmark} -r @- -R {work_arg}");
         ctx.session(&pair.work)?.bookmark_set(bookmark, "@-")?;
@@ -576,11 +621,10 @@ fn work_half(
     Ok(())
 }
 
-/// A description without its `ochid:` lines, trimmed, the text a
-/// partner commit shares.
+/// A description without its `ochid:` and `ocid:` lines, trimmed, the
+/// text a partner commit shares.
 fn without_trailers(desc: &str) -> String {
-    desc.lines()
-        .filter(|l| !l.starts_with("ochid:"))
+    crate::desc_helpers::without_trailer_lines(desc)
         .collect::<Vec<_>>()
         .join("\n")
         .trim_end()

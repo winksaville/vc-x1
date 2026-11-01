@@ -255,7 +255,9 @@ pub fn format_bookmarks_at(repo: &Arc<ReadonlyRepo>, commit_id: &CommitId) -> St
 pub fn format_commit_with_ochid(commit: &Commit, width: usize, bookmarks: &str) -> String {
     let change_hex = encode_reverse_hex(commit.change_id().as_bytes());
     let change_short = &change_hex[..change_hex.len().min(12)];
-    let ochid = extract_ochid(commit).unwrap_or_default(); // OK: no ochid trailer -> empty string
+    let ochid = extract_ochid(commit)
+        .map(|o| crate::desc_helpers::ochid_for_display(&o))
+        .unwrap_or_default(); // OK: no ochid trailer -> empty string
     let first_line = commit.description().lines().next().unwrap_or(""); // OK: obvious
     let title = if first_line.is_empty() {
         "(no description set)"

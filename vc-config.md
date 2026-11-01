@@ -558,23 +558,6 @@ used-by = "vc-x1 build, vc-x1 run, and vc-x1 install, through their lists"
 example = "value"
 ```
 
-## commit.push
-
-Whether `vc-x1 commit` pushes what it commits in the same invocation, as `vc-x1 push` would after
-it. True is the default, every commit published as soon as it is made: `--no-push` keeps one commit
-local and `--push` pushes one when the key is false. A commit with `--no-advance` pushes only with
-`--push`, since its bookmark was left where it was. Owned by the work side because the commits are
-the work repo's.
-
-```toml
-[commit.push]
-homes = ["workspace-code"]
-kind = "bool"
-doc = "Default for commit: push what it commits, `--no-push` / `--push` override"
-used-by = "vc-x1 commit --push / --no-push"
-default = true
-```
-
 ## record.doing
 
 The file holding the running cycle's record, its `## In Progress` block, relative to the config
