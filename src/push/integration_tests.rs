@@ -622,10 +622,18 @@ fn push_agent_half_then_work_half() {
     .expect("work half");
     assert_eq!(chid(&fx.work, "main"), work_at);
     assert_eq!(cid(&fx.work, "main@origin"), cid(&fx.work, "main"));
+    let work_desc = description(&fx.work, "main");
     assert_eq!(
-        description(&fx.work, "main"),
-        work_desc_before,
+        crate::desc_helpers::Trailers::of(&work_desc).ochids,
+        crate::desc_helpers::Trailers::of(&work_desc_before).ochids,
         "no restamp: the trailer already names the partner"
+    );
+    assert!(
+        work_desc.contains(&format!(
+            "/commit/{}\n",
+            crate::jj::cid_of(&fx.bot, "main").expect("cid")
+        )),
+        "the placeholder takes the SHA the agent half made:\n{work_desc}"
     );
 }
 

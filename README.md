@@ -760,6 +760,19 @@ repo is the workspace's other side, or `--other-repo` for one side. Reports stat
 `ok` (valid ochid), `lost` (ochid: lost), `none` (ochid: none), `err` (issues found), or `miss`
 (no ochid trailer).
 
+Every `ochid` on a commit is checked, in any form. A work commit's links are checked too, offline, from
+the two repos and what they know of their remotes, and a wrong one is an `err` that [`trailers
+--update`](#trailers) repairs:
+
+- `ocid` names the agent repo's `origin`, and its SHA is the commit the last `ochid` names, or `xxxx`
+  while that is the uncommitted agent `@`. An agent commit not yet on a remote is a `note`, not an error,
+  since that is normal before a push.
+- `pcid` names the work repo's `origin`, and its SHAs are the commit's parents, every one, in parent
+  order.
+
+A commit with no links passes, an older or `--no-url-trailer` commit having none. It does not fetch the
+URLs, so a private repo's link is not told apart from a broken one.
+
 ```
 # Both directions, all ancestors of @ on each side
 vc-x1 validate-desc -s b @..
@@ -2087,7 +2100,7 @@ before `vc-x1 push`, and `--local`, or its alias `--no-push`, says so outright. 
 with `--push`, since its bookmark was left where it was.
 A work commit carries `ochid:`, `ocid:`, and one `pcid:` per parent, and an agent commit `ochid:` alone
 ([Cross-repo Linking](#cross-repo-linking-with-git-trailers)). With `b` the agent commit is made first,
-so `ocid:` has its real SHA, and with `w` it is a placeholder until a Land. `--no-url-trailer` leaves
+so `ocid:` has its real SHA, and with `w` it is a placeholder until a push or a Land makes it. `--no-url-trailer` leaves
 out the links, and with `-s a` or `-s p`, which stamp no trailer, it changes nothing.
 `-R` is optional and says where. `--body` is the text, or `@PATH` to read it from a file, since a
 body in commit-body form has markers and blank lines a shell quote mangles. The work repo's `@`
@@ -2489,8 +2502,8 @@ ochid: xwvlonzwkzpo
   resolve. An agent commit has one per work commit it covers.
 - `ocid` (Other Commit ID) links the agent commit, and says where the agent repo lives. A pair made by
   `commit -s b` has its real SHA, the agent commit being made first. `commit -s w` stamps
-  `.../commit/xxxx`, a stand-in until a Land commits the agent repo and sets it, and the link resolves
-  once the agent repo is pushed. Nothing folds into a commit an `ocid` names, since that changes its SHA.
+  `.../commit/xxxx`, a stand-in until a push or a Land commits the agent repo and sets it, and the link
+  resolves once the agent repo is pushed. Nothing folds into a commit an `ocid` names, since that changes its SHA.
 - `pcid` (Parent Commit ID) links each parent, one line per parent in parent order, so a trapezoid
   lists the trunk first. It repeats what git records until a commit is forked or copied, when it still
   says where the commit came from. An initial commit has none.

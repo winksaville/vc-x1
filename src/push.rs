@@ -43,7 +43,9 @@ use log::{debug, info, warn};
 
 use crate::common::prompt;
 use crate::context::Context;
-use crate::desc_helpers::with_trailer;
+use crate::desc_helpers::{
+    OCID_PLACEHOLDER, Trailers, commit_url, repo_url_for, with_trailer, with_trailers,
+};
 use crate::jj;
 use crate::options_flags::retired_positional::refusal;
 use crate::options_flags::scope::{
@@ -547,11 +549,21 @@ fn work_half(
     bookmark: &str,
     params: &PushParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let target = match crate::pair::partner(pair, work)? {
+    let found = crate::pair::partner(pair, work)?;
+    let made = matches!(found, Partner::Committed(_) | Partner::Landed(_));
+    let target = match found {
         Partner::Committed(partner) | Partner::Landed(partner) => partner,
         Partner::Pending(agent_at) | Partner::Changed { agent_at, .. } => agent_at,
     };
     let restamp = work.stamped != target;
+    // The agent half has just made the commit a placeholder stands for.
+    let set_sha = made
+        && work
+            .trailers
+            .ocid
+            .as_deref()
+            .is_some_and(|ocid| ocid.ends_with(&format!("/commit/{OCID_PLACEHOLDER}")))
+        && !is_published(&pair.work, "@-")?;
     let dry = if params.dry_run { "[dry-run] " } else { "" };
     if restamp {
         if is_published(&pair.work, "@-")? {
@@ -569,6 +581,9 @@ fn work_half(
     } else {
         info!("push work: {dry}publish {} on {bookmark}", work.chid);
     }
+    if set_sha {
+        info!("push work: {dry}set the `ocid:` of @- to the agent commit's SHA");
+    }
     let work_arg = pair.work.to_string_lossy();
     if params.dry_run {
         info!("push work: [dry-run] would run jj bookmark set {bookmark} -r @- -R {work_arg}");
@@ -577,16 +592,19 @@ fn work_half(
     }
     let snapshot = Snapshot::take(&pair.work)?;
     let local = (|| -> Result<(), Box<dyn std::error::Error>> {
-        if restamp {
+        if restamp || set_sha {
             let desc = jj::desc_of(&pair.work, "@-")?;
             let text = without_trailers(&desc);
-            let trailers = crate::desc_helpers::Trailers {
-                ochids: vec![target.clone()],
-                ..crate::desc_helpers::Trailers::of(&desc)
-            };
-            info!("push work: restamp @- to name {target}");
+            let mut trailers = Trailers::of(&desc);
+            if restamp {
+                info!("push work: restamp @- to name {target}");
+                trailers.ochids = vec![target.clone()];
+            }
+            if set_sha && let Some(url) = repo_url_for(&pair.agent)? {
+                trailers.ocid = Some(commit_url(&url, &jj::cid_of(&pair.agent, "@-")?));
+            }
             ctx.session(&pair.work)?
-                .describe("@-", &crate::desc_helpers::with_trailers(&text, &trailers))?;
+                .describe("@-", &with_trailers(&text, &trailers))?;
         }
         info!("push work: bookmark set {bookmark} -r @- -R {work_arg}");
         ctx.session(&pair.work)?.bookmark_set(bookmark, "@-")?;

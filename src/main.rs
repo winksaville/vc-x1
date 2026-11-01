@@ -422,7 +422,9 @@ pub(crate) enum Commands {
         Output columns: STATUS  CHANGEID  TITLE  [DETAILS]\n\n\
         Status labels:\n  \
           ok   : ochid trailer is valid\n  \
-          err  : ochid has issues (wrong prefix, wrong length, ID not found)\n  \
+          err  : ochid has issues (wrong prefix, wrong length, ID not found), or\n         \
+          a work commit's ocid or pcid names the wrong repo or commit\n  \
+          note : ok, with something worth saying, an agent commit not yet pushed\n  \
           miss : no ochid trailer; shows match from other repo if found"
     )]
     ValidateDesc(validate_desc::ValidateDescArgs),

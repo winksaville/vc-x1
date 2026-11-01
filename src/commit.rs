@@ -20,7 +20,8 @@
 //! - A trailer holds the partner's change id. With a hosted `origin` a
 //!   work commit also links by URL, `ocid:` the agent commit and `pcid:`
 //!   each parent. `-s b` commits the agent repo first, so its `ocid:` has
-//!   the real SHA, and `-s w`'s is a placeholder until the Land.
+//!   the real SHA, and `-s w`'s is a placeholder until a push or a Land
+//!   makes the agent commit.
 //! - `-s a` commits the agent repo alone, an unpaired commit with the
 //!   given title and body and no trailer, since it belongs to no
 //!   rung. An agent `@` that is a work commit's pending partner keeps
@@ -720,7 +721,7 @@ fn commit_pair(
     let agent_chid = jj::chid_of(agent, "@")?;
     // Without `--no-url-trailer`, a work commit links by URL. A pair made
     // at once has the agent commit first, so its real SHA, and a work
-    // half alone holds the `ocid:` placeholder until the Land.
+    // half alone holds the `ocid:` placeholder until a push or a Land.
     let parents = match &merge {
         Some((base, tip)) => vec![base.clone(), tip.clone()],
         None => jj::parent_cids_of(work, work_at)?,

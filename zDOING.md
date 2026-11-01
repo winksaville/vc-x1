@@ -177,7 +177,7 @@ Provisional, the rungs after the opening named as the work is understood:
 - [docs: the rules and README name the URL form][7] (done)
 - [feat: an ochid is a change id, and work commits link by URL][8] (done)
 - [docs: the rules and README name the modified trailers][9] (done)
-- [feat: validate-desc checks every ochid, ocid, and pcid][10] (current)
+- [feat: validate-desc checks every ochid, ocid, and pcid][10] (done)
 - [feat: ochid trailers are URLs closing][11]
 
 ##### feat: ochid trailers are URLs opening
@@ -350,13 +350,12 @@ information, and an agent commit carries change ids alone.
   stays fluid, so what [feat: land sets the ocid trailer to the agent commit's SHA][6] says of a
   published commit no longer holds.
 - Not yet:
-  - `validate-desc` does not check that `ocid:` and `pcid:` name the right repo, and URL-form `ochid:`
-    keeps its check until none is left.
+  - `validate-desc` does not check `ocid:` and `pcid:`, the next rung's, and URL-form `ochid:` keeps
+    its check until none is left.
   - `fix-desc`'s inference of a missing trailer still writes the label.
   - `trailers --update` changes the work repo alone, so a history run needs the agent side too.
   - One describe per commit rebases what is above it, fine for a cycle, and **A tool rewrites a repo's
     history to the current trailers** wants one transaction.
-  - `-s w --push` still leaves `xxxx`, only a Land setting it.
   - `squash --title --body` on a linked pair re-describes the work commit alone, since re-describing
     the agent commit would change the SHA `ocid:` names, so their titles can differ.
 - Also files **A tool rewrites a repo's history to the current trailers** in `## Todo`.
@@ -374,6 +373,27 @@ The docs catch up with [feat: an ochid is a change id, and work commits link by 
   and **A cycle stays local until its Land** says what a Land writes.
 - `agent-data/jj.md` and `AGENTS.md` stay unchanged until that proposal runs, as in [docs: the rules and
   README name the URL form][7].
+
+##### feat: validate-desc checks every ochid, ocid, and pcid
+
+`validate-desc` read one `ochid:` per commit and no links, so a wrong link passed as `ok`, and a Land's
+agent commit had 1 of its `ochid:` lines checked.
+
+- Every `ochid:` on a commit is checked.
+- On a work commit, offline: `ocid:` names the agent repo's `origin`, and its SHA is the commit the last
+  `ochid:` names, or `xxxx` only while that is the uncommitted agent `@`. `pcid:` names the work repo's
+  `origin`, and its SHAs are the parents, every one, in parent order.
+- An agent commit not yet on a remote is a `note` under the commit, not an error.
+- A commit with no links passes, so old history and `--no-url-trailer` are unaffected.
+- `push` sets the real SHA when its agent half has just made the commit and `@-` is unpublished, found
+  by this check failing `-s w --push`, so that form no longer leaves `xxxx`.
+- A stamped trailer's value is one word, found by checking every `ochid:` on `main`: `ltwrzrmvoxtn`'s
+  body has a sentence starting `ochid: trailers.` at column 0. It is not read as a trailer now, and a
+  rewrite keeps it, where the strip would have removed it.
+- On `main`, both repos report what the landed 0.85.17 reports, the same counts, so nothing new is
+  flagged in history.
+- No fetch, wink's "functional" being checked as far as a machine can offline, since a private repo's
+  link returns 404 when it is right. An `--online` check is not built.
 
 ##### feat: ochid trailers are URLs closing
 

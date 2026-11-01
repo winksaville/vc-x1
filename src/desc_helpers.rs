@@ -66,8 +66,9 @@ impl Trailers {
         let values = |key: &str| -> Vec<String> {
             desc.lines()
                 .filter_map(|line| line.strip_prefix(key))
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty())
+                .map(str::trim)
+                .filter(|value| is_trailer_value(value))
+                .map(str::to_string)
                 .collect()
         };
         Self {
@@ -86,6 +87,12 @@ impl Trailers {
     }
 }
 
+/// Whether a value is one a stamped trailer holds: one word, so a body
+/// sentence that happens to start `ochid: ` at column 0 is not a trailer.
+fn is_trailer_value(value: &str) -> bool {
+    !value.is_empty() && !value.contains(char::is_whitespace)
+}
+
 /// Whether a line reads as a git trailer `vc-x1` does not stamp, one
 /// `custom.md` may add: a key of lowercase or hyphenated words, so a
 /// paragraph reading `Solution: ...` stays body.
@@ -93,6 +100,7 @@ fn is_other_trailer(line: &str) -> bool {
     line.split_once(": ").is_some_and(|(key, value)| {
         !value.is_empty()
             && !key.is_empty()
+            && !["ochid", "ocid", "pcid"].contains(&key)
             && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
             && (key.contains('-') || !key.chars().any(|c| c.is_ascii_uppercase()))
     })
@@ -135,7 +143,7 @@ pub fn with_ochids(text: &str, chids: &[String]) -> String {
 }
 
 /// What an `ocid:` trailer's SHA is until the agent commit is made.
-const OCID_PLACEHOLDER: &str = "xxxx";
+pub const OCID_PLACEHOLDER: &str = "xxxx";
 
 /// The link to commit `sha` in the repo at canonical `url`.
 pub fn commit_url(url: &str, sha: &str) -> String {
@@ -178,8 +186,12 @@ pub fn pcids_for(
 
 /// A description without its `ochid:`, `ocid:`, and `pcid:` lines.
 pub fn without_trailer_lines(desc: &str) -> impl Iterator<Item = &str> {
-    desc.lines()
-        .filter(|l| !l.starts_with("ochid:") && !l.starts_with("ocid:") && !l.starts_with("pcid:"))
+    desc.lines().filter(|line| {
+        !["ochid:", "ocid:", "pcid:"].iter().any(|key| {
+            line.strip_prefix(key)
+                .is_some_and(|value| is_trailer_value(value.trim()))
+        })
+    })
 }
 
 /// Problems found with an ochid trailer, with details for reporting.
@@ -488,8 +500,9 @@ pub fn append_ochid_trailer(
 pub fn extract_ochids(desc: &str) -> Vec<String> {
     desc.lines()
         .filter_map(|line| line.strip_prefix("ochid:"))
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
+        .map(str::trim)
+        .filter(|value| is_trailer_value(value))
+        .map(str::to_string)
         .collect()
 }
 
@@ -504,6 +517,16 @@ pub fn extract_ochid_from_desc(desc: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A body sentence starting `ochid: ` at column 0 is not a trailer, so
+    /// it is not read as one and a rewrite keeps it.
+    #[test]
+    fn a_sentence_is_not_a_trailer() {
+        let desc = "feat: x\n\nochid: trailers. A squash loses them.\n\nochid: abc";
+        assert_eq!(extract_ochids(desc), ["abc"]);
+        assert_eq!(Trailers::of(desc).ochids, ["abc"]);
+        assert_eq!(with_trailer(desc, "def"), desc.replace("abc", "def"));
+    }
 
     /// Stamped trailers replace what the text carries and sit above a
     /// custom trailer, and body lines that only look like one stay body.

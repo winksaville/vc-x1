@@ -758,7 +758,7 @@ it, which now names `vc-x1 commit`:
 - The URL is from `origin`, normalized to https, or `file:///<path>` for a local one. `--no-url-trailer`
   leaves the links out.
 - The agent commit is made first. `commit -s b` then stamps its real SHA, and `commit -s w` stamps
-  `.../commit/xxxx` until a Land. Nothing folds into a commit an `ocid:` names, so `squash` and `push`
+  `.../commit/xxxx` until a push or a Land makes it. Nothing folds into a commit an `ocid:` names, so `squash` and `push`
   leave it, and the journal rides the next agent commit.
 - The count is per agent commit, one `ochid:` per work commit it covers, so a local cycle's Land makes
   one agent commit naming them all.
