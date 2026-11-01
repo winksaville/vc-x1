@@ -710,10 +710,13 @@ pub(crate) enum Commands {
 
     /// Land a cycle whose last commit is made, with -s
     #[command(long_about = "\
-        Land a cycle whose last commit is already made: --onto fast-forwarded\n\
-        to --source and pushed, and the cycle's bookmark deleted locally and\n\
-        on `origin`, every check made before anything moves. `commit\n\
-        --closing ... --land` lands the same way, the closing made first.\n\n\
+        Land a cycle whose last commit is already made, on the machine: the\n\
+        agent `@` committed when the cycle's commits name it, the links they\n\
+        carry updated, --onto fast-forwarded to --source, and the cycle's\n\
+        bookmark deleted, every check made before anything moves. --push also\n\
+        publishes it, the agent repo first, and deletes the bookmark on\n\
+        `origin`. `commit --closing ... --land` lands the same way, the\n\
+        closing made first.\n\n\
         --source is a bookmark, the cycle's, or a revision, whose current\n\
         bookmark, else its nearest parent's above --onto, is the cycle's,\n\
         several refused with the list. Left out, it is the one local\n\
@@ -724,14 +727,31 @@ pub(crate) enum Commands {
         `remote`, or `both`, and --delete-intermediate-bookmarks deletes the\n\
         bookmarks strictly between --onto and --source too. --dry-run makes\n\
         every check and says each step.\n\n\
-        -s is required: `b` a dual workspace, the agent `main` published\n\
-        with the trunk, and `p` a plain repo. `w` alone could publish\n\
+        -s is required: `b` a dual workspace, the agent `main` moved with\n\
+        the trunk, and `p` a plain repo. `w` alone could publish\n\
         trailers naming agent commits not yet published, and `a` alone has\n\
         no cycle to land, so both are refused. The install stays `vc-x1\n\
         install`, after.")]
     Land(land::LandArgs),
 
     /// Update the trailers of a range of work commits to what is stamped today
+    #[command(long_about = "\
+        Rewrite a range of work commits' trailers to what is stamped today,\n\
+        only their descriptions changing, each tree checked unchanged.\n\n\
+        `ochid:` becomes the partner's bare change id. `ocid:` links the agent\n\
+        commit by its SHA, or the placeholder `xxxx` while it is the\n\
+        uncommitted agent `@`. `pcid:` links each parent by its SHA, one line\n\
+        per parent in parent order, so the range goes oldest first. Links use\n\
+        the `origin`'s canonical URL, or `file:///` for a local one. A trailer\n\
+        naming nothing that resolves, a `lost` or an old short id, is left as\n\
+        it is, and a trailer `vc-x1` does not stamp is kept.\n\n\
+        --update is required, the one thing this does so far. --range is a\n\
+        bookmark or revision, those above the trunk up to it, or a revset with\n\
+        `..` or `::`, as written [default: above the trunk up to `@-`]. A\n\
+        commit on the trunk's remote is refused without --yes, and one on a\n\
+        topic bookmark is rewritten with a warning. --dry-run prints each\n\
+        description, parents at their current SHAs. The work repo alone\n\
+        changes, an agent commit carrying only change ids.")]
     Trailers(trailers::TrailersArgs),
 }
 

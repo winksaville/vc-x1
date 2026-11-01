@@ -176,8 +176,9 @@ Provisional, the rungs after the opening named as the work is understood:
 - [feat: land sets the ocid trailer to the agent commit's SHA][6] (done)
 - [docs: the rules and README name the URL form][7] (done)
 - [feat: an ochid is a change id, and work commits link by URL][8] (done)
-- [docs: the rules and README name the modified trailers][9]
-- [feat: ochid trailers are URLs closing][10]
+- [docs: the rules and README name the modified trailers][9] (done)
+- [feat: validate-desc checks every ochid, ocid, and pcid][10] (current)
+- [feat: ochid trailers are URLs closing][11]
 
 ##### feat: ochid trailers are URLs opening
 
@@ -362,6 +363,18 @@ information, and an agent commit carries change ids alone.
 
 ##### docs: the rules and README name the modified trailers
 
+The docs catch up with [feat: an ochid is a change id, and work commits link by URL][8].
+
+- README: the trailer section leads with the bare `ochid:`, `ocid:`, and `pcid:`, the earlier forms
+  kept as valid, `trailers` gets a section and a row, and `commit`, `land`, and `squash` say what they
+  stamp and that a linked agent commit takes no fold.
+- `--help`: `trailers` gets its long help, and `land`'s no longer says a Land always pushes.
+- `push` and `squash`'s module docs say a linked partner is not folded.
+- **agent-files(proposal): v0.3.1**: **ochid trailers are URLs** becomes **Work commits link by URL**,
+  and **A cycle stays local until its Land** says what a Land writes.
+- `agent-data/jj.md` and `AGENTS.md` stay unchanged until that proposal runs, as in [docs: the rules and
+  README name the URL form][7].
+
 ##### feat: ochid trailers are URLs closing
 
 Closes the cycle at the bare version, as a trapezoid, the default. Closed for durability, wink's
@@ -378,4 +391,5 @@ the Land, which is next session's. No agent-file changed, so no size row.
 [7]: #docs-the-rules-and-readme-name-the-url-form
 [8]: #feat-an-ochid-is-a-change-id-and-work-commits-link-by-url
 [9]: #docs-the-rules-and-readme-name-the-modified-trailers
-[10]: #feat-ochid-trailers-are-urls-closing
+[10]: #feat-validate-desc-checks-every-ochid-ocid-and-pcid
+[11]: #feat-ochid-trailers-are-urls-closing

@@ -167,6 +167,7 @@ vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to it
 vc-x1 squash-push -s a [--bookmark NAME]  # Squash @ into @-, advance a bookmark, push
 vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
 vc-x1 land -s b --onto T [--source S]      # Land a made cycle: fast-forward, delete its bookmark, locally
+vc-x1 trailers --update [--range R]        # Rewrite a range's trailers to what is stamped today
 vc-x1 squash -s b [--title T --body B]     # Fold the working copies into the pair
 vc-x1 merge -s w --target T --from S...    # Add sources to a target's parents, keeping its change
 vc-x1 move-bookmark -s w --bookmark B --target T  # Point an existing bookmark at a commit, locally
@@ -1581,7 +1582,7 @@ vc-x1 init --target my-project --use-template ../tmpl,../tmpl.claude
 | `--repo <CAT[=VAL]>` | Repo target, e.g. `local=<PARENT>` for local bare remotes |
 | `-s, --scope <SCOPE>` | `both`, a dual workspace, or `por`, a plain single repo (no agent repo) [default: both] |
 | `--adopt` | Grow an existing TARGET into a dual workspace (see below) |
-| `--no-url-trailer` | Name each side's initial commit by the other's label, rather than its URL |
+| `--no-url-trailer` | Stamp the work commit's `ochid:` alone, with no `ocid:` or `pcid:` links |
 | `--agent-dir <DIR>` | The agent repo's directory, one name [default: .agent-session] |
 | `--agent-repo <NAME>` | The agent repo's whole remote name |
 | `--agent-suffix <SUFFIX>` | The work repo's name plus this names the agent repo [default: .agent-session] |
@@ -2084,9 +2085,10 @@ and the description are reviewed before the commit, so what is pushed is what wa
 A commit stays on the machine unless `--push` asks, `--opening`'s bookmark included, for a look at it
 before `vc-x1 push`, and `--local`, or its alias `--no-push`, says so outright. A commit with `--no-advance` pushes only
 with `--push`, since its bookmark was left where it was.
-A trailer names the other repo by its URL ([Cross-repo Linking](#cross-repo-linking-with-git-trailers)).
-`--no-url-trailer` stamps the side's label instead, with no `ocid:`, and with `-s a` or `-s p`,
-which stamp no trailer, it changes nothing.
+A work commit carries `ochid:`, `ocid:`, and one `pcid:` per parent, and an agent commit `ochid:` alone
+([Cross-repo Linking](#cross-repo-linking-with-git-trailers)). With `b` the agent commit is made first,
+so `ocid:` has its real SHA, and with `w` it is a placeholder until a Land. `--no-url-trailer` leaves
+out the links, and with `-s a` or `-s p`, which stamp no trailer, it changes nothing.
 `-R` is optional and says where. `--body` is the text, or `@PATH` to read it from a file, since a
 body in commit-body form has markers and blank lines a shell quote mangles. The work repo's `@`
 must hold a change, and with `b` the agent repo's `@`, the session's journal, is committed as it
@@ -2103,8 +2105,10 @@ without `--land`, or of a single-step commit, and the second half of `commit --c
 which runs the same code.
 
 The agent commit carries the last commit's text and one `ochid:` per work commit naming the agent
-`@`, oldest first. A work commit's placeholder `ocid:` then takes that commit's SHA, its tree
-checked unchanged, and a published commit keeps its placeholder, with a warning. The agent commit
+`@`, oldest first. The links the cycle's commits carry are then updated by the pass
+[`trailers`](#trailers) runs, each placeholder `ocid:` taking that commit's SHA and each `pcid:` its
+parent's new SHA, trees checked unchanged, and a pushed commit is updated too, with a warning, its
+remote copy going stale. It adds no links to a commit made with none. The agent commit
 is published as it is, so what arrives in the agent `@` afterwards rides the next cycle rather than
 changing the SHA. A commit above `--source` naming the agent `@` is refused.
 
@@ -2163,6 +2167,26 @@ plain repo. `w` alone could publish trailers naming agent commits not yet publis
 alone has no cycle to land, so both are refused ([Write scopes](#write-scopes)). The install
 stays `vc-x1 install`.
 
+### trailers
+
+Rewrite a range of work commits' trailers to what is stamped today ([Cross-repo
+Linking](#cross-repo-linking-with-git-trailers)), only their descriptions changing, each tree checked
+unchanged. It is how a cycle or a test repo moves to a new protocol, and a Land runs the same pass.
+
+```bash
+vc-x1 trailers --update --dry-run                 # print each description, above the trunk up to @-
+vc-x1 trailers --update                           # rewrite them
+vc-x1 trailers --update --range feat-a-cycle      # above the trunk up to a bookmark or revision
+vc-x1 trailers --update --range 'a..b' --yes      # a revset as written, the trunk's remote included
+```
+
+The range goes oldest first, by change id, since a rewrite changes the SHA a child's `pcid:` links, so
+a dry run shows parents at their current SHAs. A trailer naming nothing that resolves, a `lost` or an
+old short id, is left as it is, with no `ocid:` and no guessing. A trailer `vc-x1` does not stamp is
+kept, below the ones it does. A commit on the trunk's remote is refused without `--yes`, and one
+published on a topic bookmark is rewritten with a warning. The work repo alone changes, an agent
+commit carrying only change ids.
+
 ### squash
 
 Continue a rung: fold the working copies into the pair `commit` made. A review's fix in the work
@@ -2185,6 +2209,10 @@ is the partner and push commits it. A published side goes by where it was publis
   landed and the next push only moves its bookmark
 - a commit on `main`'s remote is history others have, refused without `--yes`
 - a published partner with only the journal to fold is left for push, whose agent half folds it
+
+A partner a work commit's `ocid:` links, or a Land made, is left as it is, the journal staying in `@`
+and its description unchanged, since either would change the SHA `ocid:` names, so `--title` then
+rewrites the work commit alone.
 
 A work `@-` with no trailer is not a pair's. `--title` with `--body` rewrites the descriptions and
 keeps each trailer, the one sanctioned re-describe of a trailer-carrying commit, warned or refused
@@ -2443,41 +2471,40 @@ squash-push: done
 ## Cross-repo Linking with Git Trailers
 
 Commits in each repo use [git trailers](https://git-scm.com/docs/git-interpret-trailers) to
-cross-reference their counterpart in the other repo. The `ochid` (Other Change ID) trailer contains
-the other repo's URL and a jj changeID:
+cross-reference their counterpart in the other repo. The work repo holds the record, and an agent
+commit carries only change ids:
 
 ```
-ochid: https://github.com/winksaville/vc-x1.agent-session#qrxovvvqxnrq   # an agent repo change
-ochid: https://github.com/winksaville/vc-x1#xwvlonzwkzpo                 # a work repo change
+# a work commit
+ochid: qrxovvvqxnrq
+ocid: https://github.com/winksaville/vc-x1.agent-session/commit/<sha>
+pcid: https://github.com/winksaville/vc-x1/commit/<parent-sha>
+
+# an agent commit
+ochid: xwvlonzwkzpo
 ```
 
-The URL comes from the repo's `origin`, normalized to https with any user, password, port, and
-`.git` dropped, so ssh and https clones stamp the same value. It is the change ID and not a SHA, since
-a SHA changes on every rewrite, so `vc-x1` resolves it, in the workspace's repo when the URL names
-one, and GitHub knows nothing of it.
+- `ochid` (Other Change ID) is the partner's jj change ID in the other repo, always that repo, so it
+  carries no path. A change ID survives a rewrite, where a SHA does not, and it is what the tools
+  resolve. An agent commit has one per work commit it covers.
+- `ocid` (Other Commit ID) links the agent commit, and says where the agent repo lives. A pair made by
+  `commit -s b` has its real SHA, the agent commit being made first. `commit -s w` stamps
+  `.../commit/xxxx`, a stand-in until a Land commits the agent repo and sets it, and the link resolves
+  once the agent repo is pushed. Nothing folds into a commit an `ocid` names, since that changes its SHA.
+- `pcid` (Parent Commit ID) links each parent, one line per parent in parent order, so a trapezoid
+  lists the trunk first. It repeats what git records until a commit is forked or copied, when it still
+  says where the commit came from. An initial commit has none.
 
-A work half made by `commit -s w` also carries `ocid` (Other Commit ID), a link a browser can follow:
+The URL comes from the repo's `origin`, normalized to https with any user, password, port, and `.git`
+dropped, so ssh and https clones stamp the same value. A local `origin` links by `file:///<path>`, so
+that path is in the commit message, and it stays there if the repo is later pushed elsewhere.
+`--no-url-trailer` leaves out `ocid` and `pcid`. Other trailers are kept when a commit is rewritten,
+below these, so `custom.md` may add its own.
 
-```
-ocid: https://github.com/winksaville/vc-x1.agent-session/commit/xxxx
-```
-
-`xxxx` stands in until a Land commits the agent repo and sets the SHA, and the link resolves once the
-agent repo is pushed. `commit -s b` and `init` stamp `ochid` alone. It is a display convenience, and
-`ochid` is what the tools resolve.
-
-A repo with no hosted `origin`, a local path or none, and `--no-url-trailer`, stamp the side's label
-and no `ocid`:
-
-```
-ochid: /.claude/xvzvruqo   # points to an agent repo change
-ochid: /wtpmottv           # points to a work repo change
-```
-
-Published labels stay valid for good. `/` is the workspace root, `/.claude` always means the agent
-repo whatever its directory is called, and `/.agent-session/`, the directory's own name, is accepted
-beside it. `validate-desc` also reports a URL naming another repo, and `fix-desc` reports it without
-rewriting it, since a renamed repo would otherwise have all its history rewritten.
+Earlier forms stay valid: `ochid: /.claude/<id>` and `ochid: /<id>`, where `/` is the workspace root and
+`/.claude` always means the agent repo, and `ochid: <repo-url>#<id>`. `validate-desc` reports a URL form
+naming another repo, and `fix-desc` reports it without rewriting it, since a renamed repo would
+otherwise have all its history rewritten. [`trailers --update`](#trailers) moves commits to today's form.
 
 For full details see:
 - [Git trailer convention](./notes/chores/chores-01.md#git-trailer-convention)

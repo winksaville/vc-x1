@@ -19,7 +19,8 @@
 //!   push moving its bookmark. A commit on the trunk's remote is
 //!   history others have, refused without `--yes`. A published
 //!   partner with only the journal to fold is left for push, whose
-//!   agent half folds it.
+//!   agent half folds it. A partner a work commit's `ocid:` links, or a
+//!   Land made, is left as it is, since a fold changes its SHA.
 //! - `--title` with `--body` rewrites the descriptions, keeping each
 //!   trailer, the one sanctioned re-describe of a trailer-carrying
 //!   commit: by this command, warned or refused as a fold is.

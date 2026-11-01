@@ -712,12 +712,12 @@ that cycle's Land works. A new cycle type, for every cycle and not that one alon
 - The work review stays on every commit. The description review goes, wink's (2026-10-30), since a
   local description can still be changed before the Land. Approval per push reduces to one go, the
   Land's.
-- The Land commits the agent `@` first, one `ochid:` per work commit, and sets each work commit's
-  `ocid:` to its SHA, trees unchanged, all on the machine. `push -s b --bookmark <TRUNK>` then pushes
+- The Land commits the agent `@` first, one `ochid:` per work commit, sets each work commit's `ocid:`
+  to its SHA and each `pcid:` to its parent's new SHA, trees unchanged, all on the machine. `push -s b --bookmark <TRUNK>` then pushes
   the agent repo first and the work repo after. It folds nothing into the agent commit, so the SHA
   every `ocid:` names holds, and what arrives after it rides the next cycle's agent commit.
 - Each rung's `ochid:` is the same agent change, so it stays right when the Land commits it, and only
-  `ocid:` is written then.
+  `ocid:` and `pcid:` are written then.
 - No `squash-push -s a`: At rest's item 2 goes, and "clean" means the work `@` is empty, the agent's
   `@` being the session's data and no finding, as [Acquaint](AGENTS.md#acquaint) says.
 - A single-step cycle is the same with one commit.
@@ -744,25 +744,35 @@ The Land is where the decision is, so one approval belongs there. Nothing publis
 so reshaping a ladder costs nothing, and the agent commit made first lets every commit link to it, a
 SHA included. The first cycle run this way changed its ladder several times at no cost.
 
-#### ochid trailers are URLs
+#### Work commits link by URL
 
-From **feat: ochid trailers are URLs**, wink's (2026-10-30). In [ochid
+From **feat: improve trailers**, wink's (2026-11-01). In [ochid
 trailers](agent-data/jj.md#cross-repo-linking-ochid-trailers), and **No hand-written trailers** with
 it, which now names `vc-x1 commit`:
 
-- `ochid: <repo-url>#<chid>` names a change in the other repo, by the URL from its `origin` normalized
-  to https, or by `/<chid>` and `/.claude/<chid>` with no hosted `origin` or with `--no-url-trailer`.
-  Published labels stay valid, and nothing rewrites them.
-- `ocid: <repo-url>/commit/<sha>` is a link a browser can follow, stamped on a work half as
-  `.../commit/xxxx`, its SHA set by a Land. Tools resolve `ochid:`, so `ocid:` is a convenience.
+- `ochid: <chid>` is the partner's change id in the other repo, a bare id on both sides. Published
+  `/<chid>`, `/.claude/<chid>`, and `<repo-url>#<chid>` stay valid.
+- A work commit also links by URL: `ocid: <agent-repo-url>/commit/<sha>` the agent commit, and `pcid:
+  <work-repo-url>/commit/<parent-sha>` each parent, one line per parent in parent order, the trunk first
+  on a trapezoid. An agent commit carries `ochid:` alone, so the work-repo is the root of the record.
+- The URL is from `origin`, normalized to https, or `file:///<path>` for a local one. `--no-url-trailer`
+  leaves the links out.
+- The agent commit is made first. `commit -s b` then stamps its real SHA, and `commit -s w` stamps
+  `.../commit/xxxx` until a Land. Nothing folds into a commit an `ocid:` names, so `squash` and `push`
+  leave it, and the journal rides the next agent commit.
 - The count is per agent commit, one `ochid:` per work commit it covers, so a local cycle's Land makes
   one agent commit naming them all.
+- A trailer `vc-x1` does not stamp is kept on a rewrite, so `custom.md` may add its own.
+- `vc-x1 trailers --update` moves a range of commits to today's form, and a Land refreshes the links
+  by the same pass.
 
-##### Why: ochid trailers are URLs
+##### Why: work commits link by URL
 
-A label names a side, not a repo, so nothing in a published commit says where its partner lives, and
-anyone holding only the work-repo cannot resolve it. The URL carries that, and a change id rather
-than a SHA survives a rewrite, which `ocid:` then adds for a reader in a browser.
+An `ochid:` always means the other repo, so a label or URL in it told a tool nothing, and a change id
+survives a rewrite where a URL can go stale. Keeping the URLs on the work commit makes the work-repo
+the durable root: lose the agent-repo and only context goes. A commit cannot hold its own SHA, so a
+parent's is what names the work-repo at a real commit, and it still says where a forked commit came
+from.
 
 #### A local cycle's record may be reworked
 

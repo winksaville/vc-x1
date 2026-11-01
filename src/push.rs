@@ -10,7 +10,8 @@
 //!
 //! - the agent half completes the agent commit by the state it
 //!   finds, folding the journal into a committed partner (`commit
-//!   -s b`), or committing it as the partner with the work commit's
+//!   -s b`) unless the partner is linked by an `ocid:` or names several
+//!   commits, since a fold changes its SHA, or committing it as the partner with the work commit's
 //!   own text when the agent `@` is the change the work commit names
 //!   (`commit -s w`) or the agent repo changed since, then sets and
 //!   pushes `main`;
