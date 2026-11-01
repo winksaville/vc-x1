@@ -32,9 +32,7 @@ use clap::Args;
 use log::{debug, info, warn};
 
 use crate::context::Context;
-use crate::desc_helpers::{
-    is_url_form, ochid_value_in_form, read_body, with_trailer, with_trailers,
-};
+use crate::desc_helpers::{read_body, with_trailer, with_trailers};
 use crate::jj;
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::scope::{
@@ -362,10 +360,8 @@ fn squash_pair(
                 "squash work: re-describe @- {}, its trailer kept",
                 work.chid
             );
-            ctx.session(&pair.work)?.describe(
-                "@-",
-                &with_trailers(text, &work.trailer, work.ocid.as_deref()),
-            )?;
+            ctx.session(&pair.work)?
+                .describe("@-", &with_trailers(text, &work.trailers))?;
         }
         if agent_fold {
             info!("squash agent: @ -> @-, the journal into the partner");
@@ -375,9 +371,8 @@ fn squash_pair(
             && agent == AgentStep::Fold
         {
             info!("squash agent: re-describe @-, its trailer kept");
-            let ochid = ochid_value_in_form(is_url_form(&work.trailer), &pair.work, &work.chid)?;
             ctx.session(&pair.agent)?
-                .describe("@-", &with_trailer(text, &ochid))?;
+                .describe("@-", &with_trailer(text, &work.chid))?;
         }
         Ok(())
     })();
@@ -547,6 +542,11 @@ mod tests {
 
     /// Make a pair the way a rung does, `-s b` or `-s w`.
     fn make_pair(fx: &Fixture, agent_now: bool) {
+        make_pair_with(fx, agent_now, false);
+    }
+
+    /// [`make_pair`], with `no_url_trailer` saying it has no links.
+    fn make_pair_with(fx: &Fixture, agent_now: bool, no_url_trailer: bool) {
         fs::write(fx.work.join("rung.txt"), "work\n").expect("write");
         fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write");
         let params = CommitParams {
@@ -564,7 +564,7 @@ mod tests {
             skip: None,
             dry_run: false,
             rev: None,
-            no_url_trailer: false,
+            no_url_trailer,
         };
         commit(&mut test_ctx(), &params).expect("the pair is made");
     }
@@ -602,7 +602,7 @@ mod tests {
     #[test]
     fn both_folds_each_side_into_its_commit() {
         let fx = Fixture::new("squash-both");
-        make_pair(&fx, true);
+        make_pair_with(&fx, true, true);
         let (work_id, agent_id) = (chid(&fx.work, "@-"), chid(&fx.bot, "@-"));
         let (work_desc, agent_desc) = (description(&fx.work, "@-"), description(&fx.bot, "@-"));
         fs::write(fx.work.join("fix.txt"), "a review fix\n").expect("write");
@@ -617,6 +617,23 @@ mod tests {
         assert_eq!(description(&fx.work, "@-"), work_desc);
         assert_eq!(description(&fx.bot, "@-"), agent_desc);
         assert!(is_empty(&fx.work, "@") && is_empty(&fx.bot, "@"));
+    }
+
+    /// A linked pair: the fix folds into the work commit and the journal
+    /// stays out of the agent commit, whose SHA the `ocid:` names.
+    #[test]
+    fn a_linked_partner_keeps_its_sha() {
+        let fx = Fixture::new("squash-linked");
+        make_pair(&fx, true);
+        let sha = jj::cid_of(&fx.bot, "@-").expect("cid");
+        fs::write(fx.work.join("fix.txt"), "a review fix\n").expect("write");
+        fs::write(fx.bot.join("tail.jsonl"), "{\"line\":2}\n").expect("write");
+
+        run(&fx, both(), None).expect("squash");
+
+        assert!(files(&fx.work, "@-").contains("fix.txt"));
+        assert_eq!(jj::cid_of(&fx.bot, "@-").expect("cid"), sha);
+        assert!(!is_empty(&fx.bot, "@"), "the journal stays in @");
     }
 
     /// A pair made in two steps: the fix folds into the work commit
@@ -644,7 +661,7 @@ mod tests {
     #[test]
     fn a_new_description_keeps_the_trailers() {
         let fx = Fixture::new("squash-describe");
-        make_pair(&fx, true);
+        make_pair_with(&fx, true, true);
         let (work_id, agent_id) = (chid(&fx.work, "@-"), chid(&fx.bot, "@-"));
 
         run(
@@ -663,7 +680,7 @@ mod tests {
         assert!(
             work_desc
                 .trim_end()
-                .ends_with(&format!("ochid: /.claude/{agent_id}")),
+                .ends_with(&format!("ochid: {agent_id}")),
             "{work_desc}"
         );
         assert!(
@@ -673,7 +690,7 @@ mod tests {
         assert!(
             agent_desc
                 .trim_end()
-                .ends_with(&format!("ochid: /{work_id}")),
+                .ends_with(&format!("ochid: {work_id}")),
             "{agent_desc}"
         );
 

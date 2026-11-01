@@ -111,9 +111,8 @@ pub struct InitArgs {
     #[arg(long)]
     pub adopt: bool,
 
-    /// Name each side's initial commit by the other's label,
-    /// `/.claude/<id>` or `/<id>`, rather than its URL. A plain repo
-    /// stamps no trailer, so it changes nothing there.
+    /// Stamp the work commit's `ochid:` alone, with no `ocid:` or `pcid:`
+    /// links. A plain repo stamps no trailer, so it changes nothing there.
     #[arg(long)]
     pub no_url_trailer: bool,
 

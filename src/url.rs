@@ -218,9 +218,49 @@ pub fn canonical_repo_url(url: &str) -> Option<String> {
     Some(format!("https://{host}/{path}"))
 }
 
+/// The URL a trailer links `url`, a remote, by: its canonical form, or
+/// `file:///<absolute path>` for a local path or `file://` remote, a
+/// relative one read from `base`. `None` for what is neither.
+pub fn link_repo_url(url: &str, base: &std::path::Path) -> Option<String> {
+    if let Some(canonical) = canonical_repo_url(url) {
+        return Some(canonical);
+    }
+    let path = url.strip_prefix("file://").unwrap_or(url); // OK: a plain path has no scheme
+    if path.is_empty() || path.contains("://") {
+        return None;
+    }
+    let path = base.join(path);
+    let path = path.canonicalize().unwrap_or(path); // OK: a remote not made yet keeps its spelling
+    Some(format!("file://{}", path.display()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A local remote links by `file:///`, relative ones read from the
+    /// base, a hosted one stays canonical, and an unknown scheme has none.
+    #[test]
+    fn a_local_remote_links_by_file_url() {
+        let base = std::path::Path::new("/no/such/base");
+        assert_eq!(
+            link_repo_url("/no/such/remote.git", base).as_deref(),
+            Some("file:///no/such/remote.git")
+        );
+        assert_eq!(
+            link_repo_url("file:///no/such/remote.git", base).as_deref(),
+            Some("file:///no/such/remote.git")
+        );
+        assert_eq!(
+            link_repo_url("../r.git", base).as_deref(),
+            Some("file:///no/such/base/../r.git")
+        );
+        assert_eq!(
+            link_repo_url("git@github.com:o/r.git", base).as_deref(),
+            Some("https://github.com/o/r")
+        );
+        assert_eq!(link_repo_url("ftp://h/r", base), None);
+    }
 
     // --- canonical_repo_url ------------------------------------------
 

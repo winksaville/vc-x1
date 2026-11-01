@@ -498,14 +498,7 @@ fn agent_half(
     }
     if commit_journal {
         let text = without_trailers(&jj::desc_of(&pair.work, "@-")?);
-        let desc = with_trailer(
-            &text,
-            &crate::desc_helpers::ochid_value_in_form(
-                crate::desc_helpers::is_url_form(&work.trailer),
-                &pair.work,
-                &work.chid,
-            )?,
-        );
+        let desc = with_trailer(&text, &work.chid);
         let snapshot = Snapshot::take(&pair.agent)?;
         info!("push agent: commit -R {agent_arg}");
         if let Err(e) = ctx.session(&pair.agent)?.commit(&desc) {
@@ -586,15 +579,13 @@ fn work_half(
         if restamp {
             let desc = jj::desc_of(&pair.work, "@-")?;
             let text = without_trailers(&desc);
-            let url_form = crate::desc_helpers::extract_ochid_from_desc(&desc)
-                .is_some_and(|o| crate::desc_helpers::is_url_form(&o));
-            let ochid = crate::desc_helpers::ochid_value_in_form(url_form, &pair.agent, &target)?;
-            let ocid = crate::desc_helpers::extract_ocid_from_desc(&desc);
+            let trailers = crate::desc_helpers::Trailers {
+                ochids: vec![target.clone()],
+                ..crate::desc_helpers::Trailers::of(&desc)
+            };
             info!("push work: restamp @- to name {target}");
-            ctx.session(&pair.work)?.describe(
-                "@-",
-                &crate::desc_helpers::with_trailers(&text, &ochid, ocid.as_deref()),
-            )?;
+            ctx.session(&pair.work)?
+                .describe("@-", &crate::desc_helpers::with_trailers(&text, &trailers))?;
         }
         info!("push work: bookmark set {bookmark} -r @- -R {work_arg}");
         ctx.session(&pair.work)?.bookmark_set(bookmark, "@-")?;

@@ -65,6 +65,16 @@ fn test_params() -> PushParams {
 /// the commit, which the commits keep. No bookmark is advanced, so
 /// the line stays as the test arranged it for push to resolve.
 fn make_pair(fx: &Fixture, title: &str, agent_now: bool) -> (String, String) {
+    make_pair_with(fx, title, agent_now, false)
+}
+
+/// [`make_pair`], with `no_url_trailer` saying whether it has no links.
+fn make_pair_with(
+    fx: &Fixture,
+    title: &str,
+    agent_now: bool,
+    no_url_trailer: bool,
+) -> (String, String) {
     fs::write(fx.work.join(format!("{}.txt", title.len())), title).expect("write work file");
     fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write session file");
     let work_at = chid(&fx.work, "@");
@@ -84,19 +94,39 @@ fn make_pair(fx: &Fixture, title: &str, agent_now: bool) -> (String, String) {
         skip: None,
         dry_run: false,
         rev: None,
-        no_url_trailer: false,
+        no_url_trailer,
     };
     commit(&mut test_ctx(), &params).expect("the pair is made");
     (work_at, agent_at)
 }
 
-/// A pair made at once: push folds the journal that landed after
-/// the commit into the partner, keeps its change id, and publishes
-/// both bookmarks.
+/// A pair made at once with links: the work commit's `ocid:` names the
+/// partner's SHA, so push publishes it unfolded and the journal stays.
+#[test]
+fn push_leaves_the_journal_out_of_a_linked_pair() {
+    let fx = Fixture::new("push-pair-linked");
+    make_pair(&fx, "feat: linked", true);
+    let sha = cid(&fx.bot, "@-");
+    fs::write(fx.bot.join("tail.jsonl"), "{\"line\":2}\n").expect("write tail");
+
+    push_in(&mut test_ctx(), &pair(&fx), &both(), &test_params()).expect("push");
+
+    assert_eq!(cid(&fx.bot, "main@origin"), sha, "the SHA `ocid:` names");
+    assert!(
+        description(&fx.work, "main").contains(&format!("/commit/{sha}")),
+        "{}",
+        description(&fx.work, "main")
+    );
+    assert!(!is_empty(&fx.bot, "@"), "the journal stays in @");
+}
+
+/// A pair made at once with no links: push folds the journal that
+/// landed after the commit into the partner, keeps its change id, and
+/// publishes both bookmarks.
 #[test]
 fn push_publishes_a_pair_made_at_once() {
     let fx = Fixture::new("push-pair-b");
-    let (work_at, agent_at) = make_pair(&fx, "feat: at once", true);
+    let (work_at, agent_at) = make_pair_with(&fx, "feat: at once", true, true);
     fs::write(fx.bot.join("tail.jsonl"), "{\"line\":2}\n").expect("write tail");
 
     push_in(&mut test_ctx(), &pair(&fx), &both(), &test_params()).expect("push");
@@ -133,7 +163,7 @@ fn push_completes_a_pair_made_in_two_steps() {
     assert!(
         agent_desc
             .trim_end()
-            .ends_with(&format!("ochid: /{work_at}")),
+            .ends_with(&format!("ochid: {work_at}")),
         "{agent_desc}"
     );
     assert_eq!(agent_desc.matches("ochid:").count(), 1, "{agent_desc}");
@@ -145,7 +175,7 @@ fn push_completes_a_pair_made_in_two_steps() {
     assert!(
         work_desc
             .trim_end()
-            .ends_with(&format!("ochid: /.claude/{agent_at}")),
+            .contains(&format!("\n\nochid: {agent_at}\n")),
         "{work_desc}"
     );
     assert_eq!(cid(&fx.bot, "main@origin"), cid(&fx.bot, "main"));
@@ -350,7 +380,7 @@ fn push_restamps_when_the_agent_at_changed() {
     assert!(
         work_desc
             .trim_end()
-            .ends_with(&format!("ochid: /.claude/{agent_at}")),
+            .contains(&format!("\n\nochid: {agent_at}\n")),
         "restamped:\n{work_desc}"
     );
     assert_eq!(
@@ -360,7 +390,7 @@ fn push_restamps_when_the_agent_at_changed() {
     );
     assert_eq!(chid(&fx.bot, "main"), agent_at);
     assert!(
-        description(&fx.bot, "main").contains(&format!("ochid: /{work_at}")),
+        description(&fx.bot, "main").contains(&format!("ochid: {work_at}")),
         "the partner names the work commit"
     );
 }

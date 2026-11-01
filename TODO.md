@@ -3073,6 +3073,30 @@ deliberation moved here whole.
 - The closing's undo, the Todo's lean, for a closing made without `--land`, a flag
   or a sibling command settled at its rung. A Land's undo, after its push, waits for a real mistake.
 
+### A tool rewrites a repo's history to the current trailers
+
+(wink + agent, 2026-11-01) Every commit on `main` in both repos could be rewritten to the trailer
+protocol of the day, from **feat: ochid trailers are URLs**, and a renamed repo's stale URLs corrected
+the same way. Whether to run it on `main` is decided after a trial on a clone.
+
+- It works because a rebase or re-describe keeps a change id and changes a SHA, so `ochid:` holds and
+  `ocid:` and `pcid:` are recomputed. The agent repo goes first, since its commits name work commits by
+  change id alone, then the work repo oldest first, with the new agent SHAs and parents' SHAs.
+- One jj-lib transaction, since a commit at a time rebases every descendant each time. Trees checked
+  unchanged, a SHA map written, a dry run, and run from outside any session, the agent-repo never being
+  rewound while one writes to it.
+- To try on a clone first: whether a fresh clone keeps the change ids of old commits, which we think
+  depends on a stored change-id header.
+- What it costs on `main`: a force-push of both repos, every clone and fork broken, and every old SHA
+  citation stale. Bodies can be remapped, and `notes/`, `zCLOSED.md`, and the transcripts cannot without
+  changing trees, `notes/chores/` being frozen. It also goes against the rule that published trailers
+  are never rewritten, so a run needs that rule changed.
+- Committer dates are kept, since `lookup` finds an untrailered partner by them, and signatures are
+  lost.
+- A `lost`, `none`, or unresolvable trailer gets no `ocid:` and is left as it is, with no guessing:
+  `fix-desc` proposes one agent commit for all of `0.62.0-*`'s 8-character ids, which looks wrong.
+- The engine is the one a cycle's trailers are updated by, the range being what differs.
+
 ## Ideas
 
 Items not yet solid enough for `## Todo` (or surfaced during close-out / end-of-day before they are

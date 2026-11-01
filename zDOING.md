@@ -23,6 +23,19 @@ where [Acquaint](AGENTS.md#acquaint) still says to look.
 
 Written 2026-10-30:
 
+- **feat: ochid trailers are URLs** is not landed, and `main` is still `8be6ff7c` in both repos. Its
+  closing is removed for two inserted rungs, wink's (2026-11-01), so `origin`'s bookmark is at the old
+  closing, `cd16d37d`, until a force-push, which needs wink's go. The plan, after the rungs:
+  - Re-close with `vc-x1-dev commit -s w --closing feat-ochid-trailers-are-urls`, the record's Solution,
+    Acceptance, and closing subsection updated first. The cycle is retitled **feat: improve trailers**,
+    wink's (2026-11-01), its opening, record, and bookmark with it.
+  - `vc-x1-dev trailers --update`, last, since it changes every SHA, then `validate-desc` and `land -s b
+    --onto main --dry-run`, then the force-push on wink's go.
+  - Do not commit, squash, or `squash-push` the agent repo before the Land. Every work commit names
+    its `@`, `qrxovvvqxnrq`, and the Land commits it.
+  - Then, on wink's go: `land -s b --onto main`, `push -s b --bookmark main`, `delete-bookmark -s w
+    --bookmark feat-ochid-trailers-are-urls --skip local`, and `vc-x1 install`.
+- Next after that: **install has a role and a profile** and **desc takes a title, body, and trailers**.
 - `tmp/mistake-aside-todo.patch` and `tmp/mistake-aside-zDOING.md` hold **chore: carry setting a
   mistake aside into v0.3.1**, set aside when **WIP: cleanup** was dropped. They are gitignored and
   on this machine alone. The patch's context has moved, so its edits may need
@@ -84,17 +97,29 @@ ochid](notes/forks-multi-user.md#per-user-bot-repos-via-url-shaped-ochid).
 
 #### Solution
 
-Provisional, one rung per item in the Ladder, readers before writers.
+Readers first, then writers, then the Land. Every reader takes `<url>#<chid>`, and a URL is checked
+against the repo's `origin`, canonically. `commit`, `init`, `push`, and `squash` stamp it, and a work
+half alone adds `ocid: <url>/commit/xxxx`, while `--no-url-trailer` and a repo with no hosted `origin`
+keep the label. A bare `commit` and a bare Land stay on the machine and `--push` publishes. A Land
+commits the agent `@` with one `ochid:` per work commit naming it, sets each placeholder `ocid:` to
+its SHA, and folds nothing into it. The rules' change is drafted in **agent-files(proposal): v0.3.1**
+rather than made here.
 
 #### Acceptance check
 
-Provisional:
+As stated at the opening, with what running each by `vc-x1-dev` 0.85.18-7 found:
 
 - A commit made by the landed build stamps the URL form in both directions, and `validate-desc`
-  and `lookup` resolve it, with no network when the URL names a repo of the workspace.
+  and `lookup` resolve it, with no network when the URL names a repo of the workspace. **Partly
+  run.** The cycle's eight work commits pass `validate-desc`, and `lookup --line src/land.rs:422`
+  finds its commit and partner through the URL. The landed build, the agent direction, and the
+  no-network claim wait for the Land, which is not this commit.
 - Every published trailer on `main`, `/.claude/<id>` and `/<id>`, still passes `validate-desc`, and
-  `fix-desc` proposes no rewrite of them.
-- `vc-x1 validate` passes.
+  `fix-desc` proposes no rewrite of them. **Failed as written, a wrong check.** Of 661 commits,
+  `validate-desc` reports 6 issues, 3 lost, 5 none, and 2 missing, and `fix-desc` proposes 5 rewrites
+  and 9 errors, all on old commits such as `0.62.0-*`'s 8-character ids. The landed 0.85.17 prints
+  the same reports line for line, so this cycle changed nothing, and the check should have said so.
+- `vc-x1 validate` passes. **Passed**, by `vc-x1-dev` after the last edit.
 
 #### Deliberation
 
@@ -150,7 +175,9 @@ Provisional, the rungs after the opening named as the work is understood:
 - [feat: land stamps a local cycle's trailers][5] (done)
 - [feat: land sets the ocid trailer to the agent commit's SHA][6] (done)
 - [docs: the rules and README name the URL form][7] (done)
-- [feat: ochid trailers are URLs closing][8]
+- [feat: an ochid is a change id, and work commits link by URL][8] (done)
+- [docs: the rules and README name the modified trailers][9]
+- [feat: ochid trailers are URLs closing][10]
 
 ##### feat: ochid trailers are URLs opening
 
@@ -296,7 +323,50 @@ The README describes what this cycle built, and the rules are drafted for the pr
 - **Only push publishes** and **A cycle stays local until its Land** now say what was built, `land`
   local and `--push` publishing.
 
+##### feat: an ochid is a change id, and work commits link by URL
+
+Inserted, wink's (2026-11-01), changing what the rungs above stamp. The work repo is the root
+information, and an agent commit carries change ids alone.
+
+- `ochid:` is the partner's bare change id on both sides, since it always means the other repo. Readers
+  also take a bare id, and still take every earlier form.
+- A work commit links by URL: `ocid:` the agent commit, and `pcid:` each parent, which also says where
+  a forked or copied commit came from, wink's idea and agreed name (2026-11-01), any number of parents, in
+  parent order, so a trapezoid's lists the trunk first. A local `origin` links by `file:///<path>`, wink's (2026-11-01),
+  so a test repo and every fixture run the same code as a hosted one, and those paths are in the commit. `--no-url-trailer` now leaves those out,
+  and the label is stamped nowhere.
+- `-s b` commits the agent repo first, so its `ocid:` has the real SHA. It then no longer folds a later
+  journal into that commit at `push`, the fold having changed that SHA. `init` does the same.
+- `with_trailers` keeps a trailer it did not stamp, one `custom.md` may add, in one block below its own.
+  A key is lowercase or hyphenated, so a paragraph reading `Solution: ...` stays body.
+- `vc-x1 trailers --update [--range <BM|REV>]`, wink's, rewrites a range's trailers to today's, oldest
+  first, by change id, each tree checked unchanged. The range defaults to above the trunk up to `@-`,
+  wink's trial finding a commit above the bookmark missed by a default of the bookmark, and a commit on
+  the trunk's remote needs `--yes`. A `lost` or short id is left as it is, with no `ocid:`. With no
+  `origin` it says so, since only the `ochid:` can change.
+- A Land runs the same pass with `add` off, replacing `set_ocids`, so it refreshes the links a commit
+  has and adds none. A published commit is updated with a warning, wink's view being that pushed work
+  stays fluid, so what [feat: land sets the ocid trailer to the agent commit's SHA][6] says of a
+  published commit no longer holds.
+- Not yet:
+  - `validate-desc` does not check that `ocid:` and `pcid:` name the right repo, and URL-form `ochid:`
+    keeps its check until none is left.
+  - `fix-desc`'s inference of a missing trailer still writes the label.
+  - `trailers --update` changes the work repo alone, so a history run needs the agent side too.
+  - One describe per commit rebases what is above it, fine for a cycle, and **A tool rewrites a repo's
+    history to the current trailers** wants one transaction.
+  - `-s w --push` still leaves `xxxx`, only a Land setting it.
+  - `squash --title --body` on a linked pair re-describes the work commit alone, since re-describing
+    the agent commit would change the SHA `ocid:` names, so their titles can differ.
+- Also files **A tool rewrites a repo's history to the current trailers** in `## Todo`.
+
+##### docs: the rules and README name the modified trailers
+
 ##### feat: ochid trailers are URLs closing
+
+Closes the cycle at the bare version, as a trapezoid, the default. Closed for durability, wink's
+(2026-10-30): the work bookmark is pushed alone, nothing else moves, and it stays changeable until
+the Land, which is next session's. No agent-file changed, so no size row.
 
 [0]: #feat-ochid-trailers-are-urls-opening
 [1]: #feat-the-readers-take-a-url-shaped-ochid
@@ -306,4 +376,6 @@ The README describes what this cycle built, and the rules are drafted for the pr
 [5]: #feat-land-stamps-a-local-cycles-trailers
 [6]: #feat-land-sets-the-ocid-trailer-to-the-agent-commits-sha
 [7]: #docs-the-rules-and-readme-name-the-url-form
-[8]: #feat-ochid-trailers-are-urls-closing
+[8]: #feat-an-ochid-is-a-change-id-and-work-commits-link-by-url
+[9]: #docs-the-rules-and-readme-name-the-modified-trailers
+[10]: #feat-ochid-trailers-are-urls-closing

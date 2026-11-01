@@ -47,6 +47,7 @@ mod test_helpers;
 mod test_tmp_root;
 mod todo_helpers;
 mod toml_simple;
+mod trailers;
 mod transcript;
 mod url;
 mod validate;
@@ -729,6 +730,9 @@ pub(crate) enum Commands {
         no cycle to land, so both are refused. The install stays `vc-x1\n\
         install`, after.")]
     Land(land::LandArgs),
+
+    /// Update the trailers of a range of work commits to what is stamped today
+    Trailers(trailers::TrailersArgs),
 }
 
 /// Permanent sanity check for the `main`-bookmark tracking state
@@ -959,6 +963,7 @@ fn main() -> ExitCode {
         Commands::MoveBookmark(args) => args.dispatch(&mut ctx),
         Commands::DeleteBookmark(args) => args.dispatch(&mut ctx),
         Commands::Land(args) => args.dispatch(&mut ctx),
+        Commands::Trailers(args) => args.dispatch(&mut ctx),
     }
 }
 

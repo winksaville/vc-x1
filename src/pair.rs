@@ -14,9 +14,7 @@ use std::path::{Path, PathBuf};
 
 use log::{info, warn};
 
-use crate::desc_helpers::{
-    extract_bare_id, extract_ochid_from_desc, extract_ochids, extract_ocid_from_desc,
-};
+use crate::desc_helpers::{Trailers, extract_bare_id, extract_ochid_from_desc, extract_ochids};
 use crate::jj;
 use crate::jj::{current_op_id, op_restore};
 use crate::options_flags::scope::{RepoScope, Scope, Side};
@@ -64,16 +62,15 @@ pub fn is_published(repo: &Path, rev: &str) -> Result<bool, Box<dyn std::error::
     jj::matches(repo, &format!("({rev}) & ::remote_bookmarks()"))
 }
 
-/// The work commit of a pair: the work `@-`, its change id, and the
-/// trailer it carries, the full value and the bare change id it
-/// names. `None` when `@-` carries no trailer, so is not a pair's.
+/// The work commit of a pair: the work `@-`, its change id, the bare
+/// change id its trailer names, and all its trailers. `None` when
+/// `@-` carries no trailer, so is not a pair's.
 #[derive(Debug, Clone)]
 pub struct WorkCommit {
     pub chid: String,
-    pub trailer: String,
     pub stamped: String,
-    /// Its `ocid:` value, a rewrite keeping it with the trailer.
-    pub ocid: Option<String>,
+    /// All it carries, which a rewrite keeps.
+    pub trailers: Trailers,
 }
 
 /// Read the work commit of the pair, `None` when it has no trailer.
@@ -85,8 +82,7 @@ pub fn work_commit(pair: &Pair) -> Result<Option<WorkCommit>, Box<dyn std::error
     Ok(Some(WorkCommit {
         chid: jj::chid_of(&pair.work, "@-")?,
         stamped: extract_bare_id(&trailer).to_string(),
-        ocid: extract_ocid_from_desc(&desc),
-        trailer,
+        trailers: Trailers::of(&desc),
     }))
 }
 
@@ -117,18 +113,20 @@ pub fn partner(pair: &Pair, work: &WorkCommit) -> Result<Partner, Box<dyn std::e
     let names_work = ochids
         .last()
         .is_some_and(|o| extract_bare_id(o) == work.chid);
-    Ok(if names_work && (ochids.len() > 1 || work.ocid.is_some()) {
-        Partner::Landed(jj::chid_of(&pair.agent, "@-")?)
-    } else if names_work {
-        Partner::Committed(jj::chid_of(&pair.agent, "@-")?)
-    } else if agent_at == work.stamped {
-        Partner::Pending(agent_at)
-    } else {
-        Partner::Changed {
-            stamped: work.stamped.clone(),
-            agent_at,
-        }
-    })
+    Ok(
+        if names_work && (ochids.len() > 1 || work.trailers.ocid.is_some()) {
+            Partner::Landed(jj::chid_of(&pair.agent, "@-")?)
+        } else if names_work {
+            Partner::Committed(jj::chid_of(&pair.agent, "@-")?)
+        } else if agent_at == work.stamped {
+            Partner::Pending(agent_at)
+        } else {
+            Partner::Changed {
+                stamped: work.stamped.clone(),
+                agent_at,
+            }
+        },
+    )
 }
 
 /// One repo's `jj op` id, captured before a half's first mutation,

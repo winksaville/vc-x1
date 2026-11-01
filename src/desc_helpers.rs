@@ -49,118 +49,137 @@ pub fn read_body(body: &str, who: &str) -> Result<String, String> {
     }
 }
 
-/// A description with its `ochid:` trailer: the text, trailing
-/// blank lines trimmed, a blank line, then `ochid: <value>`, so a
-/// body read from a file ending in a newline gets one blank line
-/// before the trailer, not two.
-pub fn with_trailer(text: &str, value: &str) -> String {
-    format!("{}\n\nochid: {value}", text.trim_end())
+/// The trailers `vc-x1` stamps. `ochid:` is the partner's change id in
+/// the other repo, one per commit an agent commit covers. A work commit
+/// also links by URL: `ocid:` the agent commit, and `pcid:` each parent.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Trailers {
+    pub ochids: Vec<String>,
+    pub ocid: Option<String>,
+    pub pcids: Vec<String>,
 }
 
-/// A description with its `ochid:` trailer and, when there is one, the
-/// `ocid:` trailer below it.
-pub fn with_trailers(text: &str, ochid: &str, ocid: Option<&str>) -> String {
-    let desc = with_trailer(text, ochid);
-    match ocid {
-        Some(ocid) => format!("{desc}\nocid: {ocid}"),
-        None => desc,
+impl Trailers {
+    /// The trailers `desc` carries, column 0 only, as `extract_ochids`
+    /// reads them.
+    pub fn of(desc: &str) -> Self {
+        let values = |key: &str| -> Vec<String> {
+            desc.lines()
+                .filter_map(|line| line.strip_prefix(key))
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .collect()
+        };
+        Self {
+            ochids: values("ochid:"),
+            ocid: values("ocid:").pop(),
+            pcids: values("pcid:"),
+        }
+    }
+
+    /// The trailers as lines, in the order they are stamped.
+    fn lines(&self) -> Vec<String> {
+        let ochids = self.ochids.iter().map(|v| format!("ochid: {v}"));
+        let ocid = self.ocid.iter().map(|v| format!("ocid: {v}"));
+        let pcids = self.pcids.iter().map(|v| format!("pcid: {v}"));
+        ochids.chain(ocid).chain(pcids).collect()
     }
 }
 
-/// A description with one `ochid:` trailer per value, in order, the
-/// agent commit a Land makes for a whole cycle.
-pub fn with_ochids(text: &str, values: &[String]) -> String {
-    let trailers = values
-        .iter()
-        .map(|v| format!("ochid: {v}"))
-        .collect::<Vec<_>>()
-        .join("\n");
-    format!("{}\n\n{trailers}", text.trim_end())
+/// Whether a line reads as a git trailer `vc-x1` does not stamp, one
+/// `custom.md` may add: a key of lowercase or hyphenated words, so a
+/// paragraph reading `Solution: ...` stays body.
+fn is_other_trailer(line: &str) -> bool {
+    line.split_once(": ").is_some_and(|(key, value)| {
+        !value.is_empty()
+            && !key.is_empty()
+            && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+            && (key.contains('-') || !key.chars().any(|c| c.is_ascii_uppercase()))
+    })
 }
 
-/// What an `ocid:` trailer holds until the Land knows the agent
-/// commit's SHA.
+/// `text` with `trailers` stamped in place of any it carries. The result
+/// ends in one trailer block, the stamped lines and then any other
+/// trailers the text ended in, so a rewrite keeps a custom trailer and
+/// never leaves it stranded in the body.
+pub fn with_trailers(text: &str, trailers: &Trailers) -> String {
+    let stripped = without_trailer_lines(text).collect::<Vec<_>>().join("\n");
+    let stripped = stripped.trim_end();
+    let (body, others) = match stripped.rsplit_once("\n\n") {
+        Some((body, last)) if last.lines().all(is_other_trailer) => (body.trim_end(), Some(last)),
+        _ => (stripped, None),
+    };
+    let mut block = trailers.lines();
+    block.extend(others.into_iter().flat_map(str::lines).map(str::to_string));
+    if block.is_empty() {
+        return body.to_string();
+    }
+    format!("{body}\n\n{}", block.join("\n"))
+}
+
+/// `text` with one `ochid:` trailer, an agent commit's for one work commit.
+pub fn with_trailer(text: &str, chid: &str) -> String {
+    with_ochids(text, &[chid.to_string()])
+}
+
+/// `text` with one `ochid:` per change id, in order, the agent commit a
+/// Land makes for a whole cycle.
+pub fn with_ochids(text: &str, chids: &[String]) -> String {
+    with_trailers(
+        text,
+        &Trailers {
+            ochids: chids.to_vec(),
+            ..Trailers::default()
+        },
+    )
+}
+
+/// What an `ocid:` trailer's SHA is until the agent commit is made.
 const OCID_PLACEHOLDER: &str = "xxxx";
 
-/// The `ochid:` value naming `chid`: by the repo's canonical URL when
-/// `url` has one, else by the side's `label`, the form a repo with no
-/// hosted `origin` stamps.
-pub fn ochid_value(url: Option<&str>, label: &str, chid: &str) -> String {
-    match url.and_then(crate::url::canonical_repo_url) {
-        Some(url) => format!("{url}#{chid}"),
-        None => format!("{label}{chid}"),
-    }
+/// The link to commit `sha` in the repo at canonical `url`.
+pub fn commit_url(url: &str, sha: &str) -> String {
+    format!("{url}/commit/{sha}")
 }
 
-/// The `ochid:` value naming `chid` in `repo`, the URL read from its
-/// `origin`.
-pub fn ochid_value_for(
-    repo: &std::path::Path,
-    chid: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let url = crate::jj::remote_url(repo, "origin")?;
-    Ok(ochid_value(url.as_deref(), &ochid_prefix_for(repo)?, chid))
-}
-
-/// The `ochid:` value naming `chid` in `repo` by the side's label, the
-/// form `--no-url-trailer` asks for.
-pub fn ochid_label_value_for(
-    repo: &std::path::Path,
-    chid: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
-    Ok(ochid_value(None, &ochid_prefix_for(repo)?, chid))
-}
-
-/// The `ochid:` value naming `chid` in `repo`, by URL only when
-/// `url_form`, so a partner follows the form its work commit took.
-pub fn ochid_value_in_form(
-    url_form: bool,
-    repo: &std::path::Path,
-    chid: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
-    match url_form {
-        true => ochid_value_for(repo, chid),
-        false => ochid_label_value_for(repo, chid),
-    }
-}
-
-/// The placeholder `ocid:` value for a commit in `repo`, `None` when
-/// it has no canonical URL, since the value is a link.
-pub fn ocid_placeholder_for(
-    repo: &std::path::Path,
-) -> Result<Option<String>, Box<dyn std::error::Error>> {
+/// The URL `repo`'s commits are linked by, from its `origin`: canonical,
+/// or `file:///` for a local remote, `None` with no `origin`.
+pub fn repo_url_for(repo: &std::path::Path) -> Result<Option<String>, Box<dyn std::error::Error>> {
     let url = crate::jj::remote_url(repo, "origin")?;
     Ok(url
         .as_deref()
-        .and_then(crate::url::canonical_repo_url)
-        .map(|url| format!("{url}/commit/{OCID_PLACEHOLDER}")))
+        .and_then(|url| crate::url::link_repo_url(url, repo)))
 }
 
-/// A placeholder `ocid:` value with `sha` in its place, `None` when
-/// `value` is not a placeholder, so one already set stays as it is.
-pub fn ocid_with_sha(value: &str, sha: &str) -> Option<String> {
-    value
-        .strip_suffix(OCID_PLACEHOLDER)
-        .and_then(|url| url.strip_suffix("/commit/"))
-        .map(|url| format!("{url}/commit/{sha}"))
+/// The placeholder `ocid:` value for a commit in `repo`, `None` when
+/// it has no `origin`, since the value is a link.
+pub fn ocid_placeholder_for(
+    repo: &std::path::Path,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    Ok(repo_url_for(repo)?.map(|url| commit_url(&url, OCID_PLACEHOLDER)))
 }
 
-/// A description with its `ocid:` line's value replaced, the rest and
-/// the line's place kept.
-pub fn with_ocid_value(desc: &str, value: &str) -> String {
-    desc.lines()
-        .map(|line| match line.starts_with("ocid:") {
-            true => format!("ocid: {value}"),
-            false => line.to_string(),
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
+/// The `pcid:` values for `parents`, commit ids in `repo`, none with no
+/// `origin`, and the root commit, which is not a real one, left out.
+pub fn pcids_for(
+    repo: &std::path::Path,
+    parents: &[String],
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let Some(url) = repo_url_for(repo)? else {
+        return Ok(Vec::new());
+    };
+    let root = crate::jj::cid_of(repo, "root()")?;
+    Ok(parents
+        .iter()
+        .filter(|parent| **parent != root)
+        .map(|parent| commit_url(&url, parent))
+        .collect())
 }
 
-/// A description without its `ochid:` and `ocid:` lines.
+/// A description without its `ochid:`, `ocid:`, and `pcid:` lines.
 pub fn without_trailer_lines(desc: &str) -> impl Iterator<Item = &str> {
     desc.lines()
-        .filter(|l| !l.starts_with("ochid:") && !l.starts_with("ocid:"))
+        .filter(|l| !l.starts_with("ochid:") && !l.starts_with("ocid:") && !l.starts_with("pcid:"))
 }
 
 /// Problems found with an ochid trailer, with details for reporting.
@@ -223,7 +242,7 @@ impl OchidForms {
             let named = crate::url::canonical_repo_url(actual.trim_end_matches('#'));
             self.url.is_none() || named == self.url
         } else {
-            actual == self.label || actual == self.path
+            actual.is_empty() || actual == self.label || actual == self.path
         }
     }
 
@@ -482,73 +501,44 @@ pub fn extract_ochid_from_desc(desc: &str) -> Option<String> {
     extract_ochids(desc).pop()
 }
 
-/// Extract the `ocid:` value from a description string, the last one.
-pub fn extract_ocid_from_desc(desc: &str) -> Option<String> {
-    desc.lines()
-        .filter_map(|line| line.strip_prefix("ocid:"))
-        .map(|value| value.trim().to_string())
-        .rfind(|value| !value.is_empty())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// A value is by URL, canonically, when there is a hosted one, and
-    /// by the side's label otherwise.
+    /// Stamped trailers replace what the text carries and sit above a
+    /// custom trailer, and body lines that only look like one stay body.
     #[test]
-    fn ochid_value_prefers_the_canonical_url() {
-        assert_eq!(
-            ochid_value(
-                Some("git@github.com:o/r.agent-session.git"),
-                "/.claude/",
-                "abc"
-            ),
-            "https://github.com/o/r.agent-session#abc"
-        );
-        assert_eq!(
-            ochid_value(Some("/tmp/remote.git"), "/.claude/", "abc"),
-            "/.claude/abc"
-        );
-        assert_eq!(ochid_value(None, "/", "abc"), "/abc");
-    }
-
-    /// A placeholder takes the SHA, once, and the line keeps its place.
-    #[test]
-    fn a_placeholder_ocid_takes_the_sha() {
-        let placeholder = "https://h/o/r/commit/xxxx";
-        assert_eq!(
-            ocid_with_sha(placeholder, "abc").as_deref(),
-            Some("https://h/o/r/commit/abc")
-        );
-        assert_eq!(ocid_with_sha("https://h/o/r/commit/abc", "def"), None);
-        assert_eq!(
-            with_ocid_value("t\n\nochid: /a\nocid: old\n", "new"),
-            "t\n\nochid: /a\nocid: new"
-        );
-    }
-
-    /// The `ocid:` sits below the `ochid:`, and both come back out.
-    #[test]
-    fn trailers_round_trip() {
-        let desc = with_trailers("feat: x\n\nBody.\n", "/.claude/abc", Some("u/commit/xxxx"));
+    fn trailers_round_trip_and_keep_a_custom_one() {
+        let t = Trailers {
+            ochids: vec!["abc".to_string()],
+            ocid: Some("u/commit/xxxx".to_string()),
+            pcids: vec!["w/commit/1".to_string(), "w/commit/2".to_string()],
+        };
+        let desc = with_trailers("feat: x\n\nBody.\n", &t);
         assert_eq!(
             desc,
-            "feat: x\n\nBody.\n\nochid: /.claude/abc\nocid: u/commit/xxxx"
+            "feat: x\n\nBody.\n\nochid: abc\nocid: u/commit/xxxx\npcid: w/commit/1\npcid: w/commit/2"
         );
+        assert_eq!(Trailers::of(&desc), t);
+        assert_eq!(with_trailers(&desc, &t), desc, "stamping again is the same");
+
+        let custom = "feat: x\n\nBody.\n\nochid: old\nreviewed-by: wink\nCo-Authored-By: a <b@c>";
         assert_eq!(
-            extract_ocid_from_desc(&desc).as_deref(),
-            Some("u/commit/xxxx")
+            with_trailers(custom, &t),
+            "feat: x\n\nBody.\n\nochid: abc\nocid: u/commit/xxxx\npcid: w/commit/1\npcid: w/commit/2\n\
+             reviewed-by: wink\nCo-Authored-By: a <b@c>"
         );
+
         assert_eq!(
-            without_trailer_lines(&desc)
-                .collect::<Vec<_>>()
-                .join("\n")
-                .trim_end(),
-            "feat: x\n\nBody."
+            with_trailer("feat: x\n\nSolution: do it.", "abc"),
+            "feat: x\n\nSolution: do it.\n\nochid: abc",
+            "a one-line paragraph is body"
         );
-        assert_eq!(with_trailers("t", "/a", None), "t\n\nochid: /a");
-        assert_eq!(extract_ocid_from_desc("t\n\nochid: /a"), None);
+        assert_eq!(with_trailer("feat: x", "abc"), "feat: x\n\nochid: abc");
+        assert_eq!(
+            with_trailers("feat: x\n\nochid: abc", &Trailers::default()),
+            "feat: x"
+        );
     }
 
     /// Build `<base>/ws` (+ optional `<bot-dir>`) with per-side
