@@ -63,6 +63,9 @@ Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
 ### commit works at every scope, and --local keeps it on the machine
 
+(wink 2026-11-01, I want to discuss have most/all vc-x1 command not require `--scope` and default
+to `--scope work` if not "dangerous".)
+
 (wink + agent, 2026-10-30) Wink's desire: every variation of `vc-x1 commit` works at every scope,
 and a dangerous combination is an error unless `--yes` is given, what is dangerous still to be
 decided. Found trying a cycle held local, every commit by `commit -s w --no-push` with one agent
@@ -77,6 +80,8 @@ commit made at the Land. Folds in **commit and land take the same scopes**, whic
   --push`.
 - `--land` requires `--scope`, and `vc-x1 land` the same, dropping its default of `both`, wink's
   (2026-10-30): a Land has a new destination, so it is assumed dangerous for now.
+  - Reversed by wink (2026-11-02), `--scope` defaulting to work, always. **feat: close, land, and push
+    compose with testing** does it for close, land, and push, and the rest stay here.
 - A pushed work commit whose `ochid:` names an unpushed agent commit is not dangerous, wink's
   (2026-10-30). The link is dead until the agent side is pushed, which is obvious to the user. The
   commit is still work, to modify, squash, fork, or merge, and `--push` makes it durable while it
@@ -133,60 +138,6 @@ commit made at the Land. Folds in **commit and land take the same scopes**, whic
   work<->agent)** plans one `ochid:` line per commit. We think `lookup` from a rung gets the whole
   cycle's agent commit, not yet tried.
 
-### bookmark takes create, delete, and move
-
-(wink + agent, 2026-10-30) `move-bookmark` and `delete-bookmark` become `vc-x1 bookmark
-create|delete|move`, and `commit --no-advance` becomes `--no-move`, the same word as the command.
-
-- Subcommands and not flags: each verb takes different options, so each gets help of its own and clap
-  refuses what does not apply. It matches `jj bookmark`, **Nest the validate and fix commands**, and
-  `agent-files copy|diff`. "Every argument is a flag" binds a command's arguments, not its verbs.
-- The retired names are refused, naming the new ones, as the retired flags are.
-- Only push publishes, in **agent-files(proposal): v0.3.1**: the verbs are local, so `delete` stops
-  removing the bookmark on `origin` and the remote side takes `--push`. `move-bookmark` is to be
-  checked for the same. This answers a Land's deletion of a published bookmark.
-
-### install has a role and a profile
-
-(wink + agent, 2026-10-30) `[profile.dev]` holds both how a binary is built and what it is installed
-as, so `vc-x1-dev` reads as the `dev` profile. Wink's model: they are two choices. The profile is how
-it is compiled, `target/<profile>/<name>`, the name from `Cargo.toml`. The role is what it is: bare
-`vc-x1` the released version and `vc-x1-dev` the development version, either from any profile.
-`build` and `run` take a profile alone, and `install` alone has a role. Historically the install was
-`cargo install --path . --locked`, sometimes with `--root` and a copy, before profiles existed.
-
-A proposal, the agent's, wink's to try (2026-10-30):
-
-- `[role.released]`, `default-profile = "release"`, and `[role.development]`, `suffix = "-dev"` and
-  `default-profile = "dev"`. `suffix` leaves `[profile.*]`, and `[install] commands` says
-  `{role.suffix}`.
-- `install --as released|development`, the default the running binary's role by its name, so
-  `vc-x1-dev install` stays development, and `--profile` overrides the role's default.
-- A released install refuses a dirty build, a commit not on `main`, and a suffixed version unless
-  `--force`, where today it only reports them. A development install reports them.
-- The copy stays configured: `[install] commands` holds `cp {profile.bin}` and `mv`, or a project may
-  list `cargo install --path . --locked --profile {profile.cargo} --root <dir>` and copy from
-  `<dir>/bin`, which needs no path rule and, by cargo's help, shares the workspace's target directory.
-  `bin` stays either way, since `run` needs it and `[build] commands` is not cargo-specific.
-- A config with `suffix` under a profile is refused naming the move, or read as the role's for a
-  while. Open.
-
-### desc takes a title, body, and trailers
-
-(wink + agent, 2026-10-30) Overwriting a commit's description takes three commands and leaves gaps:
-`squash --title --body` on `@-` alone, needing both and folding `@`, `fix-desc --title` with no body
-and only on a commit whose `ochid:` has an issue, and a hand-run `jj describe` for a trailer or a title. Wink's: `vc-x1 desc` gains optional `--title`, `--body`,
-`--ochid`, and `--ocid`, in any combination, what is left out kept. With none it reads as it does
-today. The agent's, to be agreed:
-
-- A write requires `-r`, one commit in one repo, so a default of `@` or a range writes nothing by
-  accident, and `-s both` is refused, each repo's trailers being its own.
-- `--ochid` repeats and replaces every `ochid:` line, since a Land's agent commit carries several, and
-  `--ocid ""` removes the line.
-- Only the description changes, nothing folds, and the tree is checked unchanged.
-- A published commit is refused unless `--yes`, and `--dry-run` prints the result.
-- `squash --title --body` and `fix-desc --title` then retire, and `commit -r`'s refusal names `desc`.
-
 ### init defaults to --local
 
 (wink, 2026-10-30) `vc-x1 init` makes the workspace on the machine and creates and publishes nothing
@@ -203,85 +154,8 @@ pushes, public on GitHub unless `--private`, so a bare `init` publishes a repo.
 - The name: `--repo local` is already a category, a local directory of bare repos, which is a remote
   of a kind and not this `--local`, so one of the two is renamed or explained. `clone` is to be
   checked for the same default.
-
-### abandon and revert set a mistake aside
-
-(wink + agent, 2026-10-29) The dead end of **feat: undo takes back the last vc-x1 run**: what the
-agent made, or a trailer names, is never deleted, so a mistake is set aside going forward rather
-than taken back.
-
-- Abandon: a line's tail is kept under a permanent `dead-end-<id>` bookmark, pushed so every
-  `ochid:` still resolves, the cycle's bookmark moved back to the chosen commit with a leased push,
-  and a `commit -s b` on top saying what was dropped and why. The `<id>` sorts by time.
-- Revert: a change in the middle is taken back by a new commit at the tip applying its inverse,
-  never by removing it and rebasing what followed, which rewrites published commits into trees no
-  validation saw.
-- Draft lines only: nothing on the trunk's remote is abandoned or reverted by these, the trunk
-  fixed forward by a new cycle, and a bad release marked rather than renamed.
-- The agent-repo is never rewound while the agent runs. After `/exit` a rewind is possible, and it
-  truncates the transcript, so it is a deliberate act, never a side effect.
-- Work only a person touched and nothing references is theirs, raw `jj undo` included.
-- Open: the name, `dead-end-<id>` beside the dead-end closing's own term, the `<id>`'s form, and
-  whether abandon discards when nothing references the tail.
-- **squash-push shows what it takes, and push follows jj** leaned on undo, its "local acts are not
-  refused, since undo takes them back", and is to be reread against this.
-
-### The exit code says what failed
-
-(wink, 2026-10-30) `vc-x1 <...>`'s exit code should indicate what failed as precisely as possible.
-Today nearly every failure exits 1 by the runner's Ok-or-1 mapping, clap's usage errors 2, and only
-`agent-files diff` returns a code of its own.
-
-- A documented table, stable once published, with an error type that carries its code, so a command
-  returns one by what happened and not by a string. The message stays the explanation, and the code
-  is for what acts on the result: a script, a hook, an actor's reply, an agent.
-- What the code most needs to say, a first cut:
-  - which step of a composed command failed, so `land -s b` says the agent closing, the work closing,
-    the agent push, or the work push, and a retry knows what was done
-  - refused before anything moved, as against failed partway
-  - a guard `--yes` would pass, as against an error it would not
-  - a push rejected by a lease, as against the network.
-- The shape, wink's (2026-10-30): read in hex, the upper digit is the stage, broader, and the lower
-  digit the type, narrower.
-  - The upper digit runs 0 to 7, since the shell owns 0x7E and up: 126, 127, and 128 plus a signal.
-    So a set top bit always means killed, never one of ours.
-  - Stage 0 is before anything moved, so `refused` needs no type of its own and today's 1 and clap's
-    2 keep their meanings. Stages are a command's own, `land -s b`'s being the agent closing, the
-    work closing, the agent push, the work push, and so on, and each is documented with it.
-  - Types are global, the same digit meaning the same thing in every command: a guard `--yes` would
-    pass, a rejected lease, the network, a conflict. A lower digit of 0 is unspecified.
-- Open: **status prints a verdict per repo and exits with a bit per side** uses 1, 2, and 3 for a
-  verdict, which collides with stage 0's types, so one of the two moves. Eight stages may be short
-  for a long composed command.
-
-### vc-x1 is an actor
-
-(wink + agent, 2026-10-30) `vc-x1` becomes a service the user installs, and a client sends it
-asynchronous messages. From **feat: improve trailers**, where a Land is to run after the agent
-goes quiet, so the transcript it commits is whole: first as a detached process, wink's technique
-from the olden days, and then as a message to the actor.
-
-- Its lifetime is the user's: the service is installed, started, and restarted by them, systemd or
-  the like, and no agent manages it.
-- One actor handles one message at a time, so writes through it queue rather than collide. Raw `jj`
-  never goes through it, so that stays a rule.
-- A reply is the outcome, so "land finished or failed" has a defined form and place. A reply does not
-  wake the agent, since waking it writes to the transcript the Land is waiting to go quiet.
-- The client:
-  - no service running fails at once and says so, rather than queueing a message nothing reads
-  - client and service compare versions and report a mismatch, since a Land installs a new binary
-    and a running service keeps the old code until restarted
-  - the Land stays an ordinary function, so it runs in the foreground with no service.
-- Authority: any local process can send a message, so the user's go still comes through the agent and
-  the rules.
-- What a finished Land can start, by another message:
-  - an agent that checks `main` in both repos, the deleted bookmarks, and the installed version,
-    read-only and outside the dual-repo protocol
-  - a restart of the agent for the next step, automating [Close-out](AGENTS.md#close-out) step 7,
-    which begins with an acquaint and inherits no approval, so a restart is no unattended chain of
-    pushes.
-- Open: the transport, we think a file mailbox in a gitignored directory, which survives a crash and
-  works on every platform **vc-x1 runs on Windows and macOS** names.
+  - **feat: close, land, and push compose with testing** makes `init --test-repo <path>/<repo-name>`,
+    with local bare remotes, so that name is not taken by `--local`. What a bare `init` does stays here.
 
 ### squash-push shows what it takes, and push follows jj
 
@@ -317,43 +191,6 @@ cycle and before **squash takes --include**, wink's order (2026-10-28).
   `upstream` unless a repo overrides it, and the remote's default branch, `origin`'s `HEAD`, the key
   retired either way.
 - **push --from --to moves a bookmark and publishes it** may fold in.
-
-### squash takes --include
-
-(wink + agent, 2026-10-24, from **squash takes paths**, reshaped 2026-10-28) `squash -s w` folds all
-of the work `@` into `@-`, so folding one file's change while `@` holds the next rung's edits means
-`jj squash <path>` typed, or the edits parked first. Filed from the live testing of **feat: vc-x1
-closing and land**. After **feat: undo takes back the last vc-x1 run**, which its testing uses, and
-**squash-push shows what it takes, and push follows jj**, which frees `--yes`, wink's order
-(2026-10-28). The rest of the selection is **squash and commit take --exclude**.
-
-- Selection: `--include <path>`, repeatable, a file or everything under a directory, absolute or
-  relative to the current directory. What is not included stays in `@`.
-- A path's repo is the innermost repo of the pair holding it, so one list may mix work and agent
-  files.
-  - The repo must agree with `-s`, a mismatch refused naming the scope that takes it.
-  - A path in neither repo is refused. Content not yet in the tree comes in first by **import
-    brings content into the tree**.
-- A path matching nothing in `@` is warned about, by name, which catches a typo.
-- Approval by default: squash lists what folds and what stays, grouped by repo, each file with its
-  status and `+n -m`, and asks. `--yes` folds without asking.
-  - The mechanism is squash-push's: `--ask` and `--yes`, a config default, `squash.yes` false where
-    `squash-push.yes` is true, a non-terminal stdin and a declined prompt each an error.
-  - With no terminal, nothing changes and the exit names `--yes`, so the agent shows the list and
-    reruns on the user's go. A code of its own for "needs approval", apart from a failure, is open.
-  - The approval is of paths, not content. The agent `@` grows with the session between the list
-    and the rerun, so the folded list is printed again after the fold.
-- A squash without `--include` folds all of `@` without asking, as today.
-- Open: the folded `@-` is a tree no validation ran on, since validation runs on the working copy.
-  Until a revision can be validated, a fold by paths before a push needs `@-` checked.
-
-### sync says one repo when the work @ is dirty
-
-(agent, 2026-10-25) `vc-x1 sync -s b` with uncommitted changes in the work `@` prints the work
-repo's lines and then "1 repo is up to date, nothing to sync", the agent repo unmentioned, where
-`--dry-run` at the same state reports both. Seen at the Land of **feat: vc-x1 closing and land**
-and reproduced at the opening sync of **feat: vc-x1 commit takes a revision**. Whether the agent
-repo was checked and only its line dropped, or was skipped, is the first thing to find.
 
 ### commit's dry run reports the push as the advance leaves it
 
@@ -406,50 +243,6 @@ operations are raw jj's, 427 vc-x1's with a workspace, and 389 vc-x1's without.
   `c1e9e653`, and `de2e9af7` identical in both, so `ochid:` trailers resolve in a clone (confirmed
   2026-10-29).
 
-### land lands @- by default
-
-(wink + agent, 2026-10-29) `land`'s `--source` defaults to "the one local bookmark besides
-`--onto`", which depends on every bookmark in the repo and fails once there are two. The rest of
-vc-x1 works from the line's `@-`, `push` moving its bookmark there and `commit --closing` naming it.
-
-- `--source` left out is `@-`, with the work `@` empty: what lands is then the tree validation ran
-  on, and nothing uncommitted is left behind. `commit --closing` without `--land` leaves exactly
-  this, the closing at `@-` and an empty `@`.
-- A non-empty work `@` is refused, naming `--source`, rather than warned about, since a land is
-  pushed and permanent on the trunk. A merge `@`, whose `@-` is ambiguous, is refused too.
-- The empty check is the work-repo's alone: the agent `@` holds the session and is never empty.
-- An explicit `--source` lands what it names, with no check of `@`.
-- The cycle's bookmark is found from `@-` as today: its own, else its nearest parent's above
-  `--onto`, several refused with the list.
-- The help: `--source <BM|REV>`, "The cycle's last commit, a bookmark or a revision [default: @-,
-  with @ empty]".
-
-### Dry runs interleave: commit, push, and sync
-
-(wink + agent, 2026-10-26) `commit`, `push`, `sync`, and `squash-push` each run their dry run as a
-branch of its own, an `if dry` that says the steps apart from the code that does them, so a check
-or a step added to the real run is missed by the dry run unless someone remembers it. Found in
-`land::run` while moving it out of `commit` in **feat: vc-x1 land**, whose dry run skipped the
-conflict check, and fixed there.
-
-- Each brought to the form `land::run` has: every check in both modes, and each step its line and
-  then the step behind `if !dry`, no early return. A step that depends on a result a dry run does
-  not make says it from the planned value and calls nothing.
-- Takes **commit's dry run reports the push as the advance leaves it** with it, the same fault.
-
-### agent-files(proposal): dry runs interleave
-
-(wink + agent, 2026-10-26) The dry-run form, wink's call over plan-then-run (2026-10-26), is a
-convention of this codebase written nowhere, so a new command's dry run is shaped by taste. A
-proposal adds it to `agent-data/code.md`:
-
-- Checks never depend on the dry run, so it refuses what the real run refuses.
-- Each change to a repo or remote sits under its own line, `if !dry { ... }`, so a step added
-  brings its dry-run line, and no `if dry { ...; return }` precedes the steps.
-- Why interleaving rather than a plan of steps run or printed: `sync` and `commit` decide later
-  steps from earlier results, which a plan made up front would have to simulate, and one form
-  everywhere outweighs a neater one in `land` alone.
-
 ### docs: each command's -s help names the scopes it takes
 
 (wink + agent, 2026-10-26) Every command's `--scope` help writes the scopes out, `w|work`,
@@ -469,39 +262,10 @@ refused.
 - `tests/cli_complete.rs` still offers each command's scopes, since the values are hidden from
   help alone.
 
-### commit --closing reads the nearest opening's title
+### A cycle should dogfood its own changes continuously
 
-(wink + agent, 2026-10-26) Without `--title`, `commit --closing` takes the cycle title from the
-opening above the trunk, and with cycles stacked on one line it reads the oldest: the closing of
-**feat: vc-x1 land** came out as **feat: vc-x1 commit takes a revision closing**, the stack's first
-cycle, and was made with `--title`.
-
-- The opening read is the nearest below the tip, the cycle's own, so a stack closes its top cycle.
-- A test closes a stack of two cycles without `--title`.
-
-### commit --closing merges onto the cycle's base when it was opened above the trunk
-
-(wink + agent, 2026-10-26) `commit --closing` merges the trunk with the tip, so a cycle opened
-above the trunk, on an unlanded series as **feat: vc-x1 land** was, gets a closing whose first
-parent is the trunk, and the cycles below it leave `main`'s first parents for the second parent's
-ladder. That closing was re-parented by hand onto the fix commit its opening sat on.
-
-- The first parent is the opening's parent, where the cycle's bookmark was created, when that
-  descends from the trunk, and the trunk otherwise, so `git log --first-parent` reads one commit
-  per cycle.
-- A test closes a cycle opened above an unlanded one and checks both parents.
-
-### agent-files(proposal): a cycle is made by its own build
-
-(wink + agent, 2026-10-26) A cycle's rungs are committed by the installed `vc-x1`, which has none
-of the cycle's code, so a change to `commit`, `push`, or `land` is tested by its unit tests alone
-until it lands. **feat: vc-x1 land** found it at its closing, every rung made by `0.85.9`.
-
-- A rung is committed by the cycle's build, the dev build installed after the rung before.
-- The closing is made by a bootstrap, the release build of the working copy off the PATH, and the
-  Land by the candidate, the committed closing's release build off the PATH, which then installs
-  itself, `cmp` showing the binary tested is the one installed.
-- The rules' Land and Close-out name the sequence, beside the README's `land` section.
+(wink + agent, 2026-10-26) Every rung on a cycle should use `vc-x1-dev` for all operations that
+aren't broken.
 
 ### agent-files(proposal): v0.3.1
 
@@ -853,6 +617,26 @@ Land also installs and assumes `main`, so a reader of either takes the word to m
 does. Installing only from the trunk keeps the rule above, that the plain `vc-x1` is replaced only
 by what is on the trunk.
 
+#### Scratch files have a durable sibling
+
+Wink's (2026-11-02). Where a thing goes is decided by whether it can be reproduced:
+
+- `tmp/`: disposable, cleared at any time.
+- `tmp-durable/`, gitignored beside it: what we would rather not lose and can reproduce, the index of
+  **lookup builds an index that correlates the two repos** being the example.
+- `notes/`: what must last, committed and pushed. It holds no pointer into `tmp-durable/`.
+- Code set aside: a jj commit with a local bookmark, so either of us can address it, never a patch
+  file. Unplanned work's "sets those edits aside as a patch" changes to this, and the bookmark is not
+  pushed.
+- Working practices' Scratch files says so, and the set's `.gitignore` guidance gains the line.
+
+##### Why: a durable sibling
+
+`rm ./tmp/*`, wink's cleanup, took two set-aside patches a continuation note still named, we think on
+2026-10-30, and another took three trial scripts on 2026-11-02. A commit survives a cleanup and rebases
+with the work, where a patch's context moves. An index costs a rebuild to lose, so it stays out of
+`tmp/`, and being reproducible it needs no commit.
+
 #### Not in it
 
 Each run on its own:
@@ -861,6 +645,277 @@ Each run on its own:
   out of TODO.md into zDOING.md**.
 - A rung inserted before pushed rungs: a `jj.md` recipe, once **lookup is tested on a reordered
   ladder** has its results.
+
+### lookup builds an index that correlates the two repos
+
+(wink + agent, 2026-11-02) The hypothesis, wink's: with an index, one agent commit per cycle and one
+per rung make no difference to correlating the two repos, so `lookup` builds the index in
+`<path>/agent-repo-indexes/`, and it is tested with no UI. A lookup from a transcript line today
+returns every work commit its agent commit names, 12 commits and 6,372 lines of output for line 1200
+of `520a2a50-1afc-4282-a824-bc78c27b7cc5.jsonl`.
+
+- What it maps: transcript spans to work commits, not agent commits to work commits.
+- The evidence, strongest first:
+  - the trailers, when they resolve
+  - the commit calls in the transcript, for rung boundaries
+  - the content each `Write` and `Edit` put into a file, matched against each commit's lines
+  - time, last, since a Land rewrites committer time and we think only author time holds
+- What it is: durable and rebuildable, wink's (2026-11-02). It survives a cleanup, since we think a
+  rebuild is costly, and it is never the source of truth, so losing it costs only the rebuild.
+  Transcripts only grow, so we think it updates incrementally.
+- Staleness: it records what it was built from, so a stale entry is noticed and rebuilt, never served.
+- Where it lives: `tmp-durable/agent-repo-indexes/`, the agent's, to confirm, so `<path>` is
+  `tmp-durable`. Anything inside the agent-repo's tree gets committed with the session, so not there.
+  A workspace's own directory rather than a per-user cache, since each index belongs to one workspace.
+- What a rebuild costs is measured by this entry's test, as is the index's size.
+- The rung boundaries are not a plain search. All 12 of **feat: improve trailers**'s commit calls are
+  in its transcript, among dry runs, retries, a removed first closing at line 3897, an opening under
+  its old title, and one inside a compound command at line 4145. A commit run outside the session,
+  as that cycle's `land --push` was, is not in the transcript at all.
+- The test, on real cycles:
+  - A cycle committed per rung is the ground truth: build its index with its trailers ignored and
+    compare each span's work commit with what the trailer says, **feat: build, install, and run take
+    --profile** one candidate.
+  - **feat: improve trailers**, one agent commit for 12 work commits, then gets the same queries, and
+    each answer is checked against its rung's diff.
+  - A count of wrong, ambiguous, and missing answers is the result, and it says whether the
+    hypothesis holds.
+- Outside the hypothesis: an index does not change what one agent commit means for durability, since
+  a cycle's transcript and rungs still sit on one machine until the Land.
+- What it unblocks: the TUI or GUI, wink's thinking (2026-11-02), at least two windows, the work and
+  the agent, each linear and correlated by this index, with links that cross where the conversation's
+  order and the commits' order differ. Related:
+  - **lookup matches a line to its write by content** in `## Waiting`, whose matching is the third
+    layer here, its fuzzy matching and privacy questions still open
+  - **lookup --history steps a region through the commits that changed it**
+  - **Chores retire into a session index (post-viewer)**
+
+### An agent commit mid-cycle backs up the transcript
+
+(wink + agent, 2026-11-02) A local cycle's transcript sits on one machine until the agent commit, and
+pushing the work bookmark backs up only the rungs. Any mix of work and agent commits is now valid, so
+the agent repo can be committed and pushed mid-cycle, each commit one more group of the relation.
+
+- `land` and the seal stop assuming one agent `@` for a cycle.
+- A rung a published agent commit names may later be squashed or dropped, and that commit keeps naming
+  a change that is gone. `validate-desc` already reports such an id as `lost`, and when that is
+  accepted and when it is a fault is to be decided.
+- We think it is a flag on `commit -s a`, or a command of its own, and it needs the approval any push
+  takes.
+
+### commit writes every mix of work and agent commits
+
+(wink + agent, 2026-11-02) **feat: close, land, and push compose with testing** teaches the readers and
+validators any N:M mix and leaves `commit` writing 1:1 pairs and N:1 cycles. A work commit naming
+several agent commits needs a way to be written, for a rung that outlives an agent commit.
+
+- A link added after a work commit is on the release line can only be one-way, the agent commit naming
+  the work commit, since that commit is no longer edited. The fallback for carrying the agent commit's
+  SHA is then the next work commit.
+
+### validate takes any profile
+
+(wink, 2026-11-02) The user tests between close, land, and push, and that test may be `validate` under
+any profile, where `[validate]` has only `full` and `fast`, neither tied to a profile. Wink's model of
+the other half: install under any profile, named by `profile.<name>.suffix`. That is the opposite of
+**install has a role and a profile**, which moves `suffix` out of `[profile.*]`, so that entry is to be
+retired or rewritten.
+
+### The exit code says what failed
+
+(wink, 2026-10-30) `vc-x1 <...>`'s exit code should indicate what failed as precisely as possible.
+Today nearly every failure exits 1 by the runner's Ok-or-1 mapping, clap's usage errors 2, and only
+`agent-files diff` returns a code of its own.
+
+- A documented table, stable once published, with an error type that carries its code, so a command
+  returns one by what happened and not by a string. The message stays the explanation, and the code
+  is for what acts on the result: a script, a hook, an actor's reply, an agent.
+- What the code most needs to say, a first cut:
+  - which step of a composed command failed, so `land -s b` says the agent closing, the work closing,
+    the agent push, or the work push, and a retry knows what was done
+  - refused before anything moved, as against failed partway
+  - a guard `--yes` would pass, as against an error it would not
+  - a push rejected by a lease, as against the network.
+- The shape, wink's (2026-10-30): read in hex, the upper digit is the stage, broader, and the lower
+  digit the type, narrower.
+  - The upper digit runs 0 to 7, since the shell owns 0x7E and up: 126, 127, and 128 plus a signal.
+    So a set top bit always means killed, never one of ours.
+  - Stage 0 is before anything moved, so `refused` needs no type of its own and today's 1 and clap's
+    2 keep their meanings. Stages are a command's own, `land -s b`'s being the agent closing, the
+    work closing, the agent push, the work push, and so on, and each is documented with it.
+  - Types are global, the same digit meaning the same thing in every command: a guard `--yes` would
+    pass, a rejected lease, the network, a conflict. A lower digit of 0 is unspecified.
+- Open: **status prints a verdict per repo and exits with a bit per side** uses 1, 2, and 3 for a
+  verdict, which collides with stage 0's types, so one of the two moves. Eight stages may be short
+  for a long composed command.
+
+### bookmark takes create, delete, and move
+
+(wink + agent, 2026-10-30) `move-bookmark` and `delete-bookmark` become `vc-x1 bookmark
+create|delete|move`, and `commit --no-advance` becomes `--no-move`, the same word as the command.
+
+- Subcommands and not flags: each verb takes different options, so each gets help of its own and clap
+  refuses what does not apply. It matches `jj bookmark`, **Nest the validate and fix commands**, and
+  `agent-files copy|diff`. "Every argument is a flag" binds a command's arguments, not its verbs.
+- The retired names are refused, naming the new ones, as the retired flags are.
+- Only push publishes, in **agent-files(proposal): v0.3.1**: the verbs are local, so `delete` stops
+  removing the bookmark on `origin` and the remote side takes `--push`. `move-bookmark` is to be
+  checked for the same. This answers a Land's deletion of a published bookmark.
+
+### install has a role and a profile
+
+(wink + agent, 2026-10-30) `[profile.dev]` holds both how a binary is built and what it is installed
+as, so `vc-x1-dev` reads as the `dev` profile. Wink's model: they are two choices. The profile is how
+it is compiled, `target/<profile>/<name>`, the name from `Cargo.toml`. The role is what it is: bare
+`vc-x1` the released version and `vc-x1-dev` the development version, either from any profile.
+`build` and `run` take a profile alone, and `install` alone has a role. Historically the install was
+`cargo install --path . --locked`, sometimes with `--root` and a copy, before profiles existed.
+
+A proposal, the agent's, wink's to try (2026-10-30):
+
+- `[role.released]`, `default-profile = "release"`, and `[role.development]`, `suffix = "-dev"` and
+  `default-profile = "dev"`. `suffix` leaves `[profile.*]`, and `[install] commands` says
+  `{role.suffix}`.
+- `install --as released|development`, the default the running binary's role by its name, so
+  `vc-x1-dev install` stays development, and `--profile` overrides the role's default.
+- A released install refuses a dirty build, a commit not on `main`, and a suffixed version unless
+  `--force`, where today it only reports them. A development install reports them.
+- The copy stays configured: `[install] commands` holds `cp {profile.bin}` and `mv`, or a project may
+  list `cargo install --path . --locked --profile {profile.cargo} --root <dir>` and copy from
+  `<dir>/bin`, which needs no path rule and, by cargo's help, shares the workspace's target directory.
+  `bin` stays either way, since `run` needs it and `[build] commands` is not cargo-specific.
+- A config with `suffix` under a profile is refused naming the move, or read as the role's for a
+  while. Open.
+
+### desc takes a title, body, and trailers
+
+(wink + agent, 2026-10-30) Overwriting a commit's description takes three commands and leaves gaps:
+`squash --title --body` on `@-` alone, needing both and folding `@`, `fix-desc --title` with no body
+and only on a commit whose `ochid:` has an issue, and a hand-run `jj describe` for a trailer or a title. Wink's: `vc-x1 desc` gains optional `--title`, `--body`,
+`--ochid`, and `--ocid`, in any combination, what is left out kept. With none it reads as it does
+today. The agent's, to be agreed:
+
+- A write requires `-r`, one commit in one repo, so a default of `@` or a range writes nothing by
+  accident, and `-s both` is refused, each repo's trailers being its own.
+- `--ochid` repeats and replaces every `ochid:` line, since a Land's agent commit carries several, and
+  `--ocid ""` removes the line.
+- Only the description changes, nothing folds, and the tree is checked unchanged.
+- A published commit is refused unless `--yes`, and `--dry-run` prints the result.
+- `squash --title --body` and `fix-desc --title` then retire, and `commit -r`'s refusal names `desc`.
+
+### abandon and revert set a mistake aside
+
+(wink + agent, 2026-10-29) The dead end of **feat: undo takes back the last vc-x1 run**: what the
+agent made, or a trailer names, is never deleted, so a mistake is set aside going forward rather
+than taken back.
+
+- Abandon: a line's tail is kept under a permanent `dead-end-<id>` bookmark, pushed so every
+  `ochid:` still resolves, the cycle's bookmark moved back to the chosen commit with a leased push,
+  and a `commit -s b` on top saying what was dropped and why. The `<id>` sorts by time.
+- Revert: a change in the middle is taken back by a new commit at the tip applying its inverse,
+  never by removing it and rebasing what followed, which rewrites published commits into trees no
+  validation saw.
+- Draft lines only: nothing on the trunk's remote is abandoned or reverted by these, the trunk
+  fixed forward by a new cycle, and a bad release marked rather than renamed.
+- The agent-repo is never rewound while the agent runs. After `/exit` a rewind is possible, and it
+  truncates the transcript, so it is a deliberate act, never a side effect.
+- Work only a person touched and nothing references is theirs, raw `jj undo` included.
+- Open: the name, `dead-end-<id>` beside the dead-end closing's own term, the `<id>`'s form, and
+  whether abandon discards when nothing references the tail.
+- **squash-push shows what it takes, and push follows jj** leaned on undo, its "local acts are not
+  refused, since undo takes them back", and is to be reread against this.
+
+### vc-x1 is an actor
+
+(wink + agent, 2026-10-30) `vc-x1` becomes a service the user installs, and a client sends it
+asynchronous messages. From **feat: improve trailers**, where a Land is to run after the agent
+goes quiet, so the transcript it commits is whole: first as a detached process, wink's technique
+from the olden days, and then as a message to the actor.
+
+- Its lifetime is the user's: the service is installed, started, and restarted by them, systemd or
+  the like, and no agent manages it.
+- One actor handles one message at a time, so writes through it queue rather than collide. Raw `jj`
+  never goes through it, so that stays a rule.
+- A reply is the outcome, so "land finished or failed" has a defined form and place. A reply does not
+  wake the agent, since waking it writes to the transcript the Land is waiting to go quiet.
+- The client:
+  - no service running fails at once and says so, rather than queueing a message nothing reads
+  - client and service compare versions and report a mismatch, since a Land installs a new binary
+    and a running service keeps the old code until restarted
+  - the Land stays an ordinary function, so it runs in the foreground with no service.
+- Authority: any local process can send a message, so the user's go still comes through the agent and
+  the rules.
+- What a finished Land can start, by another message:
+  - an agent that checks `main` in both repos, the deleted bookmarks, and the installed version,
+    read-only and outside the dual-repo protocol
+  - a restart of the agent for the next step, automating [Close-out](AGENTS.md#close-out) step 7,
+    which begins with an acquaint and inherits no approval, so a restart is no unattended chain of
+    pushes.
+- Open: the transport, we think a file mailbox in a gitignored directory, which survives a crash and
+  works on every platform **vc-x1 runs on Windows and macOS** names.
+
+### squash takes --include
+
+(wink + agent, 2026-10-24, from **squash takes paths**, reshaped 2026-10-28) `squash -s w` folds all
+of the work `@` into `@-`, so folding one file's change while `@` holds the next rung's edits means
+`jj squash <path>` typed, or the edits parked first. Filed from the live testing of **feat: vc-x1
+closing and land**. After **feat: undo takes back the last vc-x1 run**, which its testing uses, and
+**squash-push shows what it takes, and push follows jj**, which frees `--yes`, wink's order
+(2026-10-28). The rest of the selection is **squash and commit take --exclude**.
+
+- Selection: `--include <path>`, repeatable, a file or everything under a directory, absolute or
+  relative to the current directory. What is not included stays in `@`.
+- A path's repo is the innermost repo of the pair holding it, so one list may mix work and agent
+  files.
+  - The repo must agree with `-s`, a mismatch refused naming the scope that takes it.
+  - A path in neither repo is refused. Content not yet in the tree comes in first by **import
+    brings content into the tree**.
+- A path matching nothing in `@` is warned about, by name, which catches a typo.
+- Approval by default: squash lists what folds and what stays, grouped by repo, each file with its
+  status and `+n -m`, and asks. `--yes` folds without asking.
+  - The mechanism is squash-push's: `--ask` and `--yes`, a config default, `squash.yes` false where
+    `squash-push.yes` is true, a non-terminal stdin and a declined prompt each an error.
+  - With no terminal, nothing changes and the exit names `--yes`, so the agent shows the list and
+    reruns on the user's go. A code of its own for "needs approval", apart from a failure, is open.
+  - The approval is of paths, not content. The agent `@` grows with the session between the list
+    and the rerun, so the folded list is printed again after the fold.
+- A squash without `--include` folds all of `@` without asking, as today.
+- Open: the folded `@-` is a tree no validation ran on, since validation runs on the working copy.
+  Until a revision can be validated, a fold by paths before a push needs `@-` checked.
+
+### sync says one repo when the work @ is dirty
+
+(agent, 2026-10-25) `vc-x1 sync -s b` with uncommitted changes in the work `@` prints the work
+repo's lines and then "1 repo is up to date, nothing to sync", the agent repo unmentioned, where
+`--dry-run` at the same state reports both. Seen at the Land of **feat: vc-x1 closing and land**
+and reproduced at the opening sync of **feat: vc-x1 commit takes a revision**. Whether the agent
+repo was checked and only its line dropped, or was skipped, is the first thing to find.
+
+### Dry runs interleave: commit, push, and sync
+
+(wink + agent, 2026-10-26) `commit`, `push`, `sync`, and `squash-push` each run their dry run as a
+branch of its own, an `if dry` that says the steps apart from the code that does them, so a check
+or a step added to the real run is missed by the dry run unless someone remembers it. Found in
+`land::run` while moving it out of `commit` in **feat: vc-x1 land**, whose dry run skipped the
+conflict check, and fixed there.
+
+- Each brought to the form `land::run` has: every check in both modes, and each step its line and
+  then the step behind `if !dry`, no early return. A step that depends on a result a dry run does
+  not make says it from the planned value and calls nothing.
+- Takes **commit's dry run reports the push as the advance leaves it** with it, the same fault.
+
+### agent-files(proposal): dry runs interleave
+
+(wink + agent, 2026-10-26) The dry-run form, wink's call over plan-then-run (2026-10-26), is a
+convention of this codebase written nowhere, so a new command's dry run is shaped by taste. A
+proposal adds it to `agent-data/code.md`:
+
+- Checks never depend on the dry run, so it refuses what the real run refuses.
+- Each change to a repo or remote sits under its own line, `if !dry { ... }`, so a step added
+  brings its dry-run line, and no `if dry { ...; return }` precedes the steps.
+- Why interleaving rather than a plan of steps run or printed: `sync` and `commit` decide later
+  steps from earlier results, which a plan made up front would have to simulate, and one form
+  everywhere outweighs a neater one in `land` alone.
 
 ### squash and commit take --exclude
 
