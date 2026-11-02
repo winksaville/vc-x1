@@ -291,6 +291,36 @@ fn parse_use_template_empty_bot_falls_back_to_default() {
     assert_eq!(b, PathBuf::from("/a/work.claude"));
 }
 
+/// Both paths expand `~`, since a shell leaves the one after the comma
+/// as typed.
+#[test]
+fn parse_use_template_expands_both_paths() {
+    let home = std::env::var("HOME").expect("HOME is set");
+    let (w, a) = parse_use_template("~/t/work,~/t/agent").unwrap();
+    assert_eq!(w, PathBuf::from(format!("{home}/t/work")));
+    assert_eq!(a, PathBuf::from(format!("{home}/t/agent")));
+}
+
+/// A lone path holding `work/` and `agent/` names both, and one that
+/// does not keeps the sibling default.
+#[test]
+fn parse_use_template_takes_a_root() {
+    let base = tmp_root("template-root");
+    std::fs::create_dir_all(base.join("work")).unwrap();
+    std::fs::create_dir_all(base.join("agent")).unwrap();
+    let root = base.to_string_lossy().into_owned();
+
+    let (w, a) = parse_use_template(&root).unwrap();
+    assert_eq!(w, base.join("work"));
+    assert_eq!(a, base.join("agent"));
+
+    let (w, a) = parse_use_template(&format!("{root}/work")).unwrap();
+    assert_eq!(w, base.join("work"));
+    assert_eq!(a, base.join("work.claude"));
+
+    let _ = std::fs::remove_dir_all(&base);
+}
+
 #[test]
 fn parse_use_template_empty_work_errors() {
     assert!(parse_use_template("").is_err());
@@ -641,6 +671,7 @@ fn args_for(target: &str) -> InitArgs {
     InitArgs {
         retired: vec![],
         target: Some(target.to_string()),
+        test_repo: None,
         name: None,
         account: AccountOption::default(),
         repo: RepoOption::default(),
@@ -1920,6 +1951,156 @@ fn config_none_passes_preflight() {
     args.config.value = Some("none".to_string());
     plan_init(&InitParams::from(&args), &cfg_empty())
         .expect("--config none with --scope=por should pass preflight");
+}
+
+/// `--test-repo` names the directory of `--target`'s remotes, each
+/// named by the repo, and a trailing slash does not move them. It
+/// makes the symlink a session there needs.
+#[test]
+fn a_test_repo_names_its_remotes_by_the_repo() {
+    for remotes in ["/t/remotes", "/t/remotes/"] {
+        let mut args = args_for("/t/one");
+        args.test_repo = Some(remotes.to_string());
+        let params = InitParams::from(&args);
+        assert!(params.create_symlink);
+        let plan = plan_init(&params, &cfg_empty()).unwrap();
+        assert_eq!(plan.project_dir, PathBuf::from("/t/one"));
+        assert_eq!(plan.name, "one");
+        assert_eq!(plan.provisioner, Provisioner::LocalBareInit);
+        assert_eq!(
+            plan.work_bare_path,
+            Some(PathBuf::from("/t/remotes/one.git"))
+        );
+        assert_eq!(
+            plan.agent.unwrap().bare_path,
+            Some(PathBuf::from("/t/remotes/one.agent-session.git"))
+        );
+    }
+}
+
+/// A slashed relative `--test-repo` is a path, where `--target` finds
+/// it ambiguous, and the remotes' path holds no `.` component.
+#[test]
+fn a_slashed_test_repo_is_a_path() {
+    use crate::subcommand::SubcommandRunner;
+
+    let cwd = std::env::current_dir().unwrap();
+    for remotes in ["tmp-durable/remotes", "./tmp-durable/remotes"] {
+        let mut args = args_for("./tmp-durable/wt1");
+        args.test_repo = Some(remotes.to_string());
+        let params = args.to_params().unwrap();
+        let plan = plan_init(&params, &cfg_empty()).unwrap();
+        assert_eq!(plan.project_dir, cwd.join("tmp-durable/wt1"));
+        assert_eq!(plan.name, "wt1");
+        assert_eq!(
+            plan.work_bare_path,
+            Some(cwd.join("tmp-durable/remotes/wt1.git"))
+        );
+    }
+}
+
+/// Two test repos share one remotes directory, each pushed to its own
+/// remotes, which `init` creates though the directory does not exist
+/// yet, and a third of a name already there is refused.
+#[test]
+fn test_repos_share_a_remotes_directory() {
+    let base = tmp_root("test-repos");
+    let remotes = base.join("remotes");
+    let ctx = Context::load().expect("load user config");
+    let test_repo = |workspace: &str, name: &str| {
+        let mut args = args_for(&base.join(workspace).join(name).to_string_lossy());
+        args.provision.dry_run.value = false;
+        args.test_repo = Some(remotes.to_string_lossy().into_owned());
+        let mut params = InitParams::from(&args);
+        params.create_symlink = false;
+        init(&ctx, &params)
+    };
+    for name in ["one", "two"] {
+        test_repo("wt", name).expect("init --test-repo");
+        for bare in [format!("{name}.git"), format!("{name}.agent-session.git")] {
+            assert!(
+                remotes.join(&bare).join("packed-refs").exists()
+                    || remotes.join(&bare).join("refs/heads/main").exists(),
+                "{name}: {bare} holds main"
+            );
+        }
+        let config =
+            std::fs::read_to_string(base.join("wt").join(name).join(".git/config")).unwrap();
+        assert!(
+            config.contains(&format!("remotes/{name}.git")),
+            "{name}: {config}"
+        );
+    }
+    let err = test_repo("other", "one").unwrap_err().to_string();
+    assert!(err.contains("already exists"), "{err}");
+    assert!(
+        !base.join("other/one").exists(),
+        "refused before the workspace"
+    );
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+/// `--test-repo` takes `--target` beside it, never in its place, and
+/// a plain init's params keep their symlink.
+#[test]
+fn a_test_repo_takes_a_target() {
+    let cli = Cli::try_parse_from([
+        "vc-x1",
+        "init",
+        "--test-repo",
+        "./remotes",
+        "--target",
+        "./wt4",
+    ])
+    .unwrap();
+    let Some(Commands::Init(args)) = cli.command else {
+        panic!("expected init");
+    };
+    assert_eq!(args.test_repo.as_deref(), Some("./remotes"));
+    assert_eq!(args.target.as_deref(), Some("./wt4"));
+    assert!(Cli::try_parse_from(["vc-x1", "init", "--test-repo", "./remotes"]).is_err());
+    assert!(Cli::try_parse_from(["vc-x1", "init"]).is_err());
+    assert!(InitParams::from(&args_for("./tmp/one")).create_symlink);
+}
+
+/// What names a remote, an existing directory, or a publish is refused
+/// with `--test-repo`, and so is a URL, as its value or the target's.
+#[test]
+fn a_test_repo_refuses_what_it_cannot_mean() {
+    use crate::subcommand::SubcommandRunner;
+
+    let test_repo = |set: fn(&mut InitArgs)| {
+        let mut args = args_for("./tmp/one");
+        args.test_repo = Some("./tmp/remotes".to_string());
+        set(&mut args);
+        args.to_params().err()
+    };
+    assert!(test_repo(|_| {}).is_none());
+    for (flag, set) in [
+        (
+            "--name",
+            (|a| a.name = Some("x".into())) as fn(&mut InitArgs),
+        ),
+        ("--account", |a| a.account.value = Some("x".into())),
+        ("--repo", |a| {
+            a.repo.value = Some(RepoSelector {
+                category: "local".into(),
+                value: Some("/t".into()),
+            })
+        }),
+        ("--adopt", |a| a.adopt = true),
+        ("--private", |a| a.provision.private.value = true),
+    ] {
+        let err = test_repo(set).expect(flag);
+        assert!(err.starts_with(flag), "{flag}: {err}");
+    }
+    let url = test_repo(|a| a.test_repo = Some("https://github.com/o/n".into())).unwrap();
+    assert!(url.contains("is a URL"), "{url}");
+    let url = test_repo(|a| a.target = Some("https://github.com/o/n".into())).unwrap();
+    assert!(
+        url.starts_with("--target") && url.contains("is a URL"),
+        "{url}"
+    );
 }
 
 // ---------- Dual end-to-end fixture (drives init with --scope=work,bot) ----------

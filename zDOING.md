@@ -34,6 +34,41 @@ Kept at the acquaint of 2026-11-02:
   scope, and --local keeps it on the machine**. They are gone from `tmp/`, and each `Write` of them is in
   that session's transcript, the last at lines 698, 716, and 742.
 
+Left at the end of 2026-11-02:
+
+- The rung **feat: init --test-repo makes a test repo** is `(current)` and uncommitted, held while
+  wink tests. Tests t2 and t3 in `~/tmp` passed with `--use-template` taking a root and expanding
+  `~` after the comma. On wink's go: a full `vc-x1-dev validate`, since it may not have run after
+  the last edit, then flip, describe, `vc-x1-dev commit -s w --no-push`, and install dev.
+- The next rung, agreed in thoughts and not yet in the ladder: `init` initializes a dual repo for
+  any language and never duplicates one.
+  - `--agent-files <PATH>` replaces `--use-template`, and the comma form, the root form, and the
+    `<work>.claude` default go. The path may be a working repo such as `vc-x1`, and only its
+    committed agent-files are copied, the set `vc-x1 agent-files copy` copies. Never `TODO.md`,
+    source, or transcripts.
+  - `init` writes the neutral starting files itself, a blank `TODO.md` and `CLAUDE.md`, and a
+    `.gitignore` that lists `tmp-durable` (check `tmp` too).
+  - `[project] name` and a `{project.name}` placeholder, filled in `[profile.*] bin` as well as in
+    command lists, so `vc-x1`'s `[install]` names no project. A table, not a top-level key, since
+    the config's blocks are concatenated.
+  - `init` writes `[project]`, `[repos]`, and `[remote]` only. The language tables (`[validate]`,
+    `[build]`, `[install]`, `[profile.*]`) copy only on a flag, its name unsettled. `[family]`,
+    `[record]`, `[test]`, and `[closing]` are never copied, being wink's own setup.
+  - `commit --closing` gets a built-in default body, `Closes the cycle "{title}".`, for a config
+    with no `[closing] body`.
+  - Unchecked: what `src/test_helpers.rs` does with no `[test] fixtures`, and `agent-files diff`
+    and `copy` with no `[family]`.
+- wink's own setup is a script around a neutral `vc-x1`: `init`, copy `custom.md`, append a config
+  fragment, `vc-x1 validate-config`, then `vc-x1 commit`. It needs no `--no-push` (wink's
+  correction), since the commit fast-forwards what `init` pushed. An `[init]` table in the user
+  config stays only an idea, for if the script grows awkward.
+- Todos to file, all after v0.3.1: retire `vc-x1-template` and base `init` on existing repos (a
+  rule change to Terminology, **Changing the agent-files**, and `family.template`, and its deletion
+  is wink's go after checking which siblings name it); `.fixtures` moves to `tmp-durable/fixtures`;
+  URL sources for `--agent-files`. For the v0.3.1 proposal itself: the 27 lines of the agent-files
+  naming Rust or cargo get a read for which are only examples. `vc-x1-template-2` shrinks to the
+  rules once the next rung lands.
+
 ## In Progress
 
 ### feat: close, land, and push compose with testing
@@ -231,16 +266,18 @@ By `vc-x1-dev`, on repos made by `init --test-repo <path>/<repo-name>`, in a tab
 Provisional, the rungs after the opening named as the work is understood:
 
 - [feat: close, land, and push compose with testing opening][0] (done)
-- [feat: init --test-repo makes a test repo][1]
-- [feat: the readers take any mix of ochid and ocid][2]
-- [feat: ocid is real only when the agent commit came first][3]
-- [fix: commit --closing reads the nearest opening and keeps the cycle's base][4]
-- [feat: land takes @- and the work scope by default][5]
-- [feat: a push to a release bookmark seals the cycle][6]
-- [fix: testing leaves a cycle able to continue][7]
-- [feat: close, land, and push say where the cycle stands][8]
-- [docs: the rules and README name the three steps][9]
-- [feat: close, land, and push compose with testing closing][10]
+- [feat: init --test-repo makes a test repo][1] (done)
+- [feat: init drops --use-template][2]
+- [feat: a test repo converts an existing repo][3]
+- [feat: the readers take any mix of ochid and ocid][4]
+- [feat: ocid is real only when the agent commit came first][5]
+- [fix: commit --closing reads the nearest opening and keeps the cycle's base][6]
+- [feat: land takes @- and the work scope by default][7]
+- [feat: a push to a release bookmark seals the cycle][8]
+- [fix: testing leaves a cycle able to continue][9]
+- [feat: close, land, and push say where the cycle stands][10]
+- [docs: the rules and README name the three steps][11]
+- [feat: close, land, and push compose with testing closing][12]
 
 ##### feat: close, land, and push compose with testing opening
 
@@ -251,9 +288,50 @@ sets aside, filed. `tmp-durable/` is gitignored here, and its rule and the jj se
 
 ##### feat: init --test-repo makes a test repo
 
-The sequence has no safe place to run. `init --test-repo <path>/<repo-name>` makes a dual workspace with
-local bare remotes, the existing `--repo local=<parent>` under a shorter name, and first it runs the
-sequence as it stands, to see what already composes.
+The sequence has no safe place to run. `init --test-repo <REMOTES> --target <path>` makes a dual
+workspace whose bare remotes are in REMOTES, named by the repo, `<name>.git` and
+`<name>.agent-session.git`, so many test repos share one REMOTES apart from their workspaces, wink's
+(2026-11-03). It first made the workspace at its value with the remotes beside it in `PATH.remotes`,
+and `--repo local`'s fixed `remote-work.git` names would collide in a shared directory, so those stay
+`--repo local`'s alone. It makes the `~/.claude/projects` symlink as any `init` does, wink's catch
+(2026-11-02), since a session in a test repo needs it for its transcript to reach the agent repo, the
+cost a dangling link once a test repo is deleted. REMOTES is always a path, so `tmp/remotes` needs no
+`./`, wink's first try finding that too. It found `--repo local` could not make a parent that does not
+hold the workspace, despite the code saying so, and that is fixed. Seeding one by hand found two more,
+wink's (2026-11-02): `~` after `--use-template`'s comma reached `init` unexpanded, the shell expanding
+it only at a word's start, and the two long paths left no completion for the second. Each path now
+expands itself, and a lone path holding `work/` and `agent/` names both.
+
+Today's sequence, run on one by `vc-x1-dev`, so the rungs below start from what was seen:
+
+- Composes already: rungs, a topic push with `xxxx`, a tweak folded into the closing by `squash`, its
+  `pcid:` lines still right, and a second clone of a test repo's remotes.
+- A second close stacks a second merge on the first, 3 commits above the trunk, rather than remaking it.
+  For the `commit --closing` rung.
+- A fresh workspace cannot close without `--body`, having no `[closing] body`, and cannot `validate`,
+  having no `[validate]`. For the same rung and the testing rung.
+- `land` lands a rung with no closing, leaving `main` titled for that rung, and takes a dirty `@` with no
+  word. For the land rung.
+- After a topic push, `land` warns of the first commit going stale and not the others, and the topic stays
+  on `origin`. For the rung that says where the cycle stands.
+- `commit` and `squash` end by naming `vc-x1 show -s work @-`, which `show` refuses, its positional being
+  retired. The same rung.
+
+##### feat: init drops --use-template
+
+`init --use-template` seeds a workspace from template directories, which a script outside vc-x1 does
+instead, wink's call (2026-11-03), as **vc-dr-apply.sh applies a template to a dual workspace** in
+`TODO.md` sets out. The flag goes, with its option type, its tests, and the README's word on it, and
+`init` makes a bare dual workspace. Whether `init --adopt` touches an existing `.gitignore` or
+`README.md` is checked against that Todo's overwrite rule.
+
+##### feat: a test repo converts an existing repo
+
+The likeliest real use of a template is converting an existing repo, and nothing rehearses it safely,
+since `--test-repo` refuses `--adopt`. `init --test-repo <REMOTES> --target <copy> --adopt` converts a
+copy of a repo with its remotes in REMOTES, wink's (2026-11-03). An adopted repo may already have an
+`origin` on GitHub, which would break "nothing leaves this machine", so what `--adopt` does with an
+existing `origin` is read first, and init refuses it or points it at REMOTES.
 
 ##### feat: the readers take any mix of ochid and ocid
 
@@ -310,12 +388,14 @@ Closing out the cycle.
 
 [0]: #feat-close-land-and-push-compose-with-testing-opening
 [1]: #feat-init---test-repo-makes-a-test-repo
-[2]: #feat-the-readers-take-any-mix-of-ochid-and-ocid
-[3]: #feat-ocid-is-real-only-when-the-agent-commit-came-first
-[4]: #fix-commit---closing-reads-the-nearest-opening-and-keeps-the-cycles-base
-[5]: #feat-land-takes---and-the-work-scope-by-default
-[6]: #feat-a-push-to-a-release-bookmark-seals-the-cycle
-[7]: #fix-testing-leaves-a-cycle-able-to-continue
-[8]: #feat-close-land-and-push-say-where-the-cycle-stands
-[9]: #docs-the-rules-and-readme-name-the-three-steps
-[10]: #feat-close-land-and-push-compose-with-testing-closing
+[2]: #feat-init-drops---use-template
+[3]: #feat-a-test-repo-converts-an-existing-repo
+[4]: #feat-the-readers-take-any-mix-of-ochid-and-ocid
+[5]: #feat-ocid-is-real-only-when-the-agent-commit-came-first
+[6]: #fix-commit---closing-reads-the-nearest-opening-and-keeps-the-cycles-base
+[7]: #feat-land-takes---and-the-work-scope-by-default
+[8]: #feat-a-push-to-a-release-bookmark-seals-the-cycle
+[9]: #fix-testing-leaves-a-cycle-able-to-continue
+[10]: #feat-close-land-and-push-say-where-the-cycle-stands
+[11]: #docs-the-rules-and-readme-name-the-three-steps
+[12]: #feat-close-land-and-push-compose-with-testing-closing

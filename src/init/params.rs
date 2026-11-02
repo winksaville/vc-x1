@@ -21,6 +21,8 @@ use crate::options_flags::push_retry::PushRetryOptions;
 /// - `name`: optional `--name` override.
 /// - `account`: `--account` value (None => default account chain).
 /// - `repo`: `--repo` value parsed into a `RepoSelector`.
+/// - `test_remotes`: `--test-repo`, the directory its bare remotes,
+///   named by the repo, go in, in place of the `--repo` chain.
 /// - `por`: `-s` resolved, `true` for `por`, a plain single repo,
 ///   `false` (default) for dual workspace.
 /// - `private`: `--private`.
@@ -28,7 +30,7 @@ use crate::options_flags::push_retry::PushRetryOptions;
 /// - `push_retry`: `--push-retries` / `--push-retry-delay`.
 /// - `use_template`: `--use-template` value.
 /// - `config`: resolved `--config` value (None => canned write).
-/// - `adopt`: `--adopt`, grow an existing target.
+/// - `adopt`: `--adopt`, convert an existing target.
 /// - `agent_dir`, `agent_repo`, `agent_suffix`: the `--agent-*`
 ///   flags, None meaning the default (dual only).
 /// - `create_symlink`: whether `init` should create the
@@ -39,6 +41,7 @@ pub struct InitParams {
     pub name: Option<String>,
     pub account: Option<String>,
     pub repo: Option<RepoSelector>,
+    pub test_remotes: Option<String>,
     pub por: bool,
     pub private: bool,
     pub dry_run: bool,
@@ -67,6 +70,7 @@ impl From<&InitArgs> for InitParams {
             name: a.name.clone(),
             account: a.account.value.clone(),
             repo: a.repo.value.clone(),
+            test_remotes: a.test_repo.clone(),
             por: a.por.is_por(),
             private: a.provision.private.value,
             dry_run: a.provision.dry_run.value,

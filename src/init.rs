@@ -56,6 +56,22 @@ pub struct InitArgs {
     )]
     pub target: Option<String>,
 
+    /// Make `--target` a throwaway test repo, its bare remotes in
+    /// REMOTES, so nothing leaves this machine.
+    ///
+    /// The remotes are named by the repo, `<name>.git` and
+    /// `<name>.agent-session.git`, so several test repos share one
+    /// REMOTES, and a name already there is refused. REMOTES is
+    /// always a path, so `tmp/remotes` needs no `./`. Not with a URL
+    /// `--target`, or what names a remote or an existing directory.
+    #[arg(
+        long = "test-repo",
+        value_name = "REMOTES",
+        value_hint = ValueHint::AnyPath,
+        verbatim_doc_comment
+    )]
+    pub test_repo: Option<String>,
+
     /// Repo directory name override (URL form only).
     ///
     /// - URL form: repo created at `cwd/<NAME>` instead of the
@@ -102,7 +118,7 @@ pub struct InitArgs {
     #[command(flatten)]
     pub config: ConfigOption,
 
-    /// Grow an existing TARGET into a dual workspace rather than
+    /// Convert an existing TARGET into a dual workspace rather than
     /// refuse it.
     ///
     /// TARGET may be a plain directory, a repo with no workspace
@@ -201,10 +217,14 @@ use crate::common::{mkdir_p, write_file};
 
 /// Parse the `--use-template` value into `(work, bot)` template paths.
 ///
-/// Format: `WORK[,BOT]`. If `BOT` is omitted, the default is the sibling
-/// directory whose name is `<WORK-basename>.claude` (via
-/// `Path::with_file_name`, so a trailing slash on `CODE` does not produce
-/// a different result).
+/// Format: `ROOT` or `WORK[,BOT]`. A lone path holding `work/` and
+/// `agent/` directories is a template's root, and names both. Otherwise,
+/// if `BOT` is omitted, the default is the sibling directory whose name
+/// is `<WORK-basename>.claude` (via `Path::with_file_name`, so a trailing
+/// slash on `CODE` does not produce a different result).
+///
+/// Each path expands `~` and `$VAR` here, since a shell expands `~` only
+/// at the start of a word, leaving the one after the comma as typed.
 pub(crate) fn parse_use_template(
     s: &str,
 ) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
@@ -215,9 +235,12 @@ pub(crate) fn parse_use_template(
     if work_trim.is_empty() {
         return Err("--use-template: work template path is empty".into());
     }
-    let work = PathBuf::from(work_trim);
+    let work = PathBuf::from(expand_vars(work_trim)?);
+    if bot_raw.is_none() && work.join("work").is_dir() && work.join("agent").is_dir() {
+        return Ok((work.join("work"), work.join("agent")));
+    }
     let bot = match bot_raw.map(str::trim) {
-        Some(b) if !b.is_empty() => PathBuf::from(b),
+        Some(b) if !b.is_empty() => PathBuf::from(expand_vars(b)?),
         _ => {
             let file_name = work.file_name().ok_or_else(|| {
                 format!(
@@ -830,12 +853,12 @@ pub(crate) fn normalize_local_parent(s: &str) -> Result<PathBuf, Box<dyn std::er
     }
     let expanded = expand_vars(s)?;
     let p = PathBuf::from(&expanded);
-    if p.is_absolute() {
-        Ok(p)
+    let abs = if p.is_absolute() {
+        p
     } else {
-        let cwd = std::env::current_dir()?;
-        Ok(cwd.join(p))
-    }
+        std::env::current_dir()?.join(p)
+    };
+    Ok(crate::common::normalize_path(&abs))
 }
 
 /// Append `.git` to a URL-or-path stem if not already present.
@@ -1159,6 +1182,9 @@ fn plan_from_chain(
     project_dir: PathBuf,
     cfg: &UserConfig,
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
+    if let Some(remotes) = &params.test_remotes {
+        return plan_local(scope, name, project_dir, remotes, BareNames::ByRepo);
+    }
     match config::resolve_repo(cfg, params.account.as_deref(), params.repo.as_ref()) {
         Ok((cat, val)) => plan_from_resolved(scope, name, project_dir, &cat, &val),
         Err(e) if params.adopt => {
@@ -1189,7 +1215,7 @@ fn plan_from_resolved(
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
     match category {
         "remote" => plan_remote(scope, name, project_dir, value),
-        "local" => plan_local(scope, name, project_dir, value),
+        "local" => plan_local(scope, name, project_dir, value, BareNames::Fixed),
         other => Err(format!(
             "--repo category '{other}' is not recognized: built-ins are 'remote' and 'local'"
         )
@@ -1226,11 +1252,24 @@ fn plan_remote(
     )
 }
 
-/// Plan for `category = "local"`: bare repos under a parent dir.
+/// How [`plan_local`] names the bare repos under its parent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BareNames {
+    /// `--repo local`: one workspace per parent, `remote-work.git` or
+    /// `remote.git`, the names the fixtures and `clone` round-trip.
+    Fixed,
+    /// `--test-repo`: `<name>.git`, so many workspaces share a parent.
+    ByRepo,
+}
+
+/// Plan for bare repos under a parent dir, `--repo local`'s and
+/// `--test-repo`'s.
 ///
-/// - Dual: `<parent>/remote-work.git`, and the agent bare beside it,
-///   named by [`plan_agent_side`] (`remote-work.agent-session.git`).
-/// - POR: `<parent>/remote.git`.
+/// - Dual: the work bare, `<parent>/remote-work.git` or
+///   `<parent>/<name>.git`, and the agent bare beside it, named by
+///   [`plan_agent_side`] (`remote-work.agent-session.git` or
+///   `<name>.agent-session.git`).
+/// - POR: `<parent>/remote.git` or `<parent>/<name>.git`.
 ///
 /// The agent bare's name is recorded in the work config, which is
 /// what `clone` reads to locate it, so a locally init'd project
@@ -1240,13 +1279,14 @@ fn plan_local(
     name: String,
     project_dir: PathBuf,
     parent_spec: &str,
+    names: BareNames,
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
     let parent = normalize_local_parent(parent_spec)?;
 
-    let work_bare = if scope.is_work_only() {
-        parent.join("remote.git")
-    } else {
-        parent.join("remote-work.git")
+    let work_bare = match names {
+        BareNames::ByRepo => parent.join(format!("{name}.git")),
+        BareNames::Fixed if scope.is_work_only() => parent.join("remote.git"),
+        BareNames::Fixed => parent.join("remote-work.git"),
     };
     Ok(InitPlan {
         scope,
@@ -1387,6 +1427,47 @@ fn github_slug_from_url(url: &str) -> Result<String, Box<dyn std::error::Error>>
     Err(format!("cannot extract owner/name slug from GitHub URL '{url}'").into())
 }
 
+impl InitArgs {
+    /// Refuse what `--test-repo` cannot mean: a URL, as its value or
+    /// the target's, since nothing leaves the machine, and the flags
+    /// that name another remote, an existing directory, or a publish.
+    fn check_test_repo(&self) -> Result<(), String> {
+        let Some(path) = &self.test_repo else {
+            return Ok(());
+        };
+        for (set, flag) in [
+            (self.name.is_some(), "--name"),
+            (self.account.value.is_some(), "--account"),
+            (self.repo.value.is_some(), "--repo"),
+            (self.adopt, "--adopt"),
+            (self.provision.private.value, "--private"),
+        ] {
+            if set {
+                return Err(format!(
+                    "{flag} is not taken with --test-repo: its remotes are in REMOTES, and \
+                     nothing leaves this machine"
+                ));
+            }
+        }
+        // Only a URL is refused: `tmp/remotes`, ambiguous to `--target`, is
+        // a path here, since a test repo's remotes are never on GitHub.
+        if let Ok(Target::Url(_)) = parse_target(path) {
+            return Err(format!(
+                "--test-repo takes a path, and '{path}' is a URL: nothing leaves this machine"
+            ));
+        }
+        if let Some(target) = &self.target
+            && let Ok(Target::Url(_)) = parse_target(target)
+        {
+            return Err(format!(
+                "--target '{target}' is a URL, and a test repo is a path: nothing leaves \
+                 this machine"
+            ));
+        }
+        Ok(())
+    }
+}
+
 impl SubcommandRunner for InitArgs {
     type Params = InitParams;
 
@@ -1400,6 +1481,7 @@ impl SubcommandRunner for InitArgs {
             "--name",
         )?;
         self.por.check("init")?;
+        self.check_test_repo()?;
         Ok(InitParams::from(self))
     }
 
@@ -1887,6 +1969,11 @@ fn run_remote_step(
 /// publishes to.
 fn init_bare_main(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     use gix::sec::trust::DefaultForLevel;
+    // A `--repo local` parent need not exist or hold the workspace, and
+    // gix makes only the last directory.
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
     let open_opts = gix::open::Options::default_for_level(gix::sec::Trust::Full)
         .config_overrides(["init.defaultBranch=main"]);
     gix::ThreadSafeRepository::init_opts(

@@ -1567,10 +1567,14 @@ vc-x1 init --target my-project --private
 # Local bare remotes instead of GitHub (offline; used by fixtures)
 vc-x1 init --target my-project --repo local=/path/to/parent
 
+# A throwaway test repo: the workspace at the target, its bare remotes in
+# remotes/wt4.git and remotes/wt4.agent-session.git, and nothing leaves this machine
+vc-x1 init --test-repo ./remotes --target ./wt4
+
 # Preview without executing
 vc-x1 init --target my-project --dry-run
 
-# Grow an existing plain directory into a dual workspace
+# Convert an existing plain directory into a dual workspace
 vc-x1 init --target . --adopt
 
 # Name the agent repo's directory and its remote
@@ -1590,11 +1594,12 @@ vc-x1 init --target my-project --use-template ../tmpl,../tmpl.claude
 | Flag | Description |
 |------|-------------|
 | `--target <URL\|PATH\|NAME>` | What to create: a URL, a path, or a bare NAME, required |
+| `--test-repo <REMOTES>` | Make the target a throwaway test repo, its remotes `<name>.git` and `<name>.agent-session.git` in REMOTES, so test repos share it |
 | `--name <NAME>` | Repo directory name override (URL form only) |
 | `--account <NAME>` | Pick `[account.<a>]` from user config |
 | `--repo <CAT[=VAL]>` | Repo target, e.g. `local=<PARENT>` for local bare remotes |
 | `-s, --scope <SCOPE>` | `both`, a dual workspace, or `por`, a plain single repo (no agent repo) [default: both] |
-| `--adopt` | Grow an existing TARGET into a dual workspace (see below) |
+| `--adopt` | Convert an existing TARGET into a dual workspace (see below) |
 | `--no-url-trailer` | Stamp the work commit's `ochid:` alone, with no `ocid:` or `pcid:` links |
 | `--agent-dir <DIR>` | The agent repo's directory, one name [default: .agent-session] |
 | `--agent-repo <NAME>` | The agent repo's whole remote name |
@@ -1603,11 +1608,13 @@ vc-x1 init --target my-project --use-template ../tmpl,../tmpl.claude
 | `--dry-run` | Show what would be done without executing |
 | `--push-retries <N>` | Max push retries after repo creation [default: 5] |
 | `--push-retry-delay <N>` | Seconds between push retries [default: 3] |
-| `--use-template <CODE[,BOT]>` | Seed both repos from template dirs (see below) |
+| `--use-template <ROOT\|CODE[,BOT]>` | Seed both repos from template dirs (see below) |
 | `--config <none\|PATH>` | Override the canned config write, under the name the source's carrier calls for |
 
-**`--use-template`**. Value is `CODE[,BOT]`. If `BOT` is omitted, defaults to the sibling directory
-`<CODE>.claude` (file-name concat, not path join, since the two templates are not nested).
+**`--use-template`**. Value is `ROOT` or `CODE[,BOT]`. A `ROOT` is a directory holding `work/` and
+`agent/`, which it names both of. Otherwise, if `BOT` is omitted, it defaults to the sibling directory
+`<CODE>.claude` (file-name concat, not path join, since the two templates are not nested). Each path
+expands `~` and `$VAR`.
 Non-hidden contents are copied recursively into each target, and hidden entries (names starting with
 `.`) are skipped since init creates the repo's own hidden files (`.vc-config.md`, `.gitignore`,
 `.git/`, `.jj/`). If either template has a `README.md` at its root, its first line is rewritten to
@@ -2369,7 +2376,10 @@ full design and [per-step record](./notes/chores/chores-05.md#per-step-record) f
 ### Testing push + squash-push
 
 Always test against a throwaway fixture, never the live workspace. Scaffold one with `vc-x1 init
-<TARGET> --repo local=<PARENT>` (no GitHub, no network), then run the complete flow end-to-end. The
+--test-repo <REMOTES> --target <PATH>` or `vc-x1 init --target <TARGET> --repo local=<PARENT>` (no
+GitHub, no network), then run the complete flow end-to-end. Several test repos may share one REMOTES,
+and a second clone
+of one's remote stands in for another person. The
 work repo uses plain `jj git push`, and the bot repo uses `vc-x1 squash-push` to squash trailing
 writes and push in one shot.
 

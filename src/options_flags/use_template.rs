@@ -9,8 +9,10 @@ use clap::{Args, ValueHint};
 pub struct UseTemplateOption {
     /// Seed repos from template directories.
     ///
-    /// Value is `WORK[,BOT]`. Default bot path is `<CODE>.claude`
-    /// (file-name concat, not path join: templates are siblings).
+    /// Value is `ROOT` or `WORK[,BOT]`. A `ROOT` is a directory
+    /// holding `work/` and `agent/`. Default bot path is
+    /// `<CODE>.claude` (file-name concat, not path join: templates
+    /// are siblings).
     ///
     /// - With `-s por`: only `WORK` is used; passing `,BOT`
     ///   is fatal (no bot side to seed).
@@ -22,7 +24,7 @@ pub struct UseTemplateOption {
     #[arg(
         id = "use_template",
         long = "use-template",
-        value_name = "WORK[,BOT]",
+        value_name = "ROOT|WORK[,BOT]",
         value_hint = ValueHint::DirPath,
         verbatim_doc_comment
     )]

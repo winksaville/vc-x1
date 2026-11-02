@@ -228,6 +228,7 @@ impl Fixture {
         let args = InitArgs {
             retired: vec![],
             target: Some(work_path.to_string_lossy().into_owned()),
+            test_repo: None,
             name: None,
             account: AccountOption::default(),
             repo: RepoOption {
@@ -327,6 +328,7 @@ impl FixturePor {
         let args = InitArgs {
             retired: vec![],
             target: Some(work_path.to_string_lossy().into_owned()),
+            test_repo: None,
             name: None,
             account: AccountOption::default(),
             repo: RepoOption {
