@@ -28,7 +28,6 @@ use crate::options_flags::push_retry::PushRetryOptions;
 /// - `private`: `--private`.
 /// - `dry_run`: `--dry-run`.
 /// - `push_retry`: `--push-retries` / `--push-retry-delay`.
-/// - `use_template`: `--use-template` value.
 /// - `config`: resolved `--config` value (None => canned write).
 /// - `adopt`: `--adopt`, convert an existing target.
 /// - `agent_dir`, `agent_repo`, `agent_suffix`: the `--agent-*`
@@ -46,7 +45,6 @@ pub struct InitParams {
     pub private: bool,
     pub dry_run: bool,
     pub push_retry: PushRetryOptions,
-    pub use_template: Option<String>,
     pub config: Option<ConfigKind>,
     pub adopt: bool,
     pub no_url_trailer: bool,
@@ -75,7 +73,6 @@ impl From<&InitArgs> for InitParams {
             private: a.provision.private.value,
             dry_run: a.provision.dry_run.value,
             push_retry: a.provision.push_retry.clone(),
-            use_template: a.use_template.value.clone(),
             config: a.config.resolve(ConfigKind::None),
             adopt: a.adopt,
             no_url_trailer: a.no_url_trailer,

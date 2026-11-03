@@ -18,7 +18,6 @@ use crate::options_flags::provision_bundle::ProvisionOptionFlagBundle;
 use crate::options_flags::push_retry::PushRetryOptions;
 use crate::options_flags::repo::RepoOption;
 use crate::options_flags::scope::{Scope, Side};
-use crate::options_flags::use_template::UseTemplateOption;
 use crate::repo_utils::{
     CrossRefSide, INITIAL_TITLE, OchidStrategy, commit_initial, cross_ref_ochids,
     prepare_local_repo,
@@ -104,11 +103,6 @@ pub struct InitArgs {
     /// [`ProvisionOptionFlagBundle`] bundle.
     #[command(flatten)]
     pub provision: ProvisionOptionFlagBundle,
-
-    /// `--use-template`: flatten of the shared
-    /// [`UseTemplateOption`] leaf.
-    #[command(flatten)]
-    pub use_template: UseTemplateOption,
 
     /// `--config none|<path>`: flatten of the shared
     /// [`ConfigOption`] leaf. Only meaningful with `-s por`,
@@ -213,48 +207,7 @@ fn retry_op<T>(
     Err(format!("failed after {} attempts: {last_err}", retry.push_retries).into())
 }
 
-use crate::common::{mkdir_p, write_file};
-
-/// Parse the `--use-template` value into `(work, bot)` template paths.
-///
-/// Format: `ROOT` or `WORK[,BOT]`. A lone path holding `work/` and
-/// `agent/` directories is a template's root, and names both. Otherwise,
-/// if `BOT` is omitted, the default is the sibling directory whose name
-/// is `<WORK-basename>.claude` (via `Path::with_file_name`, so a trailing
-/// slash on `CODE` does not produce a different result).
-///
-/// Each path expands `~` and `$VAR` here, since a shell expands `~` only
-/// at the start of a word, leaving the one after the comma as typed.
-pub(crate) fn parse_use_template(
-    s: &str,
-) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
-    let mut parts = s.splitn(2, ',');
-    let work_raw = parts.next().unwrap_or(""); // OK: splitn always yields at least one element
-    let bot_raw = parts.next();
-    let work_trim = work_raw.trim();
-    if work_trim.is_empty() {
-        return Err("--use-template: work template path is empty".into());
-    }
-    let work = PathBuf::from(expand_vars(work_trim)?);
-    if bot_raw.is_none() && work.join("work").is_dir() && work.join("agent").is_dir() {
-        return Ok((work.join("work"), work.join("agent")));
-    }
-    let bot = match bot_raw.map(str::trim) {
-        Some(b) if !b.is_empty() => PathBuf::from(expand_vars(b)?),
-        _ => {
-            let file_name = work.file_name().ok_or_else(|| {
-                format!(
-                    "--use-template: cannot derive default bot path from '{}' (no file name \
-                     component)",
-                    work.display()
-                )
-            })?;
-            let new_name = format!("{}.claude", file_name.to_string_lossy());
-            work.with_file_name(new_name)
-        }
-    };
-    Ok((work, bot))
-}
+use crate::common::write_file;
 
 /// Default agent-repo directory a fresh init records and creates,
 /// `--agent-dir` its override. Every *reader* resolves the dir from
@@ -267,121 +220,6 @@ pub(crate) const DEFAULT_AGENT_DIR: &str = ".agent-session";
 /// its replacement. A workspace's recorded `[remote] agent-repo`
 /// wins over it, and its absence means this suffix too.
 pub(crate) const DEFAULT_AGENT_SUFFIX: &str = ".agent-session";
-
-/// Top-level non-hidden files init writes. Kept here so that if init is
-/// ever extended to write non-hidden top-level files, the pre-flight
-/// conflict scan flags any template that would clash. Currently empty
-/// because init only writes hidden files (`.vc-config.md`, `.gitignore`),
-/// and the template copy skips hidden entries.
-const RESERVED_TEMPLATE_ENTRIES: &[&str] = &[];
-
-/// Validate one template directory: exists, is a directory, and has no
-/// top-level non-hidden entry that would collide with init's own writes.
-///
-/// - `label` prefixes every error message (`work` / `agent`).
-pub(crate) fn validate_template_one(
-    label: &str,
-    p: &Path,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if !p.exists() {
-        return Err(format!(
-            "--use-template: {label} template '{}' does not exist",
-            p.display()
-        )
-        .into());
-    }
-    if !p.is_dir() {
-        return Err(format!(
-            "--use-template: {label} template '{}' is not a directory",
-            p.display()
-        )
-        .into());
-    }
-    for entry in std::fs::read_dir(p)? {
-        let entry = entry?;
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-        if name_str.starts_with('.') {
-            continue;
-        }
-        if RESERVED_TEMPLATE_ENTRIES.contains(&name_str.as_ref()) {
-            return Err(format!(
-                "--use-template: {label} template '{}' contains reserved entry '{}'",
-                p.display(),
-                name_str
-            )
-            .into());
-        }
-    }
-    Ok(())
-}
-
-/// Validate both template paths (dual-repo mode). Thin wrapper over
-/// `validate_template_one` kept for single-call ergonomics.
-pub(crate) fn validate_templates(
-    work: &Path,
-    bot: &Path,
-) -> Result<(), Box<dyn std::error::Error>> {
-    validate_template_one("work", work)?;
-    validate_template_one("agent", bot)?;
-    Ok(())
-}
-
-/// Recursively copy non-hidden entries from `src` to `dst`. Any entry whose
-/// file name starts with `.` is skipped. Symlinks are skipped with a debug
-/// log: templates don't need them, and following them risks escaping the
-/// template tree.
-pub(crate) fn copy_template_recursive(
-    src: &Path,
-    dst: &Path,
-) -> Result<(), Box<dyn std::error::Error>> {
-    for entry in std::fs::read_dir(src)? {
-        let entry = entry?;
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-        if name_str.starts_with('.') {
-            continue;
-        }
-        let src_path = entry.path();
-        let dst_path = dst.join(&name);
-        let ft = entry.file_type()?;
-        if ft.is_symlink() {
-            debug!("skip symlink {}", src_path.display());
-            continue;
-        }
-        if ft.is_dir() {
-            mkdir_p(&dst_path)?;
-            copy_template_recursive(&src_path, &dst_path)?;
-        } else if ft.is_file() {
-            debug!("copy {} -> {}", src_path.display(), dst_path.display());
-            std::fs::copy(&src_path, &dst_path)?;
-        }
-    }
-    Ok(())
-}
-
-/// Replace the first line of `<dir>/README.md` with `# <name>`. If
-/// `README.md` is absent, this is a no-op. Trailing content after the
-/// first newline is preserved verbatim, and a file with no newline becomes
-/// just `# <name>`.
-pub(crate) fn rewrite_readme_first_line(
-    dir: &Path,
-    name: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let readme = dir.join("README.md");
-    if !readme.exists() {
-        return Ok(());
-    }
-    let content = std::fs::read_to_string(&readme)?;
-    let rest = match content.find('\n') {
-        Some(pos) => &content[pos..],
-        None => "",
-    };
-    let new_content = format!("# {name}{rest}");
-    std::fs::write(&readme, new_content)?;
-    debug!("rewrote first line of {}", readme.display());
-    Ok(())
-}
 
 /// Run `gh <args>`, returning trimmed stdout on success and the
 /// stderr-carrying error on failure. The GhCreate path's one spawn
@@ -956,8 +794,6 @@ pub(crate) struct AgentPlan {
     pub dir: String,
     /// `project_dir` joined with `dir`.
     pub path: PathBuf,
-    /// The project name its README takes (e.g. `<name>.agent-session`).
-    pub name: String,
     /// The origin URL.
     pub url: String,
     /// The bare-repo path, `Some` only under `LocalBareInit`.
@@ -995,24 +831,6 @@ pub(crate) fn plan_init(
     } else {
         Scope(vec![Side::Work, Side::Bot])
     };
-
-    if scope.is_work_only()
-        && let Some(t) = &params.use_template
-        && t.contains(',')
-    {
-        return Err(format!(
-            "-s por takes a single template path; got '{t}' (drop the `,BOT` half)"
-        )
-        .into());
-    }
-
-    if params.adopt && params.use_template.is_some() {
-        return Err(
-            "--use-template is not taken with --adopt: a template would overwrite the \
-             adopted directory's files of the same name"
-                .into(),
-        );
-    }
 
     if params.config.is_some() && !params.por {
         return Err(
@@ -1358,10 +1176,6 @@ fn plan_agent_side(
     Ok(AgentPlan {
         path: plan.project_dir.join(&agent_dir),
         dir: agent_dir,
-        name: match &params.agent_repo {
-            Some(name) => name.clone(),
-            None => format!("{}{suffix}", plan.name),
-        },
         bare_path: match plan.provisioner {
             Provisioner::LocalBareInit => Some(PathBuf::from(&url)),
             _ => None,
@@ -1511,7 +1325,6 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     let create_symlink = params.create_symlink;
     let cfg = &ctx.user_config;
     let mut plan = plan_init(params, cfg)?;
-    let is_dual = plan.scope.is_both();
     let state = adopt::detect_target_state(&plan.project_dir)?;
     debug!("init: target is {state:?}");
 
@@ -1619,33 +1432,13 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
         }
     }
 
-    let templates = match &params.use_template {
-        Some(s) => {
-            let (work_t, bot_t) = parse_use_template(s)?;
-            if is_dual {
-                validate_templates(&work_t, &bot_t)?;
-                Some((work_t, Some(bot_t)))
-            } else {
-                validate_template_one("work", &work_t)?;
-                Some((work_t, None))
-            }
-        }
-        None => None,
-    };
-
     let visibility = if params.private {
         "--private"
     } else {
         "--public"
     };
 
-    let steps = steps::Steps::new(
-        &plan,
-        params,
-        templates.as_ref(),
-        visibility,
-        create_symlink,
-    );
+    let steps = steps::Steps::new(&plan, params, visibility, create_symlink);
     if params.dry_run {
         if params.adopt {
             info!(
@@ -1661,8 +1454,8 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     }
 
     match &plan.agent {
-        None => create_por(params, &plan, &steps, templates, visibility),
-        Some(agent) => create_dual(params, &plan, agent, &steps, templates, visibility),
+        None => create_por(params, &plan, &steps, visibility),
+        Some(agent) => create_dual(params, &plan, agent, &steps, visibility),
     }
 }
 
@@ -1680,14 +1473,12 @@ fn create_por(
     params: &InitParams,
     plan: &InitPlan,
     steps: &steps::Steps,
-    templates: Option<(PathBuf, Option<PathBuf>)>,
     visibility: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use steps::Step;
-    let work_template = templates.as_ref().map(|(c, _)| c.as_path());
 
     steps.begin(Step::PrepareWork);
-    prepare_local_repo(&plan.project_dir, "work", work_template, &plan.name)?;
+    prepare_local_repo(&plan.project_dir, "work")?;
     steps.begin(Step::ConfigWork);
     match &params.config {
         None => write_por_vc_config(&plan.project_dir)?,
@@ -1746,31 +1537,25 @@ fn create_dual(
     plan: &InitPlan,
     agent: &AgentPlan,
     steps: &steps::Steps,
-    templates: Option<(PathBuf, Option<PathBuf>)>,
     visibility: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use steps::Step;
-    let (work_template, agent_template) = match templates.as_ref() {
-        Some((c, b)) => (Some(c.as_path()), b.as_deref()),
-        None => (None, None),
-    };
 
     // An adopted repo is prepared already, and keeps its history: its
     // commit goes on top of it under a title of its own.
     let work_title = match plan.work_start {
         WorkStart::Fresh => {
             steps.begin(Step::PrepareWork);
-            prepare_local_repo(&plan.project_dir, "work", work_template, &plan.name)?;
+            prepare_local_repo(&plan.project_dir, "work")?;
             INITIAL_TITLE
         }
         WorkStart::Repo { .. } => ADOPT_TITLE,
     };
     steps.begin(Step::ConfigWork);
     // The recorded name is the agent-repo's *remote* name, the last
-    // segment of its origin URL, which is not `agent.name`: that is the
-    // local directory's project name, and a fixture whose bare is
-    // `remote-work.agent-session.git` under a project called `tr` shows the
-    // two diverging.
+    // segment of its origin URL, which need not follow the project's
+    // name: a fixture whose bare is `remote-work.agent-session.git` under
+    // a project called `tr` shows the two diverging.
     let agent_repo = derive_name(&agent.url)?;
     if let WorkStart::Repo {
         has_config: true, ..
@@ -1790,7 +1575,7 @@ fn create_dual(
     )?;
 
     steps.begin(Step::PrepareAgent);
-    prepare_local_repo(&agent.path, "agent", agent_template, &agent.name)?;
+    prepare_local_repo(&agent.path, "agent")?;
     steps.begin(Step::ConfigAgent);
     write_bot_config(&agent.path)?;
     steps.begin(Step::CommitAgent);

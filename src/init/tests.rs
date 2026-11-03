@@ -29,7 +29,6 @@ fn defaults() {
     assert!(!args.provision.dry_run.value);
     assert_eq!(args.provision.push_retry.push_retries, 5);
     assert_eq!(args.provision.push_retry.push_retry_delay, 3);
-    assert!(args.use_template.value.is_none());
 }
 
 #[test]
@@ -53,8 +52,6 @@ fn all_opts() {
         "10",
         "--push-retry-delay",
         "5",
-        "--use-template",
-        "/tmp/tmpl",
     ]);
     assert_eq!(
         args.target.as_deref(),
@@ -70,7 +67,6 @@ fn all_opts() {
     assert!(args.provision.dry_run.value);
     assert_eq!(args.provision.push_retry.push_retries, 10);
     assert_eq!(args.provision.push_retry.push_retry_delay, 5);
-    assert_eq!(args.use_template.value.as_deref(), Some("/tmp/tmpl"));
 }
 
 #[test]
@@ -262,224 +258,6 @@ fn tmp_root(tag: &str) -> PathBuf {
     p
 }
 
-#[test]
-fn parse_use_template_both() {
-    let (c, b) = parse_use_template("/a/work,/x/bot").unwrap();
-    assert_eq!(c, PathBuf::from("/a/work"));
-    assert_eq!(b, PathBuf::from("/x/bot"));
-}
-
-#[test]
-fn parse_use_template_default_bot() {
-    let (c, b) = parse_use_template("/a/work").unwrap();
-    assert_eq!(c, PathBuf::from("/a/work"));
-    assert_eq!(b, PathBuf::from("/a/work.claude"));
-}
-
-#[test]
-fn parse_use_template_default_bot_trailing_slash() {
-    // with_file_name normalises away the effect of a trailing slash.
-    let (c, b) = parse_use_template("/a/work/").unwrap();
-    assert_eq!(c, PathBuf::from("/a/work/"));
-    assert_eq!(b, PathBuf::from("/a/work.claude"));
-}
-
-#[test]
-fn parse_use_template_empty_bot_falls_back_to_default() {
-    let (c, b) = parse_use_template("/a/work,").unwrap();
-    assert_eq!(c, PathBuf::from("/a/work"));
-    assert_eq!(b, PathBuf::from("/a/work.claude"));
-}
-
-/// Both paths expand `~`, since a shell leaves the one after the comma
-/// as typed.
-#[test]
-fn parse_use_template_expands_both_paths() {
-    let home = std::env::var("HOME").expect("HOME is set");
-    let (w, a) = parse_use_template("~/t/work,~/t/agent").unwrap();
-    assert_eq!(w, PathBuf::from(format!("{home}/t/work")));
-    assert_eq!(a, PathBuf::from(format!("{home}/t/agent")));
-}
-
-/// A lone path holding `work/` and `agent/` names both, and one that
-/// does not keeps the sibling default.
-#[test]
-fn parse_use_template_takes_a_root() {
-    let base = tmp_root("template-root");
-    std::fs::create_dir_all(base.join("work")).unwrap();
-    std::fs::create_dir_all(base.join("agent")).unwrap();
-    let root = base.to_string_lossy().into_owned();
-
-    let (w, a) = parse_use_template(&root).unwrap();
-    assert_eq!(w, base.join("work"));
-    assert_eq!(a, base.join("agent"));
-
-    let (w, a) = parse_use_template(&format!("{root}/work")).unwrap();
-    assert_eq!(w, base.join("work"));
-    assert_eq!(a, base.join("work.claude"));
-
-    let _ = std::fs::remove_dir_all(&base);
-}
-
-#[test]
-fn parse_use_template_empty_work_errors() {
-    assert!(parse_use_template("").is_err());
-    assert!(parse_use_template(",bot").is_err());
-}
-
-#[test]
-fn copy_template_skips_hidden_entries() {
-    let root = tmp_root("copy-skip-hidden");
-    let src = root.join("src");
-    let dst = root.join("dst");
-    std::fs::create_dir_all(&src).unwrap();
-    std::fs::create_dir_all(&dst).unwrap();
-
-    // Non-hidden: visible file, visible dir with nested file.
-    std::fs::write(src.join("keep.txt"), "keep").unwrap();
-    std::fs::create_dir_all(src.join("sub")).unwrap();
-    std::fs::write(src.join("sub").join("nested.txt"), "nested").unwrap();
-
-    // Hidden: dotfile, dotdir (with contents that must NOT be copied).
-    std::fs::write(src.join(".hidden"), "should-not-copy").unwrap();
-    std::fs::create_dir_all(src.join(".dotdir")).unwrap();
-    std::fs::write(src.join(".dotdir").join("inside"), "nope").unwrap();
-
-    copy_template_recursive(&src, &dst).unwrap();
-
-    assert_eq!(
-        std::fs::read_to_string(dst.join("keep.txt")).unwrap(),
-        "keep"
-    );
-    assert_eq!(
-        std::fs::read_to_string(dst.join("sub").join("nested.txt")).unwrap(),
-        "nested"
-    );
-    assert!(!dst.join(".hidden").exists());
-    assert!(!dst.join(".dotdir").exists());
-
-    std::fs::remove_dir_all(&root).unwrap();
-}
-
-#[test]
-fn rewrite_readme_replaces_first_line() {
-    let root = tmp_root("rewrite-readme");
-    std::fs::write(
-        root.join("README.md"),
-        "# old-title\nbody line 1\nbody line 2\n",
-    )
-    .unwrap();
-
-    rewrite_readme_first_line(&root, "new-name").unwrap();
-
-    let got = std::fs::read_to_string(root.join("README.md")).unwrap();
-    assert_eq!(got, "# new-name\nbody line 1\nbody line 2\n");
-    std::fs::remove_dir_all(&root).unwrap();
-}
-
-#[test]
-fn rewrite_readme_no_newline() {
-    let root = tmp_root("rewrite-readme-nonewline");
-    std::fs::write(root.join("README.md"), "single-line-no-newline").unwrap();
-
-    rewrite_readme_first_line(&root, "new-name").unwrap();
-
-    let got = std::fs::read_to_string(root.join("README.md")).unwrap();
-    assert_eq!(got, "# new-name");
-    std::fs::remove_dir_all(&root).unwrap();
-}
-
-#[test]
-fn rewrite_readme_missing_is_noop() {
-    let root = tmp_root("rewrite-readme-missing");
-    // README.md not created, call must succeed silently.
-    rewrite_readme_first_line(&root, "new-name").unwrap();
-    assert!(!root.join("README.md").exists());
-    std::fs::remove_dir_all(&root).unwrap();
-}
-
-#[test]
-fn validate_templates_missing_work() {
-    let root = tmp_root("validate-missing-work");
-    let work = root.join("nope");
-    let bot = root.join("agent");
-    std::fs::create_dir_all(&bot).unwrap();
-    let err = validate_templates(&work, &bot).unwrap_err().to_string();
-    assert!(err.contains("work template"));
-    assert!(err.contains("does not exist"));
-    std::fs::remove_dir_all(&root).unwrap();
-}
-
-#[test]
-fn validate_templates_not_a_dir() {
-    let root = tmp_root("validate-not-dir");
-    let work = root.join("work-file");
-    let bot = root.join("agent");
-    std::fs::write(&work, "i am a file").unwrap();
-    std::fs::create_dir_all(&bot).unwrap();
-    let err = validate_templates(&work, &bot).unwrap_err().to_string();
-    assert!(err.contains("is not a directory"));
-    std::fs::remove_dir_all(&root).unwrap();
-}
-
-#[test]
-fn end_to_end_copy_and_readme_rewrite() {
-    // Simulates what init's Step 4 does: two sibling templates with
-    // a README.md each, copied into two fresh target dirs, each
-    // README retitled to the respective repo name.
-    let root = tmp_root("e2e-copy-rewrite");
-    let work_tmpl = root.join("vc-template-x1");
-    let bot_tmpl = root.join("vc-template-x1.claude");
-    let work_dst = root.join("dst-work");
-    let bot_dst = root.join("dst-bot");
-    std::fs::create_dir_all(&work_tmpl).unwrap();
-    std::fs::create_dir_all(&bot_tmpl).unwrap();
-    std::fs::create_dir_all(&work_dst).unwrap();
-    std::fs::create_dir_all(&bot_dst).unwrap();
-
-    std::fs::write(
-        work_tmpl.join("README.md"),
-        "# vc-template-x1\nCode template body.\n",
-    )
-    .unwrap();
-    std::fs::write(work_tmpl.join("src.txt"), "work stuff").unwrap();
-    std::fs::write(work_tmpl.join(".gitignore"), "should-not-copy").unwrap();
-
-    std::fs::write(
-        bot_tmpl.join("README.md"),
-        "# vc-template-x1.claude\nBot template body.\n",
-    )
-    .unwrap();
-    std::fs::write(bot_tmpl.join("bot.md"), "bot stuff").unwrap();
-
-    validate_templates(&work_tmpl, &bot_tmpl).unwrap();
-
-    copy_template_recursive(&work_tmpl, &work_dst).unwrap();
-    rewrite_readme_first_line(&work_dst, "my-proj").unwrap();
-    copy_template_recursive(&bot_tmpl, &bot_dst).unwrap();
-    rewrite_readme_first_line(&bot_dst, "my-proj.claude").unwrap();
-
-    assert_eq!(
-        std::fs::read_to_string(work_dst.join("README.md")).unwrap(),
-        "# my-proj\nCode template body.\n"
-    );
-    assert_eq!(
-        std::fs::read_to_string(work_dst.join("src.txt")).unwrap(),
-        "work stuff"
-    );
-    assert!(!work_dst.join(".gitignore").exists());
-    assert_eq!(
-        std::fs::read_to_string(bot_dst.join("README.md")).unwrap(),
-        "# my-proj.claude\nBot template body.\n"
-    );
-    assert_eq!(
-        std::fs::read_to_string(bot_dst.join("bot.md")).unwrap(),
-        "bot stuff"
-    );
-
-    std::fs::remove_dir_all(&root).unwrap();
-}
-
 // ---------- TARGET / [NAME] / --account / --repo / --scope parsing ----------
 
 #[test]
@@ -582,6 +360,13 @@ fn the_retired_forms_are_refused_naming_their_flags() {
     assert!(err.expect("refused").contains("`both` or `por`"));
 }
 
+/// `--use-template` is gone, not kept hidden, so completion never offers it.
+#[test]
+fn use_template_is_gone() {
+    let args = ["vc-x1", "init", "--target", "tf1", "--use-template", "t"];
+    assert!(Cli::try_parse_from(args).is_err());
+}
+
 #[test]
 fn is_remote_url_classifies() {
     assert!(is_remote_url("https://host/path"));
@@ -680,7 +465,6 @@ fn args_for(target: &str) -> InitArgs {
             dry_run: DryRunFlag { value: true },
             ..Default::default()
         },
-        use_template: UseTemplateOption::default(),
         config: ConfigOption::default(),
         adopt: false,
         no_url_trailer: false,
@@ -997,17 +781,6 @@ fn adopt_refuses_an_existing_agent_directory() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
-#[test]
-fn adopt_refuses_a_template() {
-    let mut args = args_for("git@github.com:winksaville/tf1");
-    args.adopt = true;
-    args.use_template.value = Some("../tmpl".into());
-    let err = plan_init(&InitParams::from(&args), &cfg_empty())
-        .expect_err("refused")
-        .to_string();
-    assert!(err.contains("--use-template"), "{err}");
-}
-
 // ---------- the steps, numbered as they run ----------
 
 /// A dual plan runs ten steps in order, the symlink last, and drops
@@ -1018,7 +791,7 @@ fn steps_dual_run_in_order() {
     let args = args_for("git@github.com:winksaville/tf1");
     let params = InitParams::from(&args);
     let plan = plan_init(&params, &cfg_empty()).unwrap();
-    let all = Steps::new(&plan, &params, None, "--public", true);
+    let all = Steps::new(&plan, &params, "--public", true);
     assert_eq!(
         all.steps(),
         vec![
@@ -1034,7 +807,7 @@ fn steps_dual_run_in_order() {
             Step::Symlink,
         ]
     );
-    let no_symlink = Steps::new(&plan, &params, None, "--public", false);
+    let no_symlink = Steps::new(&plan, &params, "--public", false);
     assert_eq!(no_symlink.steps().len(), 9);
     assert!(!no_symlink.steps().contains(&Step::Symlink));
 }
@@ -1049,7 +822,7 @@ fn steps_por_have_no_gaps() {
     let params = InitParams::from(&args);
     let plan = plan_init(&params, &cfg_empty()).unwrap();
     assert_eq!(
-        Steps::new(&plan, &params, None, "--public", true).steps(),
+        Steps::new(&plan, &params, "--public", true).steps(),
         vec![
             Step::PrepareWork,
             Step::ConfigWork,
@@ -1332,10 +1105,6 @@ fn plan_agent_repo_is_the_whole_remote_name() {
         plan.agent.as_ref().map(|a| a.url.as_str()),
         Some("git@github.com:winksaville/tf1.claude.git")
     );
-    assert_eq!(
-        plan.agent.as_ref().map(|a| a.name.as_str()),
-        Some("tf1.claude")
-    );
 
     let mut args = args_for("/tmp/xyz/tf1");
     args.repo.value = Some(RepoSelector {
@@ -1497,10 +1266,6 @@ fn plan_path_target_strips_the_git_suffix() {
     let args = args_for("./tmp/xx1.git");
     let plan = plan_init(&InitParams::from(&args), &cfg_top_level_local("./tmp/bare")).unwrap();
     assert_eq!(plan.name, "xx1");
-    assert_eq!(
-        plan.agent.as_ref().map(|a| a.name.as_str()),
-        Some("xx1.agent-session")
-    );
 }
 
 /// A repo name GitHub would rename is refused before it is asked
@@ -1556,10 +1321,6 @@ fn plan_path_absolute_with_repo_local() {
     assert_eq!(
         plan.agent.as_ref().map(|a| a.path.clone()),
         Some(PathBuf::from("/tmp/xyz/tf1/.agent-session"))
-    );
-    assert_eq!(
-        plan.agent.as_ref().map(|a| a.name.as_str()),
-        Some("tf1.agent-session")
     );
 }
 
@@ -1752,20 +1513,6 @@ fn error_unknown_category() {
         .unwrap_err()
         .to_string();
     assert!(err.contains("'weird' is not recognized"), "got: {err}");
-}
-
-#[test]
-fn error_por_with_comma_template() {
-    // --scope=por + --use-template foo,bar is ambiguous: bot
-    // half has no home in a single-repo workspace.
-    let mut args = args_for("git@github.com:u/p");
-    args.por.scope = Some(crate::options_flags::scope::RepoScope::Por);
-    args.use_template.value = Some("/tmp/work,/tmp/bot".into());
-    let err = plan_init(&InitParams::from(&args), &cfg_empty())
-        .unwrap_err()
-        .to_string();
-    assert!(err.contains("-s por"), "got: {err}");
-    assert!(err.contains("single template path"), "got: {err}");
 }
 
 // ---------- Constants ----------

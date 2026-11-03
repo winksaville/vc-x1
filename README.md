@@ -1580,15 +1580,6 @@ vc-x1 init --target . --adopt
 # Name the agent repo's directory and its remote
 vc-x1 init --target my-project --agent-dir .sessions --agent-suffix -sessions
 vc-x1 init --target my-project --agent-repo my-project.claude
-
-# Seed both repos from template directories (sibling layout)
-vc-x1 init --target my-project --use-template \
-    ../vc-x1-work-repo-template,../vc-x1-bot-repo-template
-
-# BOT omitted defaults to the `<CODE>.claude` sibling
-vc-x1 init --target my-project --use-template ../tmpl
-# Equivalent to:
-vc-x1 init --target my-project --use-template ../tmpl,../tmpl.claude
 ```
 
 | Flag | Description |
@@ -1608,18 +1599,10 @@ vc-x1 init --target my-project --use-template ../tmpl,../tmpl.claude
 | `--dry-run` | Show what would be done without executing |
 | `--push-retries <N>` | Max push retries after repo creation [default: 5] |
 | `--push-retry-delay <N>` | Seconds between push retries [default: 3] |
-| `--use-template <ROOT\|CODE[,BOT]>` | Seed both repos from template dirs (see below) |
 | `--config <none\|PATH>` | Override the canned config write, under the name the source's carrier calls for |
 
-**`--use-template`**. Value is `ROOT` or `CODE[,BOT]`. A `ROOT` is a directory holding `work/` and
-`agent/`, which it names both of. Otherwise, if `BOT` is omitted, it defaults to the sibling directory
-`<CODE>.claude` (file-name concat, not path join, since the two templates are not nested). Each path
-expands `~` and `$VAR`.
-Non-hidden contents are copied recursively into each target, and hidden entries (names starting with
-`.`) are skipped since init creates the repo's own hidden files (`.vc-config.md`, `.gitignore`,
-`.git/`, `.jj/`). If either template has a `README.md` at its root, its first line is rewritten to
-`# <repo-name>`: `<name>` for the work repo and `<name>.claude` for the bot repo. For local
-verification without hitting GitHub, combine `--use-template` with `--repo local=<PARENT>`.
+init makes a bare workspace, the repos with only `.vc-config.md` and `.gitignore` in them, and what
+goes in it is applied afterwards. `--use-template`, which copied template directories in, is gone.
 
 **`--adopt`**. Without it an existing TARGET is refused, named by what it holds. With it, init
 grows the target into a dual workspace:
@@ -1642,8 +1625,7 @@ grows the target into a dual workspace:
   included, stays as it was.
 - A dual-repo workspace is refused, having nothing to grow.
 
-`--adopt` is refused with `-s por` and with `--use-template`, and on a `--target` that does not
-exist. The old `<TARGET> [NAME]` positionals are refused, naming `--target` and `--name`, and
+`--adopt` is refused with `-s por`, and on a `--target` that does not exist. The old `<TARGET> [NAME]` positionals are refused, naming `--target` and `--name`, and
 `--por` is refused, naming `--scope por`.
 
 Requires `gh` (authenticated) and `jj` to be installed (`gh` is skipped under `--repo local=...`).

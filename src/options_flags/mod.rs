@@ -65,4 +65,3 @@ pub mod repo;
 pub mod retired_positional;
 pub mod scope;
 pub mod squash;
-pub mod use_template;

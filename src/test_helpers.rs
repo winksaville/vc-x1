@@ -24,7 +24,6 @@ use crate::options_flags::config::ConfigOption;
 use crate::options_flags::por::PorFlag;
 use crate::options_flags::provision_bundle::ProvisionOptionFlagBundle;
 use crate::options_flags::repo::RepoOption;
-use crate::options_flags::use_template::UseTemplateOption;
 use crate::test_tmp_root::{resolve_tmp_root, should_keep_tempdir};
 
 /// A named acceptance fixture under the workspace's `[test]
@@ -201,17 +200,15 @@ pub struct Fixture {
 impl Fixture {
     /// Build a fresh fixture in a unique tempdir.
     pub fn new(tag: &str) -> Self {
-        Self::new_opts(tag, false, None)
+        Self::new_opts(tag, false)
     }
 
-    /// Build a fresh fixture with optional pending changes and a
-    /// template seed.
+    /// Build a fresh fixture with optional pending changes.
     ///
     /// - `with_pending`: after init, write a small file into each
     ///   repo so `@` carries uncommitted changes (useful for
     ///   squash-push / push tests).
-    /// - `use_template`: `WORK[,BOT]` forwarded to init.
-    pub fn new_opts(tag: &str, with_pending: bool, use_template: Option<String>) -> Self {
+    pub fn new_opts(tag: &str, with_pending: bool) -> Self {
         let base = unique_base(tag);
         // init refuses to reuse an existing project_dir, so `base`
         // must not exist yet. `unique_base` already guarantees that.
@@ -239,9 +236,6 @@ impl Fixture {
             },
             por: PorFlag::default(),
             provision: ProvisionOptionFlagBundle::default(),
-            use_template: UseTemplateOption {
-                value: use_template,
-            },
             config: ConfigOption::default(),
             adopt: false,
             no_url_trailer: false,
@@ -342,7 +336,6 @@ impl FixturePor {
                 retired_por: false,
             },
             provision: ProvisionOptionFlagBundle::default(),
-            use_template: UseTemplateOption::default(),
             config: ConfigOption { value: config },
             adopt: false,
             no_url_trailer: false,

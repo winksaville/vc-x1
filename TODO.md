@@ -637,6 +637,20 @@ Wink's (2026-11-02). Where a thing goes is decided by whether it can be reproduc
 with the work, where a patch's context moves. An index costs a rebuild to lose, so it stays out of
 `tmp/`, and being reproducible it needs no commit.
 
+#### New repos start from an adopter's committed rules
+
+- This cycle writes `scripts/vc-dr-apply.sh`, which applies vc-x1's committed set and skeletons to a
+  bare dual workspace, **vc-dr-apply.sh applies vc-x1's rules to a dual workspace**, and the
+  Terminology's "template repository is still to come" becomes that: a new repo starts from an
+  adopter's committed set.
+- Its acceptance check includes making the repo exploring the io_uring interface with the script,
+  from vc-x1's `main` after the Land, so the first repo made from v0.3.1 is its test.
+
+##### Why: an adopter's committed rules
+
+vc-x1 carries the set already, so a template repo is a second copy to keep in step, and the rules a
+repo starts from should be ones that landed.
+
 #### Not in it
 
 Each run on its own:
@@ -645,6 +659,28 @@ Each run on its own:
   out of TODO.md into zDOING.md**.
 - A rung inserted before pushed rungs: a `jj.md` recipe, once **lookup is tested on a reordered
   ladder** has its results.
+
+### Drop the retired flags, subcommands, and positionals
+
+(wink + agent, 2026-11-03) A retired spelling is kept as a hidden argument so it is refused naming
+its replacement, and clap's completion offers a hidden argument once its prefix matches nothing
+visible: `vc-x1-dev init --use<TAB>` completed the retired `--use-template`. vc-x1 has no users but
+wink, so a fix-it no longer pays for the argument carrying it, and every one goes, after
+**agent-files(proposal): v0.3.1**, wink's call. `--use-template` went this way in **feat: init drops
+--use-template**.
+
+- Flags: `init --por`, `build --dev`, `install --dev`, `run --dev`, and `config --validate`.
+- Subcommands: `bot-session`, `validate-bot`, `build-dev`, `install-dev`, and `run-dev`.
+- Positionals: the hidden `RETIRED` one in `init`, `clone`, `push`, `squash-push`, `commit`,
+  `symlink`, `lookup`, `config`, `validate-anchors`, `validate-desc`, `fix-desc`, `validate-todo`,
+  `fix-todo`, `agent-session`, and `agent-files copy`, `diff`, and `size`, and the rev and count
+  pair `list`, `desc`, `chid`, and `show` share through `options_flags/common_args.rs`, with
+  `options_flags/retired_positional.rs` once nothing calls it.
+- The `bot` value of `--scope`, refused as `agent`'s old name.
+- Each goes with its refusal, its tests, and what the help and README say of it, and a typed one
+  gets clap's "unexpected argument".
+- Not retired, so they stay: `agent-session`'s `--no-<item>` negations, hidden to keep its help
+  short, and the `--scope` values a command does not take, hidden per command.
 
 ### lookup builds an index that correlates the two repos
 
@@ -761,86 +797,74 @@ adopters are not.
   `vc-config.md` is compiled in, so `validate-config` and every workspace's `.vc-config.md` change
   with it, only wink's today.
 
-### vc-dr-apply.sh applies a template to a dual workspace
+### vc-dr-apply.sh applies vc-x1's rules to a dual workspace
 
 (wink + agent, 2026-11-03) `vc-x1 init` makes a bare dual workspace and stops: the two repos and
 their remotes, on GitHub or local and bare with `--test-repo`, `.vc-config.md` with `[repos]` and
 `[remote]`, the `~/.claude/projects` symlink, and the first commit. What goes in it is not vc-x1's
-problem. A template is how wink fills one: an ordinary dual workspace, maintained by cycles like any
-project, applied by one generic script, `scripts/vc-dr-apply.sh <template> [<workspace>]`.
+problem. A script fills it, `scripts/vc-dr-apply.sh [--from <vc-x1>] [--rev <rev>] [<workspace>]`,
+written in the cycle of **agent-files(proposal): v0.3.1**, wink's call, and vc-x1 is its source, the
+adopter whose committed rules a new repo starts from. The first use is the repo exploring the
+io_uring interface.
 
 - One script for both uses, since they differ only in the `init` before it, which the script never
-  runs. A new project is `vc-x1 init --target foo`, then the script on `foo`. The likelier use,
-  converting an existing repo, is `vc-x1 init --target . --adopt`, then the script on `.`.
-- It starts in this repo, a tool shipped beside vc-x1 and not part of the binary, and moves to a repo
-  of its own if it grows or becomes an app. "Apply" names what it does to the workspace's files, and
-  the `vc-dr-` prefix still reads once it is on the PATH.
-- The source: a local path to the template's workspace, a single work-repo URL, or a work-repo URL
-  and an agent-repo URL. A path finds its agent repo through its `.vc-config.md`, as vc-x1 does. A
-  single URL deduces the agent repo from the work repo's `.vc-config.md` at the pinned commit, its
-  `[remote] agent-repo` beside the work repo's owner, and errors when that names nothing that
-  exists.
-- The work side copies everything committed at the pinned commit. The agent side copies a fixed
-  manifest, `LICENSE-*`, `README.md`, `.gitignore`, and `memory/MEMORY.md`, skipping a member the
-  template lacks, and nothing else, since a template's agent repo holds its own session transcripts,
-  311 of them and a 938 MB `.git` in vc-x1's on 2026-11-03. `.vc-config.md` is generated by `init` on
-  both sides, never copied.
-- No clone for GitHub. The work tree is one tarball, `gh api repos/<owner>/<repo>/tarball/<sha>`, or
-  `codeload.github.com/<owner>/<repo>/tar.gz/<sha>` when public, a commit's files with no history.
-  The agent manifest is one request per file, `gh api repos/<owner>/<repo>/contents/<path>?ref=<sha>`
-  with `Accept: application/vnd.github.raw`, or `raw.githubusercontent.com` when public, since a
-  tarball of the agent repo would carry every current transcript. GitHub serves no `git archive
-  --remote`. A host without such endpoints falls back to `git clone --depth 1`, the agent side with
-  `--filter=blob:none --sparse` so only the manifest's blobs arrive. A local path reads committed
-  content only, `git archive <rev>` for the work tree and `git show <rev>:<file>` per manifest member,
-  so nothing uncommitted, ignored, or nested leaks in.
-- Each repo's ref is resolved to a SHA first, `gh api repos/<owner>/<repo>/commits/<ref> --jq .sha`,
-  and every fetch from that repo reads that SHA, so a push to the template mid-copy cannot mix two
-  commits. The commit that takes the applied files records the template and the SHA in each repo,
-  provenance of the project's start, and a later look at what the template changed since is a diff
-  from that SHA.
+  runs. A new project is `vc-x1 init --target foo`, then the script on `foo`. Converting an existing
+  repo is `vc-x1 init --target . --adopt`, then the script on `.`.
+- It lives in vc-x1, a tool shipped beside it and not part of the binary, and moves to a repo of its
+  own if it grows or becomes an app. "Apply" names what it does to the workspace's files, and the
+  `vc-dr-` prefix still reads once it is on the PATH.
+- What a new repo takes, little of it copied:
+  - Copied from vc-x1 at the commit: the set, `AGENTS.md` and `agent-data/`, and the generic files,
+    `LICENSE-*` on both sides and the agent repo's `memory/MEMORY.md`.
+  - Written from skeletons kept beside the script, under `scripts/vc-dr-apply/`, so they are reviewed
+    like the rules: `TODO.md` in [Todo format](agent-data/notes.md#todo-format), since vc-x1's holds
+    its own records; `custom.md`, since vc-x1's is gitignored and local; and the agent repo's
+    `README.md`, named for the new repo, since vc-x1's says `vc-x1.claude` and "bot repo".
+  - `.gitignore` lines, the generic ones alone, `/tmp`, `/tmp-durable`, and `/custom.md`, never
+    vc-x1's `/target` or `/.fixtures`.
+  - `.vc-config.md` is `init`'s, never copied.
+- From a commit, never the working tree: `vc-x1 agent-files copy` reads its source's working tree,
+  which in a cycle changing the rules holds them half changed. The script reads vc-x1 at `--rev`,
+  `main` by default, `git -C <vc-x1> archive <sha> AGENTS.md agent-data` and `git show <sha>:<file>`,
+  with the ref resolved to a SHA first, and the commit that takes the applied files records "vc-x1 at
+  `<sha>`" in each repo, provenance of the project's start, so a later look at what the rules changed
+  since is a diff from that SHA. `--from` defaults to the vc-x1 the script sits in.
 - Overwriting, the hazard of a convert, guarded in order of strength:
   - A clean start: the script refuses unless both repos' `@` are empty, so every write is a diff and
     `jj restore` undoes them all. The backstop the rest keep from being needed.
-  - A staging directory under `tmp/`, never an extraction into the workspace. A template entry that
-    is absolute, holds `..`, or is a symlink is refused, and so is a write through a symlink in the
+  - A staging directory under `tmp/`, never an extraction into the workspace. A staged entry that is
+    absolute, holds `..`, or is a symlink is refused, and so is a write through a symlink in the
     workspace.
-  - A plan before any write: each path the template would write is new, identical, or differs,
-    a file meeting a directory included, judged by what is on disk, so an untracked or ignored file
-    counts. New is written, identical skipped.
-  - All or nothing: any path that differs writes nothing, prints the plan, and exits nonzero. No
-    template is ever half applied. `--dry-run` prints the plan and stops.
+  - A plan before any write: each path the script would write is new, identical, or differs, a file
+    meeting a directory included, judged by what is on disk, so an untracked or ignored file counts.
+    New is written, identical skipped.
+  - All or nothing: any path that differs writes nothing, prints the plan, and exits nonzero. Nothing
+    is ever half applied. `--dry-run` prints the plan and stops.
   - Each way past a difference is explicit: `--keep-existing` skips them, `--beside` writes
-    `<file>.template` beside each for a hand merge, and `--overwrite <path>` takes one named file at
-    a time. No blanket `--force`.
+    `<file>.vc-dr` beside each for a hand merge, and `--overwrite <path>` takes one named file at a
+    time. No blanket `--force`.
   - One automatic merge, `.gitignore`, which takes the lines it lacks, a union of lines being the one
     merge that loses nothing. `README.md`, `LICENSE-*`, `AGENTS.md`, `CLAUDE.md`, and `TODO.md`, the
     likely collisions in a convert, are never merged, `TODO.md` least of all, since the agent-files
     require their own shape of it.
   - No commit: the script ends by printing each repo's `jj diff --stat` and the `vc-x1 commit` to run
     after review.
-- What `init --adopt` owes the same rule: whether it touches an existing `.gitignore` or `README.md`
-  is unchecked, and `--use-template` rewrote a copied README's first line, the quiet edit to avoid.
-  To check when `--use-template` goes.
-- A shell script, not an xtask: it is language-neutral, and a template that ships an xtask for the
-  new project's build would otherwise carry two with different jobs, one of which must never be
-  copied.
-- A working project such as vc-x1 is not a template of this form, since copying its committed files
-  copies its source. From one, the copy is the rules alone, by `vc-x1 agent-files copy`, a mode the
-  script may offer.
-- Not a separate app yet: one earns its place by updating a project that drifted from its template,
-  as `copier` does with a three-way merge, where `cargo-generate` only creates. vc-x1 already updates
-  the rules by `agent-files diff` and `copy` and the messages repo, so an app waits until template
-  files beyond the rules need it.
-- What `init` owes a script: it never prompts, it does one thing, and `[project] name` makes the
+- `init --adopt` already holds to the same rule, checked in **feat: init drops --use-template**: an
+  existing `.gitignore` is given only the lines it lacks, and nothing else is written.
+- A shell script, not an xtask: it is language-neutral, as the repos it fills need not be Rust.
+- Deferred: applying a whole template repo, every committed file of its work side and a fixed
+  manifest of its agent side, from a local path or by GitHub's tarball and contents endpoints, until
+  wink wants a template beyond the rules. The design is in this entry's history at **feat: init
+  --test-repo makes a test repo**.
+- Not a separate app yet: one earns its place by updating a project that drifted from its source, as
+  `copier` does with a three-way merge, where `cargo-generate` only creates. vc-x1 already updates
+  the rules by `agent-files diff` and `copy` and the messages repo.
+- What `init` owes the script: it never prompts, it does one thing, and `[project] name` makes the
   project name one key rather than a `sed`.
-- What it retires or rewrites: `--use-template` leaves `init` in **feat: close, land, and push
-  compose with testing**, wink's call (2026-11-03), retiring **init --use-template takes an existing
-  workspace as the template** and **Restructure templates: one repo + a fixed agent seed manifest**.
-  The `--agent-files <PATH>` flag agreed for the next `init` rung is a copy the script can make
-  instead, a decision for that rung. `vc-x1-template` retires on wink's go after checking which
-  siblings name it in `[family] template`, and `vc-x1-template-2`, shrunk to the rules and its agent
-  manifest, is the first template of this form.
+- What it retires: the template repos beside vc-x1, `vc-x1-template`, `vc-x1-template-2`,
+  `vc-x1-work-repo-template`, `vc-x1-bot-repo-template`, and `vc-x1-codex-template`, each on wink's
+  go after checking which siblings name it, and `[family] template`, today the default source of
+  `agent-files copy` and `diff`, which needs another default.
 
 ### validate takes any profile
 
@@ -1210,9 +1234,9 @@ Claude Code does not find.
 
 - The order is wink's: `init` is fixed first, then `vc-x1 delete`, then `vc-x1 rename`. Each is a
   cycle of its own.
-- The `init` work is more than one cycle, wink's order: the agent template `--use-template` looks
-  for first, then the path over 200 characters, then the name GitHub would change, the order the
-  three parts below are in.
+- The `init` work is more than one cycle, wink's order: the path over 200 characters, then the
+  name GitHub would change, the order the two parts below are in. The first part, the agent
+  template `--use-template` looked for, retired with the flag (2026-11-03).
 - Delete is ahead of rename: its "find every part of a workspace from its config" is what rename
   reuses, and it gives `init` the cleanup it lacks.
 - The parts are `####` headings, where [Todo format](agent-data/notes.md#todo-format) asks for
@@ -1223,29 +1247,6 @@ Claude Code does not find.
   commits no bookmark reaches](#status-reports-the-commits-no-bookmark-reaches). Whether they move
   up ahead of it, or delete's cycle builds the verdict as its first rung, is open.
 - One experiment wants wink starting a fresh Claude Code session, the symlink's below.
-
-#### init --use-template takes an existing workspace as the template
-
-(wink, 2026-10-09) Someday an existing work directory should serve as a template. Today
-`--use-template WORK` requires an agent template too, defaulting to the sibling directory
-`<WORK>.claude`, and a workspace has no such sibling: its agent-repo is nested inside it and holds
-session data, which is nothing to copy.
-
-```
-$ vc-x1 init io-uring-2-zcr-v4-x2 --use-template io_uring-2-zcr-v4-x1/
-vc-x1 0.84.15
-Preflight checks...
-error: --use-template: agent template 'io_uring-2-zcr-v4-x1.claude' does not exist
-```
-
-Met again 2026-10-11 at 0.84.21, the same command and the same error, the template a workspace
-whose agent-repo is the nested `.agent-session`.
-
-- The agent template becomes optional: the sibling when it exists, otherwise an agent-repo seeded
-  with nothing.
-- The sibling default still ends in `.claude`, and whether it follows the `.agent-session` rename
-  is decided with the template repo, where the short-term fix, updating its `work` and
-  `work.claude`, is being made.
 
 #### symlink names a path over 200 characters as Claude Code does
 
@@ -2933,26 +2934,6 @@ it one.
 - Amending a just-pushed commit is a real workflow, not a rare one: the cycle-record cites no SHA by
   design, so a rewrite costs nothing. Message fixes naturally cluster there, which is exactly where
   the two-step shape bites.
-
-### Restructure templates: one repo + a fixed agent seed manifest
-
-Replace the separate `vc-x1-work-repo-template` + `vc-x1-bot-repo-template` repos with the one
-work-repo template, whose live `.claude/` doubles as the agent-side seed source, and retire
-`vc-x1-bot-repo-template`. `vc-x1 init` / `clone` updates for the new layout. First up after the
-refactor program.
-- `--use-template` rule: explicit `CODE,BOT` copies all non-hidden files from BOT (unchanged, the
-  escape hatch for rich agent seeds), and `CODE` alone seeds the agent side from a fixed manifest
-  (`LICENSE-*`, `README.md`) taken from `<CODE>/.claude/`. The `<CODE>.claude` sibling default is
-  dropped.
-- The manifest is the safety property: a live `.claude` has non-hidden session artifacts at top
-  level, and the known subset is what lets it double as the seed source without leaking session
-  history into new projects.
-- Manifest members missing in the source are skipped, so a code template with no `.claude/` content
-  yields a bare-but-valid agent-repo (the agent template is optional, since init already generates
-  the true minimum itself).
-- `memory/MEMORY.md` moves from copied to generated: it is intentionally empty (seeded only because
-  Claude tends to create it otherwise), so init emits it like `.vc-config.md` instead of copying,
-  leaving no "is it still empty?" invariant in the template.
 
 ### sync follow-up: extract `move-bookmark` command
 

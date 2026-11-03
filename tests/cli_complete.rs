@@ -45,7 +45,7 @@ fn path_arguments_complete() {
         (&["lookup", "--line", "no"], "notes.md"),
         (&["lookup", "-s", "work", "--line", "no"], "notes.md"),
         (&["init", "--target", "x", "--config", "no"], "notes.md"),
-        (&["init", "--target", "x", "--use-template", "sr"], "src/"),
+        (&["init", "--target", "x", "--test-repo", "sr"], "src/"),
         (&["config", "--file", "no"], "notes.md"),
         (&["validate-config", "--file", "no"], "notes.md"),
         // Already a `PathBuf`, so it completed before the hints.

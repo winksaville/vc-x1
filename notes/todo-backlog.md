@@ -313,14 +313,6 @@ Attach an agent companion plus `.vc-config.md` to an existing por workspace as a
 subcommand, described in [the stage](refactor-20260716.md#stage-por--dual-conversion). Last program
 stage on purpose, since it leans on facade-owns-topology and the in-process init pieces.
 
-### `init` template ergonomics
-
-Take-or-leave ideas from the template restructure (mailbox, 2026-07-31), triaged here 2026-08-02:
-- `--use-template <repo-root>` auto-detecting `work/` / `work.claude/`, so the caller passes the
-  template repo rather than its payload subdirectory
-- a no-remote init mode for local testing
-- an empty-dir agent template only needs a `.gitkeep`, since init writes hidden files itself
-
 ### Warn on the legacy `[workspace]` schema from any command
 
 A repo on the old schema reads, logs, and diffs fine for weeks and discovers the problem only when

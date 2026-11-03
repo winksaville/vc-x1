@@ -6,8 +6,6 @@
 //! left out rather than printed as skipped, so the numbers run
 //! 1..=N with no gaps.
 
-use std::path::PathBuf;
-
 use log::info;
 
 use super::{AgentPlan, InitParams, InitPlan, Provisioner, WorkStart};
@@ -38,12 +36,9 @@ impl Steps {
     pub(crate) fn new(
         plan: &InitPlan,
         params: &InitParams,
-        templates: Option<&(PathBuf, Option<PathBuf>)>,
         visibility: &str,
         create_symlink: bool,
     ) -> Self {
-        let work_template = templates.map(|(w, _)| w);
-        let agent_template = templates.and_then(|(_, a)| a.as_ref());
         let mut list = Vec::new();
 
         let work_dir = plan.project_dir.display();
@@ -54,10 +49,7 @@ impl Steps {
         };
         // An adopted repo is prepared already.
         if plan.work_start == WorkStart::Fresh {
-            list.push((
-                Step::PrepareWork,
-                with_template(prepare_work, work_template),
-            ));
+            list.push((Step::PrepareWork, prepare_work));
         }
         let config_work = match (&plan.agent, &params.config) {
             (Some(_), _)
@@ -98,10 +90,7 @@ impl Steps {
                 "Create {} and init the agent repo (jj, colocated)",
                 agent.path.display()
             );
-            list.push((
-                Step::PrepareAgent,
-                with_template(prepare_agent, agent_template),
-            ));
+            list.push((Step::PrepareAgent, prepare_agent));
             list.push((
                 Step::ConfigAgent,
                 "Write the agent repo's .vc-config.md and .gitignore".into(),
@@ -158,14 +147,6 @@ impl Steps {
     #[cfg(test)]
     pub(crate) fn steps(&self) -> Vec<Step> {
         self.list.iter().map(|(s, _)| *s).collect()
-    }
-}
-
-/// `title`, with the template copy it includes when there is one.
-fn with_template(title: String, template: Option<&PathBuf>) -> String {
-    match template {
-        Some(t) => format!("{title}, then copy template {}", t.display()),
-        None => title,
     }
 }
 

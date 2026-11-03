@@ -21,53 +21,7 @@ Where the agent was, for the agent that comes next. Ephemeral, never a record: r
 on, and reset to `_None._` by the reader. Kept here by the trial and no longer in `TODO.md`,
 where [Acquaint](AGENTS.md#acquaint) still says to look.
 
-Kept at the acquaint of 2026-11-02:
-
-- **chore: carry setting a mistake aside into v0.3.1** was set aside when **WIP: cleanup** was
-  dropped and is not done, and its files, `tmp/mistake-aside-todo.patch` and
-  `tmp/mistake-aside-zDOING.md`, are gone from `tmp/`. Session
-  `520a2a50-1afc-4282-a824-bc78c27b7cc5` in the agent-repo is where they were made. The edits:
-  **Setting a mistake aside** added to **agent-files(proposal): v0.3.1**, **abandon and revert set a
-  mistake aside** deleted from `## Todo`, and a reread note on **squash-push shows what it takes,
-  and push follows jj**.
-- `wflow.sh`, `wflow2.sh`, and `wflow3.sh` are the trials behind the matrix in **commit works at every
-  scope, and --local keeps it on the machine**. They are gone from `tmp/`, and each `Write` of them is in
-  that session's transcript, the last at lines 698, 716, and 742.
-
-Left at the end of 2026-11-02:
-
-- The rung **feat: init --test-repo makes a test repo** is `(current)` and uncommitted, held while
-  wink tests. Tests t2 and t3 in `~/tmp` passed with `--use-template` taking a root and expanding
-  `~` after the comma. On wink's go: a full `vc-x1-dev validate`, since it may not have run after
-  the last edit, then flip, describe, `vc-x1-dev commit -s w --no-push`, and install dev.
-- The next rung, agreed in thoughts and not yet in the ladder: `init` initializes a dual repo for
-  any language and never duplicates one.
-  - `--agent-files <PATH>` replaces `--use-template`, and the comma form, the root form, and the
-    `<work>.claude` default go. The path may be a working repo such as `vc-x1`, and only its
-    committed agent-files are copied, the set `vc-x1 agent-files copy` copies. Never `TODO.md`,
-    source, or transcripts.
-  - `init` writes the neutral starting files itself, a blank `TODO.md` and `CLAUDE.md`, and a
-    `.gitignore` that lists `tmp-durable` (check `tmp` too).
-  - `[project] name` and a `{project.name}` placeholder, filled in `[profile.*] bin` as well as in
-    command lists, so `vc-x1`'s `[install]` names no project. A table, not a top-level key, since
-    the config's blocks are concatenated.
-  - `init` writes `[project]`, `[repos]`, and `[remote]` only. The language tables (`[validate]`,
-    `[build]`, `[install]`, `[profile.*]`) copy only on a flag, its name unsettled. `[family]`,
-    `[record]`, `[test]`, and `[closing]` are never copied, being wink's own setup.
-  - `commit --closing` gets a built-in default body, `Closes the cycle "{title}".`, for a config
-    with no `[closing] body`.
-  - Unchecked: what `src/test_helpers.rs` does with no `[test] fixtures`, and `agent-files diff`
-    and `copy` with no `[family]`.
-- wink's own setup is a script around a neutral `vc-x1`: `init`, copy `custom.md`, append a config
-  fragment, `vc-x1 validate-config`, then `vc-x1 commit`. It needs no `--no-push` (wink's
-  correction), since the commit fast-forwards what `init` pushed. An `[init]` table in the user
-  config stays only an idea, for if the script grows awkward.
-- Todos to file, all after v0.3.1: retire `vc-x1-template` and base `init` on existing repos (a
-  rule change to Terminology, **Changing the agent-files**, and `family.template`, and its deletion
-  is wink's go after checking which siblings name it); `.fixtures` moves to `tmp-durable/fixtures`;
-  URL sources for `--agent-files`. For the v0.3.1 proposal itself: the 27 lines of the agent-files
-  naming Rust or cargo get a read for which are only examples. `vc-x1-template-2` shrinks to the
-  rules once the next rung lands.
+_None._
 
 ## In Progress
 
@@ -267,7 +221,7 @@ Provisional, the rungs after the opening named as the work is understood:
 
 - [feat: close, land, and push compose with testing opening][0] (done)
 - [feat: init --test-repo makes a test repo][1] (done)
-- [feat: init drops --use-template][2]
+- [feat: init drops --use-template][2] (done)
 - [feat: a test repo converts an existing repo][3]
 - [feat: the readers take any mix of ochid and ocid][4]
 - [feat: ocid is real only when the agent commit came first][5]
@@ -319,11 +273,21 @@ Today's sequence, run on one by `vc-x1-dev`, so the rungs below start from what 
 
 ##### feat: init drops --use-template
 
-`init --use-template` seeds a workspace from template directories, which a script outside vc-x1 does
-instead, wink's call (2026-11-03), as **vc-dr-apply.sh applies a template to a dual workspace** in
-`TODO.md` sets out. The flag goes, with its option type, its tests, and the README's word on it, and
-`init` makes a bare dual workspace. Whether `init --adopt` touches an existing `.gitignore` or
-`README.md` is checked against that Todo's overwrite rule.
+`init --use-template` seeds a workspace from template directories, which a script beside vc-x1 does
+instead, wink's call (2026-11-03), as **vc-dr-apply.sh applies vc-x1's rules to a dual workspace** in
+`TODO.md` sets out. The flag goes, with its option type, the template copy and the README rewrite it
+drove, their tests, and the README's word on it, and `init` makes a bare workspace, the repos holding
+only `.vc-config.md` and `.gitignore`. The flag is gone outright, not kept hidden and refused by name
+as the retired `--por` is, wink's call (2026-11-03): clap's completion offers a hidden flag once its
+prefix matches nothing visible, so `--use<TAB>` would still complete it. The two Todos it answered retire, **init
+--use-template takes an existing workspace as the template** and **Restructure templates: one repo +
+a fixed agent seed manifest**, with the backlog's **`init` template ergonomics**, whose no-remote mode
+`--test-repo` became.
+
+Checked against the template Todo's overwrite rule, `init --adopt` holds to it: an existing
+`.gitignore` is kept and given only the lines it lacks, a single-repo config is edited by adding lines
+alone, and nothing else in the directory is written. The one quiet edit, the README's first line, was
+`--use-template`'s and went with it.
 
 ##### feat: a test repo converts an existing repo
 

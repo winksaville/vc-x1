@@ -74,7 +74,7 @@ Wire form is presentation; the category is the underlying domain.
      (`push_retries`, `push_retry_delay`); clap derives each
      flag from its field name as usual.
    - The pre-existing single-field leaves (`scope`, `repo`,
-     `dry_run`, `private`, `account`, `config`, `use_template`)
+     `dry_run`, `private`, `account`, `config`)
      predate this and still derive the flag from the field name;
      migrating them to `value` is tracked in
      [`../../TODO.md`](../../TODO.md).
