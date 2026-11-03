@@ -30,14 +30,14 @@ Surfaces that use this shape:
 
 Bullet *content* differs by surface:
 
-- **Commit bodies**: the [Problem-first shape](#problem-first-shape) for finished work, arranged by
-  [Commit-body form](#commit-body-form) below. What is specific to a commit:
+- **Commit bodies**: the [Problem-first shape](#problem-first-shape) for finished work, as two
+  paragraphs by [Commit-body form](#commit-body-form) below. What is specific to a commit:
   - the problem statement defines any word the title assumes, since the title is what a reader meets
     first and it answers the problem
   - **no file list.** The diff and `git show --stat` are the mechanical record, so restating them is
     a second copy that can drift from the first. An import of a thousand files is one change
-  - these are claims a reader has to follow, so they are sentences rather than fragments. A bullet
-    wanting a paragraph belongs in the cycle-record instead
+  - these are claims a reader has to follow, so they are sentences rather than fragments. What
+    wants more than a paragraph belongs in the cycle-record instead
   - the **deliberation** stays out: alternatives weighed, evidence, dates, costs accepted. Those
     live in the cycle-record, the `## Todo` entry, and the session the `ochid:` trailer names, each
     reachable from the commit by construction. The problem itself is a *why* and belongs here
@@ -131,35 +131,17 @@ opening what it intended to do.
 
 ### Commit-body form
 
-The specimen is [commit-model.md](commit-model.md). A commit body is the [Problem-first
-shape](#problem-first-shape) with one addition: a body whose
-problem has several sub-problems arranges them by a fixed recursion, so a reader knows what any
-bullet is from its marker and its depth. The earlier statement, "a problem statement then a solution
-statement, both broad", left that arrangement to taste, and taste converged slowly and separately.
+The specimen is [commit-model.md](commit-model.md). A commit body is two plain paragraphs, and the
+rung's subsection in the record holds the full account, so the breakdown is written once.
 
-- **An intro paragraph states the general problem**, and defines any word the title assumes. It is
-  mandatory. [Prose form](#prose-form) wants it regardless, and a body opening on a bullet is a body
-  a `--body` flag can mistake for an option. The problem is *this commit's*, never the cycle's: the
-  cycle's problem lives in the In Progress block, and a body whose problems outnumber what the diff
-  resolves is describing something larger than the commit.
-- **`*` bullets are the problem's facets**: sub-problems that decompose the intro's general problem,
-  not a grab-bag of unrelated fixes. A body reaching for unrelated problem bullets is usually asking
-  to be more than one commit.
-- **`-` bullets are solutions**, and every `-` sits under a `*`, solving that facet. A `-` with no
-  `*` above it reads as a solution to nothing, so there are no top-level solutions: a solution that
-  retires every facet at once is written under each, or the facets are one.
-- **One facet is the trivial commit**: the intro, one `*`, one or more `-` under it. Not a second
-  form, the general form at its smallest.
+- **The problem**, and it defines any word the title assumes. It is *this commit's*, never the
+  cycle's: a body whose problem outruns what the diff resolves is describing something larger than
+  the commit.
+- **The solution**, opening "Solution:", ending with the pointer to the record where it is at that
+  commit, "See details in TODO.md." No bullets, so a `--body` flag cannot mistake it for an option.
 - **A bookend body is a pointer**: an opening or closing commit resolves no problem of its own, so
-  its body is the intro paragraph alone, naming the cycle by its title and pointing at its record,
-  the In Progress block. No `*`, no `-`.
-
-**The markers are typed on purpose**: `*` always means problem, `-` always means solution, and the
-pairing is what a reader counts on: the `-` answers the `*` above it, with no rule to consult. The
-typing also keeps history greppable (`^\* ` finds every facet, `^ - ` every solution). Bodies are
-read as plain text, in `jj log` and in terminals, where the markers survive, and if a renderer ever
-flattens them the indentation still carries the structure. So the mixed markers are deliberate, and
-a linter's consistent-marker rule is wrong to normalize them.
+  its body names the cycle by its title, "Opens the cycle ..." or "Closes the cycle ...", with the
+  same pointer after it.
 
 Unchanged by this: no version in title or body, no file list, no deliberation, titles per
 [Conventional-commit shape](#conventional-commit-shape-ladder--commit).
@@ -272,14 +254,15 @@ cycle's commits collectable with one `git log --grep`, give the step titles a co
 (e.g. `config loader`).
 
 **Cycle bookend titles**: a multi-step cycle's bookend commits are the cycle title plus a suffix, "
-opening" and " closing", same type (`feat: dynamic warmup opening` /
-`feat: dynamic warmup closing`), so one `git log --grep "<cycle title>"` returns the pair that
-brackets the ladder. The bare cycle title is the cycle's *name*: the block's title heading carries
-it, and no multi-step commit does, which is also what keeps the closing rung's subsection anchor
-clear of the title heading's. A single-step cycle's one commit is the cycle and keeps the bare
-title, in both repos and in its one ladder rung ([Cycle shape](../AGENTS.md#cycle-shape)). The type
-repeats across the pair even though the bookends are mostly bookkeeping: identical prefixes make
-them scannable. Rungs between keep their own titles on the stem.
+opening" and " closing", or " dead-end closing" for a dead end, whose suffix the title cap does not
+bind, same type (`feat: dynamic warmup opening` / `feat: dynamic warmup closing`), so one `git log
+--grep "<cycle title>"` returns the pair that brackets the ladder. The bare cycle title is the
+cycle's *name*: the block's title heading carries it, and no multi-step commit does, which is also
+what keeps the closing rung's subsection anchor clear of the title heading's. A single-step cycle's
+one commit is the cycle and keeps the bare title, in both repos and in its one ladder rung ([Cycle
+shape](../AGENTS.md#cycle-shape)). The type repeats across the pair even though the bookends are
+mostly bookkeeping: identical prefixes make them scannable. Rungs between keep their own titles on
+the stem.
 
 ### Commit titles and descriptions
 
@@ -291,9 +274,9 @@ this section holds what may fill them. The title is a [Conventional
 Commit](https://www.conventionalcommits.org/), `<type>: <short description>` with an optional
 `(scope)`, at the width in [Line widths](#line-widths). The body is the [Commit-body
 form](#commit-body-form), wrapped per Line widths, with no version in title or body, no file list,
-and no deliberation. `vc-x1 push` gives both repos' commits the same title and body. `ochid:` is
-the body's last line, stamped by push, and a breaking change uses the hyphenated
-`BREAKING-CHANGE:` trailer key.
+and no deliberation. An agent commit takes its work commit's title and body. The trailers end the
+body, stamped by `vc-x1 commit`, and a breaking change uses the hyphenated `BREAKING-CHANGE:`
+trailer key.
 
 #### Conventional commit types
 

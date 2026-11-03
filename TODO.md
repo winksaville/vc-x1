@@ -275,6 +275,11 @@ reviews is what is published. Follows **feat: vc-x1 commit, install, and run-dev
 the rules below name. Each change is a `####` heading holding what is done, and its `#####` holds
 why.
 
+Adopted locally as the draft `v0.3.1-0`, vc-x1's agent-files since **chore: vc-x1 adopts the
+agent-files v0.3.1-0 draft** (2026-11-03). The entry stays the proposal, and what came after the
+draft is for `v0.3.1-1`: **New repos start from an adopter's committed rules**, **At rest leaves the
+tail for the next push**, and **Every unpublished rung's ocid is real before it is published**.
+
 #### Never rename
 
 - The package keeps its plain name throughout a cycle: Opening step 6 and Land step 1 go, and
@@ -650,6 +655,32 @@ with the work, where a patch's context moves. An index costs a rebuild to lose, 
 
 vc-x1 carries the set already, so a template repo is a second copy to keep in step, and the rules a
 repo starts from should be ones that landed.
+
+#### At rest leaves the tail for the next push
+
+- Once a work commit's `ocid:` names the agent commit's SHA, that commit is frozen: squashing the
+  session's tail into it changes its SHA, and every `ocid:` naming it dangles. So At rest's second
+  step, the user's `vc-x1 squash-push -s a`, goes. What the transcript gains after the final push,
+  the push's tool result, the "Published", a recap, stays in the agent `@`, and the next push commits
+  it as a commit of its own.
+- push's agent half never folds the journal into a commit a work commit's `ocid:` names.
+
+##### Why: the tail stays
+
+A squash after the push rewrites the commit the links point at, wink's finding (2026-11-03).
+
+#### Every unpublished rung's ocid is real before it is published
+
+- `vc-x1 push -s b` commits the agent `@` and pushes it, then rewrites every unpublished work commit's
+  `ocid:` to that commit's SHA and its `pcid:` to its parent's, oldest first, each tree checked
+  unchanged, as `vc-x1 trailers --update` does, and then publishes the bookmark, one command doing all
+  of it. It replaces "each agent commit's SHA is carried by exactly one work commit, the last it
+  names" in the cycle **feat: close, land, and push compose with testing**.
+
+##### Why: every link resolves
+
+A rung left at `xxxx` links nothing, and rewriting commits no one else has, their trees unchanged,
+costs only their SHAs, wink's (2026-11-03).
 
 #### Not in it
 
@@ -2211,7 +2242,7 @@ only in a declared type, where it carries the declaration's own vocabulary, toda
 declared type keeps its, and the shape section's example loses one. `prose.md` is a universal file,
 so this runs as an `agent-files(proposal)` cycle that bumps the set version.
 
-### lookup narrows a write's work window to its lines and flags a renamed partner
+### lookup marks a write's own lines, labels each line number, and flags a renamed partner
 
 (wink, 2026-09-12) Found trying **feat: vc-x1 lookup for dual repos** by hand before its Land.
 `lookup agent` on a transcript write narrows the work window to the files the call wrote, and
@@ -2220,9 +2251,25 @@ printed nine regions, 188 added lines, while the call's own text carries about 6
 regions were written partly by that call and partly by other calls in the same rung, so dropping
 whole regions removes only two of nine.
 
-- Line narrowing: keep the added lines the call's text carries, a heredoc body, a Write's content,
-  an Edit's new string, with a line or two of context, and say how many lines the commit added
-  that the call did not.
+Met again (wink + agent, 2026-11-03): `lookup --line src/init.rs:105 -r 4a827490` found
+`vorzlzzx src/init.rs:90` and the write at `222bc372-8990-4566-b73e-25023e62a7aa.jsonl:1150`, and
+the inverse, `lookup --line <that jsonl>:1150 -r tqtrxzvx` in the agent repo, printed every hunk of
+`vorzlzzx` in the two files the call wrote, with no `>` on the lines it wrote. The two numbers, 105
+and 90, are one line in two commits, the snapshot read and the commit that wrote it, and the output
+named neither, so they read as a disagreement.
+
+- Both directions answer in the commit where the write happened, so they round-trip: the forward
+  lookup's `commit vorzlzzx src/init.rs:90` is what the inverse marks, never the line at today's
+  snapshot.
+- Mark the call's own lines: among the partner commit's hunks, the added lines the call's text
+  carries, a heredoc body, a Write's content, an Edit's new string, print with `>` in place of `+`,
+  and every other hunk stays, so the whole change is in view and the call's part of it is marked.
+  This replaces narrowing by dropping, whose two-of-nine result is above.
+- Label every line number with its commit: `work src/init.rs:105 at lpkmkxrk`, and on the commit
+  row, `vorzlzzx src/init.rs:90`, the line where it was written.
+- Optional `--work-rev <rev>` on the inverse: where the marked lines are at that revision, by blame
+  there, a line still blamed on the partner commit with the same text being the same line, and which
+  were changed or removed since.
 - A renamed partner: `lookup TODO.md:100` printed a commit and its partner with different titles,
   "fix: clone says the right dir and stops on a rejected config" and "fix: clone's dry run and
   warning name the right files", though each trailer names the other. A push gives both the same

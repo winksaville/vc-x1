@@ -38,13 +38,13 @@ and `vc-x1 config --validate` reports the same findings as before the move.
 
 #### Ladder
 
-- [refactor: extract config loader opening][1] (done)
-- [refactor: split loader from parser][2] (current)
-- [refactor: extract config loader closing][3]
+- [refactor: extract config loader opening][0] (done)
+- [refactor: split loader from parser][1] (current)
+- [refactor: extract config loader closing][2]
 
 ##### refactor: extract config loader opening
 
-The cycle's setup commit: create and publish the bookmark, delete `## Closed`'s contents, move the
+The cycle's setup commit: create the bookmark, delete `## Closed`'s contents, move the
 Todo entry into this block, and bump the version-of-record.
 
 ##### refactor: split loader from parser
@@ -69,6 +69,6 @@ Closing out the cycle.
 
 # References
 
-[1]: #refactor-extract-config-loader-opening
-[2]: #refactor-split-loader-from-parser
-[3]: #refactor-extract-config-loader-closing
+[0]: #refactor-extract-config-loader-opening
+[1]: #refactor-split-loader-from-parser
+[2]: #refactor-extract-config-loader-closing

@@ -222,16 +222,17 @@ Provisional, the rungs after the opening named as the work is understood:
 - [feat: close, land, and push compose with testing opening][0] (done)
 - [feat: init --test-repo makes a test repo][1] (done)
 - [feat: init drops --use-template][2] (done)
-- [feat: a test repo converts an existing repo][3]
-- [feat: the readers take any mix of ochid and ocid][4]
-- [feat: ocid is real only when the agent commit came first][5]
-- [fix: commit --closing reads the nearest opening and keeps the cycle's base][6]
-- [feat: land takes @- and the work scope by default][7]
-- [feat: a push to a release bookmark seals the cycle][8]
-- [fix: testing leaves a cycle able to continue][9]
-- [feat: close, land, and push say where the cycle stands][10]
-- [docs: the rules and README name the three steps][11]
-- [feat: close, land, and push compose with testing closing][12]
+- [chore: vc-x1 adopts the agent-files v0.3.1-0 draft][3] (done)
+- [feat: a test repo converts an existing repo][4]
+- [feat: the readers take any mix of ochid and ocid][5]
+- [feat: ocid is real only when the agent commit came first][6]
+- [fix: commit --closing reads the nearest opening and keeps the cycle's base][7]
+- [feat: land takes @- and the work scope by default][8]
+- [feat: a push to a release bookmark seals the cycle][9]
+- [fix: testing leaves a cycle able to continue][10]
+- [feat: close, land, and push say where the cycle stands][11]
+- [docs: the rules and README name the three steps][12]
+- [feat: close, land, and push compose with testing closing][13]
 
 ##### feat: close, land, and push compose with testing opening
 
@@ -288,6 +289,16 @@ Checked against the template Todo's overwrite rule, `init --adopt` holds to it: 
 `.gitignore` is kept and given only the lines it lacks, a single-repo config is edited by adding lines
 alone, and nothing else in the directory is written. The one quiet edit, the README's first line, was
 `--use-template`'s and went with it.
+
+##### chore: vc-x1 adopts the agent-files v0.3.1-0 draft
+
+The last cycles have run on the proposal **agent-files(proposal): v0.3.1** while vc-x1's agent-files
+still say v0.3.0, so the rules a session reads are not the ones it follows. vc-x1 takes the draft
+`v0.3.1-0` in `../vc-x1-template-2/work` verbatim, wink's call (2026-11-03), by `vc-x1 agent-files
+copy`, and `agent-files diff` against the draft reports every file the same. The proposal stays open
+in `TODO.md`, noting the adoption, with the refinements found since kept there for `v0.3.1-1`. The
+draft is not a repo, so this one copy is from a working tree, and vc-x1's commits are the source
+after it.
 
 ##### feat: a test repo converts an existing repo
 
@@ -353,13 +364,14 @@ Closing out the cycle.
 [0]: #feat-close-land-and-push-compose-with-testing-opening
 [1]: #feat-init---test-repo-makes-a-test-repo
 [2]: #feat-init-drops---use-template
-[3]: #feat-a-test-repo-converts-an-existing-repo
-[4]: #feat-the-readers-take-any-mix-of-ochid-and-ocid
-[5]: #feat-ocid-is-real-only-when-the-agent-commit-came-first
-[6]: #fix-commit---closing-reads-the-nearest-opening-and-keeps-the-cycles-base
-[7]: #feat-land-takes---and-the-work-scope-by-default
-[8]: #feat-a-push-to-a-release-bookmark-seals-the-cycle
-[9]: #fix-testing-leaves-a-cycle-able-to-continue
-[10]: #feat-close-land-and-push-say-where-the-cycle-stands
-[11]: #docs-the-rules-and-readme-name-the-three-steps
-[12]: #feat-close-land-and-push-compose-with-testing-closing
+[3]: #chore-vc-x1-adopts-the-agent-files-v031-0-draft
+[4]: #feat-a-test-repo-converts-an-existing-repo
+[5]: #feat-the-readers-take-any-mix-of-ochid-and-ocid
+[6]: #feat-ocid-is-real-only-when-the-agent-commit-came-first
+[7]: #fix-commit---closing-reads-the-nearest-opening-and-keeps-the-cycles-base
+[8]: #feat-land-takes---and-the-work-scope-by-default
+[9]: #feat-a-push-to-a-release-bookmark-seals-the-cycle
+[10]: #fix-testing-leaves-a-cycle-able-to-continue
+[11]: #feat-close-land-and-push-say-where-the-cycle-stands
+[12]: #docs-the-rules-and-readme-name-the-three-steps
+[13]: #feat-close-land-and-push-compose-with-testing-closing

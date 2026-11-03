@@ -150,22 +150,9 @@ intact and lets the `ochid:` trailers ride along: they carry change ids, which s
 
 ### Cycle shape
 
-The `ochid:` trailers are change ids, and that is why squash is not a close-out shape and the
-shape is fixed at the first push.
-
-- Squashing a work-repo ladder keeps one chid and drops the rest, so every agent-repo commit that
-  pointed at a dropped rung is left with a dangling link (`vc-x1 validate-desc` reports
-  `not found`).
-- Repairing that means re-describing N agent-repo commits, which [No re-describe without
-  coordinating](jj.md#re-describing-coordinate-first-and-keep-the-trailer) forbids.
-- Squashing the agent-repo to match discards the per-rung session narrative the agent-repo exists
-  to keep.
-- Since the remaining shapes keep every rung, the one-commit-or-ladder choice has to be made before
-  the first push writes the first trailer.
-- The one exception, promoting a pushed single-step commit to an opening, is a coordinated
-  re-describe: the change id and the trailer survive it, which is what a squash cannot offer.
-- Trapezoid already gives `main` a one-commit-per-cycle read under `git log --first-parent`, which
-  is what squash was buying.
+The tool tells the shapes apart by counting, with no title to read, and a cycle need not decide its
+shape before its first commit: it is single-step until a second commit makes it a ladder. A dead end
+lands because its commits are named by agent-repo trailers, and landing keeps every rung reachable.
 
 ### Unplanned work
 
@@ -176,7 +163,7 @@ a bookmark](#cycles-run-on-a-bookmark)). The choice between a rung and an entry 
 because it depends on what they want from the running cycle at that moment, which no rule can
 know.
 
-The patch-aside sentence (2026-09-05): a rename arrived while the working copy held the next rung's
+The set-aside sentence (2026-09-05, a patch then, a jj commit since a cleanup of `tmp/` lost two patches): a rename arrived while the working copy held the next rung's
 guide edit, and the inserted rung would have carried both. Setting the edit aside as a patch and
 re-applying it after the push is what was done, and it was invented on the spot.
 
@@ -247,11 +234,14 @@ reshape the work the marker would claim.
 
 ### Committing vs pushing
 
-Push's commit stages commit both repos and stamp each new commit's `ochid:` trailer, so a
-pre-committed rung leaves `@` empty and push mints a stamped empty duplicate (the empty-`@` push
-minting orphan agent-repo commits was measured 2026-08-15, in the "docs: trial the iiac-perf
-convergence proposals" chores section). **No checks of the project's own** because vc-x1 assumes
-nothing about a repo beyond `.jj` and its config.
+A local commit can be reworked and a push cannot easily be taken back, so the safe act is the one done
+by doing nothing, and publishing has one place to gate.
+
+#### A cycle stays local until its Land
+
+The Land is where the decision is, so one approval belongs there. Nothing published can name a rung,
+so reshaping a ladder costs nothing, and the agent commit made first lets every commit link to it, a
+SHA included. The first cycle run this way changed its ladder several times at no cost.
 
 ### Commit description
 
@@ -282,16 +272,20 @@ delegated cycle that skipped a record would leave the deferred reviewer nothing 
 a coordinated force-push of history someone else may already hold. Approval is the one moment the
 user can still say no at no cost.
 
-#### At rest: push, stop, squash-push
+#### At rest
 
-The agent-repo is a live journal, so everything after a `vc-x1 push` invocation, its own
-record and any closing words, lands in the agent-repo's `@` as a trailing tail. That tail is why the
-agent cannot squash-push the agent-repo: the squash-push is itself an action that adds to the tail,
-so it never reaches a fixed point. Thus the user must do the squash-push in the agent-repo anytime
-the agent acts visibly or behind the scenes. Importantly, a squash-push does not alter the change id
-in the agent-repo commit, so the `ochid` in the work-repo commit continues to resolve.
+The agent-repo is a live journal, so everything after a publishing command, its own record included,
+lands after it, and the agent cannot bring its own `@` to a fixed point. So the session's tail is
+bookkeeping that rides the next cycle's agent commit, and a Land folds nothing into its agent commit,
+since a fold changes the SHA every `ocid:` names.
 
 ### Close-out
+
+Continuation notes go in the closing because notes written after the Land have no clean home: a commit
+after it puts a non-cycle commit on the trunk after the hard stop, and a squash into the closing
+rewrites the landmark just landed and verified. The cost, notes written before the Land they describe,
+suits a close-out. The shape is in the closing so it is in the commit that was reviewed, rather than a
+reshape at Land made after it.
 
 Each close-out step exists because a close-out once went wrong without it.
 
@@ -476,6 +470,11 @@ dialect needs a decoder. Old transcripts and notes written under that gloss deco
 text written since teaches only jj's.
 
 ### Cross-repo linking (ochid trailers)
+
+An `ochid:` always means the other repo, so a label or URL in it told a tool nothing, and a change id
+survives a rewrite where a URL can go stale. Keeping the URLs on the work commit makes the work-repo the
+durable root. A commit cannot hold its own SHA, so a parent's is what names the work-repo at a real
+commit, and it still says where a forked commit came from.
 
 **Trailers are stamped by push, never hand-written**, because the change id a trailer names does
 not exist until push makes the paired commit: an agent-repo ochid names `@-` after the push, and an

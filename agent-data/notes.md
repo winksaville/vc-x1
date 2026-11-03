@@ -128,7 +128,7 @@ under a program heading, each one deeper):
   reasons only where they doubt one. `_None._` when there was nothing to deliberate, which is a real
   answer
 - **ladder**: one rung per step, `- [<title>][M]` plus `(current)` / `(done)`, with `[M]: #<slug>`
-  in the file's `# References`. The markers stay when the block moves to `## Closed`. `<title>` is
+  in the file's `# References`, numbered from `[0]`, so each label equals its rung's version suffix. The markers stay when the block moves to `## Closed`. `<title>` is
   the rung's commit title, `<type>: <desc>` per
   [Conventional-commit shape](prose.md#conventional-commit-shape-ladder--commit), so a moved
   `## Todo` entry is retitled. The closing rung, `<cycle title> closing`, is linked like the rest
