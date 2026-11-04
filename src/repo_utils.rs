@@ -4,8 +4,8 @@
 //! local-state mechanics that don't depend on URL form. As of
 //! 0.41.1-6.5:
 //!
-//! - `prepare_local_repo`: mkdir, colocated jj init, optional
-//!   template copy. Leaves the working copy uncommitted.
+//! - `prepare_local_repo`: mkdir and colocated jj init. Leaves the
+//!   working copy uncommitted.
 //! - `commit_initial`: jj commit of the prepared tree, returning
 //!   its chid.
 //! - `cross_ref_ochids`: rewrite both initial commits' placeholder
@@ -22,7 +22,6 @@ use log::{debug, info};
 
 use crate::common::mkdir_p;
 use crate::desc_helpers::{Trailers, commit_url, with_trailer, with_trailers};
-use crate::init::{copy_template_recursive, rewrite_readme_first_line};
 use crate::jj;
 
 /// The title of a new repo's first commit.
@@ -41,7 +40,7 @@ pub enum OchidStrategy {
 }
 
 /// Prepare a fresh local repo at `target`: directory + git/jj
-/// init + optional template copy. The working copy is left
+/// init. The working copy is left
 /// uncommitted so callers can drop role-specific files (e.g.
 /// `.vc-config.toml`, `.gitignore`) into the tree before
 /// `commit_initial` captures them in the initial commit.
@@ -49,8 +48,6 @@ pub enum OchidStrategy {
 /// Performs:
 /// - Creates `target` (and its parent if needed).
 /// - `jj git init --colocate` (which creates the git repo too).
-/// - Optionally copies a template tree, rewriting any
-///   `README.md`'s first line to `# <name>`.
 ///
 /// Parameters:
 /// - `target`: destination directory for the new repo. Created
@@ -58,15 +55,9 @@ pub enum OchidStrategy {
 ///   as a populated repo.
 /// - `info_label`: narration tag (`"work"`, `"agent"`, `"scratch"`,
 ///   etc.), appearing in `info!()` lines.
-/// - `template`: optional source dir. When present, copied
-///   recursively (non-hidden only) and any `README.md`'s first
-///   line is rewritten to `# <name>`.
-/// - `name`: repo name used by the README rewrite.
 pub fn prepare_local_repo(
     target: &Path,
     info_label: &str,
-    template: Option<&Path>,
-    name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     debug!(
         "prepare local repo {info_label} directory at {}",
@@ -82,16 +73,6 @@ pub fn prepare_local_repo(
     // explicit `git init` was redundant (0.76.0-5).
     debug!("init {info_label} repo (jj, colocated)");
     jj::git_init_colocated(target)?;
-
-    if let Some(t) = template {
-        debug!(
-            "copy {info_label} template: {} -> {}",
-            t.display(),
-            target.display()
-        );
-        copy_template_recursive(t, target)?;
-        rewrite_readme_first_line(target, name)?;
-    }
 
     Ok(())
 }
@@ -226,8 +207,8 @@ mod tests {
         let base = crate::test_helpers::unique_base("create-repo-cross-ref");
         let (work, bot) = (base.join("work"), base.join("bot"));
         std::fs::create_dir_all(&base).expect("mkdir base");
-        prepare_local_repo(&work, "work", None, "scratch").expect("prepare work");
-        prepare_local_repo(&bot, "bot", None, "scratch").expect("prepare bot");
+        prepare_local_repo(&work, "work").expect("prepare work");
+        prepare_local_repo(&bot, "bot").expect("prepare bot");
         let wc = commit_initial(&work, "work", INITIAL_TITLE, OchidStrategy::Placeholder)
             .expect("commit work");
         let bc = commit_initial(&bot, "bot", INITIAL_TITLE, OchidStrategy::Placeholder)
@@ -287,7 +268,7 @@ mod tests {
         let target = base.join("work");
         std::fs::create_dir_all(&base).expect("mkdir base");
 
-        prepare_local_repo(&target, "work", None, "scratch").expect("prepare_local_repo");
+        prepare_local_repo(&target, "work").expect("prepare_local_repo");
         let chid = commit_initial(&target, "work", INITIAL_TITLE, OchidStrategy::None)
             .expect("commit_initial");
 
@@ -314,7 +295,7 @@ mod tests {
         let target = base.join("work");
         std::fs::create_dir_all(&base).expect("mkdir base");
 
-        prepare_local_repo(&target, "work", None, "scratch").expect("prepare_local_repo");
+        prepare_local_repo(&target, "work").expect("prepare_local_repo");
         let _chid = commit_initial(&target, "work", INITIAL_TITLE, OchidStrategy::Placeholder)
             .expect("commit_initial");
 
@@ -338,7 +319,7 @@ mod tests {
         let target = base.join("work");
         std::fs::create_dir_all(&base).expect("mkdir base");
 
-        prepare_local_repo(&target, "scratch", None, "scratch").expect("prepare_local_repo");
+        prepare_local_repo(&target, "scratch").expect("prepare_local_repo");
         let _chid = commit_initial(&target, "scratch", INITIAL_TITLE, OchidStrategy::None)
             .expect("commit_initial");
 

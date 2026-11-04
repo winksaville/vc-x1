@@ -129,24 +129,15 @@ suffix = "-dev"
 <property> = "value"
 ```
 
-The `[record]` table
-- doing: The file whose `## In Progress` block `commit --closing` moves to record.closed [[26]]
-- closed: The file whose `## Closed` block `commit --closing` replaces with record.doing's [[27]]
-```toml
-[record]
-doing = "zDOING.md"
-closed = "zCLOSED.md"
-```
-
 The `[closing]` table
-- body: The closing commit's default body, `{title}` the cycle title [[28]]
+- body: The closing commit's default body, `{title}` the cycle title [[26]]
 ```toml
 [closing]
-body = "Closes the cycle {title}. See details in zCLOSED.md."
+body = "Closes the cycle {title}. See details in TODO.md."
 ```
 
 The `[cycle]` table
-- trunk: The trunk a closing merges onto and a bare `--land` lands on [[29]]
+- trunk: The trunk a closing merges onto and a bare `--land` lands on [[27]]
 ```toml
 [cycle]
 trunk = "main"
@@ -154,7 +145,7 @@ trunk = "main"
 
 The `[test]` table
 - fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
-  test` [[30]]
+  test` [[28]]
 ```toml
 [test]
 fixtures = ".fixtures"
@@ -187,8 +178,6 @@ fixtures = ".fixtures"
 [23]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamebin
 [24]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamesuffix
 [25]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenameproperty
-[26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recorddoing
-[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#recordclosed
-[28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
-[29]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#cycletrunk
-[30]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
+[26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
+[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#cycletrunk
+[28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures

@@ -1,0 +1,8 @@
+[validate]
+full = [
+  "cmake -S . -B build -DCMAKE_COMPILE_WARNING_AS_ERROR=ON",
+  "cmake --build build --target format",
+  "cmake --build build",
+  "ctest --test-dir build --output-on-failure --no-tests=error",
+]
+fast = ["cmake --build build", "ctest --test-dir build --no-tests=error"]

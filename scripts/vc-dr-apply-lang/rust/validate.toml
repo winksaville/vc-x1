@@ -1,0 +1,3 @@
+[validate]
+full = ["cargo fmt", "cargo clippy --all-targets -- -D warnings", "cargo test"]
+fast = ["cargo test"]

@@ -25,8 +25,9 @@ fixed directory.
   bookmarks without special flags)
 - `jj bookmark set <name> -r <rev> -R <repo>`: create the bookmark, or move an existing one, at
   `<rev>`. Moving it backwards needs `--allow-backwards`
-- `jj git push --named <name>=<rev> -R <repo>`: create *and* publish in one step, which is the usual
-  way a cycle's bookmark is born (see [Cycle bookmarks](#cycle-bookmarks-create-and-land))
+- `jj git push --named <name>=<rev> -R <repo>`: create *and* publish in one step, for a line that is
+  not a cycle's, whose bookmark `vc-x1 commit --opening` makes ([Cycle
+  bookmarks](#cycle-bookmarks-create-and-land))
 - In jj, the working copy (@) is always a mutable commit being edited. `jj commit` finalizes it and
   creates a new empty working copy on top.
 - The agent-repo always has uncommitted changes during an active session because session data
@@ -64,91 +65,74 @@ repository.
 
 The cross-reference between the work-repo and the agent-repo is what makes the dual-repo work: every
 commit points at its counterpart in the other repo, so the "what" (code) and the "why / how"
-(session) stay linked across time. That pointer is the **ochid** (Other Change ID) git trailer
-([why](rationale.md#cross-repo-linking-ochid-trailers)).
+(session) stay linked across time ([why](rationale.md#cross-repo-linking-ochid-trailers)). The
+work-repo is the root of the record: lose the agent-repo and only context goes.
 
 A **chid** is jj's change ID, a permanent identifier that survives rebases and `describe`s (unlike
-the commit ID / git SHA, which changes on rewrite). An **ochid** trailer carries the counterpart
-commit's chid behind a prefix naming the repo it lives in:
-
-- The prefix names a side, not a location. `/` refers to the work-repo and `/.claude` to the
-  agent-repo, and each repo's own location is the path the work-repo's `.vc-config.md` declares,
-  `[repos] work` and `[repos] agent`. The agent one may be any reachable relative path, under
-  the work-repo's tree or outside it, and the `.claude` in the label is a constant that says
-  nothing about it, so a sweep over the agent-repo's directory leaves every trailer alone.
-- Which label a commit takes is decided by reading a repo's own `.vc-config.md`, its
-  `[repos] agent` resolved relative to that file and compared against the directory holding it.
-  So the config picks the side and the label is a constant, and the two never need to agree.
-- `ochid: /<chid>` references a change in the **work-repo**.
-- `ochid: /.claude/<chid>` references a change in the **agent-repo**.
-
-Trailers are blank-line-separated `key: value` lines at the end of the commit body, using the chid's
-**12-character** prefix:
+the commit ID / git SHA, which changes on rewrite). Trailers are blank-line-separated `key: value`
+lines at the end of the commit body:
 
 ```
-ochid: /.claude/xvzvruqowktp   # points to an agent-repo change
-ochid: /wtpmottvxqzl           # points to a work-repo change
+ochid: xvzvruqowktp
+ocid: https://github.com/owner/name.agent-session/commit/<sha>
+pcid: https://github.com/owner/name/commit/<parent-sha>
 ```
 
-How many, and which direction:
+- `ochid: <chid>`: the partner's change id in the other repo, a bare 12-character id on both sides.
+  Published `/<chid>`, `/.claude/<chid>`, and `<repo-url>#<chid>` stay valid.
+- `ocid: <agent-repo-url>/commit/<sha>`: on a work commit, the agent commit.
+- `pcid: <work-repo-url>/commit/<parent-sha>`: on a work commit, each parent, one line per parent in
+  parent order, the trunk first on a trapezoid.
 
-- **Work-repo commits** each carry one `ochid: /.claude/<agent-chid>`, the agent-repo's change ID.
-- **The agent-repo commit** carries one `ochid: /<work-chid>` per work-repo commit in that push. The
-  count is per *push*, not per cycle. A trapezoid close-out whose rungs were pushed 1:1 as they
-  landed still carries exactly one. More than one occurs when a single push publishes several
-  work-repo commits.
+An agent commit carries `ochid:` alone, one per work commit it covers, so a local cycle's Land makes
+one agent commit naming them all. The URLs are from `origin`, normalized to https, or
+`file:///<path>` for a local one, and `--no-url-trailer` leaves them out.
+
+The agent commit is made first where it can be. `commit -s b` stamps its real SHA, and `commit -s w`
+stamps `.../commit/xxxx` until the agent commit is made, mid-cycle by `commit -s a --covers
+<REVSET>` and `trailers --update`, or by the Land. A rung is published only with its `ocid:` real
+([A cycle is local by default](../AGENTS.md#a-cycle-is-local-by-default)), and we think one command
+of its own name, not an overloaded `push`, makes it so, proposed and not built. Nothing folds into a commit an `ocid:` names, so
+`squash` and `push` leave it, and the journal rides the next agent commit. A trailer `vc-x1` does
+not stamp is kept on a rewrite, so `custom.md` may add its own. `vc-x1 trailers --update` moves a
+range of commits to today's form, and a Land refreshes the links by the same pass.
 
 Use `vc-x1 chid -s work,agent -L` to capture the change IDs (first line work-repo, second agent
 repo).
 
-`ochid:` trailers are **stamped by `vc-x1 push`**. Never hand-write them into a commit body or
+The trailers are **stamped by `vc-x1 commit`**. Never hand-write them into a commit body or
 `--title`/`--body`.
 
-## vc-x1 push: what it does and does not do
+## vc-x1 commit and push: what they do and do not do
 
-`vc-x1 commit -s b --title "..." --body "..."` commits both repos with the approved title and body,
-stamps each new commit's `ochid:` trailer ([above](#cross-repo-linking-ochid-trailers)), and
-publishes the pair as `vc-x1 push -s b` does: it squash-pushes the agent repo's `main` and pushes
-the work bookmark. `--no-push` keeps the pair local, and `vc-x1 push -s b` publishes it later, `-r`
-naming the commit and `--bookmark` its name on the remote when they are not the work `@-` and the
-line's bookmark. Every argument is a flag. Three behaviors to keep in mind:
+`vc-x1 commit -s w --title "..." --body "..."` commits the work repo with the title and body, stamps
+its trailers ([above](#cross-repo-linking-ochid-trailers)), and stays on this machine. `-s b` makes
+both repos' commits, the pair. `--push` publishes what was committed, as `vc-x1 push` does, and
+`vc-x1 show -s work -r @-` is the look at it before then. `-r` names a commit below `@`, described in
+place with its trailer stamped, and `--bookmark` the bookmark to advance. Every argument is a flag.
+What to keep in mind:
 
 - **No checks of the project's own.** vc-x1 runs no build or tests. Validation is the per-rung
-  flow's job, run *before* the push. The one check that remains is `push-work` verifying the
-  bookmark's remote refs are tracked.
-- **Rerunning is safe.** Push keeps no state and cannot resume: every stage no-ops when its work is
-  already done, so a failed run is re-run, not resumed. If push exits between its halves, `vc-x1
-  push -s w` or `-s a`, the half not yet published, is the rest of it.
-- **`ochid:` trailers are stamped by push** ([No hand-written
-  trailers](#cross-repo-linking-ochid-trailers)), never hand-written into `--title` or `--body`.
-- **The agent-repo is a linear journal.**
-  - One push is one agent-repo commit on its `main`, paired with the work-repo commit, whatever
-    bookmark the work-repo is on.
-  - Never create an agent-repo bookmark mirroring a work-repo one: it steers session pushes at
-    the wrong remote ref.
-- **Squash-push again if `@` is non-empty** after a pass.
-  - The agent keeps writing session data while the command runs, so its own record lands after
-    the squash.
-  - Session data is append-only, so a re-run never conflicts.
-  - A single pass is never guaranteed to leave `@` empty.
+  flow's job, run *before* the commit.
+- **Rerunning a push is safe.** Push keeps no state and cannot resume: every stage no-ops when its
+  work is already done, so a failed run is re-run, not resumed.
+- **The trailers are stamped**, never hand-written into `--title` or `--body`.
+- **The agent-repo is a linear journal.** Never create an agent-repo bookmark mirroring a work-repo
+  one: it steers session pushes at the wrong remote ref.
 
-A late work-repo tweak after the push (a forgotten edit) needs `jj squash --ignore-immutable` and a
-re-push, which is a remote rewrite and takes approval like any push.
+A late work-repo tweak after a push (a forgotten edit) is folded by `vc-x1 squash` and re-pushed,
+which is a remote rewrite and takes approval like any push.
 
 ## Re-describing: coordinate first, and keep the trailer
 
-**Never `jj describe` a commit that is already published or already carries trailers without
-coordinating with everyone involved first**
+**Never `jj describe` a commit that already carries trailers, and never re-describe a published one
+without coordinating with everyone involved first**
 ([why](rationale.md#re-describing-coordinate-first-and-keep-the-trailer)). It is a history rewrite,
-and it silently drops the cross-repo link. Describing a fresh local commit that has never been
+and by hand it silently drops the cross-repo link. `vc-x1 squash --title --body` is the sanctioned
+re-describe of `@-`, keeping the trailers. Describing a fresh local commit that has never been
 described and carries no trailers is authoring a message rather than rewriting one, and is not
-covered. That is a [local
-ladder](../AGENTS.md#local-ladders)'s scratch describe.
-
-When a re-describe is agreed, copy any `ochid:` trailers into the new body by hand (the "don't
-hand-write trailers" rule covers push authoring a message from scratch, not preserving one already
-stamped). Hit at a coordinated amend (2026-07-29), where the trailer survived only that way.
-`vc-x1 fix-desc` repairs a dropped one by title match.
+covered. That is a [local ladder](../AGENTS.md#local-ladders)'s scratch describe. `vc-x1 fix-desc`
+repairs a dropped trailer by title match.
 
 ## Cycle bookmarks: create and land
 
@@ -156,45 +140,37 @@ The mechanics behind [Cycles run on a bookmark](../AGENTS.md#cycles-run-on-a-boo
 holds the rule and when it applies, and this one holds the commands
 ([why](rationale.md#cycle-bookmarks-create-and-land)).
 
-**Create**, at the cycle's opening, with the bookmark named by the cycle title's slug (the anchor
-algorithm in [Markdown anchor links](notes.md#markdown-anchor-links), so the block's title heading
-and the bookmark derive from one bare title):
+**Create**, at the cycle's opening: `vc-x1 commit -s w --opening --title "<bare cycle title>" --body
+"..."` commits the opening and creates the bookmark at the trunk, named by the title's slug (the
+anchor algorithm in [Markdown anchor links](notes.md#markdown-anchor-links)), and kept local.
 
-- `jj git push --named <bookmark>=@- -R .` is the common case: it creates the bookmark at the last
-  committed change and publishes it in one invocation.
-- Any other revision works as the `=<rev>` right-hand side. When `<rev>` is not `@-`, follow with
-  `jj new <rev> -R .` so the working copy actually sits on the new line. Otherwise the bookmark
-  exists and the next commit lands somewhere else.
-- `jj bookmark set <bookmark> -r <rev> -R .` creates it without publishing, for a line that is not
-  ready to be seen.
+**Close**: `vc-x1 commit -s w --closing <BM|REV>`, naming the cycle's tip, makes the closing: the
+merge of the trunk and the tip, or the one commit finalized in place. The trunk is `[cycle] trunk`,
+`main` when absent. Without a `[closing] body` in `.vc-config.md`, it needs `--body`.
 
-**Land**, once the close-out is approved: the sequence that makes the cycle permanent, begun by a
-sync that found `main` unmoved ([Sync](../AGENTS.md#sync)). Every
-`jj git push` in it is a push under [Approval per push](../AGENTS.md#before-any-push) and [Hard
-stop after the final push](../AGENTS.md#at-rest-push-stop-squash-push), its own approval, the
-closing words before the final invocation, silence after ([At
-rest](../AGENTS.md#at-rest-push-stop-squash-push)):
+**Land**, once the close-out is approved: the sequence that makes the cycle permanent. Its `vc-x1
+push` is the push under [Approval per push](../AGENTS.md#before-any-push), with the closing words
+before it and silence after ([At rest](../AGENTS.md#at-rest)):
 
-1. Restore the plain name, when the project renamed ([Dev artifact
-   name](versioning.md#dev-artifact-name)): rename `<name>-dev` back to `<name>` in the manifest,
-   `vc-x1 validate --fast` so the lockfile follows, and `jj squash` folds the edit into the closing
-   (`@` sits directly above it).
-2. Reshape per the recorded choice: trapezoid runs the [recipe below](#trapezoid-close-out-recipe),
-   keep separate needs nothing. A single-step cycle has no choice recorded and its one commit lands
-   as it is.
-3. Fast-forward: `jj bookmark set main -r <closeout> -R .`, then `jj git push --bookmark main -R .`.
-   This push publishes the reshaped commit, so the topic bookmark itself is never re-pushed.
-4. Install: promote the artifact from `main`, the cycle's last act, run when nothing can enter the
-   cycle anymore.
-5. Delete the bookmark, locally and remotely: `jj bookmark delete <bookmark>`, then
-   `jj git push --bookmark <bookmark>` ([Bookmark per
-   cycle](../AGENTS.md#cycles-run-on-a-bookmark)). The long-lived case below gets the same
-   disposal once fully merged.
+1. Sync: `vc-x1 sync -s b`, and a `main` it moved stops the Land ([Sync](../AGENTS.md#sync)).
+2. Integrate: `vc-x1 land -s b --onto <trunk>`, local: it commits the agent `@` as the partner, sets
+   each work commit's `ocid:` and `pcid:`, fast-forwards the trunk, and deletes the cycle's local
+   bookmark, every check made first. `--dry-run` says each step. The user may test here, before
+   anything is published.
+3. Publish: `vc-x1 push -s b --bookmark <trunk>`, the agent repo first and the work repo after.
+   `land --push` does steps 2 and 3 as one.
+4. Remote bookmark: `vc-x1 delete-bookmark -s w --bookmark <bookmark> --skip local`, when the topic
+   was ever pushed.
+5. Install: `vc-x1 build`, a `vc-x1 run -- -V` smoke check, and `vc-x1 install`, so the plain name
+   is replaced only by what is on the trunk.
 
-- The fast-forward needs no `--allow-backwards`. Needing it means the bookmark is not a descendant
-  of `main`, and the situation wants a look, not a flag.
+- `vc-x1 land --onto` a bookmark that is not the trunk, a stack of cycles landing together, is the
+  command and not the sequence: nothing is installed, and the cycle is permanent only when it
+  reaches the trunk.
 - Landing is the moment the cycle's commits become permanent. No record cites their SHAs
   ([Cycle-record](../AGENTS.md#cycle-record)): the landed commits are the record.
+- `vc-x1 land` only fast-forwards. A trunk that moved means the closing is made again, as its merge
+  has to join the new trunk.
 
 **Reshape**, while the bookmark is a draft ([Cycles run on a
 bookmark](../AGENTS.md#cycles-run-on-a-bookmark)):
@@ -202,9 +178,7 @@ bookmark](../AGENTS.md#cycles-run-on-a-bookmark)):
 - **Amend content, never re-describe.** Editing `TODO.md` in a rung and amending is not a
   `jj describe`, so [No re-describe without
   coordinating](#re-describing-coordinate-first-and-keep-the-trailer) stays intact.
-- **Then force-push the bookmark**, under the same approval as any other push.
-- **Exceptions**, named and moved past: the bookmark has already landed, another branch is stacked
-  on it, or the ladder is long and only a trailing snapshot disagrees.
+- **A topic that was pushed is force-pushed**, under the same approval as any other push.
 
 ## Long-lived bookmarks: merge-only by default, deletable once merged
 
@@ -226,25 +200,24 @@ rebased" wording, after a fully merged long-lived bookmark was deleted without l
 
 ## Close-out shapes
 
-The two shapes a ladder can land in, chosen by the user and recorded at close-out, executed at
-[Land](#cycle-bookmarks-create-and-land) ([Close-out](../AGENTS.md#close-out)). A single-step cycle
-is one commit and lands as it is:
+The shape a ladder lands in is carried by its closing commit, so nothing is reshaped at
+[Land](#cycle-bookmarks-create-and-land) ([Close-out](../AGENTS.md#close-out)). A single-step cycle is
+one commit and lands as it is:
 
-- **trapezoid**, the current default: a merge commit whose first parent is the trunk and whose
-  second is the ladder, so `git log --first-parent` reads one commit per cycle while every rung
-  stays reachable. Reshaped at Land by the [recipe below](#trapezoid-close-out-recipe) and published
-  by the landing fast-forward itself.
-- **keep separate**, one commit per rung on `main`, when the decomposition itself is informative.
+- **trapezoid**: a merge commit whose first parent is the trunk and whose second is the ladder, so
+  `git log --first-parent` reads one commit per cycle while every rung stays reachable. It joins a
+  trunk that moved. With one rung the figure is a triangle.
+- **linear**, one commit per rung on the trunk, is proposed as `--shape linear` and not built. We
+  think it refuses a trunk that moved, since joining one would rewrite the reviewed ladder.
 
 Squash is not a shape: each rung's `ochid:` trailer is a change id, a squash keeps one and drops the
 rest, and every agent-repo commit that pointed at a dropped rung is left dangling ([Cycle
 shape](../AGENTS.md#cycle-shape)).
 
-**Preview before choosing.** The cycle's net change is the tree diff from `<base>` to the tip,
+**Preview before closing.** The cycle's net change is the tree diff from `<base>` to the tip,
 whatever shape the commits between are in: `jj diff --from <base> --to <tip>`, or the gitk range
-described in [Read a change in gitk at full context](#read-a-change-in-gitk-at-full-context). The
-trapezoid keeps each rung reachable while `git log --first-parent` shows this net diff once landed,
-and keep separate shows the rungs themselves. The choice is made on what `main` will carry.
+described in
+[Read a change in gitk at full context](#read-a-change-in-gitk-at-full-context).
 
 ## Read a change in gitk at full context
 
@@ -267,54 +240,7 @@ together changed the tree since a given `<base>` commit. To do that:
 
 Now New version, Old version and Diff show the net change of everything between `<base>` and `this`.
 If `<base>` is the parent of the `opening` commit and `this` is the `closing`, that is the cycle's
-net change, and it can help you decide what shape to choose ([Close-out shapes](#close-out-shapes)).
-
-## Trapezoid close-out recipe
-
-The reshape behind the trapezoid shape, run at [Land](#cycle-bookmarks-create-and-land) step 2: the
-close-out commit, pushed linearly by the closing rung, becomes a merge whose first parent is the
-trunk line and whose second parent is the cycle's ladder. Nothing here publishes, the merge goes out
-with Land's fast-forward.
-
-```
-  main line   ...--<base>------------------<closeout>--
-                      \                    /
-  ladder             <rung-1>--...--<tip>-+
-```
-
-- `<base>`: the **parent of the ladder's first rung**, the trunk position when the cycle opened. It
-  becomes the first parent. Not always the previous close-out: a cycle landed linearly since
-  (keep-separate shape, or a single-step cycle) sits on the trunk line and must stay there.
-- `<tip>`: the cycle's last commit before the close-out. It becomes the second parent.
-- `<closeout>`: the close-out commit, reshaped here.
-
-1. `jj rebase -r <closeout> --onto <base> --onto <tip>`: `<closeout>` becomes the merge. Parent
-   order is the argument order.
-2. `jj new <closeout>`: an empty `@` above the merge. The bookmark followed the rewrite on its own.
-   What step 1 leaves misplaced is the working copy: `jj rebase -r` re-parents descendants onto the
-   rebased commit's old parent, so the empty `@` lands beside the merge on `<tip>` and the tree
-   reverts to pre-close-out content, which looks alarming and is not.
-3. Verify two parents: `jj log -r <closeout> -T 'parents.map(|p| p.change_id().short(8))'` must list
-   both. jj preserves the second parent even though `<base>` is an ancestor of `<tip>` (observed at
-   three consecutive close-outs), but a collapsed merge is indistinguishable from a correct one in
-   `jj log --no-graph`.
-
-Details:
-
-- **Trailers survive.** The restore's squash and the reshape change `<closeout>`'s SHA but not its
-  change id, so the `ochid:` trailers stamped at the closing push stay valid in both directions.
-- **Immutability.** No flag is needed: a topic bookmark's commits are not on `trunk()` until Land's
-  fast-forward.
-
-Recovery:
-
-- **Nothing is published until Land's fast-forward**, so the whole reshape is undoable with
-  `jj undo` / `jj op restore`.
-- **A collapsed or mis-parented merge**: undo and redo step 1 with the corrected revisions. Do not
-  land a shape you did not intend. After the fast-forward the remote boundary is crossed and
-  recovery is forward-only.
-- **Working copy left beside the merge** (step 2 skipped): `jj new <closeout>` after the fact. Any
-  commit made in the meantime branches off `<tip>` and needs a rebase onto the merge.
+net change ([Close-out shapes](#close-out-shapes)).
 
 ## Local ladders
 
@@ -329,7 +255,7 @@ commit:
    permitted describe.
 
 At the end, squash the chain into the rung (below) and continue the per-rung flow from its
-validation step. `vc-x1 push` then publishes the single commit and stamps its one `ochid:`. A
+validation step. `vc-x1 commit` then makes the single commit and stamps its trailers. A
 sub-cycle that deserves its own record nests the version suffix
 ([versioning.md](versioning.md#suffix-scheme)) and names its rungs like any other.
 
@@ -363,8 +289,9 @@ Cloning the agent-repo gave the published `main` tip the same chid as an existin
 carries the change ID in the git commit object, so it survives `jj git clone` / fetch.
 
 The local-only case is the **working-copy `@`**: jj mints a fresh random chid for `@` in each clone,
-so an unpushed `@` is never a stable ochid target. This is why an agent-repo ochid names `@-` (the
-last committed change), not `@`.
+so an unpushed `@` is a stable ochid target only on the machine that holds it. A local cycle's rungs
+name the agent `@` for that reason: nothing is published until the Land commits it, and its change
+id holds.
 
 ## .vc-config.md
 
@@ -385,5 +312,5 @@ agent = "<agent-dir>"    agent = "."
 It stays a placeholder here because naming a directory would trade one project's bias for
 another's, and where the agent-repo sits is exactly what this registry exists to say.
 
-The `ochid:` trailer's prefixes do not read this registry
-([Cross-repo linking](#cross-repo-linking-ochid-trailers)).
+The `ochid:` trailer's bare id does not read this registry ([Cross-repo
+linking](#cross-repo-linking-ochid-trailers)).

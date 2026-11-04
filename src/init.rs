@@ -18,7 +18,6 @@ use crate::options_flags::provision_bundle::ProvisionOptionFlagBundle;
 use crate::options_flags::push_retry::PushRetryOptions;
 use crate::options_flags::repo::RepoOption;
 use crate::options_flags::scope::{Scope, Side};
-use crate::options_flags::use_template::UseTemplateOption;
 use crate::repo_utils::{
     CrossRefSide, INITIAL_TITLE, OchidStrategy, commit_initial, cross_ref_ochids,
     prepare_local_repo,
@@ -56,6 +55,22 @@ pub struct InitArgs {
     )]
     pub target: Option<String>,
 
+    /// Make `--target` a throwaway test repo, its bare remotes in
+    /// REMOTES, so nothing leaves this machine.
+    ///
+    /// The remotes are named by the repo, `<name>.git` and
+    /// `<name>.agent-session.git`, so several test repos share one
+    /// REMOTES, and a name already there is refused. REMOTES is
+    /// always a path, so `tmp/remotes` needs no `./`. Not with a URL
+    /// `--target`, or what names a remote or an existing directory.
+    #[arg(
+        long = "test-repo",
+        value_name = "REMOTES",
+        value_hint = ValueHint::AnyPath,
+        verbatim_doc_comment
+    )]
+    pub test_repo: Option<String>,
+
     /// Repo directory name override (URL form only).
     ///
     /// - URL form: repo created at `cwd/<NAME>` instead of the
@@ -89,11 +104,6 @@ pub struct InitArgs {
     #[command(flatten)]
     pub provision: ProvisionOptionFlagBundle,
 
-    /// `--use-template`: flatten of the shared
-    /// [`UseTemplateOption`] leaf.
-    #[command(flatten)]
-    pub use_template: UseTemplateOption,
-
     /// `--config none|<path>`: flatten of the shared
     /// [`ConfigOption`] leaf. Only meaningful with `-s por`,
     /// rejected at preflight when paired with the default dual
@@ -102,7 +112,7 @@ pub struct InitArgs {
     #[command(flatten)]
     pub config: ConfigOption,
 
-    /// Grow an existing TARGET into a dual workspace rather than
+    /// Convert an existing TARGET into a dual workspace rather than
     /// refuse it.
     ///
     /// TARGET may be a plain directory, a repo with no workspace
@@ -197,41 +207,7 @@ fn retry_op<T>(
     Err(format!("failed after {} attempts: {last_err}", retry.push_retries).into())
 }
 
-use crate::common::{mkdir_p, write_file};
-
-/// Parse the `--use-template` value into `(work, bot)` template paths.
-///
-/// Format: `WORK[,BOT]`. If `BOT` is omitted, the default is the sibling
-/// directory whose name is `<WORK-basename>.claude` (via
-/// `Path::with_file_name`, so a trailing slash on `CODE` does not produce
-/// a different result).
-pub(crate) fn parse_use_template(
-    s: &str,
-) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
-    let mut parts = s.splitn(2, ',');
-    let work_raw = parts.next().unwrap_or(""); // OK: splitn always yields at least one element
-    let bot_raw = parts.next();
-    let work_trim = work_raw.trim();
-    if work_trim.is_empty() {
-        return Err("--use-template: work template path is empty".into());
-    }
-    let work = PathBuf::from(work_trim);
-    let bot = match bot_raw.map(str::trim) {
-        Some(b) if !b.is_empty() => PathBuf::from(b),
-        _ => {
-            let file_name = work.file_name().ok_or_else(|| {
-                format!(
-                    "--use-template: cannot derive default bot path from '{}' (no file name \
-                     component)",
-                    work.display()
-                )
-            })?;
-            let new_name = format!("{}.claude", file_name.to_string_lossy());
-            work.with_file_name(new_name)
-        }
-    };
-    Ok((work, bot))
-}
+use crate::common::write_file;
 
 /// Default agent-repo directory a fresh init records and creates,
 /// `--agent-dir` its override. Every *reader* resolves the dir from
@@ -244,121 +220,6 @@ pub(crate) const DEFAULT_AGENT_DIR: &str = ".agent-session";
 /// its replacement. A workspace's recorded `[remote] agent-repo`
 /// wins over it, and its absence means this suffix too.
 pub(crate) const DEFAULT_AGENT_SUFFIX: &str = ".agent-session";
-
-/// Top-level non-hidden files init writes. Kept here so that if init is
-/// ever extended to write non-hidden top-level files, the pre-flight
-/// conflict scan flags any template that would clash. Currently empty
-/// because init only writes hidden files (`.vc-config.md`, `.gitignore`),
-/// and the template copy skips hidden entries.
-const RESERVED_TEMPLATE_ENTRIES: &[&str] = &[];
-
-/// Validate one template directory: exists, is a directory, and has no
-/// top-level non-hidden entry that would collide with init's own writes.
-///
-/// - `label` prefixes every error message (`work` / `agent`).
-pub(crate) fn validate_template_one(
-    label: &str,
-    p: &Path,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if !p.exists() {
-        return Err(format!(
-            "--use-template: {label} template '{}' does not exist",
-            p.display()
-        )
-        .into());
-    }
-    if !p.is_dir() {
-        return Err(format!(
-            "--use-template: {label} template '{}' is not a directory",
-            p.display()
-        )
-        .into());
-    }
-    for entry in std::fs::read_dir(p)? {
-        let entry = entry?;
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-        if name_str.starts_with('.') {
-            continue;
-        }
-        if RESERVED_TEMPLATE_ENTRIES.contains(&name_str.as_ref()) {
-            return Err(format!(
-                "--use-template: {label} template '{}' contains reserved entry '{}'",
-                p.display(),
-                name_str
-            )
-            .into());
-        }
-    }
-    Ok(())
-}
-
-/// Validate both template paths (dual-repo mode). Thin wrapper over
-/// `validate_template_one` kept for single-call ergonomics.
-pub(crate) fn validate_templates(
-    work: &Path,
-    bot: &Path,
-) -> Result<(), Box<dyn std::error::Error>> {
-    validate_template_one("work", work)?;
-    validate_template_one("agent", bot)?;
-    Ok(())
-}
-
-/// Recursively copy non-hidden entries from `src` to `dst`. Any entry whose
-/// file name starts with `.` is skipped. Symlinks are skipped with a debug
-/// log: templates don't need them, and following them risks escaping the
-/// template tree.
-pub(crate) fn copy_template_recursive(
-    src: &Path,
-    dst: &Path,
-) -> Result<(), Box<dyn std::error::Error>> {
-    for entry in std::fs::read_dir(src)? {
-        let entry = entry?;
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-        if name_str.starts_with('.') {
-            continue;
-        }
-        let src_path = entry.path();
-        let dst_path = dst.join(&name);
-        let ft = entry.file_type()?;
-        if ft.is_symlink() {
-            debug!("skip symlink {}", src_path.display());
-            continue;
-        }
-        if ft.is_dir() {
-            mkdir_p(&dst_path)?;
-            copy_template_recursive(&src_path, &dst_path)?;
-        } else if ft.is_file() {
-            debug!("copy {} -> {}", src_path.display(), dst_path.display());
-            std::fs::copy(&src_path, &dst_path)?;
-        }
-    }
-    Ok(())
-}
-
-/// Replace the first line of `<dir>/README.md` with `# <name>`. If
-/// `README.md` is absent, this is a no-op. Trailing content after the
-/// first newline is preserved verbatim, and a file with no newline becomes
-/// just `# <name>`.
-pub(crate) fn rewrite_readme_first_line(
-    dir: &Path,
-    name: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let readme = dir.join("README.md");
-    if !readme.exists() {
-        return Ok(());
-    }
-    let content = std::fs::read_to_string(&readme)?;
-    let rest = match content.find('\n') {
-        Some(pos) => &content[pos..],
-        None => "",
-    };
-    let new_content = format!("# {name}{rest}");
-    std::fs::write(&readme, new_content)?;
-    debug!("rewrote first line of {}", readme.display());
-    Ok(())
-}
 
 /// Run `gh <args>`, returning trimmed stdout on success and the
 /// stderr-carrying error on failure. The GhCreate path's one spawn
@@ -830,12 +691,12 @@ pub(crate) fn normalize_local_parent(s: &str) -> Result<PathBuf, Box<dyn std::er
     }
     let expanded = expand_vars(s)?;
     let p = PathBuf::from(&expanded);
-    if p.is_absolute() {
-        Ok(p)
+    let abs = if p.is_absolute() {
+        p
     } else {
-        let cwd = std::env::current_dir()?;
-        Ok(cwd.join(p))
-    }
+        std::env::current_dir()?.join(p)
+    };
+    Ok(crate::common::normalize_path(&abs))
 }
 
 /// Append `.git` to a URL-or-path stem if not already present.
@@ -933,8 +794,6 @@ pub(crate) struct AgentPlan {
     pub dir: String,
     /// `project_dir` joined with `dir`.
     pub path: PathBuf,
-    /// The project name its README takes (e.g. `<name>.agent-session`).
-    pub name: String,
     /// The origin URL.
     pub url: String,
     /// The bare-repo path, `Some` only under `LocalBareInit`.
@@ -972,24 +831,6 @@ pub(crate) fn plan_init(
     } else {
         Scope(vec![Side::Work, Side::Bot])
     };
-
-    if scope.is_work_only()
-        && let Some(t) = &params.use_template
-        && t.contains(',')
-    {
-        return Err(format!(
-            "-s por takes a single template path; got '{t}' (drop the `,BOT` half)"
-        )
-        .into());
-    }
-
-    if params.adopt && params.use_template.is_some() {
-        return Err(
-            "--use-template is not taken with --adopt: a template would overwrite the \
-             adopted directory's files of the same name"
-                .into(),
-        );
-    }
 
     if params.config.is_some() && !params.por {
         return Err(
@@ -1159,6 +1000,9 @@ fn plan_from_chain(
     project_dir: PathBuf,
     cfg: &UserConfig,
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
+    if let Some(remotes) = &params.test_remotes {
+        return plan_local(scope, name, project_dir, remotes, BareNames::ByRepo);
+    }
     match config::resolve_repo(cfg, params.account.as_deref(), params.repo.as_ref()) {
         Ok((cat, val)) => plan_from_resolved(scope, name, project_dir, &cat, &val),
         Err(e) if params.adopt => {
@@ -1189,7 +1033,7 @@ fn plan_from_resolved(
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
     match category {
         "remote" => plan_remote(scope, name, project_dir, value),
-        "local" => plan_local(scope, name, project_dir, value),
+        "local" => plan_local(scope, name, project_dir, value, BareNames::Fixed),
         other => Err(format!(
             "--repo category '{other}' is not recognized: built-ins are 'remote' and 'local'"
         )
@@ -1226,11 +1070,24 @@ fn plan_remote(
     )
 }
 
-/// Plan for `category = "local"`: bare repos under a parent dir.
+/// How [`plan_local`] names the bare repos under its parent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BareNames {
+    /// `--repo local`: one workspace per parent, `remote-work.git` or
+    /// `remote.git`, the names the fixtures and `clone` round-trip.
+    Fixed,
+    /// `--test-repo`: `<name>.git`, so many workspaces share a parent.
+    ByRepo,
+}
+
+/// Plan for bare repos under a parent dir, `--repo local`'s and
+/// `--test-repo`'s.
 ///
-/// - Dual: `<parent>/remote-work.git`, and the agent bare beside it,
-///   named by [`plan_agent_side`] (`remote-work.agent-session.git`).
-/// - POR: `<parent>/remote.git`.
+/// - Dual: the work bare, `<parent>/remote-work.git` or
+///   `<parent>/<name>.git`, and the agent bare beside it, named by
+///   [`plan_agent_side`] (`remote-work.agent-session.git` or
+///   `<name>.agent-session.git`).
+/// - POR: `<parent>/remote.git` or `<parent>/<name>.git`.
 ///
 /// The agent bare's name is recorded in the work config, which is
 /// what `clone` reads to locate it, so a locally init'd project
@@ -1240,13 +1097,14 @@ fn plan_local(
     name: String,
     project_dir: PathBuf,
     parent_spec: &str,
+    names: BareNames,
 ) -> Result<InitPlan, Box<dyn std::error::Error>> {
     let parent = normalize_local_parent(parent_spec)?;
 
-    let work_bare = if scope.is_work_only() {
-        parent.join("remote.git")
-    } else {
-        parent.join("remote-work.git")
+    let work_bare = match names {
+        BareNames::ByRepo => parent.join(format!("{name}.git")),
+        BareNames::Fixed if scope.is_work_only() => parent.join("remote.git"),
+        BareNames::Fixed => parent.join("remote-work.git"),
     };
     Ok(InitPlan {
         scope,
@@ -1318,10 +1176,6 @@ fn plan_agent_side(
     Ok(AgentPlan {
         path: plan.project_dir.join(&agent_dir),
         dir: agent_dir,
-        name: match &params.agent_repo {
-            Some(name) => name.clone(),
-            None => format!("{}{suffix}", plan.name),
-        },
         bare_path: match plan.provisioner {
             Provisioner::LocalBareInit => Some(PathBuf::from(&url)),
             _ => None,
@@ -1387,6 +1241,47 @@ fn github_slug_from_url(url: &str) -> Result<String, Box<dyn std::error::Error>>
     Err(format!("cannot extract owner/name slug from GitHub URL '{url}'").into())
 }
 
+impl InitArgs {
+    /// Refuse what `--test-repo` cannot mean: a URL, as its value or
+    /// the target's, since nothing leaves the machine, and the flags
+    /// that name another remote, an existing directory, or a publish.
+    fn check_test_repo(&self) -> Result<(), String> {
+        let Some(path) = &self.test_repo else {
+            return Ok(());
+        };
+        for (set, flag) in [
+            (self.name.is_some(), "--name"),
+            (self.account.value.is_some(), "--account"),
+            (self.repo.value.is_some(), "--repo"),
+            (self.adopt, "--adopt"),
+            (self.provision.private.value, "--private"),
+        ] {
+            if set {
+                return Err(format!(
+                    "{flag} is not taken with --test-repo: its remotes are in REMOTES, and \
+                     nothing leaves this machine"
+                ));
+            }
+        }
+        // Only a URL is refused: `tmp/remotes`, ambiguous to `--target`, is
+        // a path here, since a test repo's remotes are never on GitHub.
+        if let Ok(Target::Url(_)) = parse_target(path) {
+            return Err(format!(
+                "--test-repo takes a path, and '{path}' is a URL: nothing leaves this machine"
+            ));
+        }
+        if let Some(target) = &self.target
+            && let Ok(Target::Url(_)) = parse_target(target)
+        {
+            return Err(format!(
+                "--target '{target}' is a URL, and a test repo is a path: nothing leaves \
+                 this machine"
+            ));
+        }
+        Ok(())
+    }
+}
+
 impl SubcommandRunner for InitArgs {
     type Params = InitParams;
 
@@ -1400,6 +1295,7 @@ impl SubcommandRunner for InitArgs {
             "--name",
         )?;
         self.por.check("init")?;
+        self.check_test_repo()?;
         Ok(InitParams::from(self))
     }
 
@@ -1429,7 +1325,6 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     let create_symlink = params.create_symlink;
     let cfg = &ctx.user_config;
     let mut plan = plan_init(params, cfg)?;
-    let is_dual = plan.scope.is_both();
     let state = adopt::detect_target_state(&plan.project_dir)?;
     debug!("init: target is {state:?}");
 
@@ -1537,33 +1432,13 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
         }
     }
 
-    let templates = match &params.use_template {
-        Some(s) => {
-            let (work_t, bot_t) = parse_use_template(s)?;
-            if is_dual {
-                validate_templates(&work_t, &bot_t)?;
-                Some((work_t, Some(bot_t)))
-            } else {
-                validate_template_one("work", &work_t)?;
-                Some((work_t, None))
-            }
-        }
-        None => None,
-    };
-
     let visibility = if params.private {
         "--private"
     } else {
         "--public"
     };
 
-    let steps = steps::Steps::new(
-        &plan,
-        params,
-        templates.as_ref(),
-        visibility,
-        create_symlink,
-    );
+    let steps = steps::Steps::new(&plan, params, visibility, create_symlink);
     if params.dry_run {
         if params.adopt {
             info!(
@@ -1579,8 +1454,8 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     }
 
     match &plan.agent {
-        None => create_por(params, &plan, &steps, templates, visibility),
-        Some(agent) => create_dual(params, &plan, agent, &steps, templates, visibility),
+        None => create_por(params, &plan, &steps, visibility),
+        Some(agent) => create_dual(params, &plan, agent, &steps, visibility),
     }
 }
 
@@ -1598,14 +1473,12 @@ fn create_por(
     params: &InitParams,
     plan: &InitPlan,
     steps: &steps::Steps,
-    templates: Option<(PathBuf, Option<PathBuf>)>,
     visibility: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use steps::Step;
-    let work_template = templates.as_ref().map(|(c, _)| c.as_path());
 
     steps.begin(Step::PrepareWork);
-    prepare_local_repo(&plan.project_dir, "work", work_template, &plan.name)?;
+    prepare_local_repo(&plan.project_dir, "work")?;
     steps.begin(Step::ConfigWork);
     match &params.config {
         None => write_por_vc_config(&plan.project_dir)?,
@@ -1664,31 +1537,25 @@ fn create_dual(
     plan: &InitPlan,
     agent: &AgentPlan,
     steps: &steps::Steps,
-    templates: Option<(PathBuf, Option<PathBuf>)>,
     visibility: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use steps::Step;
-    let (work_template, agent_template) = match templates.as_ref() {
-        Some((c, b)) => (Some(c.as_path()), b.as_deref()),
-        None => (None, None),
-    };
 
     // An adopted repo is prepared already, and keeps its history: its
     // commit goes on top of it under a title of its own.
     let work_title = match plan.work_start {
         WorkStart::Fresh => {
             steps.begin(Step::PrepareWork);
-            prepare_local_repo(&plan.project_dir, "work", work_template, &plan.name)?;
+            prepare_local_repo(&plan.project_dir, "work")?;
             INITIAL_TITLE
         }
         WorkStart::Repo { .. } => ADOPT_TITLE,
     };
     steps.begin(Step::ConfigWork);
     // The recorded name is the agent-repo's *remote* name, the last
-    // segment of its origin URL, which is not `agent.name`: that is the
-    // local directory's project name, and a fixture whose bare is
-    // `remote-work.agent-session.git` under a project called `tr` shows the
-    // two diverging.
+    // segment of its origin URL, which need not follow the project's
+    // name: a fixture whose bare is `remote-work.agent-session.git` under
+    // a project called `tr` shows the two diverging.
     let agent_repo = derive_name(&agent.url)?;
     if let WorkStart::Repo {
         has_config: true, ..
@@ -1708,7 +1575,7 @@ fn create_dual(
     )?;
 
     steps.begin(Step::PrepareAgent);
-    prepare_local_repo(&agent.path, "agent", agent_template, &agent.name)?;
+    prepare_local_repo(&agent.path, "agent")?;
     steps.begin(Step::ConfigAgent);
     write_bot_config(&agent.path)?;
     steps.begin(Step::CommitAgent);
@@ -1887,6 +1754,11 @@ fn run_remote_step(
 /// publishes to.
 fn init_bare_main(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     use gix::sec::trust::DefaultForLevel;
+    // A `--repo local` parent need not exist or hold the workspace, and
+    // gix makes only the last directory.
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
     let open_opts = gix::open::Options::default_for_level(gix::sec::Trust::Full)
         .config_overrides(["init.defaultBranch=main"]);
     gix::ThreadSafeRepository::init_opts(

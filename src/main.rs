@@ -645,7 +645,10 @@ pub(crate) enum Commands {
         -s is required: `b` makes both commits now, `w` the work half with\n\
         the agent half left to push, `a` the agent repo alone, unpaired, with\n\
         no trailer, and `p` a plain repo with no trailer. -R is optional and\n\
-        says where. --body is the text, or @PATH to read it from a file.")]
+        says where. --body is the text, or @PATH to read it from a file.\n\n\
+        -s a --covers REVSET makes the agent commit a cycle's rungs share:\n\
+        one `ochid:` per work commit REVSET names, oldest first, the revset\n\
+        taken as written, no trunk assumed, and each must name the agent @.")]
     Commit(commit::CommitArgs),
 
     /// Fold the working copies into the pair before it is pushed, with -s

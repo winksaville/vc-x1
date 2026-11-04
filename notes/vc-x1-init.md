@@ -256,5 +256,5 @@ The decisions behind it:
   and `/.claude/settings.local.json`, Claude Code's local project settings file.
 - The first commit tracks every file whatever its size, since jj leaves a new file over
   `snapshot.max-new-file-size` untracked, and names the ones over the limit.
-- `--use-template` is refused with `--adopt`, since a template would overwrite files of the same
-  name.
+- `--use-template` is retired (2026-11-03): init makes a bare workspace, and a template is applied
+  to it afterwards, so no template meets an adopted directory's files.

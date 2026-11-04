@@ -1,6 +1,7 @@
 /target
 /custom.md
 /tmp
+/tmp-durable
 /.claude/settings.local.json
 /.agent-session
 /.git

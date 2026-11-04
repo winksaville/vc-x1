@@ -101,29 +101,19 @@ case that fits your medium:
 
 ## Dev artifact name
 
-When other projects consume the built artifact (e.g. the installed CLI) while this repo is under
-active development, the dev build installs under a separate name so a mid-cycle install never
-clobbers the binary consumers are running:
+When other projects, or this cycle's own later rungs, run the built artifact while this repo is
+under active development, the dev build installs under a separate name, so a mid-cycle install never
+clobbers the binary consumers are running. The package keeps its plain name throughout a cycle.
 
-- **Name**: the manifest's package name carries a `-dev` suffix (`<name>` -> `<name>-dev`). If Rust,
-  `[package].name`, so the per-commit flow's `cargo install` produces `<name>-dev` and leaves plain
-  `<name>` untouched.
-- **Constant, not per-step**: the step already lives in the version-of-record (`<name>-dev -V`
-  reports the exact rung). A per-step name would churn the manifest every commit and litter the
-  install dir with stale binaries.
-- **Promotion**: plain `<name>` updates only by an explicit act: a separate clone built at the
-  chosen commit with the plain name (or a copy of the dev binary), never by the per-commit flow's
-  install.
-
-**Single-name variant**: a repo striving to release makes the package name the binary's name, plain
-`<name>` on `main` only:
-
-- **The opening renames**: its bump sets `<name>-dev` beside the suffixed version, and every rung
-  and the closing build under the dev name, the closing over the bare version.
-- **Land restores**: the rename back to `<name>` is Land's act, so the stable name is only ever
-  installed from what `main` will carry.
-- **A build script guards the pairing** on every cargo verb: a suffixed version under the stable
-  name fails the build, so no mid-cycle install can clobber the consumers' binary.
+- **Name**: the `[profile.<name>]` table's `suffix` in `.vc-config.md`, `-dev` for the dev profile,
+  so `vc-x1 install --profile dev` installs `<name>-dev` beside `<name>`.
+- **Which build runs**: when the dev build's version is newer than the plain name's, the session asks
+  the user whether to run it, and otherwise ignores it and runs the plain name, since a dev build no
+  newer is one an earlier cycle left behind. A project whose artifact is not a tool it runs skips
+  this.
+- **Promotion**: plain `<name>` updates only at Land, by `vc-x1 install`, from what is on the trunk.
+- **Which binary**: `vc-x1 install` with no `--profile` is the release build, so a dev binary
+  installs itself only with `--profile dev`.
 
 ## Unique per commit (preference, not requirement)
 

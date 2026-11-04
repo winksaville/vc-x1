@@ -78,7 +78,7 @@ reference links to more detail.
   numbering](#reference-numbering)).
 
 Every adopter has one `TODO.md` of this shape. It is not an agent-file, since its content is the
-project's record, and the payload ships it as a skeleton: `## In Progress` reading
+project's record, and `scripts/vc-dr-apply.sh` ships it as a skeleton: `## In Progress` reading
 `_No cycle currently in progress._`, the other sections empty.
 
 An entry is a `###` heading, its title, followed by its text. Priority is file order, the first
@@ -127,31 +127,55 @@ under a program heading, each one deeper):
   alternatives weighed, and the costs accepted, so a reader can skim the decisions and read the
   reasons only where they doubt one. `_None._` when there was nothing to deliberate, which is a real
   answer
-- **ladder**: one rung per step, `- [<title>][M]` plus `(current)` / `(done)`, with `[M]: #<slug>`
-  in the file's `# References`. The markers stay when the block moves to `## Closed`. `<title>` is
-  the rung's commit title, `<type>: <desc>` per
-  [Conventional-commit shape](prose.md#conventional-commit-shape-ladder--commit), so a moved
-  `## Todo` entry is retitled. The closing rung, `<cycle title> closing`, is linked like the rest
+- **rungs**: a `#### Rungs` heading over the rung subsections, the ladder itself being `zTOC.md`'s
+  ([zTOC format](#ztoc-format)): one rung per step, `- 2 (done) [<title>](TODO.md#<slug>)`: the
+  rung's version suffix, which `-V` and the installed dev build print, then the marker, `(done)` or
+  `(current)`, both first so they read down their columns, and a rung not yet started has neither,
+  its suffix being set when its commit bumps the version, and an inline link so the ladder is one
+  list with nothing beside it to keep in step, its line as long as the title makes it. `<title>` is
+  the rung's commit title, `<type>: <desc>` per [Conventional-commit
+  shape](prose.md#conventional-commit-shape-ladder--commit), so a moved `## Todo` entry is retitled.
+  The closing rung, `<cycle title> closing`, is linked like the rest
 
-The ladder heads the **rung subsections**, one per rung under it, the closing included, headed by
-the rung's exact title, so the ladder is their index. Each opens at laddering with an abstract-sized
-intent statement (the rung's problem and solution in a sentence or two) and completes at the rung's
-landing with the conceptual delta: design points, consequences, deferrals, never a restatement of
-the landed commit body. The closing rung's opens with the stub "Closing out the cycle." and
-completes at close-out with what closing taught, in problem/solution form, or `_None._`.
+`#### Rungs` holds the **rung subsections**, one per rung in the ladder's order, the closing
+included, headed by the rung's exact title, so the ladder is their index. Each opens at laddering
+with an abstract-sized intent statement (the rung's problem and solution in a sentence or two) and
+completes at the rung's landing with the conceptual delta: design points, consequences, deferrals,
+never a restatement of the landed commit body. The closing rung's opens with the stub "Closing out
+the cycle." and completes at close-out with what closing taught, in problem/solution form, or
+`_None._`.
 
-A rung is `- [<title>][M] (marker)` and carries no detail beyond that: the title links to the rung's
-subsection. A step is identified by its title (prose.md's [Steps are named, not
+A rung is `- N (marker) [<title>](TODO.md#<slug>)` and carries no detail beyond that: the title
+links to the rung's subsection. A step is identified by its title (prose.md's [Steps are named, not
 numbered](prose.md#steps-are-named-not-numbered)), so a title carries no number, no version, and no
 SHA. The version-of-record still bumps for every rung and its suffix still encodes the stage, but
 that encoding belongs to the manifest and appears nowhere in prose.
 
-A single-step cycle's ladder is one unlinked rung, `- <cycle title> (marker)`, with no subsection
+A single-step cycle's ladder is one unlinked rung, `- N (marker) <cycle title>`, with no subsection
 under it: a subsection headed by the title would collide with the title heading's anchor ([Cycle
 shape](../AGENTS.md#cycle-shape)).
 
 The block is the cycle's only record. A design finding that must outlive the cycle goes into a
 `notes/` file by the rung that made it ([Cycle-record](../AGENTS.md#cycle-record)).
+
+## zTOC format
+
+`zTOC.md`, beside `TODO.md` at the work-repo root, is the workspace's index, so the running ladder
+and the files worth knowing are found without reading `TODO.md`'s length, and the `z` sorts it last
+in a listing. Its sections, in this order:
+
+- `# TOC`, the title.
+- `## Ladder`: the cycle's ladder, its one copy, each rung with its marker as [The In Progress
+  block](#the-in-progress-block) shapes it, linking across to its subsection in `TODO.md`, since a
+  same-file link does not work in every markdown preview, zed's among them. Written at the opening,
+  replacing the last cycle's, its markers set by the per-rung flow, and kept by the closing commit,
+  so the landmark's tree holds the finished ladder beside its `## Closed`.
+- `## The TOC`: one link per file worth knowing, with what it holds, `TODO.md` first.
+
+Its links are inline, so it has no `# References`.
+
+Like `TODO.md` it is not an agent-file, and `scripts/vc-dr-apply.sh` ships it as a skeleton, `##
+Ladder` reading `_None._` until the first opening.
 
 ## Frozen history: chores and done
 
