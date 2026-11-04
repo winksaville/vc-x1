@@ -380,6 +380,28 @@ impl RepoSession {
         Self::open(path)
     }
 
+    /// Colocate the git repo at `path` with a new jj repo and open it
+    /// as a session (`jj git init --colocate` in a git repo): the jj
+    /// store takes the existing `.git` as its backend, so the git
+    /// history stays as it is.
+    ///
+    /// Writes `.jj/.gitignore` as `init_colocated` does, then the
+    /// open's snapshot imports git HEAD, checking it out, snapshots
+    /// the working copy, and imports the git refs as bookmarks.
+    pub fn init_colocated_existing(path: &Path) -> Result<Self> {
+        let settings = UserSettings::from_config_and_home_dir(stacked_config(None)?, home_dir())?;
+        let (workspace, _repo) =
+            Workspace::init_external_git(&settings, path, &path.join(".git")).block_on()?;
+        std::fs::write(
+            workspace.workspace_root().join(".jj").join(".gitignore"),
+            "/*\n",
+        )?;
+        drop(workspace);
+        let mut session = Self::open(path)?;
+        session.snapshot()?;
+        Ok(session)
+    }
+
     /// Open `path` for mutation: user settings, workspace, repo at
     /// the op-store head, colocation flag.
     pub fn open(path: &Path) -> Result<Self> {
@@ -1326,6 +1348,26 @@ impl RepoSession {
         let mut tx = self.start_tx();
         git::add_remote(tx.repo_mut(), RemoteName::new(name), url, None)?;
         self.finish_tx(tx, &format!("add git remote {name}"))
+    }
+
+    /// Remove git remote `name` and its remote bookmarks (`jj git
+    /// remote remove <name>`).
+    pub fn remove_git_remote(&mut self, name: &str) -> Result<()> {
+        use jj_lib::ref_name::RemoteName;
+        self.snapshot()?;
+        let mut tx = self.start_tx();
+        git::remove_remote(tx.repo_mut(), RemoteName::new(name))?;
+        self.finish_tx(tx, &format!("remove git remote {name}"))
+    }
+
+    /// Rename git remote `old` to `new`, its remote bookmarks with it
+    /// (`jj git remote rename <old> <new>`).
+    pub fn rename_git_remote(&mut self, old: &str, new: &str) -> Result<()> {
+        use jj_lib::ref_name::RemoteName;
+        self.snapshot()?;
+        let mut tx = self.start_tx();
+        git::rename_remote(tx.repo_mut(), RemoteName::new(old), RemoteName::new(new))?;
+        self.finish_tx(tx, &format!("rename git remote {old} to {new}"))
     }
 
     /// Fetch everything from `remote` into a freshly initialized

@@ -30,6 +30,8 @@ use crate::options_flags::push_retry::PushRetryOptions;
 /// - `push_retry`: `--push-retries` / `--push-retry-delay`.
 /// - `config`: resolved `--config` value (None => canned write).
 /// - `adopt`: `--adopt`, convert an existing target.
+/// - `upstream`: `--upstream`, the name an adopted test repo's old
+///   `origin` is kept under, None removing it.
 /// - `agent_dir`, `agent_repo`, `agent_suffix`: the `--agent-*`
 ///   flags, None meaning the default (dual only).
 /// - `create_symlink`: whether `init` should create the
@@ -47,6 +49,7 @@ pub struct InitParams {
     pub push_retry: PushRetryOptions,
     pub config: Option<ConfigKind>,
     pub adopt: bool,
+    pub upstream: Option<String>,
     pub no_url_trailer: bool,
     pub agent_dir: Option<String>,
     pub agent_repo: Option<String>,
@@ -75,6 +78,7 @@ impl From<&InitArgs> for InitParams {
             push_retry: a.provision.push_retry.clone(),
             config: a.config.resolve(ConfigKind::None),
             adopt: a.adopt,
+            upstream: a.upstream.clone(),
             no_url_trailer: a.no_url_trailer,
             agent_dir: a.agent_dir.clone(),
             agent_repo: a.agent_repo.clone(),

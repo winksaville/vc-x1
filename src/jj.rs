@@ -31,7 +31,9 @@
 //!   target push and sync snapshot before mutating).
 //! - `commit` / `describe` / `bookmark_set` / `git_push_bookmark` /
 //!   `new_on` / `rebase_branch` / `op_restore` / `git_init_colocated` /
-//!   `git_remote_add`: one-shot wrappers over the session verbs.
+//!   `git_init_colocated_existing` / `git_remote_add` /
+//!   `git_remote_remove` / `git_remote_rename`: one-shot wrappers over
+//!   the session verbs.
 //!   `git_fetch` and `squash_into` have no wrapper: their only
 //!   callers (sync, squash-push) are context-ful.
 //! - `git_clone_colocated`: the whole `jj git clone --colocate`
@@ -176,6 +178,26 @@ pub fn remote_bookmark_targets(
 /// `name` at `url` (`jj git remote add <name> <url>`).
 pub fn git_remote_add(repo: &Path, name: &str, url: &str) -> Result<()> {
     session::RepoSession::open(repo)?.add_git_remote(name, url)
+}
+
+/// One-shot `RepoSession::remove_git_remote`: remove git remote
+/// `name` and its remote bookmarks (`jj git remote remove <name>`).
+pub fn git_remote_remove(repo: &Path, name: &str) -> Result<()> {
+    session::RepoSession::open(repo)?.remove_git_remote(name)
+}
+
+/// One-shot `RepoSession::rename_git_remote`: rename git remote
+/// `old` to `new` (`jj git remote rename <old> <new>`).
+pub fn git_remote_rename(repo: &Path, old: &str, new: &str) -> Result<()> {
+    session::RepoSession::open(repo)?.rename_git_remote(old, new)
+}
+
+/// One-shot `RepoSession::init_colocated_existing`: colocate the git
+/// repo at `target` with jj, its history kept (`jj git init
+/// --colocate` in a git repo).
+pub fn git_init_colocated_existing(target: &Path) -> Result<()> {
+    session::RepoSession::init_colocated_existing(target)?;
+    Ok(())
 }
 
 /// Clone `source` into `target` as a colocated repo (`jj git

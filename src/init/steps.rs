@@ -14,6 +14,7 @@ use crate::options_flags::config::ConfigKind;
 /// One step of an init run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Step {
+    Colocate,
     PrepareWork,
     ConfigWork,
     CommitWork,
@@ -22,6 +23,7 @@ pub(crate) enum Step {
     CommitAgent,
     CrossLink,
     PublishAgent,
+    ReplaceOrigin,
     PublishWork,
     Symlink,
 }
@@ -42,6 +44,14 @@ impl Steps {
         let mut list = Vec::new();
 
         let work_dir = plan.project_dir.display();
+        if matches!(plan.work_start, WorkStart::Repo { .. })
+            && super::adopt::is_git_only(&plan.project_dir)
+        {
+            list.push((
+                Step::Colocate,
+                format!("Colocate the git repo {work_dir} with jj, its history kept"),
+            ));
+        }
         let prepare_work = if params.adopt {
             format!("Init the work repo (jj, colocated) in {work_dir}, adopting its content")
         } else {
@@ -115,6 +125,16 @@ impl Steps {
         // An adopted repo with an origin publishes nothing: its commit
         // is the user's to land.
         if !plan.work_start.keeps_its_origin() {
+            if let Some(origin) = &plan.replaced_origin {
+                let what = match &params.upstream {
+                    Some(name) => format!("keep it as the remote '{name}'"),
+                    None => "remove it".to_string(),
+                };
+                list.push((
+                    Step::ReplaceOrigin,
+                    format!("Replace the work repo's origin {origin} with REMOTES: {what}"),
+                ));
+            }
             list.push((
                 Step::PublishWork,
                 publish_title(plan, "work", None, visibility),

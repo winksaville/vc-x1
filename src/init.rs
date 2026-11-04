@@ -6,7 +6,7 @@ pub use params::InitParams;
 use std::path::{Path, PathBuf};
 
 use clap::{Args, ValueHint};
-use log::{debug, info};
+use log::{debug, info, warn};
 
 use crate::config::{self, UserConfig};
 use crate::context::Context;
@@ -62,7 +62,9 @@ pub struct InitArgs {
     /// `<name>.agent-session.git`, so several test repos share one
     /// REMOTES, and a name already there is refused. REMOTES is
     /// always a path, so `tmp/remotes` needs no `./`. Not with a URL
-    /// `--target`, or what names a remote or an existing directory.
+    /// `--target`, or what names a remote. With `--adopt` the target
+    /// is an existing repo or directory, an origin it has replaced by
+    /// REMOTES and kept only by `--upstream`.
     #[arg(
         long = "test-repo",
         value_name = "REMOTES",
@@ -120,6 +122,23 @@ pub struct InitArgs {
     /// refused, having nothing to grow.
     #[arg(long)]
     pub adopt: bool,
+
+    /// With `--test-repo` and `--adopt`, keep the adopted repo's old
+    /// `origin` as the remote NAME [default NAME: upstream], where it
+    /// is otherwise removed.
+    ///
+    /// The test repo's remotes are REMOTES either way, and nothing
+    /// vc-x1 runs pushes to NAME, so it is there to fetch from. A NAME
+    /// the repo already has is refused.
+    #[arg(
+        long,
+        value_name = "NAME",
+        num_args = 0..=1,
+        default_missing_value = "upstream",
+        requires_all = ["test_repo", "adopt"],
+        verbatim_doc_comment
+    )]
+    pub upstream: Option<String>,
 
     /// Stamp the work commit's `ochid:` alone, with no `ocid:` or `pcid:`
     /// links. A plain repo stamps no trailer, so it changes nothing there.
@@ -753,6 +772,9 @@ pub(crate) struct InitPlan {
     /// The `--repo` chain's error, held under `--adopt` until the
     /// target shows whether an origin makes the chain unneeded.
     pub remote_error: Option<String>,
+    /// Under `--test-repo`, the URL of the adopted repo's `origin`,
+    /// which REMOTES replaces: removed, or kept by `--upstream`.
+    pub replaced_origin: Option<String>,
 }
 
 /// What the work side of a plan starts from.
@@ -1117,6 +1139,7 @@ fn plan_local(
         agent: None,
         work_start: WorkStart::Fresh,
         remote_error: None,
+        replaced_origin: None,
     })
 }
 
@@ -1143,6 +1166,7 @@ fn build_plan(
         agent: None,
         work_start: WorkStart::Fresh,
         remote_error: None,
+        replaced_origin: None,
     })
 }
 
@@ -1253,7 +1277,6 @@ impl InitArgs {
             (self.name.is_some(), "--name"),
             (self.account.value.is_some(), "--account"),
             (self.repo.value.is_some(), "--repo"),
-            (self.adopt, "--adopt"),
             (self.provision.private.value, "--private"),
         ] {
             if set {
@@ -1332,11 +1355,17 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     info!("Preflight checks...");
 
     check_target_state(&plan.project_dir, &state, params.adopt)?;
-    if matches!(
+    let adopting_repo = matches!(
         state,
         adopt::TargetState::Por | adopt::TargetState::SingleRepo
-    ) {
-        adopt::check_repo(&plan.project_dir)?;
+    );
+    let git_only = adopting_repo && adopt::is_git_only(&plan.project_dir);
+    if adopting_repo {
+        adopt::check_colocation(&plan.project_dir)?;
+        // A git-only repo's working copy is read once jj colocates it.
+        if !git_only {
+            adopt::check_clean(&plan.project_dir)?;
+        }
         plan_existing_repo(&mut plan, params, state == adopt::TargetState::SingleRepo)?;
     }
     if let Some(e) = &plan.remote_error {
@@ -1453,9 +1482,61 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
         return Ok(());
     }
 
+    if git_only {
+        steps.begin(steps::Step::Colocate);
+        adopt::colocate(&plan.project_dir)?;
+    }
+    if let Err(e) = check_adopted(&plan, git_only) {
+        if git_only {
+            undo_colocation(&plan.project_dir);
+        }
+        return Err(e);
+    }
+
     match &plan.agent {
         None => create_por(params, &plan, &steps, visibility),
         Some(agent) => create_dual(params, &plan, agent, &steps, visibility),
+    }
+}
+
+/// The checks an adopted repo takes once jj can read it, before
+/// anything is written: a git-only repo's clean working copy, and an
+/// agent remote init does not create, which must exist.
+///
+/// The remote is asked for its heads, so one that does not exist, or
+/// cannot be reached, is refused here and not at the push, after the
+/// work repo was committed and the agent repo made.
+fn check_adopted(plan: &InitPlan, git_only: bool) -> Result<(), Box<dyn std::error::Error>> {
+    if !matches!(plan.work_start, WorkStart::Repo { .. }) {
+        return Ok(());
+    }
+    if git_only {
+        adopt::check_clean(&plan.project_dir)?;
+    }
+    if plan.provisioner == Provisioner::ExternalPreExisting
+        && let Some(agent) = &plan.agent
+        && is_remote_url(&agent.url)
+        && let Err(e) = jj::git_ls_remote_heads(&plan.project_dir, &agent.url)
+    {
+        return Err(format!(
+            "--adopt: the agent repo's remote {} does not exist or cannot be reached, and init \
+             creates a remote only on GitHub or as a path: create it first ({e})",
+            agent.url
+        )
+        .into());
+    }
+    Ok(())
+}
+
+/// Take back the colocation of a git-only repo whose adopt was then
+/// refused, so a refusal leaves the repo as it was found. The `.jj`
+/// directory is init's own, made moments before.
+fn undo_colocation(dir: &Path) {
+    if let Err(e) = std::fs::remove_dir_all(dir.join(".jj")) {
+        warn!(
+            "could not remove {}, made by this run: {e}",
+            dir.join(".jj").display()
+        );
     }
 }
 
@@ -1618,6 +1699,13 @@ fn create_dual(
     let work_chid_final = if plan.work_start.keeps_its_origin() {
         jj::chid_of(&plan.project_dir, "@-")?
     } else {
+        if plan.replaced_origin.is_some() {
+            steps.begin(Step::ReplaceOrigin);
+            match &params.upstream {
+                Some(name) => jj::git_remote_rename(&plan.project_dir, "origin", name)?,
+                None => jj::git_remote_remove(&plan.project_dir, "origin")?,
+            }
+        }
         steps.begin(Step::PublishWork);
         push_repo(
             &plan.project_dir,
@@ -1784,7 +1872,11 @@ fn plan_existing_repo(
     params: &InitParams,
     has_config: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let Some(origin) = jj::remote_url(&plan.project_dir, "origin")? else {
+    let origin = jj::remote_url(&plan.project_dir, "origin")?;
+    if params.test_remotes.is_some() {
+        return plan_test_adopt(plan, params, origin, has_config);
+    }
+    let Some(origin) = origin else {
         plan.work_start = WorkStart::Repo {
             has_origin: false,
             has_config,
@@ -1819,6 +1911,39 @@ fn plan_existing_repo(
     };
     plan.remote_error = None;
     plan.agent = Some(plan_agent_side(plan, params)?);
+    Ok(())
+}
+
+/// Point a `--test-repo` plan at a repo `--adopt` grows.
+///
+/// The plan's remotes stay REMOTES, so the work side is published
+/// there as a repo with no origin is, and an origin the repo has is
+/// recorded to be replaced: removed, or renamed by `--upstream`,
+/// whose name the repo must not have already. Any origin is treated
+/// alike, GitHub, another host, or a path, since nothing leaves this
+/// machine.
+fn plan_test_adopt(
+    plan: &mut InitPlan,
+    params: &InitParams,
+    origin: Option<String>,
+    has_config: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(name) = &params.upstream {
+        if origin.is_none() {
+            info!("--upstream {name}: the repo has no origin to keep, so there is nothing to name");
+        } else if jj::remote_url(&plan.project_dir, name)?.is_some() {
+            return Err(format!(
+                "--upstream {name}: the repo has a remote named '{name}' already: name another \
+                 with --upstream NAME"
+            )
+            .into());
+        }
+    }
+    plan.work_start = WorkStart::Repo {
+        has_origin: false,
+        has_config,
+    };
+    plan.replaced_origin = origin;
     Ok(())
 }
 

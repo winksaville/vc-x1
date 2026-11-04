@@ -1577,6 +1577,10 @@ vc-x1 init --target my-project --dry-run
 # Convert an existing plain directory into a dual workspace
 vc-x1 init --target . --adopt
 
+# Rehearse converting an existing repo, a clone or `cargo new`'s: its remotes in
+# remotes/, the old origin kept as `upstream`, and nothing leaves this machine
+vc-x1 init --test-repo ./remotes --target ./t1 --adopt --upstream
+
 # Name the agent repo's directory and its remote
 vc-x1 init --target my-project --agent-dir .sessions --agent-suffix -sessions
 vc-x1 init --target my-project --agent-repo my-project.claude
@@ -1591,6 +1595,7 @@ vc-x1 init --target my-project --agent-repo my-project.claude
 | `--repo <CAT[=VAL]>` | Repo target, e.g. `local=<PARENT>` for local bare remotes |
 | `-s, --scope <SCOPE>` | `both`, a dual workspace, or `por`, a plain single repo (no agent repo) [default: both] |
 | `--adopt` | Convert an existing TARGET into a dual workspace (see below) |
+| `--upstream [NAME]` | With `--test-repo` and `--adopt`, keep the old `origin` as NAME [default: upstream], removed otherwise |
 | `--no-url-trailer` | Stamp the work commit's `ochid:` alone, with no `ocid:` or `pcid:` links |
 | `--agent-dir <DIR>` | The agent repo's directory, one name [default: .agent-session] |
 | `--agent-repo <NAME>` | The agent repo's whole remote name |
@@ -1612,13 +1617,20 @@ grows the target into a dual workspace:
   over jj's new-file size limit (1MiB by default) are listed, since jj would otherwise leave them
   out. A `.gitignore` it already has is kept and given the lines it lacks, the agent directory's
   and `/.claude/settings.local.json`.
-- A jj repo colocated with git and with no workspace config: its history stays, and one commit,
+- A repo, jj colocated with git or git alone, with no workspace config: a git-only repo is
+  colocated with jj first, its history kept. Its history stays, and one commit,
   "Adopt as a dual-repo workspace", goes on top, carrying `.vc-config.md`, the `.gitignore` lines,
   and the `ochid:` trailer to the agent repo's first commit. With an `origin`, the agent repo's
   remote is derived beside it, `--repo` and `--account` are refused, and the work side pushes
-  nothing: the commit is yours to land. With no origin, the remotes come from `--repo` as for a
-  fresh init, and both are pushed. A working copy with uncommitted work is refused, and a git-only
-  repo is pointed at `jj git init --colocate`.
+  nothing: the commit is yours to land. An agent remote init cannot create, one on a host other
+  than GitHub, must exist, and is checked before anything is written. With no origin, the remotes
+  come from `--repo` as for a fresh init, and both are pushed. A working copy with uncommitted work
+  is refused, and a git-only repo's colocation is then taken back. A repo with no commit yet, as
+  `cargo new` leaves one, has its content committed, as a plain directory has.
+- With `--test-repo`, any of these is adopted as a test repo: its remotes are REMOTES, and an
+  `origin` it has, on GitHub, another host, or a path, is replaced, its history pushed to
+  `REMOTES/<name>.git`. The old `origin` is removed, or kept by `--upstream [NAME]` to fetch from,
+  a NAME the repo has already being refused.
 - A single-repo workspace, one whose config declares `repos.work` alone, such as `init -s por`
   makes: adopted as the repo above, except that its config is edited in place. `agent =` goes into
   `[repos]` and `agent-repo =` under `[remote]`, and every other line, prose and comments

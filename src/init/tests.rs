@@ -467,6 +467,7 @@ fn args_for(target: &str) -> InitArgs {
         },
         config: ConfigOption::default(),
         adopt: false,
+        upstream: None,
         no_url_trailer: false,
         agent_dir: None,
         agent_repo: None,
@@ -927,8 +928,9 @@ fn adopt_repo_without_origin_publishes_both() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
-/// Uncommitted work, a git-only repo, and `--repo` against an origin
-/// are refused before anything is written.
+/// Uncommitted work, in a colocated repo or a git-only one, and
+/// `--repo` against an origin are refused before anything is written,
+/// a git-only repo's colocation taken back.
 #[test]
 fn adopt_repo_refusals() {
     use crate::test_helpers::FixturePor;
@@ -950,12 +952,188 @@ fn adopt_repo_refusals() {
     assert!(err.contains("uncommitted work"), "{err}");
     assert!(!fx.work.join(".agent-session").exists(), "nothing written");
 
-    let base = crate::test_helpers::unique_base("adopt-git-only");
+    let base = crate::test_helpers::unique_base("adopt-git-only-dirty");
     let work = base.join("work");
-    std::fs::create_dir_all(work.join(".git")).unwrap();
-    let err = adopt_repo(&work, None).expect_err("git only").to_string();
-    assert!(err.contains("jj git init --colocate"), "{err}");
+    git_only_with_history(&work);
+    std::fs::write(work.join("wip.txt"), "wip\n").unwrap();
+    let err = adopt_repo(
+        &work,
+        Some(RepoSelector {
+            category: "local".into(),
+            value: Some(base.to_string_lossy().into_owned()),
+        }),
+    )
+    .expect_err("dirty git-only")
+    .to_string();
+    assert!(err.contains("uncommitted work"), "{err}");
+    assert!(!work.join(".jj").exists(), "the colocation taken back");
+    assert!(!work.join(".agent-session").exists(), "nothing written");
     let _ = std::fs::remove_dir_all(&base);
+}
+
+/// A git repo with one commit, `first`, and no jj: made colocated,
+/// and its `.jj` then removed, git's HEAD left on `first`.
+fn git_only_with_history(work: &Path) {
+    use crate::test_helpers::jj_ok;
+
+    std::fs::create_dir_all(work).unwrap();
+    crate::jj::git_init_colocated(work).unwrap();
+    std::fs::write(work.join("a.txt"), "a\n").unwrap();
+    jj_ok(work, &["commit", "-m", "first"]);
+    std::fs::remove_dir_all(work.join(".jj")).unwrap();
+}
+
+/// A git repo with no commit and no jj, as `cargo init` leaves one.
+fn git_only_unborn(work: &Path) {
+    use gix::sec::trust::DefaultForLevel;
+
+    std::fs::create_dir_all(work).unwrap();
+    let open_opts = gix::open::Options::default_for_level(gix::sec::Trust::Full)
+        .config_overrides(["init.defaultBranch=main"]);
+    gix::ThreadSafeRepository::init_opts(
+        work,
+        gix::create::Kind::WithWorktree,
+        gix::create::Options::default(),
+        open_opts,
+    )
+    .unwrap();
+}
+
+/// Adopt the repo at `work` as a test repo, its remotes in `remotes`,
+/// `upstream` the `--upstream` name, and no symlink.
+fn adopt_test_repo(
+    work: &Path,
+    remotes: &Path,
+    upstream: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut args = args_for(&work.to_string_lossy());
+    args.test_repo = Some(remotes.to_string_lossy().into_owned());
+    args.provision.dry_run.value = false;
+    args.adopt = true;
+    args.upstream = upstream.map(String::from);
+    let mut params = InitParams::from(&args);
+    params.create_symlink = false;
+    init(&crate::test_helpers::test_ctx(), &params)
+}
+
+/// A git repo with no commit, as `cargo init` leaves one, is colocated
+/// and adopted as a test repo: its content is the adopt commit's, and
+/// both repos are published to REMOTES alone.
+#[test]
+fn a_test_repo_adopts_a_git_repo_with_no_commit() {
+    use crate::test_helpers::{description, jj_ok_at};
+
+    let base = crate::test_helpers::unique_base("adopt-unborn");
+    let work = base.join("t1");
+    let remotes = base.join("remotes");
+    git_only_unborn(&work);
+    std::fs::write(work.join("Cargo.toml"), "[package]\nname = \"t1\"\n").unwrap();
+
+    adopt_test_repo(&work, &remotes, None).expect("adopt a git repo with no commit");
+
+    assert!(work.join(".jj").exists(), "colocated");
+    let desc = description(&work, "@-");
+    assert!(desc.starts_with(ADOPT_TITLE), "{desc}");
+    let files = jj_ok_at(&work, &["file", "list", "-r", "@-"]);
+    assert!(files.contains("Cargo.toml"), "{files}");
+    assert!(remotes.join("t1.git").exists());
+    assert!(remotes.join("t1.agent-session.git").exists());
+    let origin = crate::jj::remote_url(&work, "origin").unwrap().unwrap();
+    assert_eq!(origin, remotes.join("t1.git").to_string_lossy());
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+/// An adopted repo's origin is replaced by REMOTES, its history pushed
+/// there and the old origin given nothing, and the old origin is
+/// removed, or kept by `--upstream`.
+#[test]
+fn a_test_repo_replaces_an_adopted_origin() {
+    use crate::test_helpers::{FixturePor, chid};
+
+    for upstream in [None, Some("upstream")] {
+        let fx = FixturePor::new_with_config("adopt-test-origin", Some("none".into()));
+        let first = chid(&fx.work, "@-");
+        let old_url = crate::jj::remote_url(&fx.work, "origin").unwrap().unwrap();
+        let old_heads = crate::jj::git_ls_remote_heads(&fx.work, &old_url).unwrap();
+        let remotes = fx.base.join("remotes");
+
+        adopt_test_repo(&fx.work, &remotes, upstream).expect("adopt a repo with an origin");
+
+        let new_url = remotes.join("work.git").to_string_lossy().into_owned();
+        assert_eq!(
+            crate::jj::remote_url(&fx.work, "origin").unwrap(),
+            Some(new_url.clone())
+        );
+        assert_eq!(
+            crate::jj::remote_url(&fx.work, "upstream").unwrap(),
+            upstream.map(|_| old_url.clone()),
+            "{upstream:?}"
+        );
+        assert_eq!(chid(&fx.work, "@--"), first, "history kept");
+        let new_heads = crate::jj::git_ls_remote_heads(&fx.work, &new_url).unwrap();
+        assert!(new_heads.contains_key("main"), "{new_heads:?}");
+        assert_eq!(
+            crate::jj::git_ls_remote_heads(&fx.work, &old_url).unwrap(),
+            old_heads,
+            "the old origin given nothing"
+        );
+        assert!(remotes.join("work.agent-session.git").exists());
+        let _ = std::fs::remove_dir_all(&fx.base);
+    }
+}
+
+/// `--upstream` naming a remote the repo has is refused before
+/// anything is written, and so is an agent remote, on a host init
+/// does not create on, that does not exist.
+#[test]
+fn adopt_refuses_a_taken_upstream_and_a_missing_agent_remote() {
+    use crate::test_helpers::FixturePor;
+
+    let fx = FixturePor::new_with_config("adopt-upstream-taken", Some("none".into()));
+    crate::jj::git_remote_add(&fx.work, "upstream", "/elsewhere.git").unwrap();
+    let remotes = fx.base.join("remotes");
+    let err = adopt_test_repo(&fx.work, &remotes, Some("upstream"))
+        .expect_err("taken")
+        .to_string();
+    assert!(err.contains("already"), "{err}");
+    assert!(!fx.work.join(".agent-session").exists(), "nothing written");
+    assert!(!remotes.exists(), "no remotes made");
+    let _ = std::fs::remove_dir_all(&fx.base);
+
+    let fx = FixturePor::new_with_config("adopt-agent-missing", Some("none".into()));
+    let missing = format!("file://{}/missing/work.git", fx.base.display());
+    crate::jj::git_remote_remove(&fx.work, "origin").unwrap();
+    crate::jj::git_remote_add(&fx.work, "origin", &missing).unwrap();
+    let err = adopt_repo(&fx.work, None)
+        .expect_err("missing agent remote")
+        .to_string();
+    assert!(err.contains("does not exist or cannot be reached"), "{err}");
+    assert!(!fx.work.join(".agent-session").exists(), "nothing written");
+    let _ = std::fs::remove_dir_all(&fx.base);
+}
+
+/// `--upstream` takes a name or none, and needs `--test-repo` and
+/// `--adopt` beside it.
+#[test]
+fn upstream_needs_a_test_repo_and_adopt() {
+    let parse = |extra: &[&str]| {
+        let mut argv = vec!["vc-x1", "init", "--target", "./t1"];
+        argv.extend_from_slice(extra);
+        Cli::try_parse_from(argv)
+    };
+    let both = ["--test-repo", "./remotes", "--adopt"];
+    let cli = parse(&[&both[..], &["--upstream"]].concat()).unwrap();
+    let Some(Commands::Init(args)) = cli.command else {
+        panic!("expected init");
+    };
+    assert_eq!(args.upstream.as_deref(), Some("upstream"));
+    let cli = parse(&[&both[..], &["--upstream", "github"]].concat()).unwrap();
+    let Some(Commands::Init(args)) = cli.command else {
+        panic!("expected init");
+    };
+    assert_eq!(args.upstream.as_deref(), Some("github"));
+    assert!(parse(&["--adopt", "--upstream"]).is_err());
+    assert!(parse(&["--test-repo", "./remotes", "--upstream"]).is_err());
 }
 
 // ---------- adopting a single-repo workspace ----------
@@ -1810,8 +1988,8 @@ fn a_test_repo_takes_a_target() {
     assert!(InitParams::from(&args_for("./tmp/one")).create_symlink);
 }
 
-/// What names a remote, an existing directory, or a publish is refused
-/// with `--test-repo`, and so is a URL, as its value or the target's.
+/// What names a remote or a publish is refused with `--test-repo`, and
+/// so is a URL, as its value or the target's. `--adopt` is taken.
 #[test]
 fn a_test_repo_refuses_what_it_cannot_mean() {
     use crate::subcommand::SubcommandRunner;
@@ -1823,6 +2001,7 @@ fn a_test_repo_refuses_what_it_cannot_mean() {
         args.to_params().err()
     };
     assert!(test_repo(|_| {}).is_none());
+    assert!(test_repo(|a| a.adopt = true).is_none());
     for (flag, set) in [
         (
             "--name",
@@ -1835,7 +2014,6 @@ fn a_test_repo_refuses_what_it_cannot_mean() {
                 value: Some("/t".into()),
             })
         }),
-        ("--adopt", |a| a.adopt = true),
         ("--private", |a| a.provision.private.value = true),
     ] {
         let err = test_repo(set).expect(flag);

@@ -91,23 +91,18 @@ pub(crate) fn detect_target_state(dir: &Path) -> Result<TargetState, Box<dyn std
     )
 }
 
+/// Whether `dir` is a git repo with no jj, which adopt colocates
+/// before it grows it.
+pub(crate) fn is_git_only(dir: &Path) -> bool {
+    dir.join(".git").exists() && !dir.join(".jj").exists()
+}
+
 /// Check that a repo adopt is to grow is one it can: colocated with
-/// git, since vc-x1 reads both halves, and with a clean working copy,
-/// since adopt's commit would otherwise take the uncommitted work in.
-///
-/// A git-only repo is pointed at `jj git init --colocate`, which
-/// colocates it without touching its history, and a jj repo whose git
-/// store is internal is refused, having no `.git` for git to use.
-pub(crate) fn check_repo(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+/// git, or git alone, which adopt colocates, since vc-x1 reads both
+/// halves. A jj repo whose git store is internal is refused, having
+/// no `.git` for git to use.
+pub(crate) fn check_colocation(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let (jj, git) = (dir.join(".jj").exists(), dir.join(".git").exists());
-    if git && !jj {
-        return Err(format!(
-            "--adopt: '{}' is a git repo with no jj, which adopt does not take yet: run \
-             `jj git init --colocate` in it, then adopt it",
-            dir.display()
-        )
-        .into());
-    }
     if jj && !git {
         return Err(format!(
             "--adopt: '{}' is a jj repo not colocated with git: vc-x1 needs a colocated repo",
@@ -115,8 +110,24 @@ pub(crate) fn check_repo(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
         )
         .into());
     }
+    Ok(())
+}
+
+/// Colocate a git-only repo with jj, in place, its history kept.
+pub(crate) fn colocate(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    crate::jj::git_init_colocated_existing(dir)
+}
+
+/// Check that a colocated repo's working copy is clean, since adopt's
+/// commit would otherwise take the uncommitted work in.
+///
+/// A repo with no commit yet, as `cargo init` and `git init` leave
+/// one, has no history for adopt's commit to go on top of, so its
+/// content is the commit's, as a plain directory's is.
+pub(crate) fn check_clean(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let unborn = !crate::jj::cids_of(dir, "@- & root()")?.is_empty();
     let clean = crate::jj::is_empty(dir, "@")? && crate::jj::desc_of(dir, "@")?.trim().is_empty();
-    if !clean {
+    if !unborn && !clean {
         return Err(format!(
             "--adopt: '{}' has uncommitted work in @: commit it first, since adopt adds a \
              commit of its own on top",
