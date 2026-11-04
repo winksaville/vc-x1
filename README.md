@@ -2028,11 +2028,11 @@ about, since it may be a closing not asked for.
 
 A closing moves the cycle's record in the repo's `TODO.md` before it commits, so the commit carries
 it: the `## In Progress` block, its first `###` heading to the section's end, replaces the `##
-Closed` block, `## In Progress` reads "_No cycle currently in progress._", and `zTOC.md`'s `##
-Ladder` reads "_None._", each section's intro kept. A finalized commit's kept body gains "See
-details in TODO.md.". The move is planned and checked before anything is made: no `TODO.md`, no `##
-In Progress`, or nothing in it moves nothing and says so, and a cycle in progress with no `##
-Closed` is refused with the file as it was.
+Closed` block, and `## In Progress` reads "_No cycle currently in progress._", each section's intro
+kept, while `zTOC.md`'s ladder stays as it is, so the landmark keeps it. A finalized commit's kept
+body gains "See details in TODO.md.". The move is planned and checked before anything is made: no
+`TODO.md`, no `## In Progress`, or nothing in it moves nothing and says so, and a cycle in progress
+with no `## Closed` is refused with the file as it was.
 
 `--land [TRUNK]` lands the cycle in the same invocation, on the machine: the closing is made, the
 agent `@` committed when the cycle's commits name it, the trunk fast-forwarded to the closing, and

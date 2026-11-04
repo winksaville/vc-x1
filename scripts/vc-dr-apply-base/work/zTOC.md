@@ -12,5 +12,3 @@ _None._
   format](agent-data/notes.md#todo-format).
 - [todo-backlog.md](notes/todo-backlog.md): the long-tail Todos.
 - [bugs.md](notes/bugs.md): the bugs.
-
-# References

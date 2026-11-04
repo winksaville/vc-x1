@@ -233,12 +233,12 @@ above). The shared template:
 
 The two surfaces apply it as:
 
-- **Ladder step** (`TODO.md` `## In Progress`): the rung is `- [<title>][M] (marker)`: the title
-  reference-linked to the rung's subsection via `[M]: #<slug>` in the file's `# References` (the
-  closing rung linked like the rest), and the `(current)` / `(done)` marker. Its position in the
-  list is its position in the ladder. The last rung is the close-out and its text says so. Detail
-  lives not on the rung but in its subsection under the ladder, headed by the rung's exact
-  title (see the protocol's [Opening](../AGENTS.md#opening)), bulleted, never `;`-joined inline.
+- **Ladder step** (`zTOC.md` `## Ladder`): the rung is `- N (marker) [<title>](TODO.md#<slug>)`: its
+  version suffix, the `(current)` / `(done)` marker, and the title linked to the rung's subsection
+  in `TODO.md` (the closing rung linked like the rest). Its position in the list is its position in
+  the ladder. The last rung is the close-out and its text says so. Detail lives not on the rung but
+  in its subsection under `TODO.md`'s `#### Rungs`, headed by the rung's exact title (see the
+  protocol's [Opening](../AGENTS.md#opening)), bulleted, never `;`-joined inline.
 - **Commit description**: no prefix. The title is the first line, and the body is the prose (see
   [Commit description](../AGENTS.md#commit-description)).
 

@@ -36,11 +36,9 @@ and `vc-x1 config --validate` reports the same findings as before the move.
 - the acceptance check compares `config --validate` output rather than asserting on internals, so a
   later rename inside the module does not invalidate it
 
-#### Ladder
+#### Rungs
 
-- [refactor: extract config loader opening][0] (done)
-- [refactor: split loader from parser][1] (current)
-- [refactor: extract config loader closing][2]
+The rung subsections, in the ladder's order. The ladder itself is in `zTOC.md > ## Ladder`.
 
 ##### refactor: extract config loader opening
 
@@ -67,8 +65,16 @@ without a file on disk.
 
 Closing out the cycle.
 
-# References
 
-[0]: #refactor-extract-config-loader-opening
-[1]: #refactor-split-loader-from-parser
-[2]: #refactor-extract-config-loader-closing
+## zTOC.md's ladder
+
+The same cycle's ladder, `zTOC.md > ## Ladder`, its one copy, linking across to the subsections
+above:
+
+```
+## Ladder
+
+- 0 (done) [refactor: extract config loader opening](TODO.md#refactor-extract-config-loader-opening)
+- 1 (current) [refactor: split loader from parser](TODO.md#refactor-split-loader-from-parser)
+- [refactor: extract config loader closing](TODO.md#refactor-extract-config-loader-closing)
+```

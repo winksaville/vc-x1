@@ -186,6 +186,12 @@ the agent-repo, reached from the commit by its `ochid:` trailer, which we hope t
 to soon. `tmp/` was considered and rejected because it is gitignored, which is the no-tree loss
 again.
 
+
+**The ladder is `zTOC.md`'s alone** (wink, 2026-11-04) because two copies, one in the block and one
+in the index, were kept in step by hand at every rung, and zed's markdown preview follows a link to
+another file but not one within the same file, so only the index's ladder could be clicked through.
+The closing keeps it because the landmark should hold the finished ladder beside the finished block,
+as `## Closed` is deleted by the next opening rather than by the closing.
 ### Opening
 
 `## Waiting` is checked at the opening because that is the moment a choice is being made, and a

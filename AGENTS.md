@@ -12,8 +12,8 @@ always hyphenated.
 
 Agent-files: the instruction set an agent reads, `AGENTS.md` and `agent-data/*`. `TODO.md` is not
 one, since its content is the project's record, but the agent-files require that there is one, of
-the shape in [Todo format](agent-data/notes.md#todo-format), and a `zTOC.md` beside it indexing the
-running ladder and the files worth knowing ([zTOC format](agent-data/notes.md#ztoc-format)).
+the shape in [Todo format](agent-data/notes.md#todo-format), and a `zTOC.md` beside it holding the
+cycle's ladder and the files worth knowing ([zTOC format](agent-data/notes.md#ztoc-format)).
 
 Agent-files version: the set's own version, `vX.Y.Z`, the name of an empty
 `agent-data/agent-files-vX.Y.Z` file, bumped by `agent-files` proposal cycles and copied by
@@ -146,7 +146,8 @@ in this order ([why](agent-data/rationale.md#acquaint)):
    reads](agent-data/notes.md#file-reads-read-the-slice-you-need)), the continuation notes first,
    each acted on, filed or kept, and the section reset ([Todo
    format](agent-data/notes.md#todo-format)).
-5. Report: say where things stand, the cycle in flight or the top of `## Todo`, and wait.
+5. Report: say where things stand, the cycle in flight, its ladder in `zTOC.md`, or the top of `##
+   Todo`, and wait.
 
 ## Sync
 
@@ -220,14 +221,15 @@ carries its own change alone, and they return once it is made.
 A cycle's record is its `TODO.md > ## In Progress` block and nothing else, the cycle-record
 ([why](agent-data/rationale.md#cycle-record)).
 
-- Items: title, problem, solution, acceptance check, deliberation, and the ladder heading its rung
-  subsections, all provisional until close-out ([The In Progress
+- Items: title, problem, solution, acceptance check, deliberation, and the rung subsections, the
+  ladder over them being `zTOC.md`'s, all provisional until close-out ([The In Progress
   block](agent-data/notes.md#the-in-progress-block)).
 - Life: written at the opening, revised as rungs land, finalized by the closing commit, which moves
   it whole to `## Closed` (a single-step cycle's one commit writes it there directly), deleted by
   the next opening.
   - `## In Progress` reads `_No cycle currently in progress._` between cycles.
-  - Its rungs are indexed in `zTOC.md` ([zTOC format](agent-data/notes.md#ztoc-format)).
+  - Its ladder, each rung with its marker, is `zTOC.md`'s, kept by the closing so the landmark holds
+    it and replaced by the next opening ([zTOC format](agent-data/notes.md#ztoc-format)).
   - The closing commit's tree carries the final form, and the file never grows.
 - After that jj holds it: `git log --grep "<cycle title>"` finds the commits, on the title the
   pushed bookends carry when a rename came mid-cycle, and the landmark on `main` (the trapezoid
@@ -256,7 +258,8 @@ carries steps 1 and 2. A single-step cycle does all of it in its one commit, aft
    the rank it names.
 4. In Progress block: delete whatever `## Closed` holds, then move the chosen `## Todo` entry into
    `## In Progress`, shaped as [The In Progress block](agent-data/notes.md#the-in-progress-block)
-   says, the specimen in [cycle-model.md](agent-data/cycle-model.md).
+   says, the specimen in [cycle-model.md](agent-data/cycle-model.md), and write its ladder into
+   `zTOC.md > ## Ladder` in place of the last cycle's.
 5. Bump: bump the version-of-record to the opening's version ([Suffix
    scheme](agent-data/versioning.md#suffix-scheme)), and the agent-files version with it when the
    cycle is an `agent-files` proposal ([Agent-files
@@ -272,14 +275,15 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)):
 
 0. Sync: sync both repos ([Sync](#sync)), required at the opening and the closing, optional
    between, the agent's or the user's call.
-1. Mark current: mark the rung `(current)` in `TODO.md > ## In Progress`, as the first edit.
+1. Mark current: mark the rung `(current)` in `zTOC.md > ## Ladder`, as the first edit, with the
+   version suffix step 2 gives it.
 2. Bump: bump the version-of-record to this commit's version ([Suffix
    scheme](agent-data/versioning.md#suffix-scheme)), the agent-files version beside it in an
    `agent-files` proposal cycle.
 3. Work: do the work. On any deviation from the agreed plan, or any question, stop ([Stop and
    ask](#stop-and-ask)).
-4. Rung subsection: write what this rung changed, conceptually, into its subsection under the
-   ladder. The rung stays `(current)` until step 7.
+4. Rung subsection: write what this rung changed, conceptually, into its subsection under `####
+   Rungs`. The rung stays `(current)` until step 7.
 5. Validate: `vc-x1 validate` before every review, doc-only commits included. The full run rewrites
    files (`cargo fmt`), so use `--fast` while a review iterates. A failure is read and its cause
    named before validation runs again, and a failure that does not repeat is a finding, reported
@@ -386,8 +390,8 @@ does all of it in its one commit, step 5 aside ([Cycle shape](#cycle-shape)):
    - ask what in the block must outlive the cycle, and write it into the `notes/` file it
      belongs to
    - move the block whole to `## Closed`, leaving `## In Progress` reading
-     `_No cycle currently in progress._` and `zTOC.md > ## Ladder` reading `_None._`, which `vc-x1
-     commit --closing` does.
+     `_No cycle currently in progress._`, which `vc-x1 commit --closing` does, and `zTOC.md`'s
+     ladder as it is, with every marker final.
 3. Validate: full validation, and update `notes/README.md` if functionality changed.
 4. Size: when an agent-file changed, record the line count in `notes/agent-files-size.md`,
    smaller being the quasi-goal. A cycle that touched none adds no row.

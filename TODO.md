@@ -214,29 +214,10 @@ By `vc-x1-dev`, on repos made by `init --test-repo <path>/<repo-name>`, in a tab
   - commits and the Land run by `vc-x1-dev`, as `zDOING.md`'s Rule said, now `versioning.md`'s
     **Which build runs**.
 
-#### Ladder
+#### Rungs
 
-Provisional, the rungs after the opening named as the work is understood:
-
-- [feat: close, land, and push compose with testing opening][0] (done)
-- [feat: init --test-repo makes a test repo][1] (done)
-- [feat: init drops --use-template][2] (done)
-- [chore: vc-x1 adopts the agent-files v0.3.1-0 draft][3] (done)
-- [feat: an agent commit covers its work commits][4] (done)
-- [feat: an initial vc-dr-apply.sh][5] (done)
-- [chore: vc-x1 adopts the agent-files v0.3.1-1 draft][16] (done)
-- [feat: the cycle record returns to TODO.md, indexed by zTOC.md, v0.3.1-2 draft][17] (done)
-- [feat: vc-dr-apply takes the active version and offers language skeletons][18] (done)
-- [feat: a test repo converts an existing repo][6]
-- [feat: the readers take any mix of ochid and ocid][7]
-- [feat: ocid is real only when the agent commit came first][8]
-- [fix: commit --closing reads the nearest opening and keeps the cycle's base][9]
-- [feat: land takes @- and the work scope by default][10]
-- [feat: a push to a release bookmark seals the cycle][11]
-- [fix: testing leaves a cycle able to continue][12]
-- [feat: close, land, and push say where the cycle stands][13]
-- [docs: the rules and README name the three steps][14]
-- [feat: close, land, and push compose with testing closing][15]
+The rung subsections, in the ladder's order. The ladder itself, each rung with its marker, is
+[zTOC.md](zTOC.md#ladder).
 
 ##### feat: close, land, and push compose with testing opening
 
@@ -453,6 +434,39 @@ wink's call (2026-11-04).
   work having been reviewed whole before the split. The waiver covers the two local commits and no
   push or Land.
 
+##### feat: the ladder lives in zTOC.md alone
+
+The ladder was in two places, `TODO.md`'s list and `zTOC.md`'s, kept in step by hand, and zed's
+preview follows only `zTOC.md`'s links, which go to another file, wink's finding (2026-11-04). The
+list moves to `zTOC.md` alone, its markers with it, wink's call:
+
+- `TODO.md`'s `#### Ladder` becomes `#### Rungs`, the subsections under it and a line pointing at
+  `zTOC.md`, and the ladder's references `[0]` to `[19]` leave `TODO.md`'s `# References`, `[50]`
+  staying.
+- The closing keeps the ladder, so the landmark's tree holds it beside `## Closed`, and the next
+  opening replaces it, as it deletes `## Closed`. `commit --closing`'s reset of `zTOC.md` from the
+  rung before goes, its test now checking the ladder is left as it was.
+- The rules: [The In Progress block](agent-data/notes.md#the-in-progress-block)'s ladder item
+  becomes `#### Rungs` with the ladder `zTOC.md`'s, [zTOC format](agent-data/notes.md#ztoc-format)
+  gives the ladder markers and the keep-at-closing, and the `[0]` to `[49]` split in Reference
+  numbering goes. The ladder's links are inline, wink's (2026-11-04), so `zTOC.md` has one list and
+  no `# References` beside it, at the cost of long lines and of the labels that matched each rung's
+  version suffix, which this cycle's inserted rungs had already broken. The marker goes first,
+  wink's (2026-11-04), so the statuses read down one column, and a table was weighed and left for
+  the interactive app, its raw rows being the hardest form to edit by hand. The version suffix goes
+  before it, wink's catch (2026-11-04), the one tie between a rung and the `-N` that `vc-x1-dev -V`
+  prints, which the reference labels had carried, now stated where it cannot drift: a rung gets its
+  number when its commit bumps the version, so an inserted rung renumbers nothing. In `AGENTS.md`,
+  the Terminology, the Cycle-record's items and Life, Opening step 4, per-rung flow steps 1 and 4,
+  Close-out step 2, and Acquaint's report name it. The rationale, the `cycle-model.md` specimen, a
+  new proposal item, and the README follow.
+- The agent-files collapse to `v0.3.1-2`, wink's call (2026-11-04): rungs 8 and 9 were reworked
+  while local so that neither bumps them, and rung 7's title names the draft, so each draft has the
+  one rung that names it, as `-0` and `-1` do. It bends per-rung flow step 2, which bumps them at
+  every rung of a proposal cycle. Wink's thought beside it, that the agent-files' dev versions might
+  advance once per cycle and not per rung, is for the proposal.
+- **An interactive app for the todo and the cycle-record** is filed, from the same finding.
+
 ##### feat: a test repo converts an existing repo
 
 The likeliest real use of a template is converting an existing repo, and nothing rehearses it safely,
@@ -581,7 +595,7 @@ commit made at the Land. Folds in **commit and land take the same scopes**, whic
   --push`.
 - `--land` requires `--scope`, and `vc-x1 land` the same, dropping its default of `both`, wink's
   (2026-10-30): a Land has a new destination, so it is assumed dangerous for now.
-  - Reversed by wink (2026-11-02), `--scope` defaulting to work, always. **feat: close, land, and push
+  - Reversed by wink (2026-11-02), `--scope` defaulting to work, always. **feat: close,  land, and push
     compose with testing** does it for close, land, and push, and the rest stay here.
 - A pushed work commit whose `ochid:` names an unpushed agent commit is not dangerous, wink's
   (2026-10-30). The link is dead until the agent side is pushed, which is obvious to the user. The
@@ -785,7 +799,8 @@ commits and publishes**, **Step 8 names the bookends**, and **The user chooses t
 `v0.3.1-2`, since **feat: the cycle record returns to TODO.md, indexed by zTOC.md, v0.3.1-2 draft**
 (2026-11-04), adds **The record stays in TODO.md, and zTOC.md indexes it**, and **feat: vc-dr-apply
 takes the active version and offers language skeletons** makes the working copy the default source
-in **New repos start from an adopter's rules**, the one draft spanning those rungs by wink's call
+in **New repos start from an adopter's rules**, and **feat: the ladder lives in zTOC.md alone** adds
+**The ladder lives in zTOC.md alone**, the one draft spanning those rungs by wink's call
 (2026-11-04). The entry stays the proposal.
 
 #### Never rename
@@ -1243,8 +1258,8 @@ since a default is simpler than an exception.
 - `zTOC.md` is new, in [zTOC format](agent-data/notes.md#ztoc-format), which `notes.md` adds. The
   Terminology, the Cycle-record's Life, and the Close-out name it, and `vc-dr-apply.sh` ships its
   skeleton.
-- In `TODO.md` the ladder's references are `[0]` to `[49]` and the rest start at `[50]`, in
-  [Reference numbering](agent-data/notes.md#reference-numbering).
+- In `TODO.md` the ladder's references were `[0]` to `[49]` and the rest started at `[50]`, which
+  **The ladder lives in zTOC.md alone** made moot, its references leaving `TODO.md`.
 - `vc-x1 commit --closing` moves the block within `TODO.md` and resets the ladder, with no
   `[record]` table.
 
@@ -1252,6 +1267,24 @@ since a default is simpler than an exception.
 
 Why the trial's files retire is in their entry, wink's (2026-11-04). A default is simpler than a
 table naming files, and a ladder that owns its numbers moves without renumbering.
+
+#### The ladder lives in zTOC.md alone
+
+- The ladder, each rung with its marker, is `zTOC.md`'s one copy, linking across to the rung
+  subsections, which a `#### Rungs` heading holds in the In Progress block, in [The In Progress
+  block](agent-data/notes.md#the-in-progress-block) and [zTOC
+  format](agent-data/notes.md#ztoc-format).
+- Its links are inline, `- N (marker) [<title>](TODO.md#<slug>)`, the version suffix and the marker
+  first so they read down their columns, wink's (2026-11-04), and it is one list with no `#
+  References` beside it, and **Ladder labels from `[0]`** no longer applies.
+- The per-rung flow marks and flips it there, the opening writes it in place of the last cycle's,
+  the closing keeps it so the landmark holds it, and acquaint reports from it. `vc-x1 commit
+  --closing` no longer touches `zTOC.md`.
+
+##### Why: one ladder that can be clicked through
+
+Two copies kept in step by hand drift, and zed's markdown preview follows a link to another file but
+not one within the same file, so only `zTOC.md`'s could be followed, wink's (2026-11-04).
 
 #### Not in it
 
@@ -1833,6 +1866,20 @@ changes at once, as Anthropic's Scion does for its agents. A design entry, its f
 - The human gates come first: per-push approval and the hard stop are what make the protocol
   trusted now, and the decision is which of them move to Land or to a review of a cycle's intent.
   We think the rest is mechanical.
+
+### An interactive app for the todo and the cycle-record
+
+(wink, 2026-11-04) `TODO.md` and `zTOC.md` are read in an editor's markdown preview, and zed's
+cannot follow a link within the same file, which is why the ladder moved to `zTOC.md`. An
+interactive app over them would show a cycle's ladder beside its rung subsections, and the Todos by
+rank, and follow every link, for whoever reads the record, agent or person, wink's hope that it is
+easier for everyone.
+
+- It reads what is there: `TODO.md` in [Todo format](agent-data/notes.md#todo-format) and `zTOC.md`
+  in [zTOC format](agent-data/notes.md#ztoc-format), so it needs no new store.
+- We think it starts as a viewer, and that editing, reprioritizing a Todo or marking a rung, comes
+  after, since the agent-files say who writes what and when.
+- With it, `zTOC.md` may no longer be needed, its index being the app's view.
 
 ### A hyphenated subcommand becomes a command and a flag
 
@@ -4025,23 +4072,4 @@ opening ([Cycle-record](AGENTS.md#cycle-record)).
 
 # References
 
-[0]: #feat-close-land-and-push-compose-with-testing-opening
-[1]: #feat-init---test-repo-makes-a-test-repo
-[2]: #feat-init-drops---use-template
-[3]: #chore-vc-x1-adopts-the-agent-files-v031-0-draft
-[4]: #feat-an-agent-commit-covers-its-work-commits
-[5]: #feat-an-initial-vc-dr-applysh
-[6]: #feat-a-test-repo-converts-an-existing-repo
-[7]: #feat-the-readers-take-any-mix-of-ochid-and-ocid
-[8]: #feat-ocid-is-real-only-when-the-agent-commit-came-first
-[9]: #fix-commit---closing-reads-the-nearest-opening-and-keeps-the-cycles-base
-[10]: #feat-land-takes---and-the-work-scope-by-default
-[11]: #feat-a-push-to-a-release-bookmark-seals-the-cycle
-[12]: #fix-testing-leaves-a-cycle-able-to-continue
-[13]: #feat-close-land-and-push-say-where-the-cycle-stands
-[14]: #docs-the-rules-and-readme-name-the-three-steps
-[15]: #feat-close-land-and-push-compose-with-testing-closing
-[16]: #chore-vc-x1-adopts-the-agent-files-v031-1-draft
-[17]: #feat-the-cycle-record-returns-to-todomd-indexed-by-ztocmd-v031-2-draft
-[18]: #feat-vc-dr-apply-takes-the-active-version-and-offers-language-skeletons
 [50]: /notes/forks-multi-user.md

@@ -882,15 +882,8 @@ fn commit_pair(
 /// The cycle-record's file, at the repo's root.
 const RECORD: &str = "TODO.md";
 
-/// The index beside it, whose `## Ladder` lists the running cycle's
-/// rungs.
-const TOC: &str = "zTOC.md";
-
 /// An empty `## In Progress`.
 const NONE_IN_PROGRESS: &str = "_No cycle currently in progress._";
-
-/// An empty `## Ladder`.
-const NONE: &str = "_None._";
 
 /// The body of `heading`'s section in `text`, as byte offsets: from
 /// the line after the heading to the next `## ` or `# ` heading, else
@@ -985,22 +978,14 @@ fn moved_record(text: &str) -> Result<Option<String>, String> {
     }))
 }
 
-/// `zTOC.md` with its `## Ladder` reading "_None._", its intro kept,
-/// or `None` when it has no `## Ladder` or reads so already.
-fn reset_ladder(toc: &str) -> Option<String> {
-    let ladder = section(toc, "## Ladder")?;
-    let rung = |l: &str| l.starts_with("- ") || l == NONE;
-    let from = ladder.0 + content_start(&toc[ladder.0..ladder.1], rung);
-    (toc[from..ladder.1].trim() != NONE).then(|| replace_content(toc, ladder, rung, NONE))
-}
-
 /// A record move planned before anything is made: `TODO.md`'s new
-/// text, and `zTOC.md`'s when its ladder resets.
+/// text. `zTOC.md`'s ladder is left as it is, so the closing's tree,
+/// the landmark, keeps the cycle's final ladder, and the next opening
+/// replaces it.
 #[derive(Debug)]
 struct RecordMove {
     record: PathBuf,
     new_record: String,
-    toc: Option<(PathBuf, String)>,
 }
 
 impl RecordMove {
@@ -1020,16 +1005,7 @@ impl RecordMove {
             info!("commit --closing: nothing in progress in {RECORD}, so no cycle-record moves");
             return Ok(None);
         };
-        let toc = repo.join(TOC);
-        let toc = match toc.is_file() {
-            true => reset_ladder(&std::fs::read_to_string(&toc)?).map(|t| (toc, t)),
-            false => None,
-        };
-        Ok(Some(Self {
-            record,
-            new_record,
-            toc,
-        }))
+        Ok(Some(Self { record, new_record }))
     }
 
     /// Write the move into the working copy, so the commit carries it,
@@ -1042,16 +1018,10 @@ impl RecordMove {
             "commit --closing:"
         };
         info!("{tag} move the In Progress block of {record} into its Closed");
-        if let Some((toc, _)) = &self.toc {
-            info!("{tag} reset the Ladder of {}", toc.display());
-        }
         if dry_run {
             return Ok(());
         }
         std::fs::write(&self.record, &self.new_record)?;
-        if let Some((toc, text)) = &self.toc {
-            std::fs::write(toc, text)?;
-        }
         Ok(())
     }
 }
@@ -3311,27 +3281,14 @@ mod tests {
         assert!(err.contains("no `## Closed`"), "{err}");
     }
 
-    /// The ladder resets to "_None._", its intro kept, and a ladder
-    /// that reads so already, or no ladder, is left alone.
-    #[test]
-    fn the_ladder_resets() {
-        let toc = "# TOC\n\n## Ladder\n\nIntro.\n\n- [a](TODO.md#a)\n- [b](TODO.md#b)\n\n\
-                   ## The TOC\n\n- [TODO.md](TODO.md)\n";
-        let reset = reset_ladder(toc).expect("reset");
-        assert_eq!(
-            reset,
-            "# TOC\n\n## Ladder\n\nIntro.\n\n_None._\n\n## The TOC\n\n- [TODO.md](TODO.md)\n"
-        );
-        assert_eq!(reset_ladder(&reset), None);
-        assert_eq!(reset_ladder("# TOC\n\n## The TOC\n"), None);
-    }
+    /// The fixture's `zTOC.md`, its ladder listing the cycle's rung.
+    const TOC_TEXT: &str = "# TOC\n\n## Ladder\n\n- 0 (done) [r](TODO.md#r)\n\n## The TOC\n";
 
     /// Give the fixture's work repo a `TODO.md` with a cycle in
     /// progress, and a `zTOC.md` listing its rung.
     fn set_record(fx: &Fixture) {
         fs::write(fx.work.join(RECORD), RECORD_TEXT).expect("write");
-        let toc = "# TOC\n\n## Ladder\n\n- [r](TODO.md#r)\n\n## The TOC\n";
-        fs::write(fx.work.join(TOC), toc).expect("write");
+        fs::write(fx.work.join("zTOC.md"), TOC_TEXT).expect("write");
     }
 
     /// The commit's copy of a file.
@@ -3339,9 +3296,9 @@ mod tests {
         jj_ok(repo, &["file", "show", "-r", rev, &format!("root:{file}")])
     }
 
-    /// A closing commit carries the record moved in `TODO.md` and the
-    /// ladder reset, and a finalized commit too, its kept body gaining
-    /// the pointer.
+    /// A closing commit carries the record moved in `TODO.md` and
+    /// `zTOC.md`'s ladder as it was, and a finalized commit too, its kept
+    /// body gaining the pointer.
     #[test]
     fn a_closing_carries_the_record_moved() {
         for multi in [false, true] {
@@ -3367,7 +3324,11 @@ mod tests {
                 "{record}"
             );
             assert!(!record.contains("an older cycle"), "{record}");
-            assert!(file_at(&fx.work, "@-", TOC).contains("## Ladder\n\n_None._\n"));
+            assert_eq!(
+                file_at(&fx.work, "@-", "zTOC.md"),
+                TOC_TEXT.trim_end(),
+                "the ladder stays"
+            );
             let desc = description(&fx.work, "@-");
             if multi {
                 assert!(
