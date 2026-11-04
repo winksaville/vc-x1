@@ -403,9 +403,10 @@ go stale. The adopter's own changes live in that copy too, each a cycle like any
 2026-10-18), so a change every clone needs is committed where the rule lives and nothing marks it as
 the project's.
 
-**A new repo starts from an adopter's committed set** (wink, 2026-11-03) because an adopter carries
-the set already, so a template repository is a second copy to keep in step, and the rules a repo
-starts from should be ones that landed.
+**A new repo starts from an adopter's set** (wink, 2026-11-03) because an adopter carries the set
+already, so a template repository is a second copy to keep in step. **Its working copy's by
+default** (wink, 2026-11-04) because the rules being worked on are the ones a test repo is made to
+try, the obvious source, and `--landed` takes the trunk's when those are wanted.
 
 **An experiment comes before a proposal** because a rule is argued best by having been run, and
 the diff against the copy it started from keeps the trial visible while it runs.

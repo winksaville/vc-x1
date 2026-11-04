@@ -226,7 +226,7 @@ Provisional, the rungs after the opening named as the work is understood:
 - [feat: an initial vc-dr-apply.sh][5] (done)
 - [chore: vc-x1 adopts the agent-files v0.3.1-1 draft][16] (done)
 - [feat: the cycle record returns to TODO.md, indexed by zTOC.md, v0.3.1-2 draft][17] (done)
-- [feat: vc-dr-apply takes the active version and offers language skeletons][18]
+- [feat: vc-dr-apply takes the active version and offers language skeletons][18] (done)
 - [feat: a test repo converts an existing repo][6]
 - [feat: the readers take any mix of ochid and ocid][7]
 - [feat: ocid is real only when the agent commit came first][8]
@@ -358,7 +358,7 @@ the draft `v0.3.1-1` itself, its own commits the source since the `-0` copy, win
 - **Every unpublished rung's ocid is real before it is published**: in `AGENTS.md` and `jj.md` as
   those three commands, one command of its own name for them proposed and not built, since `push -s
   b` does not commit the agent side or restamp today.
-- **New repos start from an adopter's committed rules**: the Terminology's Set, **Changing the
+- **New repos start from an adopter's rules**: the Terminology's Set, **Changing the
   agent-files**, its rationale, and `notes.md` name `scripts/vc-dr-apply.sh` and no template
   repository.
 - **At rest leaves the tail for the next push**: already `-0`'s text and the tool's behavior, so only
@@ -416,10 +416,42 @@ Defaults rather than local exceptions, wink's (2026-11-04), so the agent-files c
 
 ##### feat: vc-dr-apply takes the active version and offers language skeletons
 
-`vc-dr-apply.sh` takes the landed rules and the skeletons beside itself, so a test repo gets rules
-older than the ones being tried, a script in `~/bin` finds no skeletons, and a repo with no code
-has no `[validate]` to start from. The working copy by default, language skeletons by `--lang`, and
-the skeletons read from the source, split out of the rung before, wink's call (2026-11-04).
+`vc-dr-apply.sh` took the landed rules and the skeletons beside itself, so a test repo got rules
+older than the ones being tried, a script in `~/bin` found no skeletons, and a repo with no code had
+no `[validate]` to start from. Split out of the rung before, wink's call (2026-11-04), since its
+title described half of what it held. Agent-files `v0.3.1-2`, the draft the rung before began,
+wink's call (2026-11-04).
+
+- The active version, wink's call (2026-11-04): `wt6`, made while the rung before was under review,
+  got `v0.3.0` from `main` and not the `v0.3.1-2` in use. Both repos now default
+  to `@`, the working copy as on disk, jj snapshotting it first, `--landed` takes `main` for both,
+  and the plan and the suggested body name a working copy by its change id. The `-2` rules say so:
+  the Set, **Changing the agent-files**, its rationale, and the proposal's **New repos start from an
+  adopter's rules**, renamed from "committed rules".
+- `--lang NAME` applies a language skeleton, wink's (2026-11-04), from what `wt6`'s
+  first acquaint asked about `[validate]` in a repo with no code: `scripts/vc-dr-apply-lang/`
+  holds `none`, the doc checks, `rust`, in `cargo new`'s shape, `c-cpp`, one choice for both, CMake
+  with clang-tidy, a `format` target, and `ctest --no-tests=error`, and `python`, uv, ruff, and
+  pytest. Each but `none` has one passing test where its runner fails on none, and replaces the
+  base skeleton's `version.toml`, its build system holding the version. Its `validate.toml` is
+  appended to `.vc-config.md`, refused when one is there, and a new language is a new directory,
+  `--lang` alone listing them. `{module}`, `{name}` with `_` for `-`, fills Python's package path.
+  Each was applied to a throwaway workspace and its full `validate` passed there, which found that
+  clang-tidy enables no checks without a `.clang-tidy`, and the skeleton ships one.
+- The skeletons come from the source, wink's (2026-11-04), so the script may live in `~/bin`:
+  `scripts/vc-dr-apply-base/`, `work/` and `gitignore-lines`, and `scripts/vc-dr-apply-lang/`, one
+  directory per language, named apart from the script and with no nested `lang/`. They are read
+  from the source work repo at the revision in use, so they match the agent-files they come with,
+  `--landed` included. `--skel DIR` takes them from a directory as on disk, and a source with none,
+  as `main` is today, falls back to the script's own directory, symlinks resolved. `--lang` alone
+  lists from SOURCE or `--skel`, and the plan names where the skeletons came from. Tried from a copy
+  outside vc-x1, its C/C++ workspace validating, and through a symlink and a copy with `--landed`,
+  the first falling back and the second refusing with `--skel` named.
+- The skeleton's **Configure this workspace** offers those choices and `Skip`, and says to fold
+  the uncommitted applied set into its cycle, or to commit the config alone when there is none.
+- Its review stop and the rung before's were waived, wink's go to commit both (2026-11-04), the
+  work having been reviewed whole before the split. The waiver covers the two local commits and no
+  push or Land.
 
 ##### feat: a test repo converts an existing repo
 
@@ -747,12 +779,14 @@ why.
 Adopted locally as the draft `v0.3.1-0`, vc-x1's agent-files since **chore: vc-x1 adopts the
 agent-files v0.3.1-0 draft** (2026-11-03), and `v0.3.1-1` since **chore: vc-x1 adopts the
 agent-files v0.3.1-1 draft** (2026-11-04), which wrote in what came after the first draft: **New
-repos start from an adopter's committed rules**, **At rest leaves the tail for the next push**,
+repos start from an adopter's rules**, **At rest leaves the tail for the next push**,
 **Every unpublished rung's ocid is real before it is published**, **The user decides when each side
 commits and publishes**, **Step 8 names the bookends**, and **The user chooses the dev build**.
 `v0.3.1-2`, since **feat: the cycle record returns to TODO.md, indexed by zTOC.md, v0.3.1-2 draft**
-(2026-11-04), adds **The record stays in TODO.md, and zTOC.md indexes it**. The entry stays the
-proposal.
+(2026-11-04), adds **The record stays in TODO.md, and zTOC.md indexes it**, and **feat: vc-dr-apply
+takes the active version and offers language skeletons** makes the working copy the default source
+in **New repos start from an adopter's rules**, the one draft spanning those rungs by wink's call
+(2026-11-04). The entry stays the proposal.
 
 #### Never rename
 
@@ -1116,19 +1150,23 @@ Wink's (2026-11-02). Where a thing goes is decided by whether it can be reproduc
 with the work, where a patch's context moves. An index costs a rebuild to lose, so it stays out of
 `tmp/`, and being reproducible it needs no commit.
 
-#### New repos start from an adopter's committed rules
+#### New repos start from an adopter's rules
 
-- This cycle writes `scripts/vc-dr-apply.sh`, which applies vc-x1's committed set and skeletons to a
-  bare dual workspace, **vc-dr-apply.sh applies vc-x1's rules to a dual workspace**, and the
+- This cycle writes `scripts/vc-dr-apply.sh`, which applies vc-x1's set and skeletons to a bare
+  dual workspace, **vc-dr-apply.sh applies vc-x1's rules to a dual workspace**, and the
   Terminology's "template repository is still to come" becomes that: a new repo starts from an
-  adopter's committed set.
+  adopter's set.
+- The source is the adopter's working copy by default, what it has not committed included, and
+  `--landed` takes its trunk's, wink's (2026-11-04) in `v0.3.1-2`, where `-1` said committed and
+  landed.
 - Its acceptance check includes making the repo exploring the io_uring interface with the script,
   from vc-x1's `main` after the Land, so the first repo made from v0.3.1 is its test.
 
-##### Why: an adopter's committed rules
+##### Why: an adopter's rules
 
-vc-x1 carries the set already, so a template repo is a second copy to keep in step, and the rules a
-repo starts from should be ones that landed.
+vc-x1 carries the set already, so a template repo is a second copy to keep in step. The working
+copy by default, since the rules being worked on are what a test repo is made to try, and `wt6`
+got `v0.3.0` from `main` when `v0.3.1-2` was the one in use, wink's finding (2026-11-04).
 
 #### At rest leaves the tail for the next push
 
@@ -1249,9 +1287,13 @@ write was refused, permissions or a sandbox the likely cause.
 (wink + agent, 2026-11-03) Found by `~/tmp/wt5`: its first push came before **Configure this
 workspace** added `[validate]`, so validation could not run, and the agent said so and pushed on
 wink's go, a bend of [Before any push](AGENTS.md#before-any-push) that went unrecorded. The skeleton in
-`scripts/vc-dr-apply/work/TODO.md` gives a `[validate]` that runs, `full = ["true"]` and `fast =
+`scripts/vc-dr-apply-base/work/TODO.md` gives a `[validate]` that runs, `full = ["true"]` and `fast =
 ["true"]` until the project has checks, or `vc-dr-apply.sh` appends it, so a new workspace validates
 from its first commit.
+
+- `vc-dr-apply.sh --lang NAME` appends one since **feat: the cycle record returns to TODO.md,
+  indexed by zTOC.md, v0.3.1-2 draft** (2026-11-04), `--lang none` the doc checks alone, so what is
+  left is an apply with no `--lang`.
 
 ### status and validate-desc count the working copies as findings
 
@@ -1432,7 +1474,8 @@ their remotes, on GitHub or local and bare with `--test-repo`, `.vc-config.md` w
 `[remote]`, the `~/.claude/projects` symlink, and the first commit. What goes in it is not vc-x1's
 problem. A script fills it, `scripts/vc-dr-apply.sh [--from <vc-x1>] [--rev <rev>] [<workspace>]`,
 written in the cycle of **agent-files(proposal): v0.3.1**, wink's call, and vc-x1 is its source, the
-adopter whose committed rules a new repo starts from. The first use is the repo exploring the
+adopter whose rules a new repo starts from, its working copy's by default and `--landed` its
+trunk's. The first use is the repo exploring the
 io_uring interface.
 
 - One script for both uses, since they differ only in the `init` before it, which the script never
@@ -1444,7 +1487,7 @@ io_uring interface.
 - What a new repo takes, little of it copied:
   - Copied from vc-x1 at the commit: the set, `AGENTS.md` and `agent-data/`, and the generic files,
     `LICENSE-*` on both sides and the agent repo's `memory/MEMORY.md`.
-  - Written from skeletons kept beside the script, under `scripts/vc-dr-apply/`, so they are reviewed
+  - Written from skeletons in the source's `scripts/vc-dr-apply-base/`, so they are reviewed
     like the rules: `TODO.md` in [Todo format](agent-data/notes.md#todo-format), since vc-x1's holds
     its own records; `custom.md`, since vc-x1's is gitignored and local; and the agent repo's
     `README.md`, named for the new repo, since vc-x1's says `vc-x1.claude` and "bot repo".

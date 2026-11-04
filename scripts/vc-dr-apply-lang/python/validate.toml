@@ -1,0 +1,3 @@
+[validate]
+full = ["uv run ruff format", "uv run ruff check", "uv run pytest"]
+fast = ["uv run pytest -x -q"]

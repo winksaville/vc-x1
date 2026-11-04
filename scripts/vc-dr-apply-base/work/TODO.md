@@ -32,17 +32,23 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 
 ### Configure this workspace
 
-`vc-x1 init` writes a bare `.vc-config.md`, with no validation and no closing body, so `vc-x1
-validate` and a bare `commit --closing` refuse. Add to `.vc-config.md`:
+`vc-x1 init` writes a bare `.vc-config.md`, with no closing body, and with no `[validate]` unless
+`vc-dr-apply.sh --lang` added one, so a bare `commit --closing` refuses and `vc-x1 validate` may.
 
-```toml
-[validate]
-full = ["<the project's full check>"]
-fast = ["<the project's quick check>"]
+- `[validate]`: when `.vc-config.md` has none, ask the user for one: `Skip` leaves it for later,
+  `None` is the doc checks alone, and `Rust`, `C/C++`, and `Python` are the language skeletons, each
+  with a starting project that validates. A skeleton is `vc-dr-apply.sh --lang NAME`, run by the
+  user from the source repo once this cycle is committed, and `--lang` alone lists them. A source
+  may add its own under `scripts/vc-dr-apply-lang/`. The project's own commands are a choice too.
+- `[closing]`: add
 
-[closing]
-body = 'Closes the cycle "{title}". See details in TODO.md.'
-```
+  ```toml
+  [closing]
+  body = 'Closes the cycle "{title}". See details in TODO.md.'
+  ```
+
+- Commit: when the work `@` holds uncommitted changes, as it does after `vc-dr-apply.sh`, fold
+  them into this cycle and commit them with the config. Otherwise commit the config.
 
 ## Ideas
 

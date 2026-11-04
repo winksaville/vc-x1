@@ -19,8 +19,9 @@ Agent-files version: the set's own version, `vX.Y.Z`, the name of an empty
 `agent-data/agent-files-vX.Y.Z` file, bumped by `agent-files` proposal cycles and copied by
 adoptions ([Agent-files version](agent-data/versioning.md#agent-files-version)).
 
-Set: the agent-files as an adopter commits them, the copy a new repo starts from, applied from that
-adopter's committed tree by `scripts/vc-dr-apply.sh`. Adopter: a project carrying a copy of the set.
+Set: the agent-files as an adopter carries them, the copy a new repo starts from, applied by
+`scripts/vc-dr-apply.sh` from that adopter's working copy, or with `--landed` from its trunk.
+Adopter: a project carrying a copy of the set.
 Proposer: the adopter a proposal comes from. There is no maintainer and no template repository, only
 adopters and proposers, and the copy a proposal starts from is whichever adopter's the proposer
 took.
@@ -466,8 +467,9 @@ simple task has produced no progress ([why](agent-data/rationale.md#stop-and-ask
 
 ## Changing the agent-files
 
-A new repo starts from an adopter's committed set, applied by `scripts/vc-dr-apply.sh`, and every
-adopter carries its own copy ([why](agent-data/rationale.md#changing-the-agent-files)).
+A new repo starts from an adopter's set, its working copy's by default, applied by
+`scripts/vc-dr-apply.sh`, and every adopter carries its own copy
+([why](agent-data/rationale.md#changing-the-agent-files)).
 
 - Local experiments: a local agent-file may hold an unagreed experiment, diffed against the copy it
   started from while the rules are being tried. After the experiment there may be a proposal.
