@@ -18,11 +18,6 @@ block](agent-data/notes.md#the-in-progress-block).
 
 _No cycle currently in progress._
 
-## Closed
-
-The last cycle's finished record, moved here whole by its closing commit and deleted by the next
-opening ([Cycle-record](AGENTS.md#cycle-record)).
-
 ## Waiting
 
 Important work that cannot start yet. Each entry names what it waits on, in a form that can be
@@ -57,5 +52,10 @@ picked-up cycle, or drop.
 ## Bugs
 
 _See [bugs.md](notes/bugs.md)._
+
+## Closed
+
+The last cycle's finished record, moved here whole by its closing commit and deleted by the next
+opening ([Cycle-record](AGENTS.md#cycle-record)).
 
 # References

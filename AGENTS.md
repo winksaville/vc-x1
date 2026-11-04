@@ -12,7 +12,8 @@ always hyphenated.
 
 Agent-files: the instruction set an agent reads, `AGENTS.md` and `agent-data/*`. `TODO.md` is not
 one, since its content is the project's record, but the agent-files require that there is one, of
-the shape in [Todo format](agent-data/notes.md#todo-format).
+the shape in [Todo format](agent-data/notes.md#todo-format), and a `zTOC.md` beside it indexing the
+running ladder and the files worth knowing ([zTOC format](agent-data/notes.md#ztoc-format)).
 
 Agent-files version: the set's own version, `vX.Y.Z`, the name of an empty
 `agent-data/agent-files-vX.Y.Z` file, bumped by `agent-files` proposal cycles and copied by
@@ -225,6 +226,7 @@ A cycle's record is its `TODO.md > ## In Progress` block and nothing else, the c
   it whole to `## Closed` (a single-step cycle's one commit writes it there directly), deleted by
   the next opening.
   - `## In Progress` reads `_No cycle currently in progress._` between cycles.
+  - Its rungs are indexed in `zTOC.md` ([zTOC format](agent-data/notes.md#ztoc-format)).
   - The closing commit's tree carries the final form, and the file never grows.
 - After that jj holds it: `git log --grep "<cycle title>"` finds the commits, on the title the
   pushed bookends carry when a rename came mid-cycle, and the landmark on `main` (the trapezoid
@@ -383,7 +385,8 @@ does all of it in its one commit, step 5 aside ([Cycle shape](#cycle-shape)):
    - ask what in the block must outlive the cycle, and write it into the `notes/` file it
      belongs to
    - move the block whole to `## Closed`, leaving `## In Progress` reading
-     `_No cycle currently in progress._`.
+     `_No cycle currently in progress._` and `zTOC.md > ## Ladder` reading `_None._`, which `vc-x1
+     commit --closing` does.
 3. Validate: full validation, and update `notes/README.md` if functionality changed.
 4. Size: when an agent-file changed, record the line count in `notes/agent-files-size.md`,
    smaller being the quasi-goal. A cycle that touched none adds no row.

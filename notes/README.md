@@ -10,9 +10,7 @@ cycle from, then both retire in one cycle after a permalink sweep of the links i
 Waiting` entry in [../TODO.md](../TODO.md)). A cycle's live record is [../TODO.md](../TODO.md)'s `##
 In Progress` block, and a closed cycle's is its `## Closed` block in the landmark commit's tree.
 
-On trial since the cycle "feat: sync is safe by default" (2026-10-09), a cycle's record is kept in
-[../zDOING.md](../zDOING.md) instead, the agent-files not yet saying so, and that cycle's landmark
-holds its finished block there.
+The record was kept elsewhere for a while, in the [retired record files](#retired-record-files).
 
 Tool architecture lives at the repo root in [`../ARCHITECTURE.md`](../ARCHITECTURE.md): the
 CLI-args / `Context`+`Params` split, a generic module map, the subcommand model, and what the
@@ -89,3 +87,23 @@ Per-cycle workflow is AGENTS.md's [Cycle protocol](../AGENTS.md#cycle-protocol):
   per work vs agent repo.
 - [Pushing](../AGENTS.md#pushing): push policy, the at-rest contract.
 - [Close-out](../AGENTS.md#close-out): acceptance check, the chores move, shape, landing.
+
+## Retired record files
+
+The cycle-record's trial files, both retired by the rung **feat: the cycle record returns to
+TODO.md, indexed by zTOC.md, v0.3.1-2 draft** of the cycle "feat: close, land, and push compose with
+testing" (2026-11-04). The record is `TODO.md`'s again, as the agent-files always said, and
+[../zTOC.md](../zTOC.md) gives what the trial was after, the running work at a glance, without a
+second record file to keep in step ([zTOC format](../agent-data/notes.md#ztoc-format)).
+
+### zDOING.md
+
+The running cycle's record, its `## In Progress` block, and the continuation notes, from the cycle
+"feat: sync is safe by default" (2026-10-09), so what is being done sat apart from what might be.
+
+### zCLOSED.md
+
+The last finished cycle's record, its `## Closed` block, from the cycle "docs: update single-step
+cycle add zCLOSED.md" (2026-10-11), kept until the next closing replaced it. The landmarks of the
+cycles that closed during the trial hold their finished blocks there, `git log --grep "<cycle
+title>"` finding each, and their closing bodies say "See details in zCLOSED.md.".

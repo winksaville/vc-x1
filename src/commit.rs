@@ -708,7 +708,7 @@ fn commit_pair(
         let body = finalized_body(
             work,
             body.as_deref(),
-            record.as_ref().map(|r| r.name.as_str()),
+            record.as_ref().map(|_| RecordMove::NAME),
         )?;
         if let Some(r) = &record {
             r.write(params.dry_run)?;
@@ -879,102 +879,179 @@ fn commit_pair(
     )
 }
 
-/// The doing file, the closed file, and the closed file's name as
-/// written.
-type RecordFiles = (PathBuf, PathBuf, String);
+/// The cycle-record's file, at the repo's root.
+const RECORD: &str = "TODO.md";
 
-/// The record's two files, `[record] doing` and `closed`, joined to
-/// the config's directory, when both are set, with the closed file's
-/// name as written for the pointer.
-fn record_files(repo: &Path) -> Result<Option<RecordFiles>, Box<dyn std::error::Error>> {
-    let Some(cfg) = crate::config_md::load(repo)? else {
-        return Ok(None);
-    };
-    let get = |k: &str| crate::toml_simple::toml_get(&cfg.map, k).cloned();
-    let (Some(doing), Some(closed)) = (get("record.doing"), get("record.closed")) else {
-        return Ok(None);
-    };
-    let dir = cfg.path.parent().unwrap_or(repo); // OK: a config file always has a parent dir
-    Ok(Some((dir.join(&doing), dir.join(&closed), closed)))
+/// The index beside it, whose `## Ladder` lists the running cycle's
+/// rungs.
+const TOC: &str = "zTOC.md";
+
+/// An empty `## In Progress`.
+const NONE_IN_PROGRESS: &str = "_No cycle currently in progress._";
+
+/// An empty `## Ladder`.
+const NONE: &str = "_None._";
+
+/// The body of `heading`'s section in `text`, as byte offsets: from
+/// the line after the heading to the next `## ` or `# ` heading, else
+/// the end. A heading inside a fenced code block is not one.
+fn section(text: &str, heading: &str) -> Option<(usize, usize)> {
+    let mut body = None;
+    let mut fenced = false;
+    let mut at = 0;
+    for line in text.split_inclusive('\n') {
+        let bare = line.trim_end_matches(['\n', '\r']);
+        if bare.starts_with("```") {
+            fenced = !fenced;
+        } else if !fenced {
+            if body.is_none() && bare == heading {
+                body = Some(at + line.len());
+            } else if let Some(start) = body
+                && (bare.starts_with("## ") || bare.starts_with("# "))
+            {
+                return Some((start, at));
+            }
+        }
+        at += line.len();
+    }
+    body.map(|start| (start, text.len()))
 }
 
-/// The record moved, as text: the doing file's `## In Progress` block
-/// and its `# References` into the closed file's `## Closed` and
-/// `# References`, replacing what they held, and the doing file's
-/// `## In Progress` reset, its references gone. Refused when a
-/// heading is missing or nothing is in progress.
-fn moved_record(doing: &str, closed: &str) -> Result<(String, String), String> {
-    const EMPTY: &str = "_No cycle currently in progress._";
-    let split = |text: &str, heading: &str, file: &str| -> Result<(usize, usize, usize), String> {
-        let at = text
-            .find(&format!("\n{heading}\n"))
-            .map(|i| i + 1)
-            .ok_or_else(|| format!("commit --closing: the {file} file has no `{heading}`"))?;
-        let body = at + heading.len() + 1;
-        let refs = text[body..].find("\n# References\n").map(|i| body + i + 1);
-        Ok((at, body, refs.unwrap_or(text.len())))
-    };
-    let (_, d_body, d_refs) = split(doing, "## In Progress", "doing")?;
-    let block = doing[d_body..d_refs].trim();
-    if block.is_empty() || block == EMPTY {
-        return Err("commit --closing: nothing is in progress in the doing file to move".into());
+/// Where in a section's body its content starts, the first line that
+/// `starts` says begins it, outside fenced code: everything before it
+/// is the section's intro, kept. The body's end when none does.
+fn content_start(body: &str, starts: impl Fn(&str) -> bool) -> usize {
+    let mut fenced = false;
+    let mut at = 0;
+    for line in body.split_inclusive('\n') {
+        let bare = line.trim_end_matches(['\n', '\r']);
+        if bare.starts_with("```") {
+            fenced = !fenced;
+        } else if !fenced && starts(bare) {
+            return at;
+        }
+        at += line.len();
     }
-    let refs = doing[d_refs..]
-        .strip_prefix("# References\n")
-        .unwrap_or("")
-        .trim();
-    let new_doing = format!("{}\n{EMPTY}\n", &doing[..d_body]);
-    let (_, c_body, _) = split(closed, "## Closed", "closed")?;
-    let mut new_closed = format!("{}\n{block}\n", &closed[..c_body]);
-    if !refs.is_empty() {
-        new_closed.push_str(&format!("\n# References\n\n{refs}\n"));
-    }
-    Ok((new_doing, new_closed))
+    body.len()
 }
 
-/// A record move planned before anything is made: the two files and
-/// their new text, and the closed file's name for a finalized body's
-/// pointer.
+/// `text` with the content of `heading`'s section, after its intro,
+/// replaced by `content`, a blank line after it unless the file ends
+/// there.
+fn replace_content(
+    text: &str,
+    (start, end): (usize, usize),
+    starts: impl Fn(&str) -> bool,
+    content: &str,
+) -> String {
+    let from = start + content_start(&text[start..end], starts);
+    let tail = if end == text.len() { "\n" } else { "\n\n" };
+    format!(
+        "{}{}{tail}{}",
+        &text[..from],
+        content.trim_end(),
+        &text[end..]
+    )
+}
+
+/// The record moved within `TODO.md`, as text: the `## In Progress`
+/// block, its first `###` heading to the section's end, replaces the
+/// `## Closed` block, and `## In Progress` reads "_No cycle currently
+/// in progress._", each section's intro kept. `None` when there is no
+/// `## In Progress` or nothing is in it, and refused when a cycle is
+/// in progress and there is no `## Closed`.
+fn moved_record(text: &str) -> Result<Option<String>, String> {
+    let entry = |l: &str| l.starts_with("### ");
+    let Some(progress) = section(text, "## In Progress") else {
+        return Ok(None);
+    };
+    let from = progress.0 + content_start(&text[progress.0..progress.1], entry);
+    let block = text[from..progress.1].trim_end();
+    if block.is_empty() {
+        return Ok(None);
+    }
+    let closed = section(text, "## Closed").ok_or_else(|| {
+        format!("commit --closing: {RECORD} has no `## Closed` to move the cycle into")
+    })?;
+    // A section's content is a cycle's block or the empty marker.
+    let content = |l: &str| entry(l) || l == NONE_IN_PROGRESS;
+    // The later section first, so the earlier one's offsets still hold.
+    Ok(Some(if closed.0 > progress.0 {
+        let t = replace_content(text, closed, content, block);
+        replace_content(&t, progress, content, NONE_IN_PROGRESS)
+    } else {
+        let t = replace_content(text, progress, content, NONE_IN_PROGRESS);
+        replace_content(&t, closed, content, block)
+    }))
+}
+
+/// `zTOC.md` with its `## Ladder` reading "_None._", its intro kept,
+/// or `None` when it has no `## Ladder` or reads so already.
+fn reset_ladder(toc: &str) -> Option<String> {
+    let ladder = section(toc, "## Ladder")?;
+    let rung = |l: &str| l.starts_with("- ") || l == NONE;
+    let from = ladder.0 + content_start(&toc[ladder.0..ladder.1], rung);
+    (toc[from..ladder.1].trim() != NONE).then(|| replace_content(toc, ladder, rung, NONE))
+}
+
+/// A record move planned before anything is made: `TODO.md`'s new
+/// text, and `zTOC.md`'s when its ladder resets.
 #[derive(Debug)]
 struct RecordMove {
-    doing: PathBuf,
-    closed: PathBuf,
-    new_doing: String,
-    new_closed: String,
-    name: String,
+    record: PathBuf,
+    new_record: String,
+    toc: Option<(PathBuf, String)>,
 }
 
 impl RecordMove {
-    /// Plan the move when `[record]` names both files, reading and
-    /// checking them, so a refusal comes before anything is written.
+    /// The pointer a finalized body gains, the record's file.
+    const NAME: &str = RECORD;
+
+    /// Plan the move when the repo's `TODO.md` has a cycle in
+    /// progress, reading and checking it, so a refusal comes before
+    /// anything is written. Nothing to move is said and is no error.
     fn plan(repo: &Path) -> Result<Option<Self>, Box<dyn std::error::Error>> {
-        let Some((doing, closed, name)) = record_files(repo)? else {
+        let record = repo.join(RECORD);
+        if !record.is_file() {
+            info!("commit --closing: no {RECORD}, so no cycle-record moves");
+            return Ok(None);
+        }
+        let Some(new_record) = moved_record(&std::fs::read_to_string(&record)?)? else {
+            info!("commit --closing: nothing in progress in {RECORD}, so no cycle-record moves");
             return Ok(None);
         };
-        let (new_doing, new_closed) = moved_record(
-            &std::fs::read_to_string(&doing)?,
-            &std::fs::read_to_string(&closed)?,
-        )?;
+        let toc = repo.join(TOC);
+        let toc = match toc.is_file() {
+            true => reset_ladder(&std::fs::read_to_string(&toc)?).map(|t| (toc, t)),
+            false => None,
+        };
         Ok(Some(Self {
-            doing,
-            closed,
-            new_doing,
-            new_closed,
-            name,
+            record,
+            new_record,
+            toc,
         }))
     }
 
     /// Write the move into the working copy, so the commit carries it,
     /// or with `dry_run` say what would move.
     fn write(&self, dry_run: bool) -> Result<(), Box<dyn std::error::Error>> {
-        let (doing, closed) = (self.doing.display(), self.closed.display());
+        let record = self.record.display();
+        let tag = if dry_run {
+            "commit: [dry-run]"
+        } else {
+            "commit --closing:"
+        };
+        info!("{tag} move the In Progress block of {record} into its Closed");
+        if let Some((toc, _)) = &self.toc {
+            info!("{tag} reset the Ladder of {}", toc.display());
+        }
         if dry_run {
-            info!("commit: [dry-run] move the In Progress block of {doing} into {closed}");
             return Ok(());
         }
-        info!("commit --closing: move the In Progress block of {doing} into {closed}");
-        std::fs::write(&self.doing, &self.new_doing)?;
-        std::fs::write(&self.closed, &self.new_closed)?;
+        std::fs::write(&self.record, &self.new_record)?;
+        if let Some((toc, text)) = &self.toc {
+            std::fs::write(toc, text)?;
+        }
         Ok(())
     }
 }
@@ -1740,7 +1817,7 @@ fn commit_por(
         let body = finalized_body(
             repo,
             body.as_deref(),
-            record.as_ref().map(|r| r.name.as_str()),
+            record.as_ref().map(|_| RecordMove::NAME),
         )?;
         if let Some(r) = &record {
             r.write(params.dry_run)?;
@@ -3198,42 +3275,63 @@ mod tests {
         assert!(description(&fx.work, "@-").starts_with("feat: a cycle closing\n"));
     }
 
-    const DOING: &str = "# Doing\n\nIntro.\n\n## Continuation notes\n\n_None._\n\n\
-                         ## In Progress\n\n### feat: a cycle\n\nThe record.\n\n- [r][0]\n\n\
-                         # References\n\n[0]: #r\n";
-    const CLOSED: &str = "# Closed\n\nIntro.\n\n## Closed\n\n### feat: an older cycle\n\nOld.\n\n# References\n\n[9]: #old\n";
+    /// A `TODO.md` in the Todo format, a cycle in progress whose block
+    /// holds a fenced `## ` line, and an older cycle closed.
+    const RECORD_TEXT: &str = "# Todo\n\n## Continuation notes\n\n_None._\n\n\
+                               ## In Progress\n\nIntro.\n\n### feat: a cycle\n\nThe record.\n\n\
+                               ```\n## not a heading\n```\n\n- [r][1]\n\n\
+                               ## Todo\n\n### A todo\n\n\
+                               ## Closed\n\nClosed intro.\n\n### feat: an older cycle\n\nOld.\n\n\
+                               # References\n\n[1]: #r\n";
 
-    /// The move takes the In Progress block and its references into the
-    /// closed file, replacing its block and references, and resets the
-    /// doing file, its references gone. Nothing in progress, or a
-    /// missing heading, is refused.
+    /// The move takes the In Progress block, fenced lines and all, into
+    /// `## Closed` in place of the older cycle, and resets `## In
+    /// Progress`, each intro and the references kept. Nothing in
+    /// progress, or no `## In Progress`, moves nothing, and a cycle
+    /// with no `## Closed` is refused.
     #[test]
     fn the_record_moves_as_text() {
-        let (doing, closed) = moved_record(DOING, CLOSED).expect("moved");
+        let moved = moved_record(RECORD_TEXT).expect("moved").expect("a cycle");
         assert_eq!(
-            doing,
-            "# Doing\n\nIntro.\n\n## Continuation notes\n\n_None._\n\n## In Progress\n\n\
-             _No cycle currently in progress._\n"
+            moved,
+            "# Todo\n\n## Continuation notes\n\n_None._\n\n\
+             ## In Progress\n\nIntro.\n\n_No cycle currently in progress._\n\n\
+             ## Todo\n\n### A todo\n\n\
+             ## Closed\n\nClosed intro.\n\n### feat: a cycle\n\nThe record.\n\n\
+             ```\n## not a heading\n```\n\n- [r][1]\n\n\
+             # References\n\n[1]: #r\n"
         );
+        assert_eq!(moved_record(&moved), Ok(None), "nothing in progress");
         assert_eq!(
-            closed,
-            "# Closed\n\nIntro.\n\n## Closed\n\n### feat: a cycle\n\nThe record.\n\n- [r][0]\n\n\
-             # References\n\n[0]: #r\n"
+            moved_record("# Todo\n\n## Todo\n"),
+            Ok(None),
+            "no In Progress"
         );
-        let err = moved_record(&doing, &closed).unwrap_err();
-        assert!(err.contains("nothing is in progress"), "{err}");
-        let err = moved_record(DOING, "# Closed\n").unwrap_err();
+        let err = moved_record("## In Progress\n\n### feat: a cycle\n").unwrap_err();
         assert!(err.contains("no `## Closed`"), "{err}");
     }
 
-    /// Give the fixture's work repo the record files and `[record]`.
+    /// The ladder resets to "_None._", its intro kept, and a ladder
+    /// that reads so already, or no ladder, is left alone.
+    #[test]
+    fn the_ladder_resets() {
+        let toc = "# TOC\n\n## Ladder\n\nIntro.\n\n- [a](TODO.md#a)\n- [b](TODO.md#b)\n\n\
+                   ## The TOC\n\n- [TODO.md](TODO.md)\n";
+        let reset = reset_ladder(toc).expect("reset");
+        assert_eq!(
+            reset,
+            "# TOC\n\n## Ladder\n\nIntro.\n\n_None._\n\n## The TOC\n\n- [TODO.md](TODO.md)\n"
+        );
+        assert_eq!(reset_ladder(&reset), None);
+        assert_eq!(reset_ladder("# TOC\n\n## The TOC\n"), None);
+    }
+
+    /// Give the fixture's work repo a `TODO.md` with a cycle in
+    /// progress, and a `zTOC.md` listing its rung.
     fn set_record(fx: &Fixture) {
-        fs::write(fx.work.join("zDOING.md"), DOING).expect("write");
-        fs::write(fx.work.join("zCLOSED.md"), CLOSED).expect("write");
-        let path = fx.work.join(".vc-config.md");
-        let mut cfg = fs::read_to_string(&path).expect("read the config");
-        cfg.push_str("\n```toml\n[record]\ndoing = \"zDOING.md\"\nclosed = \"zCLOSED.md\"\n```\n");
-        fs::write(&path, cfg).expect("write the config");
+        fs::write(fx.work.join(RECORD), RECORD_TEXT).expect("write");
+        let toc = "# TOC\n\n## Ladder\n\n- [r](TODO.md#r)\n\n## The TOC\n";
+        fs::write(fx.work.join(TOC), toc).expect("write");
     }
 
     /// The commit's copy of a file.
@@ -3241,8 +3339,9 @@ mod tests {
         jj_ok(repo, &["file", "show", "-r", rev, &format!("root:{file}")])
     }
 
-    /// With `[record]` set, a closing commit carries the record moved,
-    /// and a finalized commit too, its kept body gaining the pointer.
+    /// A closing commit carries the record moved in `TODO.md` and the
+    /// ladder reset, and a finalized commit too, its kept body gaining
+    /// the pointer.
     #[test]
     fn a_closing_carries_the_record_moved() {
         for multi in [false, true] {
@@ -3258,11 +3357,17 @@ mod tests {
             let params = CommitParams::try_from(&a).expect("params");
             commit(&mut test_ctx(), &params).expect("closed");
 
+            let record = file_at(&fx.work, "@-", RECORD);
             assert!(
-                file_at(&fx.work, "@-", "zDOING.md").ends_with("_No cycle currently in progress._"),
-                "multi {multi}"
+                record.contains("## In Progress\n\nIntro.\n\n_No cycle currently in progress._"),
+                "multi {multi}: {record}"
             );
-            assert!(file_at(&fx.work, "@-", "zCLOSED.md").contains("### feat: a cycle"));
+            assert!(
+                record.contains("Closed intro.\n\n### feat: a cycle\n"),
+                "{record}"
+            );
+            assert!(!record.contains("an older cycle"), "{record}");
+            assert!(file_at(&fx.work, "@-", TOC).contains("## Ladder\n\n_None._\n"));
             let desc = description(&fx.work, "@-");
             if multi {
                 assert!(
@@ -3272,7 +3377,7 @@ mod tests {
             } else {
                 assert!(
                     desc.starts_with(
-                        "feat: a cycle\n\nWhy the cycle.\n\nSee details in zCLOSED.md.\n"
+                        "feat: a cycle\n\nWhy the cycle.\n\nSee details in TODO.md.\n"
                     ),
                     "{desc}"
                 );

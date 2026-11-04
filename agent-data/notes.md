@@ -43,6 +43,9 @@ file defines.
 - A definition is usually a path with an anchor, and may also be a **same-file fragment**,
   `[N]: #<slug>`, which is how a ladder rung links its own subsection ([The In Progress
   block](#the-in-progress-block)).
+- In `TODO.md`, `[0]` to `[49]` are the ladder's and the file's other references start at `[50]`,
+  wink's (2026-11-04), so the ladder never collides with them, in `## In Progress` or moved to `##
+  Closed`, and only one ladder is ever in the file, the opening deleting the closed one.
 - A file's `# References` may be **re-packed** to a contiguous `[1]..[N]` in first-citation order,
   walking the file's prose top to bottom. A file-local rewrite: no other file moves, and a new ref
   may take the next free number, out of order being fine. Ask before re-packing, and never re-pack
@@ -152,6 +155,23 @@ shape](../AGENTS.md#cycle-shape)).
 
 The block is the cycle's only record. A design finding that must outlive the cycle goes into a
 `notes/` file by the rung that made it ([Cycle-record](../AGENTS.md#cycle-record)).
+
+## zTOC format
+
+`zTOC.md`, beside `TODO.md` at the work-repo root, is the workspace's index, so the running ladder
+and the files worth knowing are found without reading `TODO.md`'s length, and the `z` sorts it last
+in a listing. Its sections, in this order:
+
+- `# TOC`, the title.
+- `## Ladder`: the running cycle's rungs, `- [<title>][M]` in the ladder's order with `[M]:
+  TODO.md#<slug>`, each label the ladder's own and no markers, which stay in `TODO.md`. Written at
+  the opening, a rung added or renamed with the ladder's, and reset to `_None._` by the closing
+  commit, which `vc-x1 commit --closing` does as it moves the record.
+- `## The TOC`: one link per file worth knowing, with what it holds, `TODO.md` first.
+- `# References`: the ladder's definitions.
+
+Like `TODO.md` it is not an agent-file, and `scripts/vc-dr-apply.sh` ships it as a skeleton, `##
+Ladder` reading `_None._`.
 
 ## Frozen history: chores and done
 

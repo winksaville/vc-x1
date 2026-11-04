@@ -3,13 +3,482 @@
 This file contains near term tasks with a short description and reference links to more details.
 Its shape is [Todo format](agent-data/notes.md#todo-format).
 
-The other files:
+The other files are listed in [zTOC.md](zTOC.md).
 
-- [BUGS.md](BUGS.md): List of vc-x1 bugs that should be addressed 
-- [zDOING.md](zDOING.md): the cycle being worked on, its planning and its work's documentation,
-  and the continuation notes a session leaves for the next.
-- [zCLOSED.md](zCLOSED.md): the last finished cycle's record, kept until the next one closes.
-- [bugs.md](notes/bugs.md): the bugs.
+## Continuation notes
+
+Where the agent was, for the agent that comes next. Ephemeral, never a record, read first at
+acquaint, acted on, and reset to `_None._` by the reader.
+
+Kept by the acquaint of 2026-11-04:
+
+- The test repo `~/tmp/wt5`, remotes `~/tmp/remotes`, sandbox on with `allowWrite
+  /home/wink/tmp/remotes` in its `.claude/settings.local.json`: its cycle **chore: configure this
+  workspace** has its opening and config rung backed up by `--covers`, agent `3ba90000`, every link
+  `ok`, and its closing and Land are next, then its `TODO.md`'s other Todos.
+
+## In Progress
+
+A cycle's record has one home at a time, and while the cycle runs this is it. The block's shape is
+the specimen in [cycle-model.md](agent-data/cycle-model.md), and the rules are in [The In Progress
+block](agent-data/notes.md#the-in-progress-block).
+
+### feat: close, land, and push compose with testing
+
+Filed and opened the same day, wink's call (2026-11-02), from the anomaly the closing of **feat:
+improve trailers** ran into. Folds in three Todos, moved here below.
+
+#### Problem
+
+(wink + agent, 2026-11-02) Closing a cycle should be obvious, and to the user's liking, and `vc-x1`
+should help them do it properly. It does not:
+
+- A local cycle's closing holds `ocid: .../xxxx` until `vc-x1 land` commits the agent `@`, and that
+  rewrites all of the cycle's commits, 12 last time, so what was tested is not by SHA what lands.
+- The way through took five steps, which wink called a non-starter, and the one-command answer
+  gives up the test pause.
+- `land` needs the agent repo, so a work-only land, a merge or rebase, or a share for others to test
+  drags in a permanent link it does not need.
+- Nothing says where a cycle stands or what may come next.
+- The commands are already separate, so that is not the problem, wink's (2026-11-02). They do not
+  compose: the user wants to test between any two of them, passively by `validate`, and actively by
+  you, me, and others running a build named by `profile.<name>.suffix`. Today that is by hand and on
+  the real repos, and full `validate` runs `cargo fmt`, which can dirty the `@` the next step needs
+  empty.
+
+#### The Todos it folds
+
+##### commit --closing reads the nearest opening's title
+
+(wink 2026-11-1: this these 2 `commit --closing` should be one cycle?)
+
+(wink + agent, 2026-10-26) Without `--title`, `commit --closing` takes the cycle title from the
+opening above the trunk, and with cycles stacked on one line it reads the oldest: the closing of
+**feat: vc-x1 land** came out as **feat: vc-x1 commit takes a revision closing**, the stack's first
+cycle, and was made with `--title`.
+
+- The opening read is the nearest below the tip, the cycle's own, so a stack closes its top cycle.
+- A test closes a stack of two cycles without `--title`.
+
+##### commit --closing merges onto the cycle's base when it was opened above the trunk
+
+(wink 2026-11-1: this seem convient, but not sure the why,when,downsides,dangers)
+
+(wink + agent, 2026-10-26) `commit --closing` merges the trunk with the tip, so a cycle opened
+above the trunk, on an unlanded series as **feat: vc-x1 land** was, gets a closing whose first
+parent is the trunk, and the cycles below it leave `main`'s first parents for the second parent's
+ladder. That closing was re-parented by hand onto the fix commit its opening sat on.
+
+- The first parent is the opening's parent, where the cycle's bookmark was created, when that
+  descends from the trunk, and the trunk otherwise, so `git log --first-parent` reads one commit
+  per cycle.
+- A test closes a cycle opened above an unlanded one and checks both parents.
+
+##### land lands @- by default
+
+(wink + agent, 2026-10-29) `land`'s `--source` defaults to "the one local bookmark besides
+`--onto`", which depends on every bookmark in the repo and fails once there are two. The rest of
+vc-x1 works from the line's `@-`, `push` moving its bookmark there and `commit --closing` naming it.
+
+- `--source` left out is `@-`, with the work `@` empty: what lands is then the tree validation ran
+  on, and nothing uncommitted is left behind. `commit --closing` without `--land` leaves exactly
+  this, the closing at `@-` and an empty `@`.
+- A non-empty work `@` is refused, naming `--source`, rather than warned about, since a land is
+  pushed and permanent on the trunk. A merge `@`, whose `@-` is ambiguous, is refused too.
+- The empty check is the work-repo's alone: the agent `@` holds the session and is never empty.
+- An explicit `--source` lands what it names, with no check of `@`.
+- The cycle's bookmark is found from `@-` as today: its own, else its nearest parent's above
+  `--onto`, several refused with the list.
+- The help: `--source <BM|REV>`, "The cycle's last commit, a bookmark or a revision [default: @-,
+  with @ empty]".
+
+#### Solution
+
+Provisional. Three steps, each doing one thing, that compose with testing:
+
+- Every step leaves a state that can be tested, nothing half-done.
+- A step may repeat, so the user can test, tweak, and close again.
+- Testing does not disturb the cycle or block the next step.
+- Each tester's binary says what it is, its suffix the build and its version the commit.
+- Exit codes can be trusted, so the steps and the tests chain in a plain shell, and `vc-x1` does not
+  run the tests itself.
+
+The steps:
+
+- close makes the cycle's final shape, single-step or a trapezoid, local, with `--scope` defaulting to
+  work. It may be run again, and the agent and the user keep iterating on it.
+- land merges or fast-forwards onto any bookmark, local, and it may repeat. `--scope` defaults to work,
+  and it takes any scope that applies.
+- push to any other bookmark shares the work for backup or testing, with `xxxx` still in it. Push to a
+  release bookmark with `-s b` seals: it commits the agent `@`, fills the `ocid:`, refreshes any stale
+  `pcid:`, checks each tree unchanged, and publishes the agent repo first.
+- A release bookmark is one the user treats as permanent: `[release] bookmarks`, or `main` and `master`
+  when that key is absent. Work alone with an unsealed agent commit is an error there, unless `--yes`.
+
+The links follow one general rule, for any mix of work and agent commits:
+
+- `ochid:` is one line per related commit, on either side.
+- Every `ocid:` is the SHA of an agent commit the same commit's `ochid:` lines name, matched by
+  resolving it and not by line order.
+- A work commit's `ocid:` is real only when its agent commit was made before it, wink's (2026-11-02),
+  and otherwise stays `xxxx`. So most are `xxxx`, rungs included and on a release bookmark, and are
+  never rewritten. In an N:1 cycle only the closing has a real one, the seal committing the
+  agent repo before
+  the closing's final form. In 1:1 pairs every commit has a real one.
+- Each agent commit's SHA is carried by exactly one work commit, the last it names.
+
+#### Acceptance check
+
+By `vc-x1-dev`, on repos made by `init --test-repo <path>/<repo-name>`, in a table-driven test:
+
+- An N:1 cycle: close leaves every `ocid:` at `xxxx`. A tweak and a second close work. `land` with no
+  `--scope` leaves the agent repo alone, and a push to any other bookmark keeps `xxxx`, at any scope.
+- A push to a release bookmark with `-s b` commits the agent `@`, fills only the closing's `ocid:`,
+  leaves every rung's `xxxx` and SHA unchanged and the closing's tree identical, and pushes the agent
+  repo first. Pushed to a second release bookmark, the commits are already sealed and nothing changes.
+- A push to a release bookmark of work alone, with an agent commit no commit carries the SHA of, is an
+  error naming `-s b` and `--yes`, and with `--yes` it publishes and warns. An unsealed closing naming
+  another agent `@` is refused, and a release bookmark that moved is refused before anything is
+  committed.
+- The release bookmarks: with no key, `main` and `master`, so an old config works, and with `[release]
+  bookmarks`, that list alone, a project's `main` then being an ordinary bookmark.
+- A test between any two steps, `validate` or a suffixed build, changes nothing the next step depends
+  on, and the next step runs.
+- Two clones of one local remote give a moved trunk and another's commits, with no network.
+- 1:1 pairs carry a real `ocid:` on every commit and never `xxxx`.
+- `validate-desc` and `lookup` accept 1:1, N:1, 1:M, N:M, and mixed, and this repo's `main`, where every
+  rung of **feat: improve trailers** carries an `ocid:`, reports what it reports today.
+- close, land, and push each end by printing where the cycle stands and what may come next.
+- `vc-x1 validate` passes.
+
+#### Deliberation
+
+- Close makes no agent commit, wink's (2026-11-02), reversing the agent's proposal: the agent and the
+  user iterate after close, the conversation belongs in the cycle's own agent commit, and rework stays
+  free since nothing on the agent side names a rung yet.
+- The seal is the push to a release bookmark, wink's (2026-11-02), reversing the agent's land-as-seal:
+  land may
+  be a merge or a rebase on any bookmark, and sharing to test needs no permanent link. Only the release
+  line is permanent.
+  - The cost: no test at the final SHA before the release, only at an identical tree, and the binary's
+    embedded SHA differs. A tester's SHA for the closing never reaches `main`, the rungs' do.
+  - It bends **Only push publishes**, one push rewriting before it publishes, so it says so plainly and
+    `--dry-run` shows every rewrite.
+  - We think sealing is callable on its own too, since a pull request's merge is GitHub's and runs no
+    `vc-x1 push`. It is built as a step of its own, whether or not it gets a flag now.
+- `ocid:` is real only when the agent commit came first, wink's (2026-11-02), so a rung's stays `xxxx`
+  rather than being absent or rewritten, and the commit that carries an agent commit's SHA is the last
+  it names, wink's and the agent's, generalizing closing-only. A reader goes from a rung to its agent
+  commit by `ochid:`. Wink's "next commit" is the fallback once the last is on the release line, a
+  one-way link. Rejected as the norm: on a closing, "next" is the next cycle's opening, so
+  `main`'s landmark
+  would have no link to its conversation.
+- Any mix is valid, wink's (2026-11-02): N:M, so readers and validators accept all of it and stop
+  requiring links to be mutual. Writers stay at 1:1 and N:1 here, as **commit writes every mix of work
+  and agent commits** files, and the agent's mid-cycle commit is **An agent commit mid-cycle backs up
+  the transcript**.
+- A test repo is `init --test-repo <path>/<repo-name>`, wink's (2026-11-02), with no config key: each
+  is a path to `cd` into or name by `-R`, so there may be several.
+  - It is local, and makes local bare remotes, as `--repo local=<parent>` does, since testing `push`
+    needs a remote.
+  - `--local` is the default rather than a flag to reach for, wink's (2026-11-02), so the name says what
+    the repo is for, and what a bare `init` does stays with **init defaults to --local**.
+- `--scope` defaults to work, always, wink's (2026-11-02), and any scope that applies may be named.
+  - It reverses **commit works at every scope, and --local keeps it on the machine**'s `--land` requiring
+    `--scope`, since a work-only land moves no agent commit.
+  - This cycle does it for close, land, and push, and the rest of the commands stay with that entry.
+- The tests run outside `vc-x1`, wink's and the agent's (2026-11-02): composing is the steps' job and a
+  shell's, and `validate takes any profile` stays its own Todo.
+- The agent repo may have branches someday, merged at a final Land, wink's heads-up (2026-11-02), so
+  nothing here assumes the agent repo is linear, and the readers rely on the trailers alone.
+- `xxxx` is an error only on a release bookmark, wink's (2026-11-02): it is fine on a test branch and
+  probably a mistake on `main`, so the user defines the set, with `main` and `master` hard-coded for
+  existing configs.
+  - The key is `[release] bookmarks`, the agent's: a property of the repo and not a cycle, and the rules
+    say bookmark. `[cycle] trunk` stays, where a cycle lands by default and not what is protected.
+  - A key that is present replaces the two names rather than adding to them, the agent's: otherwise a
+    project developing on `main` and releasing on `stable` could never take `main` off.
+  - The check is per agent commit, the agent's: rungs keep `xxxx`, so a search for it would refuse every
+    push. Each group of commits naming one agent commit needs one real `ocid:`.
+  - Other commands read the same set, `trailers --update`'s refusal first, which names the trunk today.
+  - `--yes` is no human check, an agent typing it as easily, so the agent passes it only when wink says
+    so for that push. **Only push publishes** has the mechanism as open.
+  - It catches a mistake made through `vc-x1` and no more: a raw `jj git push` or a pull request's merge
+    goes around it, and branch protection is the tool for that.
+- `vc-x1 close` is a subcommand, the agent's, to confirm: it pairs with `land` and `push`, and `commit
+  --closing` shares its code.
+- This cycle is local and work-only until its Land, per the v0.3.1 prototype `custom.md` names:
+  - every commit is `commit -s w --no-push`, the opening with `--skip remote` too, bending Opening step
+    2 and the per-rung flow's push. The description review goes and the work review stays. The Land is
+    outside the bend, its pushes approved as usual.
+  - commits and the Land run by `vc-x1-dev`, as `zDOING.md`'s Rule said, now `versioning.md`'s
+    **Which build runs**.
+
+#### Ladder
+
+Provisional, the rungs after the opening named as the work is understood:
+
+- [feat: close, land, and push compose with testing opening][0] (done)
+- [feat: init --test-repo makes a test repo][1] (done)
+- [feat: init drops --use-template][2] (done)
+- [chore: vc-x1 adopts the agent-files v0.3.1-0 draft][3] (done)
+- [feat: an agent commit covers its work commits][4] (done)
+- [feat: an initial vc-dr-apply.sh][5] (done)
+- [chore: vc-x1 adopts the agent-files v0.3.1-1 draft][16] (done)
+- [feat: the cycle record returns to TODO.md, indexed by zTOC.md, v0.3.1-2 draft][17] (done)
+- [feat: vc-dr-apply takes the active version and offers language skeletons][18]
+- [feat: a test repo converts an existing repo][6]
+- [feat: the readers take any mix of ochid and ocid][7]
+- [feat: ocid is real only when the agent commit came first][8]
+- [fix: commit --closing reads the nearest opening and keeps the cycle's base][9]
+- [feat: land takes @- and the work scope by default][10]
+- [feat: a push to a release bookmark seals the cycle][11]
+- [fix: testing leaves a cycle able to continue][12]
+- [feat: close, land, and push say where the cycle stands][13]
+- [docs: the rules and README name the three steps][14]
+- [feat: close, land, and push compose with testing closing][15]
+
+##### feat: close, land, and push compose with testing opening
+
+Opens the cycle, its version at the `-0` form. Also carries the Todo work that led here: the reordered
+`## Todo`, wink's, **lookup builds an index that correlates the two repos**, and the Todos this cycle
+sets aside, filed. `tmp-durable/` is gitignored here, and its rule and the jj set-aside are drafted in
+**agent-files(proposal): v0.3.1**.
+
+##### feat: init --test-repo makes a test repo
+
+The sequence has no safe place to run. `init --test-repo <REMOTES> --target <path>` makes a dual
+workspace whose bare remotes are in REMOTES, named by the repo, `<name>.git` and
+`<name>.agent-session.git`, so many test repos share one REMOTES apart from their workspaces, wink's
+(2026-11-03). It first made the workspace at its value with the remotes beside it in `PATH.remotes`,
+and `--repo local`'s fixed `remote-work.git` names would collide in a shared directory, so those stay
+`--repo local`'s alone. It makes the `~/.claude/projects` symlink as any `init` does, wink's catch
+(2026-11-02), since a session in a test repo needs it for its transcript to reach the agent repo, the
+cost a dangling link once a test repo is deleted. REMOTES is always a path, so `tmp/remotes` needs no
+`./`, wink's first try finding that too. It found `--repo local` could not make a parent that does not
+hold the workspace, despite the code saying so, and that is fixed. Seeding one by hand found two more,
+wink's (2026-11-02): `~` after `--use-template`'s comma reached `init` unexpanded, the shell expanding
+it only at a word's start, and the two long paths left no completion for the second. Each path now
+expands itself, and a lone path holding `work/` and `agent/` names both.
+
+Today's sequence, run on one by `vc-x1-dev`, so the rungs below start from what was seen:
+
+- Composes already: rungs, a topic push with `xxxx`, a tweak folded into the closing by `squash`, its
+  `pcid:` lines still right, and a second clone of a test repo's remotes.
+- A second close stacks a second merge on the first, 3 commits above the trunk, rather than remaking it.
+  For the `commit --closing` rung.
+- A fresh workspace cannot close without `--body`, having no `[closing] body`, and cannot `validate`,
+  having no `[validate]`. For the same rung and the testing rung.
+- `land` lands a rung with no closing, leaving `main` titled for that rung, and takes a dirty `@` with no
+  word. For the land rung.
+- After a topic push, `land` warns of the first commit going stale and not the others, and the topic stays
+  on `origin`. For the rung that says where the cycle stands.
+- `commit` and `squash` end by naming `vc-x1 show -s work @-`, which `show` refuses, its positional being
+  retired. The same rung.
+
+##### feat: init drops --use-template
+
+`init --use-template` seeds a workspace from template directories, which a script beside vc-x1 does
+instead, wink's call (2026-11-03), as **vc-dr-apply.sh applies vc-x1's rules to a dual workspace** in
+`TODO.md` sets out. The flag goes, with its option type, the template copy and the README rewrite it
+drove, their tests, and the README's word on it, and `init` makes a bare workspace, the repos holding
+only `.vc-config.md` and `.gitignore`. The flag is gone outright, not kept hidden and refused by name
+as the retired `--por` is, wink's call (2026-11-03): clap's completion offers a hidden flag once its
+prefix matches nothing visible, so `--use<TAB>` would still complete it. The two Todos it answered retire, **init
+--use-template takes an existing workspace as the template** and **Restructure templates: one repo +
+a fixed agent seed manifest**, with the backlog's **`init` template ergonomics**, whose no-remote mode
+`--test-repo` became.
+
+Checked against the template Todo's overwrite rule, `init --adopt` holds to it: an existing
+`.gitignore` is kept and given only the lines it lacks, a single-repo config is edited by adding lines
+alone, and nothing else in the directory is written. The one quiet edit, the README's first line, was
+`--use-template`'s and went with it.
+
+##### chore: vc-x1 adopts the agent-files v0.3.1-0 draft
+
+The last cycles have run on the proposal **agent-files(proposal): v0.3.1** while vc-x1's agent-files
+still say v0.3.0, so the rules a session reads are not the ones it follows. vc-x1 takes the draft
+`v0.3.1-0` in `../vc-x1-template-2/work` verbatim, wink's call (2026-11-03), by `vc-x1 agent-files
+copy`, and `agent-files diff` against the draft reports every file the same. The proposal stays open
+in `TODO.md`, noting the adoption, with the refinements found since kept there for `v0.3.1-1`. The
+draft is not a repo, so this one copy is from a working tree, and vc-x1's commits are the source
+after it.
+
+##### feat: an agent commit covers its work commits
+
+A cycle's rungs made by `commit -s w` share one agent commit, and nothing made it with one `ochid:`
+per rung: `push -s a` takes the tip's description and links the tip alone, `commit -s a` links none,
+and `commit -s b` refuses an empty work `@`. `commit -s a --covers <REVSET>` makes it, under the title
+given, the cycle title by wink's (2026-11-03): one `ochid:` per work commit the revset names, oldest
+first, the revset taken as written with no trunk assumed, wink's too, and every commit it names must
+name the agent `@` already, or nothing is made. Then `trailers --update` gives every rung's `ocid:`
+the agent commit's SHA, and `push -s b` publishes both.
+
+Push needed no change: an agent commit naming several work commits, or partnering one that carries an
+`ocid:`, is the `Landed` partner, which push publishes as it is, leaving the journal in `@`, so no
+fold changes the SHA the links name.
+
+Committing the agent side and publishing mid-cycle bends the adopted `v0.3.1-0`'s **A cycle stays
+local until its Land**, wink's call (2026-11-03), and the proposal's **The user decides when each side
+commits and publishes** makes it the rule in `v0.3.1-1`. The bend covers this cycle's mid-cycle agent
+commits and pushes, each still approved on its own, and not its Land. The backup runs as one command
+line, `commit -s a --covers` then `trailers --update` then `push -s b` joined by `&&`, a second bend,
+of One command per invocation, wink's too: one invocation keeps the agent `@` still between the
+steps, and `&&` stops at the first failure with its status.
+
+##### feat: an initial vc-dr-apply.sh
+
+A bare workspace from `init` has no rules, and nothing fills it now that `--use-template` is gone.
+`scripts/vc-dr-apply.sh [--to DIR] [--rev REV] [--agent-rev REV] [--dry-run] SOURCE [AGENT_SOURCE]`
+applies a source dual repo's committed rules to it, wink's shape (2026-11-03): SOURCE a dual workspace,
+its agent repo found by its `.vc-config.md`, or SOURCE and AGENT_SOURCE given apart. From the work repo
+at `--rev`, `AGENTS.md`, `agent-data/`, and `LICENSE-*`, from the agent repo at `--agent-rev`,
+`LICENSE-*`, `README.md` with its first line renamed for the target's agent repo, wink's, and
+`memory/MEMORY.md`, each when present, and from `scripts/vc-dr-apply/`, the work skeletons from
+`vc-x1-template-2`, `{name}` filled, and the `.gitignore` lines. Both `@` must be empty, every path is
+new, identical, or differs on disk, any that differs refuses the whole apply, and nothing is committed.
+Template-2's `CLAUDE.md` is left out, Claude Code reading `AGENTS.md` itself.
+
+Tried on `~/tmp/wt5`, made by `init --test-repo ~/tmp/remotes --target ~/tmp/wt5`, from vc-x1 at
+`9f2d3444ce85`: the set identical to vc-x1's, the agent README renamed, and a second run refused by
+the clean-start guard, which also caught a stray `custom.md`. The `differs` refusal and the two-path
+form are not yet run, `wt5`'s Todo **vc-dr-apply refuses what differs**.
+
+##### chore: vc-x1 adopts the agent-files v0.3.1-1 draft
+
+The `v0.3.1-0` draft left out what the proposal found after it, so the rules a session read still
+said a cycle stays local until its Land while this cycle backed up mid-cycle by a bend. vc-x1 writes
+the draft `v0.3.1-1` itself, its own commits the source since the `-0` copy, wink's call
+(2026-11-04), with all four refinements:
+
+- **The user decides when each side commits and publishes**: **A cycle stays local until its Land**
+  becomes **A cycle is local by default** in `AGENTS.md` and `rationale.md`, its index line with it,
+  any mix of work and agent commits valid, and the mid-cycle backup its three commands. It ends this
+  cycle's bend of the old rule.
+- **Every unpublished rung's ocid is real before it is published**: in `AGENTS.md` and `jj.md` as
+  those three commands, one command of its own name for them proposed and not built, since `push -s
+  b` does not commit the agent side or restamp today.
+- **New repos start from an adopter's committed rules**: the Terminology's Set, **Changing the
+  agent-files**, its rationale, and `notes.md` name `scripts/vc-dr-apply.sh` and no template
+  repository.
+- **At rest leaves the tail for the next push**: already `-0`'s text and the tool's behavior, so only
+  "the next cycle's agent commit" becomes "the next agent commit", one landing mid-cycle now.
+
+Step 8 names `--opening` and `--closing`. The dev-build rule leaves `zDOING.md`'s header for
+`versioning.md`, where **Run your own build** becomes **Which build runs**, wink's (2026-11-04): the
+user is asked when the dev build is newer than the plain name, and the plain name runs otherwise. A
+default rather than a `custom.md` exception, wink's too, since it is simpler. The proposal entry
+records `-1` and adds **Step 8 names the bookends** and **The user chooses the dev build**. The
+marker file is `agent-files-v0.3.1-1`.
+
+Also: a new Todo, **What a session writes after its final push, sandbox on and off**, files the
+tail samples kept in `tmp-durable/`, and the continuation notes keep only the `wt5` item. The
+retired `config --validate` that misled the `wt5` agent stays in `cycle-model.md` and
+`vc-config.md`, wink's call (2026-11-04), for the new **A hyphenated subcommand becomes a command and
+a flag**, which makes it `validate --config`.
+
+##### feat: the cycle record returns to TODO.md, indexed by zTOC.md, v0.3.1-2 draft
+
+The trial of `zDOING.md` and `zCLOSED.md` ends, wink's call (2026-11-04), each with its entry in
+[Retired record files](notes/README.md#retired-record-files): the cycle-record and the continuation
+notes are `TODO.md`'s again, and `zTOC.md` is new, in [zTOC
+format](agent-data/notes.md#ztoc-format), its `## The TOC` the files `TODO.md`'s header listed.
+Defaults rather than local exceptions, wink's (2026-11-04), so the agent-files carry it as
+`v0.3.1-2`:
+
+- `commit --closing` moves the block within `TODO.md`, its first `###` heading to the section's end,
+  fenced code skipped, into `## Closed` in place of what it held, each section's intro kept, and
+  resets `zTOC.md`'s `## Ladder` to `_None._`. No `TODO.md`, no `## In Progress`, or nothing in it
+  moves nothing and says so, which also leaves a record moved by hand alone. A cycle with no `##
+  Closed` is refused before anything is made. The `[record]` table, its two-file move, and its keys
+  in the schema and the model go, and the closing body's pointer is "See details in TODO.md.".
+- The references: in `TODO.md` the ladder owns `[0]` to `[49]` and the rest start at `[50]`, wink's
+  (2026-11-04), so the ladder moved in kept its numbers and the one other reference, `[12]`, became
+  `[50]`. Before the trial the ladder numbered around that `[12]`. Only one ladder is ever in the
+  file, since the opening deletes `## Closed`.
+- `## Closed` starts empty: [`zCLOSED.md`](notes/README.md#zclosedmd) held **feat: improve trailers** past this cycle's opening,
+  which would have deleted it from `TODO.md`, and its landmark keeps it. Its `[0]` to `[8]` citations
+  had no definitions.
+- The proposal entry adds **The record stays in TODO.md, and zTOC.md indexes it**, which lists what
+  changed in the agent-files.
+- The trial's Todo, **The cycle-record moves out of TODO.md into zDOING.md**, retires with this rung
+  its record, and **A single-step cycle is two stages and one commit** and **TODO.md is renamed
+  zTODO.md** lose what assumed it. `BUGS.md`, in the old header list, does not exist and is dropped.
+- The skeleton `TODO.md` that `vc-dr-apply.sh` ships had `## Closed` third, and it moves last, above
+  `# References`, as [Todo format](agent-data/notes.md#todo-format) orders it, wink's catch
+  (2026-11-04).
+- A sweep, wink's catch (2026-11-04): the Todos that named `zDOING.md` or `zCLOSED.md` as where the
+  record is now name `TODO.md`, and the mentions that are history, past cycles' titles and records
+  and the trial's own, stay.
+- The `vc-dr-apply.sh` work done under review here went to the rung after, **feat: vc-dr-apply takes the active version and offers language skeletons**, and
+  this rung's review stop was waived with that one's, wink's go to commit both (2026-11-04), for the
+  two local commits and no push or Land.
+
+##### feat: vc-dr-apply takes the active version and offers language skeletons
+
+`vc-dr-apply.sh` takes the landed rules and the skeletons beside itself, so a test repo gets rules
+older than the ones being tried, a script in `~/bin` finds no skeletons, and a repo with no code
+has no `[validate]` to start from. The working copy by default, language skeletons by `--lang`, and
+the skeletons read from the source, split out of the rung before, wink's call (2026-11-04).
+
+##### feat: a test repo converts an existing repo
+
+The likeliest real use of a template is converting an existing repo, and nothing rehearses it safely,
+since `--test-repo` refuses `--adopt`. `init --test-repo <REMOTES> --target <copy> --adopt` converts a
+copy of a repo with its remotes in REMOTES, wink's (2026-11-03). An adopted repo may already have an
+`origin` on GitHub, which would break "nothing leaves this machine", so what `--adopt` does with an
+existing `origin` is read first, and init refuses it or points it at REMOTES.
+
+##### feat: the readers take any mix of ochid and ocid
+
+The readers and validators assume one `ochid:` on a work commit and a link both ways. They learn the
+general rule first, so no build writes a form it cannot read.
+
+##### feat: ocid is real only when the agent commit came first
+
+A Land rewrites every rung to fill its `ocid:`. It stops, so a rung's stays `xxxx` and only the commit
+carrying the agent commit's SHA is written, and `validate-desc` accepts `xxxx` on the others.
+
+##### fix: commit --closing reads the nearest opening and keeps the cycle's base
+
+The two folded `commit --closing` Todos, wink asking if they are one cycle and the answer yes. A stack's
+closing reads its own opening, and its first parent is the opening's parent when that descends from the
+trunk. We think it refuses when a cycle below is not closed, which answers wink's question on dangers.
+
+##### feat: land takes @- and the work scope by default
+
+`land` requires `--scope`, refuses work alone, and finds its source from every bookmark. Its `--scope`
+defaults to work, leaving the agent repo alone, any scope that applies may be named, and it takes the
+folded Todo's `@-` default.
+
+##### feat: a push to a release bookmark seals the cycle
+
+Nothing makes the link permanent once `land` stops. `[release] bookmarks` names the set, in
+`vc-config.md` and the generated model too. A push to one with `-s b` commits the agent `@`, fills the
+`ocid:`, checks each tree unchanged, and publishes, and it refuses a bookmark that moved and an `xxxx`
+naming another agent `@`. Work alone leaving an agent commit unsealed is an error unless `--yes`.
+
+##### fix: testing leaves a cycle able to continue
+
+A test between the steps can leave the next one refused, full `validate`'s `cargo fmt` dirtying the
+`@` that `land` needs empty. A test changes nothing the next step depends on, or the step says what it
+found and how to go on.
+
+##### feat: close, land, and push say where the cycle stands
+
+Nothing says what state a cycle is in. Each command ends by printing it and what may come next, and
+refuses what may not, and `vc-x1 close` arrives.
+
+##### docs: the rules and README name the three steps
+
+The README and **agent-files(proposal): v0.3.1**: **A cycle stays local until its Land**, **Land is the
+sequence, and `vc-x1 land` its integrate step**, **Only push publishes**, and **Work commits link by
+URL** are rewritten, and the Terminology gets a word for what makes a cycle permanent, we think
+"release". The rules themselves change in that proposal's cycle.
+
+##### feat: close, land, and push compose with testing closing
+
+Closing out the cycle.
 
 ## Waiting
 
@@ -280,8 +749,10 @@ agent-files v0.3.1-0 draft** (2026-11-03), and `v0.3.1-1` since **chore: vc-x1 a
 agent-files v0.3.1-1 draft** (2026-11-04), which wrote in what came after the first draft: **New
 repos start from an adopter's committed rules**, **At rest leaves the tail for the next push**,
 **Every unpublished rung's ocid is real before it is published**, **The user decides when each side
-commits and publishes**, **Step 8 names the bookends**, and **The user chooses the dev build**. The
-entry stays the proposal.
+commits and publishes**, **Step 8 names the bookends**, and **The user chooses the dev build**.
+`v0.3.1-2`, since **feat: the cycle record returns to TODO.md, indexed by zTOC.md, v0.3.1-2 draft**
+(2026-11-04), adds **The record stays in TODO.md, and zTOC.md indexes it**. The entry stays the
+proposal.
 
 #### Never rename
 
@@ -413,9 +884,9 @@ shape before its first commit: it is single-step until a second commit makes it 
 #### A commit body is two plain paragraphs
 
 - The problem, then the solution opening "Solution:", ending with the pointer to the record where
-  it is at that commit, "See details in zDOING.md." on a rung and "See details in zCLOSED.md." on
-  the closing, which moves it, no bullets, and the rung subsection the full account: the entry **A
-  commit body is an intro and a pointer to the record** in `## Todo`, its rule, specimens, and
+  it is at that commit, "See details in TODO.md.", no bullets, and the rung subsection the full
+  account: the entry **A commit body is an intro and a pointer to the record** in `## Todo`, its
+  rule, specimens, and
   subsection change. The bookends stay pointers, "Opens the cycle ..." and "Closes the cycle ...",
   with the same pointer after them.
 
@@ -727,12 +1198,27 @@ A dev build left from an earlier cycle is older than the plain name installed at
 running it by rule runs stale code, wink's (2026-11-04). In the agent-files rather than `custom.md`,
 since a default is simpler than an exception.
 
+#### The record stays in TODO.md, and zTOC.md indexes it
+
+- The trial's files retire, [Retired record files](notes/README.md#retired-record-files), and the
+  cycle-record and continuation notes stay in `TODO.md`, as the agent-files said all along.
+- `zTOC.md` is new, in [zTOC format](agent-data/notes.md#ztoc-format), which `notes.md` adds. The
+  Terminology, the Cycle-record's Life, and the Close-out name it, and `vc-dr-apply.sh` ships its
+  skeleton.
+- In `TODO.md` the ladder's references are `[0]` to `[49]` and the rest start at `[50]`, in
+  [Reference numbering](agent-data/notes.md#reference-numbering).
+- `vc-x1 commit --closing` moves the block within `TODO.md` and resets the ladder, with no
+  `[record]` table.
+
+##### Why: one record file and an index
+
+Why the trial's files retire is in their entry, wink's (2026-11-04). A default is simpler than a
+table naming files, and a ladder that owns its numbers moves without renumbering.
+
 #### Not in it
 
 Each run on its own:
 
-- The record's home, `zDOING.md` in place of `TODO.md > ## In Progress`: **The cycle-record moves
-  out of TODO.md into zDOING.md**.
 - A rung inserted before pushed rungs: a `jj.md` recipe, once **lookup is tested on a reordered
   ladder** has its results.
 
@@ -1295,7 +1781,7 @@ changes at once, as Anthropic's Scion does for its agents. A design entry, its f
   - v0.3.1's `commit --closing` already merges onto the trunk as it is.
 - What assumes one cycle, each a design point:
   - the working copy, one `@` per repo: a jj workspace per cycle, each on its bookmark
-  - the record, one In Progress block in `zDOING.md` and one `zCLOSED.md`: a record file per cycle
+  - the record, one `## In Progress` and one `## Closed` in `TODO.md`: a record file per cycle
   - the version, bumped at each opening, so two cycles claim the same next one: assigned at Land
   - the agent-repo, one session's journal per `@` with trailers pairing commits: a workspace or a
     directory per session
@@ -1664,7 +2150,7 @@ The rule, wink's call (2026-10-21):
   when a stale binary is there `install` copies it. A wrong `dev-bin` has
   `run-dev` run a stale binary or none.
 - The why, who decided, when, the measurements and the trials, is in the cycle record,
-  `zDOING.md` while the cycle runs and `zCLOSED.md` and the landmark's tree after.
+  `TODO.md > ## In Progress` while the cycle runs and its `## Closed` in the landmark's tree after.
 
 The work:
 
@@ -1688,7 +2174,7 @@ the tests build the fixture in Rust, and the Python builder goes.
 
 - Useful history: **test: the tests build the dr-1 fixture** tried this as one cycle and closed as
   a dead end. Its dead-end closing commit, the landmark on `main`, holds the record in
-  `zCLOSED.md`: the problem, the plan as filed, and the deliberation behind it, among them the jj
+  [`zCLOSED.md`](notes/README.md#zclosedmd): the problem, the plan as filed, and the deliberation behind it, among them the jj
   CLI kept for the record, a test-only jj settings override per thread, an unseeded build, and a
   failed build stopping the run with one banner. The agent-repo's transcript of that cycle holds
   its unpushed plan rung, the port mapped against the Python builder.
@@ -2008,67 +2494,7 @@ table.
     `../vc-x1-messages`, which asks for a reply naming it and linking where this landed, so the
     reply goes out once this entry's cycle is pushed.
 
-### The cycle-record moves out of TODO.md into zDOING.md
-
-(wink, 2026-10-09) What is being done is a different thing from what is to be done, and one file
-holds both: the live record at the top of `TODO.md`, the backlog in the middle, and `## Closed` at
-the bottom. A new file at the work-repo root, `zDOING.md`, takes the record, and `TODO.md` keeps its
-name, a small step to see how the doing and done notion reads.
-
-- Shape: an `agent-files` proposal and single-step, wink's call. One commit creates the file, moves
-  the sections, and re-points the agent-files that name the old place:
-  [Cycle-record](AGENTS.md#cycle-record), [Todo format](agent-data/notes.md#todo-format), [The In
-  Progress block](agent-data/notes.md#the-in-progress-block), and the specimen.
-- Name: `zDOING.md` is wink's choice over `DOING.md`, `LADDER.md`, and `DOING_LADDER.md`.
-  - The `z` puts it last in every listing. Under `ls` in `en_US.UTF-8`, wink's daily view, that is
-    three entries below `TODO.md`, where `DOING.md` would sit ten above it.
-  - The cost is in byte order, as git, jj, and GitHub sort, where `DOING.md` would sit three
-    entries above `TODO.md` and `zDOING.md` is at the far end of the list from it.
-- Sections that move: `## In Progress` and `## Closed`, each block whole, the planning and the
-  work's documentation, so `TODO.md` is what we might do and nothing else (wink, 2026-10-09).
-  `## Continuation notes` goes with them so the acquaint read is the whole of a short file.
-- Tried by hand first: the cycle **feat: sync is safe by default** kept its record in `zDOING.md`
-  while the agent-files still named `TODO.md`. What the trial showed:
-  - The file holds one cycle, the one being worked on. A `## Next` section for a parked cycle and
-    a planned one was tried for a day and went back to `## Todo`: planned work in two files was
-    easy to lose track of.
-  - The block opens with the Todo as it was picked, and everything about the cycle is written
-    under it.
-  - `## Continuation notes` works in the file, with a pointer left under the same heading in
-    `TODO.md` for as long as [Acquaint](AGENTS.md#acquaint) looks there.
-  - `TODO.md` kept `## Continuation notes`, `## In Progress`, and `## Closed` as headings over a
-    pointer, since a session follows the agent-files as they are.
-    - All three were removed early, with `## Bugs`, also a pointer, by a rung of the cycle
-      **docs: the session lock**, wink's call, 2026-10-13. The file's intro names `zDOING.md`,
-      `zCLOSED.md`, and `bugs.md` in their place.
-    - Left for this cycle: the agent-files, which still name `TODO.md` for all four in
-      [Todo format](agent-data/notes.md#todo-format), [Acquaint](AGENTS.md#acquaint), and
-      [Close-out](AGENTS.md#close-out), and the help of `validate-todo` and `fix-todo`, which
-      names a `## Bugs` section.
-  - The Deliberation grew to 87 lines, a log of every decision made along the way, and wherever
-    it sat it pushed something far away. A decision that belongs to one rung reads better in
-    that rung's details, which leaves the Deliberation the decisions about the cycle as a whole.
-  - Wink moved the Deliberation ahead of the Solution, it being what is discussed before
-    starting, at the cost of the Ladder far down the file.
-  - The Ladder's list near the top with its details after the Deliberation was weighed and
-    left: in zed a link works in preview mode alone and "back" does not return to the list, so
-    the list has to sit with its details.
-- Tried next, by the cycle **docs: update single-step cycle add zCLOSED.md**: the last record in a
-  file of its own, `zCLOSED.md`, kept until the next closing replaces it, so `zDOING.md` holds the
-  running cycle alone. That cycle's Deliberation has what was tried before it and why.
-- The ladder's place in the block: ahead of the Deliberation, which goes last as the part read only
-  in doubt, the Ladder still heading its rung subsections. The placement below the Deliberation
-  came from a miscommunication at agent-files v0.2.6. Whether this cycle or one of its own makes the
-  change is settled at the opening.
-- Heading names are open: `## Done` for `## Closed` pairs with the file's name, but `(done)` is
-  already the rung marker and `notes/done.md` the frozen history, and it asks `## Doing` of
-  `## In Progress`, a term the agent-files use throughout.
-- No `vc-x1` code reads the block. A fixture script, `support/fixtures/build-dr-1.py`, and a comment
-  in `src/lookup/blame.rs` name the old place.
-- The template payload's `TODO.md` skeleton is the maintainer's, and this project's diff from it is
-  the proposal.
-
-### A single-step cycle is two stages and one commit, and the last record has a file of its own
+### A single-step cycle is two stages and one commit
 
 (wink + agent, 2026-10-11) Tried by the cycle **docs: update single-step cycle add zCLOSED.md**,
 whose record has the reasons, and wink liked how it read. A single-step cycle is one commit that
@@ -2089,19 +2515,13 @@ trial the rule or drops it.
 - Land restores the plain name in both, as a multi-step cycle's does today.
 - The one commit lands as it is, with no merge commit, and `main` is pushed once.
 - The bookmark's create and publish needs no approval. The pushes and the Land keep theirs.
-- The last record stays until the next closing replaces it, a multi-step cycle's too, in a file
-  of its own, `zCLOSED.md`. Two blocks in one file were tried first and collided on reference
-  numbers and on the item headings' anchors.
 - The ladder is one unlinked rung with the bare title, as today, and no title carries
   " closing". What the closing taught goes under a `#### Closing` heading in the block.
-- It rides with, or after, [The cycle-record moves out of TODO.md into
-  zDOING.md](#the-cycle-record-moves-out-of-todomd-into-zdoingmd), which settles the files.
 
 ### TODO.md is renamed zTODO.md
 
-(wink + agent, 2026-10-09) Once [the cycle-record is in
-`zDOING.md`](#the-cycle-record-moves-out-of-todomd-into-zdoingmd), named so it sorts
-last, the backlog is still `TODO.md`. Under `ls` in `en_US.UTF-8` the two are three entries apart,
+(wink + agent, 2026-10-09) `zTOC.md` is named so it sorts last, and `TODO.md` beside it
+is not. Under `ls` in `en_US.UTF-8` the two are entries apart,
 and in byte order, as git, jj, and GitHub sort, they are at opposite ends of the root's files.
 
 - With `TODO.md` renamed `zTODO.md` the pair is adjacent and last in both orders. The pair
@@ -2114,7 +2534,6 @@ and in byte order, as git, jj, and GitHub sort, they are at opposite ends of the
   - A fallback to `TODO.md` when only that exists keeps an adopter on the new binary working
     before its re-sync.
 - The price is the name itself: `TODO.md` is recognised on sight and `zTODO.md` is not.
-- The heading names, `## Doing` and `## Done`, are decided with it.
 
 ### sync fetches the messages repo too
 
@@ -2204,10 +2623,10 @@ and the specimen of that rung's subsection are nearly the same text. The body fo
   folds work into the pair** of **feat: vc-x1 commit, install, and run-dev**, ahead of the rule.
 - The `*` and `-` breakdown stays where it is already written, the record, and leaves the body.
 - The pointer is one fixed sentence ending the solution paragraph, so it is greppable: "See
-  details in zCLOSED.md.", wink's wording (2026-10-21), replacing the longer "Details in the
-  cycle's record, zCLOSED.md at its closing commit, under this title." `zCLOSED.md` is replaced
-  at every closing and at `HEAD` usually describes another cycle, so the sentence means the file
-  at the cycle's closing commit, which `git log --grep` on the title finds. The rung's
+  details in TODO.md.", "See details in zCLOSED.md." while the record was on trial there, wink's
+  wording (2026-10-21), replacing the longer "Details in the cycle's record, zCLOSED.md at its
+  closing commit, under this title." `## Closed` is replaced at every closing and at `HEAD`
+  usually describes another cycle, so the sentence means the file at the cycle's closing commit, which `git log --grep` on the title finds. The rung's
   subsection is headed by the commit's exact title.
 - In use ahead of the rule from the build rung of **feat: vc-x1 install stages, deploys, and runs
   builds** on, a bend of Commit-body form recorded in that cycle's deliberation.
@@ -3137,7 +3556,7 @@ dependency with it. What survives:
 Today push assumes 1:1 symmetric WC commits with shared title/body. The interop / adoption scenario
 breaks that: the work side is worked single-repo style (commit + `jj git push` / `git push`, no
 `vc-x1 push` in the loop), so no agent pairings exist. One agent commit then records every work
-commit not yet covered by a prior `ochid:`, via a multi-line `ochid:` per the design in [[12]].
+commit not yet covered by a prior `ochid:`, via a multi-line `ochid:` per the design in [[50]].
 - Out of scope: the trapezoid close-out, handled natively by the in-progress "feat: push merge
   close-out (trapezoid)" cycle, whose N-ochid stamping also covers a cycle held local and published
   all at once. This Todo is only the no-agent-pairings interop case, and the stamping step's
@@ -3340,9 +3759,8 @@ land**.
 - The trunk takes a remote as well as a name, a key such as `[cycle] trunk-remote = "upstream"`,
   read by sync and by `land`'s at-origin check, since `main` follows upstream and the work goes to
   `origin`.
-- The files every cycle edits, the version in `Cargo.toml`, `TODO.md`, `zDOING.md`, and
-  `zCLOSED.md`, conflict between any two pull requests. The version is set at release or merge,
-  the cycle's record lives in the pull request or the contributor's agent-repo, and `TODO.md` is
+- The files every cycle edits, the version in `Cargo.toml`, `TODO.md`, and `zTOC.md`, conflict
+  between any two pull requests. The version is set at release or merge, the cycle's record lives in the pull request or the contributor's agent-repo, and `TODO.md` is
   the maintainer's, changed by proposals.
 - The agent-repo stays each contributor's own, never in the pull request, so a trailer in upstream
   may point where a reader cannot follow, and the pull request's record stands alone.
@@ -3438,7 +3856,7 @@ the same way. Whether to run it on `main` is decided after a trial on a clone.
 - To try on a clone first: whether a fresh clone keeps the change ids of old commits, which we think
   depends on a stored change-id header.
 - What it costs on `main`: a force-push of both repos, every clone and fork broken, and every old SHA
-  citation stale. Bodies can be remapped, and `notes/`, `zCLOSED.md`, and the transcripts cannot without
+  citation stale. Bodies can be remapped, and `notes/`, the closed records, and the transcripts cannot without
   changing trees, `notes/chores/` being frozen. It also goes against the rule that published trailers
   are never rewritten, so a run needs that rule changed.
 - Committer dates are kept, since `lookup` finds an untrailered partner by them, and signatures are
@@ -3557,6 +3975,30 @@ own directory) are separate traversals over the same three values today, and fou
 - Related: [Work commits link by URL](#work-commits-link-by-url). An anchored `[repos]` would let a
   trailer prefix be derived rather than the constant it is now.
 
+## Closed
+
+The last cycle's finished record, moved here whole by its closing commit and deleted by the next
+opening ([Cycle-record](AGENTS.md#cycle-record)).
+
 # References
 
-[12]: /notes/forks-multi-user.md
+[0]: #feat-close-land-and-push-compose-with-testing-opening
+[1]: #feat-init---test-repo-makes-a-test-repo
+[2]: #feat-init-drops---use-template
+[3]: #chore-vc-x1-adopts-the-agent-files-v031-0-draft
+[4]: #feat-an-agent-commit-covers-its-work-commits
+[5]: #feat-an-initial-vc-dr-applysh
+[6]: #feat-a-test-repo-converts-an-existing-repo
+[7]: #feat-the-readers-take-any-mix-of-ochid-and-ocid
+[8]: #feat-ocid-is-real-only-when-the-agent-commit-came-first
+[9]: #fix-commit---closing-reads-the-nearest-opening-and-keeps-the-cycles-base
+[10]: #feat-land-takes---and-the-work-scope-by-default
+[11]: #feat-a-push-to-a-release-bookmark-seals-the-cycle
+[12]: #fix-testing-leaves-a-cycle-able-to-continue
+[13]: #feat-close-land-and-push-say-where-the-cycle-stands
+[14]: #docs-the-rules-and-readme-name-the-three-steps
+[15]: #feat-close-land-and-push-compose-with-testing-closing
+[16]: #chore-vc-x1-adopts-the-agent-files-v031-1-draft
+[17]: #feat-the-cycle-record-returns-to-todomd-indexed-by-ztocmd-v031-2-draft
+[18]: #feat-vc-dr-apply-takes-the-active-version-and-offers-language-skeletons
+[50]: /notes/forks-multi-user.md
