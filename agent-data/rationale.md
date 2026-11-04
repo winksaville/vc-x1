@@ -237,11 +237,19 @@ reshape the work the marker would claim.
 A local commit can be reworked and a push cannot easily be taken back, so the safe act is the one done
 by doing nothing, and publishing has one place to gate.
 
-#### A cycle stays local until its Land
+#### A cycle is local by default
 
-The Land is where the decision is, so one approval belongs there. Nothing published can name a rung,
-so reshaping a ladder costs nothing, and the agent commit made first lets every commit link to it, a
-SHA included. The first cycle run this way changed its ladder several times at no cost.
+Local is the default because the Land is where the decision is, so one approval belongs there.
+Nothing published can name a rung, so reshaping a ladder costs nothing, and the agent commit made
+first lets every commit link to it, a SHA included. The first cycle run this way changed its ladder
+several times at no cost.
+
+**The user decides when each side commits and publishes** (wink, 2026-11-03) because the user is
+always in control: the per-rung pairs came first, the local cycle after, and neither is the only
+shape, so the rules say what each shape needs rather than choosing one.
+
+**A published rung's `ocid:` is real** (wink, 2026-11-03) because a rung left at `xxxx` links
+nothing, and rewriting commits no one else has, their trees unchanged, costs only their SHAs.
 
 ### Commit description
 
@@ -276,7 +284,7 @@ user can still say no at no cost.
 
 The agent-repo is a live journal, so everything after a publishing command, its own record included,
 lands after it, and the agent cannot bring its own `@` to a fixed point. So the session's tail is
-bookkeeping that rides the next cycle's agent commit, and a Land folds nothing into its agent commit,
+bookkeeping that rides the next agent commit, and a Land folds nothing into its agent commit,
 since a fold changes the SHA every `ocid:` names.
 
 ### Close-out
@@ -389,14 +397,18 @@ _None recorded._
 
 ## Changing the agent-files
 
-An adopter's diff against the copy it started from, the template repository's payload once there
-is one, is what a proposal is made of and what its review reads, so drift is a diff, not a mystery:
-the review's input needs no maintenance and cannot go stale. The adopter's own changes live in
-that copy too, each a cycle like any other (wink, 2026-10-18), so a change every clone needs is
-committed where the rule lives and nothing marks it as the project's.
+An adopter's diff against the copy it started from is what a proposal is made of and what its
+review reads, so drift is a diff, not a mystery: the review's input needs no maintenance and cannot
+go stale. The adopter's own changes live in that copy too, each a cycle like any other (wink,
+2026-10-18), so a change every clone needs is committed where the rule lives and nothing marks it as
+the project's.
+
+**A new repo starts from an adopter's committed set** (wink, 2026-11-03) because an adopter carries
+the set already, so a template repository is a second copy to keep in step, and the rules a repo
+starts from should be ones that landed.
 
 **An experiment comes before a proposal** because a rule is argued best by having been run, and
-the diff against the payload keeps the trial visible while it runs.
+the diff against the copy it started from keeps the trial visible while it runs.
 
 **A proposal is one set of diffs, to the rules or beyond them** (wink, 2026-10-18) because a set
 of files and a diff are what two repos can compare without talking, and because a proposal is not

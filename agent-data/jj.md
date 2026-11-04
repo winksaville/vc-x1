@@ -89,7 +89,10 @@ one agent commit naming them all. The URLs are from `origin`, normalized to http
 `file:///<path>` for a local one, and `--no-url-trailer` leaves them out.
 
 The agent commit is made first where it can be. `commit -s b` stamps its real SHA, and `commit -s w`
-stamps `.../commit/xxxx` until a Land makes it. Nothing folds into a commit an `ocid:` names, so
+stamps `.../commit/xxxx` until the agent commit is made, mid-cycle by `commit -s a --covers
+<REVSET>` and `trailers --update`, or by the Land. A rung is published only with its `ocid:` real
+([A cycle is local by default](../AGENTS.md#a-cycle-is-local-by-default)), and we think one command
+of its own name, not an overloaded `push`, makes it so, proposed and not built. Nothing folds into a commit an `ocid:` names, so
 `squash` and `push` leave it, and the journal rides the next agent commit. A trailer `vc-x1` does
 not stamp is kept on a rewrite, so `custom.md` may add its own. `vc-x1 trailers --update` moves a
 range of commits to today's form, and a Land refreshes the links by the same pass.

@@ -18,16 +18,17 @@ Agent-files version: the set's own version, `vX.Y.Z`, the name of an empty
 `agent-data/agent-files-vX.Y.Z` file, bumped by `agent-files` proposal cycles and copied by
 adoptions ([Agent-files version](agent-data/versioning.md#agent-files-version)).
 
-Set: the agent-files as the template repository's payload carries them, the copy every adopter
-starts from. Adopter: a project carrying a copy of the set. Proposer: the adopter a proposal comes
-from. There is no maintainer, only adopters and proposers. We think the template repository is
-still to come, and until it exists the copy a proposal starts from is whichever adopter's the
-proposer took.
+Set: the agent-files as an adopter commits them, the copy a new repo starts from, applied from that
+adopter's committed tree by `scripts/vc-dr-apply.sh`. Adopter: a project carrying a copy of the set.
+Proposer: the adopter a proposal comes from. There is no maintainer and no template repository, only
+adopters and proposers, and the copy a proposal starts from is whichever adopter's the proposer
+took.
 
 Cycle: one change, run from opening to closing as one commit or a ladder of them, each made by
 `vc-x1 commit` ([Cycle protocol](#cycle-protocol)). Its shape is its branch's commit count, a
 single-step cycle being one commit above the trunk and a multi-step one more ([Cycle
-shape](#cycle-shape)). Both run on a bookmark, and both stay on this machine until the Land.
+shape](#cycle-shape)). Both run on a bookmark, and both stay on this machine until the Land unless
+the user decides otherwise.
 
 Land: the sequence that makes a cycle permanent, on the user's go at the close-out: sync, integrate,
 publish, install ([Land](agent-data/jj.md#cycle-bookmarks-create-and-land)). `vc-x1 land` names its
@@ -85,8 +86,8 @@ silently.
   only when the cycle lands ([Cycles run on a bookmark](#cycles-run-on-a-bookmark)).
 - Shape by count: a branch with one commit above the trunk is single-step and more is a ladder, and
   a ladder lands as a trapezoid, never squashed ([Cycle shape](#cycle-shape)).
-- Local until the Land: a cycle's commits stay on this machine, the agent `@` uncommitted, until the
-  Land ([A cycle stays local until its Land](#a-cycle-stays-local-until-its-land)).
+- Local by default: a cycle's commits stay on this machine until the Land, and the user decides when
+  each side commits and publishes ([A cycle is local by default](#a-cycle-is-local-by-default)).
 - Read the step before the action: [The per-rung flow](#the-per-rung-flow) before commit work,
   [Before any push](#before-any-push) before a push, from the file, not from memory.
 - Commit by the tool: a cycle rung is committed only by `vc-x1 commit` ([Committing vs
@@ -289,8 +290,9 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)):
    description](#commit-description)). A local description can still be changed before the Land, so
    it has no review of its own.
 8. Commit: on the go, `vc-x1 commit -s w --title "..." --body "..."`, local ([Committing vs
-   pushing](#committing-vs-pushing)). A rung that changes the artifact then installs its dev build,
-   so the next rung runs the code just reviewed ([Dev artifact
+   pushing](#committing-vs-pushing)), `--opening` added for the opening and `--closing <BM|REV>`
+   for the closing ([Cycle shape](#cycle-shape)). A rung that changes the artifact then installs its
+   dev build, so the next rung runs the code just reviewed ([Dev artifact
    name](agent-data/versioning.md#dev-artifact-name)).
 
 ### Committing vs pushing
@@ -307,21 +309,27 @@ push` ([why](agent-data/rationale.md#committing-vs-pushing)).
 - A bare `jj commit` is asked for by name and is for local saves and [local ladder](#local-ladders)
   intermediates. What the commands do is in [vc-x1 commit and push][vpush].
 
-#### A cycle stays local until its Land
+#### A cycle is local by default
 
-Every commit is the work half alone, made and kept local, and the Land is the one go, since the
-decision is there ([why](agent-data/rationale.md#a-cycle-stays-local-until-its-land)).
+A cycle's commits stay on this machine until its Land, and the user decides when each side is
+committed and when either is published, at any rung, every push still taking its own approval
+([why](agent-data/rationale.md#a-cycle-is-local-by-default)).
 
-- `vc-x1 commit -s w`, the opening's bookmark created and not pushed. The agent `@` is neither
-  committed nor pushed before the Land, so its change id holds for the whole cycle, and no
-  `squash-push -s a` or `commit -s b` runs before then.
-- The Land commits the agent `@` first, one `ochid:` per work commit, and sets the links on each
-  work commit, trees unchanged ([Cross-repo
+- The default: every commit is `vc-x1 commit -s w`, the opening's bookmark created and not pushed,
+  and the agent `@` holds the session until an agent commit is made.
+- Any mix of work and agent commits is valid. `commit -s b` makes a 1:1 pair, `commit -s w` rungs
+  then `commit -s a --covers <REVSET>` or the Land make N:1, and several agent commits naming one
+  work commit make 1:M. The rule is the links: a work commit's `ochid:` names each agent change it
+  pairs with, an agent commit's names each work commit it covers, and an agent commit whose SHA an
+  `ocid:` names is never folded into ([Cross-repo
   linking](agent-data/jj.md#cross-repo-linking-ochid-trailers)).
-- Publishing per rung, `commit -s b --push`, stays for a cycle someone wants visible while it runs,
-  and for a cycle that must move between machines.
-- We think two things remain open: a local cycle sits on one machine until the Land, and a cycle's
-  whole transcript in one commit may near jj's new-file size limit.
+- A backup, a move between machines, or someone else to see the cycle commits the agent side and
+  publishes mid-cycle, every published rung's `ocid:` made real first: `commit -s a --covers
+  <REVSET>`, then `trailers --update`, then `push -s b`.
+- The Land commits the agent `@` first, one `ochid:` per work commit it has not yet covered, and
+  sets the links on each work commit, trees unchanged.
+- We think a cycle's whole transcript in one commit may near jj's new-file size limit, and the
+  mid-cycle backup's three commands want one.
 
 ### Commit description
 
@@ -351,7 +359,7 @@ item's tail ([why](agent-data/rationale.md#at-rest)):
 1. The agent publishes: a step that publishes is complete when its command is issued. The agent says
    what is worth saying *before* the final publishing command, responds with the one word
    "Published", and does nothing further until the user speaks.
-2. No squash-push: the session's tail is bookkeeping, and it rides the next cycle's agent commit.
+2. No squash-push: the session's tail is bookkeeping, and it rides the next agent commit.
 
 "Clean" means the work `@` is empty, the agent's `@` being the session's data and no finding, as
 [Acquaint](#acquaint) says. A late work-repo tweak after a push is a remote rewrite and takes approval
@@ -455,11 +463,11 @@ simple task has produced no progress ([why](agent-data/rationale.md#stop-and-ask
 
 ## Changing the agent-files
 
-The template repository's payload is the copy adopters start from, and every adopter carries its
-own copy ([why](agent-data/rationale.md#changing-the-agent-files)).
+A new repo starts from an adopter's committed set, applied by `scripts/vc-dr-apply.sh`, and every
+adopter carries its own copy ([why](agent-data/rationale.md#changing-the-agent-files)).
 
-- Local experiments: a local agent-file may hold an unagreed experiment, diffed against the payload
-  while the rules are being tried. After the experiment there may be a proposal.
+- Local experiments: a local agent-file may hold an unagreed experiment, diffed against the copy it
+  started from while the rules are being tried. After the experiment there may be a proposal.
 - Proposing: a proposal is one set of diffs, to the rules or beyond them, that an adopter may or
   may not accept as is.
 - Convergence: the adopter reviews the diff between the proposal and its files and accepts it as is

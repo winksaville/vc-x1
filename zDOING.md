@@ -9,41 +9,18 @@ This file is a trial (2026-10-09). The agent-files still name `TODO.md > ## In P
 record's home, and the cycle that makes this file the rule is [The cycle-record moves out of
 TODO.md into zDOING.md](TODO.md#the-cycle-record-moves-out-of-todomd-into-zdoingmd).
 
-**Rule:** a cycle changing `vc-x1` runs its own latest build, wink's (2026-10-30): `vc-x1-dev`,
-installed after the rung before, for every command, `validate` and `install` as well as `commit`. The
-landed `vc-x1` is used only for a sequence `vc-x1-dev` cannot run, and saying so. Until **install has a role and a
-profile** runs, `vc-x1-dev install` needs `--profile dev`, since bare it builds and replaces the landed
-`vc-x1`.
-
 ## Continuation notes
 
 Where the agent was, for the agent that comes next. Ephemeral, never a record: read first, acted
 on, and reset to `_None._` by the reader. Kept here by the trial and no longer in `TODO.md`,
 where [Acquaint](AGENTS.md#acquaint) still says to look.
 
-Left at the end of 2026-11-03:
+Kept by the acquaint of 2026-11-04:
 
-- The cycle's opening and five rungs are committed with `commit -s w`, the agent `@` `qqvvzozm`
-  holding the session since the opening. The plan for the night, on wink's go: `vc-x1-dev commit -s a
-  --covers 'main..@-' --title "feat: close, land, and push compose with testing" --body ... &&
-  vc-x1-dev trailers --update && vc-x1-dev push -s b`, the bends recorded in **feat: an agent commit
-  covers its work commits**. Check: `vc-x1-dev validate-desc -s b -r @- -n 8` all `ok`, the cycle's
-  bookmark on `origin`, the work `main` at `4a827490`, and the agent `main` at the agent commit. If it
-  did not run, it is the next step. Then `vc-x1-dev install --profile dev`, since the rewrite left the
-  installed build's commit stale.
-- The next rung is **feat: a test repo converts an existing repo**.
 - The test repo `~/tmp/wt5`, remotes `~/tmp/remotes`, sandbox on with `allowWrite
   /home/wink/tmp/remotes` in its `.claude/settings.local.json`: its cycle **chore: configure this
   workspace** has its opening and config rung backed up by `--covers`, agent `3ba90000`, every link
-  `ok`, and its closing and Land are next, then its `TODO.md`'s other Todos. Its session's tail was 15
-  lines after the push and 4 more at exit. The sandbox-off sample is this session's tail after the
-  night's push.
-- Not yet filed, for the v0.3.1 proposal and a doc fix: `config --validate`, retired at 0.80.6, is
-  still in `agent-data/cycle-model.md` (lines 30, 36, 61) and `vc-config.md` line 28, where the `wt5`
-  agent took it from. The `wt5` agent's work commit bodies are unwrapped, as **push checks the
-  description's widths** expects. The per-rung flow's step 8 names no `--opening` or `--closing`,
-  which did not trip the `wt5` agent, a wording to consider. A composite command for the backup, its
-  own name and not an overloaded `push`, wink's preference, is a Todo to file if wanted.
+  `ok`, and its closing and Land are next, then its `TODO.md`'s other Todos.
 
 ## In Progress
 
@@ -247,6 +224,8 @@ Provisional, the rungs after the opening named as the work is understood:
 - [chore: vc-x1 adopts the agent-files v0.3.1-0 draft][3] (done)
 - [feat: an agent commit covers its work commits][4] (done)
 - [feat: an initial vc-dr-apply.sh][5] (done)
+- [chore: vc-x1 adopts the agent-files v0.3.1-1 draft][16] (done)
+- [feat: the cycle record returns to TODO.md, indexed by zTOC.md][17]
 - [feat: a test repo converts an existing repo][6]
 - [feat: the readers take any mix of ochid and ocid][7]
 - [feat: ocid is real only when the agent commit came first][8]
@@ -364,6 +343,49 @@ Tried on `~/tmp/wt5`, made by `init --test-repo ~/tmp/remotes --target ~/tmp/wt5
 the clean-start guard, which also caught a stray `custom.md`. The `differs` refusal and the two-path
 form are not yet run, `wt5`'s Todo **vc-dr-apply refuses what differs**.
 
+##### chore: vc-x1 adopts the agent-files v0.3.1-1 draft
+
+The `v0.3.1-0` draft left out what the proposal found after it, so the rules a session read still
+said a cycle stays local until its Land while this cycle backed up mid-cycle by a bend. vc-x1 writes
+the draft `v0.3.1-1` itself, its own commits the source since the `-0` copy, wink's call
+(2026-11-04), with all four refinements:
+
+- **The user decides when each side commits and publishes**: **A cycle stays local until its Land**
+  becomes **A cycle is local by default** in `AGENTS.md` and `rationale.md`, its index line with it,
+  any mix of work and agent commits valid, and the mid-cycle backup its three commands. It ends this
+  cycle's bend of the old rule.
+- **Every unpublished rung's ocid is real before it is published**: in `AGENTS.md` and `jj.md` as
+  those three commands, one command of its own name for them proposed and not built, since `push -s
+  b` does not commit the agent side or restamp today.
+- **New repos start from an adopter's committed rules**: the Terminology's Set, **Changing the
+  agent-files**, its rationale, and `notes.md` name `scripts/vc-dr-apply.sh` and no template
+  repository.
+- **At rest leaves the tail for the next push**: already `-0`'s text and the tool's behavior, so only
+  "the next cycle's agent commit" becomes "the next agent commit", one landing mid-cycle now.
+
+Step 8 names `--opening` and `--closing`. The dev-build rule leaves this file's header for
+`versioning.md`, where **Run your own build** becomes **Which build runs**, wink's (2026-11-04): the
+user is asked when the dev build is newer than the plain name, and the plain name runs otherwise. A
+default rather than a `custom.md` exception, wink's too, since it is simpler. The proposal entry
+records `-1` and adds **Step 8 names the bookends** and **The user chooses the dev build**. The
+marker file is `agent-files-v0.3.1-1`.
+
+Also: a new Todo, **What a
+session writes after its final push, sandbox on and off**, files the tail samples kept in
+`tmp-durable/`, and the continuation notes keep only the `wt5` item. The retired `config --validate`
+that misled the `wt5` agent stays in `cycle-model.md` and `vc-config.md`, wink's call (2026-11-04),
+for the new **A hyphenated subcommand becomes a command and a flag**, which makes it `validate
+--config`.
+
+##### feat: the cycle record returns to TODO.md, indexed by zTOC.md
+
+The trial of `zDOING.md` and `zCLOSED.md` ends, wink's call (2026-11-04): the cycle-record goes back
+to `TODO.md > ## In Progress` and `## Closed`, and the continuation notes to `TODO.md`'s first
+section, as the agent-files say. `zTOC.md` is new, `# TOC` with `## Ladder`, the running cycle's rung
+titles each linking to its subsection in `TODO.md`, `_None._` between cycles, and `## The TOC`, the
+references to the important files `TODO.md` lists now. The `[record]` keys, the default closing body,
+and what `commit --closing` moves follow.
+
 ##### feat: a test repo converts an existing repo
 
 The likeliest real use of a template is converting an existing repo, and nothing rehearses it safely,
@@ -441,3 +463,5 @@ Closing out the cycle.
 [13]: #feat-close-land-and-push-say-where-the-cycle-stands
 [14]: #docs-the-rules-and-readme-name-the-three-steps
 [15]: #feat-close-land-and-push-compose-with-testing-closing
+[16]: #chore-vc-x1-adopts-the-agent-files-v031-1-draft
+[17]: #feat-the-cycle-record-returns-to-todomd-indexed-by-ztocmd

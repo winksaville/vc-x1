@@ -276,10 +276,12 @@ the rules below name. Each change is a `####` heading holding what is done, and 
 why.
 
 Adopted locally as the draft `v0.3.1-0`, vc-x1's agent-files since **chore: vc-x1 adopts the
-agent-files v0.3.1-0 draft** (2026-11-03). The entry stays the proposal, and what came after the
-draft is for `v0.3.1-1`: **New repos start from an adopter's committed rules**, **At rest leaves the
-tail for the next push**, **Every unpublished rung's ocid is real before it is published**, and **The
-user decides when each side commits and publishes**.
+agent-files v0.3.1-0 draft** (2026-11-03), and `v0.3.1-1` since **chore: vc-x1 adopts the
+agent-files v0.3.1-1 draft** (2026-11-04), which wrote in what came after the first draft: **New
+repos start from an adopter's committed rules**, **At rest leaves the tail for the next push**,
+**Every unpublished rung's ocid is real before it is published**, **The user decides when each side
+commits and publishes**, **Step 8 names the bookends**, and **The user chooses the dev build**. The
+entry stays the proposal.
 
 #### Never rename
 
@@ -677,6 +679,9 @@ A squash after the push rewrites the commit the links point at, wink's finding (
   unchanged, as `vc-x1 trailers --update` does, and then publishes the bookmark, one command doing all
   of it. It replaces "each agent commit's SHA is carried by exactly one work commit, the last it
   names" in the cycle **feat: close, land, and push compose with testing**.
+- `v0.3.1-1` writes it as the three commands that do it today, `commit -s a --covers`, `trailers
+  --update`, and `push -s b`, and one command doing all three, its own name and not an overloaded
+  `push`, wink's preference (2026-11-03), as proposed and not built.
 
 ##### Why: every link resolves
 
@@ -700,6 +705,27 @@ costs only their SHAs, wink's (2026-11-03).
 
 The user is always in control, wink's (2026-11-03): the per-rung pairs came first, the local cycle
 after, and neither is the only shape, so the rules say what each shape needs rather than choosing one.
+
+#### Step 8 names the bookends
+
+- The per-rung flow's step 8 names `--opening` for the opening and `--closing <BM|REV>` for the
+  closing beside the plain `commit -s w`.
+
+##### Why: the bookends
+
+The `wt5` agent opened and closed by the step without tripping, wink's finding (2026-11-03), but a
+step that names one form leaves the other two to be found elsewhere.
+
+#### The user chooses the dev build
+
+- `versioning.md`'s **Run your own build** becomes **Which build runs**: when the dev build is newer
+  than the plain name, the session asks whether to run it, and otherwise runs the plain name.
+
+##### Why: the user chooses
+
+A dev build left from an earlier cycle is older than the plain name installed at its Land, and
+running it by rule runs stale code, wink's (2026-11-04). In the agent-files rather than `custom.md`,
+since a default is simpler than an exception.
 
 #### Not in it
 
@@ -836,6 +862,24 @@ the agent repo can be committed and pushed mid-cycle, each commit one more group
   accepted and when it is a fault is to be decided.
 - We think it is a flag on `commit -s a`, or a command of its own, and it needs the approval any push
   takes.
+
+### What a session writes after its final push, sandbox on and off
+
+(wink + agent, 2026-11-04) After the final push the transcript keeps growing, and those lines ride
+the next cycle's agent commit, as **At rest leaves the tail for the next push** has it. What is at
+stake is what the last agent commit does not hold, and whether any of it is lost. The hypothesis was
+that Claude Code's sandbox off writes less after going quiet and at `/exit`. Two samples, about the
+same:
+
+- `~/tmp/wt5`, sandbox on: 15 lines after the push, 4 more at `/exit`.
+- vc-x1's session `40cfc16f`, sandbox off: 15 lines after going quiet, 3 more at `/exit`, 18 in all.
+
+The samples are in `tmp-durable/session-tail-2026-11-03/`: the `jj diff --stat` runs, the 18-line
+tail, and the first 20 lines of the next session, `129195c1`.
+
+- Compare the two tails line by line: which records they are, and whether the next session's first
+  lines repeat any of them.
+- Decide what, if anything, is lost when the agent repo is not committed after `/exit`.
 
 ### The agent repo's size
 
@@ -1260,6 +1304,23 @@ changes at once, as Anthropic's Scion does for its agents. A design entry, its f
 - The human gates come first: per-push approval and the hard stop are what make the protocol
   trusted now, and the decision is which of them move to Land or to a review of a cycle's intent.
   We think the rest is mechanical.
+
+### A hyphenated subcommand becomes a command and a flag
+
+(wink, 2026-11-04) Every hyphenated subcommand becomes `<cmd> --<option>`, wink's preference, so
+`validate-config` is `validate --config`, and the `validate-*` commands are one `validate`. 0.80.6
+went the other way, `config --validate` to `validate-config`, a mistake by wink's word.
+
+- Today's: `validate-agent`, `validate-desc`, `validate-config`, `validate-anchors`,
+  `validate-todo`, `fix-desc`, `fix-todo`, `squash-push`, `move-bookmark`, `delete-bookmark`,
+  `agent-files`, and `agent-session`.
+- `validate` runs the `[validate]` lists today, `--fast` choosing one, so the checks join it as
+  flags beside that, and what bare `validate` runs is decided with **validate takes any profile**.
+- `move-bookmark` and `delete-bookmark` are **bookmark takes create, delete, and move**, and
+  `squash-push` and the two nouns, `agent-files` and `agent-session`, are asked about first.
+- The old names go outright, as **Drop the retired flags, subcommands, and positionals** says.
+- Every doc naming one changes with it, among them `agent-data/cycle-model.md` and `vc-config.md`,
+  which still name `config --validate`, and the `wt5` agent took it from there (2026-11-03).
 
 ### The help lists the subcommands in alphabetical order
 

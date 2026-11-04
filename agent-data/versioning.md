@@ -107,8 +107,10 @@ clobbers the binary consumers are running. The package keeps its plain name thro
 
 - **Name**: the `[profile.<name>]` table's `suffix` in `.vc-config.md`, `-dev` for the dev profile,
   so `vc-x1 install --profile dev` installs `<name>-dev` beside `<name>`.
-- **Run your own build**: a cycle changing the artifact runs it, the dev build installed after the
-  rung before. A project whose artifact is not a tool it runs skips this.
+- **Which build runs**: when the dev build's version is newer than the plain name's, the session asks
+  the user whether to run it, and otherwise ignores it and runs the plain name, since a dev build no
+  newer is one an earlier cycle left behind. A project whose artifact is not a tool it runs skips
+  this.
 - **Promotion**: plain `<name>` updates only at Land, by `vc-x1 install`, from what is on the trunk.
 - **Which binary**: `vc-x1 install` with no `--profile` is the release build, so a dev binary
   installs itself only with `--profile dev`.
