@@ -753,6 +753,10 @@ repos otherwise right:
 - `vc-x1-dev validate-desc -sb` reports "1 missing (of 3 total)" on each side, the one being `@`,
   which never has a description. The working copy is left out of the count, or listed as the working
   copy and not as missing.
+- The summary counts the links still to be made, wink's (2026-11-03): "N temp", the work commits
+  whose `ocid:` is the placeholder `xxxx`, right while their partner is the uncommitted agent `@`. In
+  vc-x1 before its backup, six rungs carried it and the summary read "4 valid" with nothing saying
+  their links waited on the agent commit.
 
 ### Drop the retired flags, subcommands, and positionals
 

@@ -1,0 +1,3 @@
+# This project's version, advanced through the cycle's X.Y.Z-N phases. A project with a
+# build system records it there instead, Rust in Cargo.toml, and removes this file.
+version = "0.1.0"

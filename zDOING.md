@@ -21,7 +21,29 @@ Where the agent was, for the agent that comes next. Ephemeral, never a record: r
 on, and reset to `_None._` by the reader. Kept here by the trial and no longer in `TODO.md`,
 where [Acquaint](AGENTS.md#acquaint) still says to look.
 
-_None._
+Left at the end of 2026-11-03:
+
+- The cycle's opening and five rungs are committed with `commit -s w`, the agent `@` `qqvvzozm`
+  holding the session since the opening. The plan for the night, on wink's go: `vc-x1-dev commit -s a
+  --covers 'main..@-' --title "feat: close, land, and push compose with testing" --body ... &&
+  vc-x1-dev trailers --update && vc-x1-dev push -s b`, the bends recorded in **feat: an agent commit
+  covers its work commits**. Check: `vc-x1-dev validate-desc -s b -r @- -n 8` all `ok`, the cycle's
+  bookmark on `origin`, the work `main` at `4a827490`, and the agent `main` at the agent commit. If it
+  did not run, it is the next step. Then `vc-x1-dev install --profile dev`, since the rewrite left the
+  installed build's commit stale.
+- The next rung is **feat: a test repo converts an existing repo**.
+- The test repo `~/tmp/wt5`, remotes `~/tmp/remotes`, sandbox on with `allowWrite
+  /home/wink/tmp/remotes` in its `.claude/settings.local.json`: its cycle **chore: configure this
+  workspace** has its opening and config rung backed up by `--covers`, agent `3ba90000`, every link
+  `ok`, and its closing and Land are next, then its `TODO.md`'s other Todos. Its session's tail was 15
+  lines after the push and 4 more at exit. The sandbox-off sample is this session's tail after the
+  night's push.
+- Not yet filed, for the v0.3.1 proposal and a doc fix: `config --validate`, retired at 0.80.6, is
+  still in `agent-data/cycle-model.md` (lines 30, 36, 61) and `vc-config.md` line 28, where the `wt5`
+  agent took it from. The `wt5` agent's work commit bodies are unwrapped, as **push checks the
+  description's widths** expects. The per-rung flow's step 8 names no `--opening` or `--closing`,
+  which did not trip the `wt5` agent, a wording to consider. A composite command for the backup, its
+  own name and not an overloaded `push`, wink's preference, is a Todo to file if wanted.
 
 ## In Progress
 
@@ -224,16 +246,17 @@ Provisional, the rungs after the opening named as the work is understood:
 - [feat: init drops --use-template][2] (done)
 - [chore: vc-x1 adopts the agent-files v0.3.1-0 draft][3] (done)
 - [feat: an agent commit covers its work commits][4] (done)
-- [feat: a test repo converts an existing repo][5]
-- [feat: the readers take any mix of ochid and ocid][6]
-- [feat: ocid is real only when the agent commit came first][7]
-- [fix: commit --closing reads the nearest opening and keeps the cycle's base][8]
-- [feat: land takes @- and the work scope by default][9]
-- [feat: a push to a release bookmark seals the cycle][10]
-- [fix: testing leaves a cycle able to continue][11]
-- [feat: close, land, and push say where the cycle stands][12]
-- [docs: the rules and README name the three steps][13]
-- [feat: close, land, and push compose with testing closing][14]
+- [feat: an initial vc-dr-apply.sh][5] (done)
+- [feat: a test repo converts an existing repo][6]
+- [feat: the readers take any mix of ochid and ocid][7]
+- [feat: ocid is real only when the agent commit came first][8]
+- [fix: commit --closing reads the nearest opening and keeps the cycle's base][9]
+- [feat: land takes @- and the work scope by default][10]
+- [feat: a push to a release bookmark seals the cycle][11]
+- [fix: testing leaves a cycle able to continue][12]
+- [feat: close, land, and push say where the cycle stands][13]
+- [docs: the rules and README name the three steps][14]
+- [feat: close, land, and push compose with testing closing][15]
 
 ##### feat: close, land, and push compose with testing opening
 
@@ -323,6 +346,24 @@ line, `commit -s a --covers` then `trailers --update` then `push -s b` joined by
 of One command per invocation, wink's too: one invocation keeps the agent `@` still between the
 steps, and `&&` stops at the first failure with its status.
 
+##### feat: an initial vc-dr-apply.sh
+
+A bare workspace from `init` has no rules, and nothing fills it now that `--use-template` is gone.
+`scripts/vc-dr-apply.sh [--to DIR] [--rev REV] [--agent-rev REV] [--dry-run] SOURCE [AGENT_SOURCE]`
+applies a source dual repo's committed rules to it, wink's shape (2026-11-03): SOURCE a dual workspace,
+its agent repo found by its `.vc-config.md`, or SOURCE and AGENT_SOURCE given apart. From the work repo
+at `--rev`, `AGENTS.md`, `agent-data/`, and `LICENSE-*`, from the agent repo at `--agent-rev`,
+`LICENSE-*`, `README.md` with its first line renamed for the target's agent repo, wink's, and
+`memory/MEMORY.md`, each when present, and from `scripts/vc-dr-apply/`, the work skeletons from
+`vc-x1-template-2`, `{name}` filled, and the `.gitignore` lines. Both `@` must be empty, every path is
+new, identical, or differs on disk, any that differs refuses the whole apply, and nothing is committed.
+Template-2's `CLAUDE.md` is left out, Claude Code reading `AGENTS.md` itself.
+
+Tried on `~/tmp/wt5`, made by `init --test-repo ~/tmp/remotes --target ~/tmp/wt5`, from vc-x1 at
+`9f2d3444ce85`: the set identical to vc-x1's, the agent README renamed, and a second run refused by
+the clean-start guard, which also caught a stray `custom.md`. The `differs` refusal and the two-path
+form are not yet run, `wt5`'s Todo **vc-dr-apply refuses what differs**.
+
 ##### feat: a test repo converts an existing repo
 
 The likeliest real use of a template is converting an existing repo, and nothing rehearses it safely,
@@ -389,13 +430,14 @@ Closing out the cycle.
 [2]: #feat-init-drops---use-template
 [3]: #chore-vc-x1-adopts-the-agent-files-v031-0-draft
 [4]: #feat-an-agent-commit-covers-its-work-commits
-[5]: #feat-a-test-repo-converts-an-existing-repo
-[6]: #feat-the-readers-take-any-mix-of-ochid-and-ocid
-[7]: #feat-ocid-is-real-only-when-the-agent-commit-came-first
-[8]: #fix-commit---closing-reads-the-nearest-opening-and-keeps-the-cycles-base
-[9]: #feat-land-takes---and-the-work-scope-by-default
-[10]: #feat-a-push-to-a-release-bookmark-seals-the-cycle
-[11]: #fix-testing-leaves-a-cycle-able-to-continue
-[12]: #feat-close-land-and-push-say-where-the-cycle-stands
-[13]: #docs-the-rules-and-readme-name-the-three-steps
-[14]: #feat-close-land-and-push-compose-with-testing-closing
+[5]: #feat-an-initial-vc-dr-applysh
+[6]: #feat-a-test-repo-converts-an-existing-repo
+[7]: #feat-the-readers-take-any-mix-of-ochid-and-ocid
+[8]: #feat-ocid-is-real-only-when-the-agent-commit-came-first
+[9]: #fix-commit---closing-reads-the-nearest-opening-and-keeps-the-cycles-base
+[10]: #feat-land-takes---and-the-work-scope-by-default
+[11]: #feat-a-push-to-a-release-bookmark-seals-the-cycle
+[12]: #fix-testing-leaves-a-cycle-able-to-continue
+[13]: #feat-close-land-and-push-say-where-the-cycle-stands
+[14]: #docs-the-rules-and-readme-name-the-three-steps
+[15]: #feat-close-land-and-push-compose-with-testing-closing
