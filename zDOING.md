@@ -223,16 +223,17 @@ Provisional, the rungs after the opening named as the work is understood:
 - [feat: init --test-repo makes a test repo][1] (done)
 - [feat: init drops --use-template][2] (done)
 - [chore: vc-x1 adopts the agent-files v0.3.1-0 draft][3] (done)
-- [feat: a test repo converts an existing repo][4]
-- [feat: the readers take any mix of ochid and ocid][5]
-- [feat: ocid is real only when the agent commit came first][6]
-- [fix: commit --closing reads the nearest opening and keeps the cycle's base][7]
-- [feat: land takes @- and the work scope by default][8]
-- [feat: a push to a release bookmark seals the cycle][9]
-- [fix: testing leaves a cycle able to continue][10]
-- [feat: close, land, and push say where the cycle stands][11]
-- [docs: the rules and README name the three steps][12]
-- [feat: close, land, and push compose with testing closing][13]
+- [feat: an agent commit covers its work commits][4] (done)
+- [feat: a test repo converts an existing repo][5]
+- [feat: the readers take any mix of ochid and ocid][6]
+- [feat: ocid is real only when the agent commit came first][7]
+- [fix: commit --closing reads the nearest opening and keeps the cycle's base][8]
+- [feat: land takes @- and the work scope by default][9]
+- [feat: a push to a release bookmark seals the cycle][10]
+- [fix: testing leaves a cycle able to continue][11]
+- [feat: close, land, and push say where the cycle stands][12]
+- [docs: the rules and README name the three steps][13]
+- [feat: close, land, and push compose with testing closing][14]
 
 ##### feat: close, land, and push compose with testing opening
 
@@ -300,6 +301,28 @@ in `TODO.md`, noting the adoption, with the refinements found since kept there f
 draft is not a repo, so this one copy is from a working tree, and vc-x1's commits are the source
 after it.
 
+##### feat: an agent commit covers its work commits
+
+A cycle's rungs made by `commit -s w` share one agent commit, and nothing made it with one `ochid:`
+per rung: `push -s a` takes the tip's description and links the tip alone, `commit -s a` links none,
+and `commit -s b` refuses an empty work `@`. `commit -s a --covers <REVSET>` makes it, under the title
+given, the cycle title by wink's (2026-11-03): one `ochid:` per work commit the revset names, oldest
+first, the revset taken as written with no trunk assumed, wink's too, and every commit it names must
+name the agent `@` already, or nothing is made. Then `trailers --update` gives every rung's `ocid:`
+the agent commit's SHA, and `push -s b` publishes both.
+
+Push needed no change: an agent commit naming several work commits, or partnering one that carries an
+`ocid:`, is the `Landed` partner, which push publishes as it is, leaving the journal in `@`, so no
+fold changes the SHA the links name.
+
+Committing the agent side and publishing mid-cycle bends the adopted `v0.3.1-0`'s **A cycle stays
+local until its Land**, wink's call (2026-11-03), and the proposal's **The user decides when each side
+commits and publishes** makes it the rule in `v0.3.1-1`. The bend covers this cycle's mid-cycle agent
+commits and pushes, each still approved on its own, and not its Land. The backup runs as one command
+line, `commit -s a --covers` then `trailers --update` then `push -s b` joined by `&&`, a second bend,
+of One command per invocation, wink's too: one invocation keeps the agent `@` still between the
+steps, and `&&` stops at the first failure with its status.
+
 ##### feat: a test repo converts an existing repo
 
 The likeliest real use of a template is converting an existing repo, and nothing rehearses it safely,
@@ -365,13 +388,14 @@ Closing out the cycle.
 [1]: #feat-init---test-repo-makes-a-test-repo
 [2]: #feat-init-drops---use-template
 [3]: #chore-vc-x1-adopts-the-agent-files-v031-0-draft
-[4]: #feat-a-test-repo-converts-an-existing-repo
-[5]: #feat-the-readers-take-any-mix-of-ochid-and-ocid
-[6]: #feat-ocid-is-real-only-when-the-agent-commit-came-first
-[7]: #fix-commit---closing-reads-the-nearest-opening-and-keeps-the-cycles-base
-[8]: #feat-land-takes---and-the-work-scope-by-default
-[9]: #feat-a-push-to-a-release-bookmark-seals-the-cycle
-[10]: #fix-testing-leaves-a-cycle-able-to-continue
-[11]: #feat-close-land-and-push-say-where-the-cycle-stands
-[12]: #docs-the-rules-and-readme-name-the-three-steps
-[13]: #feat-close-land-and-push-compose-with-testing-closing
+[4]: #feat-an-agent-commit-covers-its-work-commits
+[5]: #feat-a-test-repo-converts-an-existing-repo
+[6]: #feat-the-readers-take-any-mix-of-ochid-and-ocid
+[7]: #feat-ocid-is-real-only-when-the-agent-commit-came-first
+[8]: #fix-commit---closing-reads-the-nearest-opening-and-keeps-the-cycles-base
+[9]: #feat-land-takes---and-the-work-scope-by-default
+[10]: #feat-a-push-to-a-release-bookmark-seals-the-cycle
+[11]: #fix-testing-leaves-a-cycle-able-to-continue
+[12]: #feat-close-land-and-push-say-where-the-cycle-stands
+[13]: #docs-the-rules-and-readme-name-the-three-steps
+[14]: #feat-close-land-and-push-compose-with-testing-closing

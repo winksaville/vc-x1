@@ -2081,6 +2081,18 @@ partner, `a` commits the agent repo alone, unpaired, with no trailer, a fix-up t
 rung, and `p` commits a plain repo. An agent `@` that is a work commit's pending partner is
 committed with a warning, its change id kept, so the work commit's trailer still resolves.
 
+`-s a --covers <REVSET>` makes the agent commit that a cycle's rungs share: one `ochid:` per work
+commit the revset names, oldest first, the revset taken as written in the work repo with no trunk
+assumed. Every commit it names must name the agent `@` already, or nothing is made. Then `vc-x1
+trailers --update` gives each rung's `ocid:` the agent commit's SHA, and `vc-x1 push -s b` publishes
+both, the agent commit as it is, since a fold would change the SHA the links name:
+
+```
+vc-x1 commit -s a --covers 'main..@-' --title "<cycle title>" --body "<body>"
+vc-x1 trailers --update
+vc-x1 push -s b
+```
+
 The commit is pushed in the same invocation, as `vc-x1 push` would after it: a pair by `push -s
 b`, a plain repo by `push -s p`, and an agent commit by publishing the agent repo's `main`. The diff
 and the description are reviewed before the commit, so what is pushed is what was reviewed.
@@ -2090,7 +2102,7 @@ with `--push`, since its bookmark was left where it was.
 A work commit carries `ochid:`, `ocid:`, and one `pcid:` per parent, and an agent commit `ochid:` alone
 ([Cross-repo Linking](#cross-repo-linking-with-git-trailers)). With `b` the agent commit is made first,
 so `ocid:` has its real SHA, and with `w` it is a placeholder until a push or a Land makes it. `--no-url-trailer` leaves
-out the links, and with `-s a` or `-s p`, which stamp no trailer, it changes nothing.
+out the links, and with `-s a` or `-s p`, whose trailers are `ochid:` alone or none, it changes nothing.
 `-R` is optional and says where. `--body` is the text, or `@PATH` to read it from a file, since a
 body in commit-body form has markers and blank lines a shell quote mangles. The work repo's `@`
 must hold a change, and with `b` the agent repo's `@`, the session's journal, is committed as it

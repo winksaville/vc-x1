@@ -278,7 +278,8 @@ why.
 Adopted locally as the draft `v0.3.1-0`, vc-x1's agent-files since **chore: vc-x1 adopts the
 agent-files v0.3.1-0 draft** (2026-11-03). The entry stays the proposal, and what came after the
 draft is for `v0.3.1-1`: **New repos start from an adopter's committed rules**, **At rest leaves the
-tail for the next push**, and **Every unpublished rung's ocid is real before it is published**.
+tail for the next push**, **Every unpublished rung's ocid is real before it is published**, and **The
+user decides when each side commits and publishes**.
 
 #### Never rename
 
@@ -682,6 +683,24 @@ A squash after the push rewrites the commit the links point at, wink's finding (
 A rung left at `xxxx` links nothing, and rewriting commits no one else has, their trees unchanged,
 costs only their SHAs, wink's (2026-11-03).
 
+#### The user decides when each side commits and publishes
+
+- **A cycle stays local until its Land** becomes the default and not a rule: the user decides when
+  the agent side is committed and when either side is published, at any rung, for a backup, a move
+  between machines, or someone else to see it, and every push still takes its own approval.
+- Any mix of work and agent commits is valid, N:M, wink's (2026-11-02), 1:1 and N:1 the common ones:
+  `commit -s b` makes a 1:1 pair, `commit -s w` rungs then `commit -s a --covers <REVSET>` or the Land
+  make N:1, and several agent commits naming one work commit make 1:M. The rule is the links, not the
+  ratio: a work commit's `ochid:` names each agent change it pairs with, an agent commit's names each
+  work commit it covers, and an agent commit whose SHA an `ocid:` names is never folded into.
+- Its "no `squash-push -s a` or `commit -s b` before the Land" goes, and "approval per push reduces
+  to one go, the Land's" with it.
+
+##### Why: the user decides
+
+The user is always in control, wink's (2026-11-03): the per-rung pairs came first, the local cycle
+after, and neither is the only shape, so the rules say what each shape needs rather than choosing one.
+
 #### Not in it
 
 Each run on its own:
@@ -690,6 +709,50 @@ Each run on its own:
   out of TODO.md into zDOING.md**.
 - A rung inserted before pushed rungs: a `jj.md` recipe, once **lookup is tested on a reordered
   ladder** has its results.
+
+### Partner::Landed is any linked partner, and push says a Land made it
+
+(wink + agent, 2026-11-03) Found by the test repo `~/tmp/wt5`: `push -s b` after a plain `commit -s b`
+printed "publish main at the partner @- qltqpvvvmryo, which a Land made". `pair::partner` takes any
+agent commit naming several work commits, or partnering one that carries an `ocid:`, as `Landed`, and
+since the URL trailers every `commit -s b` pair carries one, as will `commit -s a --covers`. The
+behavior is right, the agent commit published as it is and the journal left in `@`, since a fold
+changes the SHA the `ocid:` names, and the name and the message are left from when only a Land made
+such a commit.
+
+- `Partner::Landed` becomes a name for what it is, `Linked` perhaps, and the message says "whose SHA
+  the work commit links, leaving the journal in @".
+- `Partner::Committed`'s doc says what reaches it now, a pair made with `--no-url-trailer` alone.
+
+### push names a local remote it cannot write
+
+(wink + agent, 2026-11-03) Found by `~/tmp/wt5` with the Claude Code sandbox on: the agent half's push
+to the bare repo `~/tmp/remotes/wt5.agent-session.git` was refused with git's "unpacker error", the
+sandbox not letting the session write there. Nothing was published, the agent half failing first, but
+the message does not say why. Push, on a refused push to a path remote, names the path and says the
+write was refused, permissions or a sandbox the likely cause.
+
+### The skeleton's first Todo makes validation run
+
+(wink + agent, 2026-11-03) Found by `~/tmp/wt5`: its first push came before **Configure this
+workspace** added `[validate]`, so validation could not run, and the agent said so and pushed on
+wink's go, a bend of [Before any push](AGENTS.md#before-any-push) that went unrecorded. The skeleton in
+`scripts/vc-dr-apply/work/TODO.md` gives a `[validate]` that runs, `full = ["true"]` and `fast =
+["true"]` until the project has checks, or `vc-dr-apply.sh` appends it, so a new workspace validates
+from its first commit.
+
+### status and validate-desc count the working copies as findings
+
+(wink + agent, 2026-11-03) Found by the test repo `~/tmp/wt5` after its first pair was pushed, both
+repos otherwise right:
+
+- `vc-x1-dev st -sb` ends "status: dirty: .agent-session @ has changes", where the rules say clean
+  is the work `@` empty, the agent's `@` being the session's data and no finding
+  ([Acquaint](AGENTS.md#acquaint), [At rest](AGENTS.md#at-rest)). The verdict says clean, the agent
+  `@` named as the session's data.
+- `vc-x1-dev validate-desc -sb` reports "1 missing (of 3 total)" on each side, the one being `@`,
+  which never has a description. The working copy is left out of the count, or listed as the working
+  copy and not as missing.
 
 ### Drop the retired flags, subcommands, and positionals
 

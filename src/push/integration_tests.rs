@@ -94,6 +94,7 @@ fn make_pair_with(
         skip: None,
         dry_run: false,
         rev: None,
+        covers: None,
         no_url_trailer,
     };
     commit(&mut test_ctx(), &params).expect("the pair is made");
@@ -671,6 +672,7 @@ fn push_por_publishes_the_commit_on_its_bookmark() {
         skip: None,
         dry_run: false,
         rev: None,
+        covers: None,
         no_url_trailer: false,
     };
     commit(&mut test_ctx(), &params).expect("plain commit");

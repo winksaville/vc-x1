@@ -108,8 +108,8 @@ use log::{debug, info, warn};
 
 use crate::context::Context;
 use crate::desc_helpers::{
-    Trailers, commit_url, ocid_placeholder_for, pcids_for, repo_url_for, with_trailer,
-    with_trailers, without_trailer_lines,
+    Trailers, commit_url, extract_bare_id, extract_ochid_from_desc, ocid_placeholder_for,
+    pcids_for, repo_url_for, with_ochids, with_trailer, with_trailers, without_trailer_lines,
 };
 use crate::jj;
 use crate::land::LandPlan;
@@ -146,8 +146,8 @@ pub struct CommitArgs {
 
     /// Which repos, required: `b|both` makes both commits now,
     /// `w|work` the work half with the agent half left to push,
-    /// `a|agent` the agent repo alone, unpaired, and `p|por` a plain
-    /// repo's commit
+    /// `a|agent` the agent repo alone, unpaired unless `--covers`, and
+    /// `p|por` a plain repo's commit
     #[arg(
         short = 's',
         long,
@@ -227,9 +227,17 @@ pub struct CommitArgs {
     pub local: bool,
 
     /// Stamp the `ochid:` alone, with no `ocid:` or `pcid:` links. `-s p`
-    /// and `-s a` stamp no trailer, so it changes nothing there
+    /// stamps no trailer and `-s a` at most `ochid:`, so it changes
+    /// nothing there
     #[arg(long)]
     pub no_url_trailer: bool,
+
+    /// With `-s a`, the work commits the agent commit covers, a revset
+    /// in the work repo taken as written: one `ochid:` each, oldest
+    /// first, and each must name the agent `@` already [default: none,
+    /// an unpaired commit]
+    #[arg(long, value_name = "REVSET")]
+    pub covers: Option<String>,
 
     /// Print the descriptions it would write, trailers included, and
     /// commit nothing
@@ -357,6 +365,9 @@ pub struct CommitParams {
     /// The commit the description is for, when it is not `@`: a draft
     /// described in place.
     pub rev: Option<String>,
+    /// With `-s a`, the work commits it covers, a revset in the work
+    /// repo, each linked by an `ochid:`.
+    pub covers: Option<String>,
 }
 
 /// What `-s` resolved to.
@@ -396,6 +407,11 @@ impl TryFrom<&CommitArgs> for CommitParams {
                 "commit -r: a bookend is made from `@`, so -r takes neither \
                         --opening nor --closing"
                     .into(),
+            );
+        }
+        if a.covers.is_some() && !matches!(&a.scope, RepoScope::Sides(s) if s.is_bot_only()) {
+            return Err(
+                "commit --covers: the work commits an agent commit covers, so it takes -s a".into(),
             );
         }
         if a.rev.is_some() && matches!(&a.scope, RepoScope::Sides(s) if s.is_bot_only()) {
@@ -481,6 +497,7 @@ impl TryFrom<&CommitArgs> for CommitParams {
             no_url_trailer: a.no_url_trailer,
             dry_run: a.dry_run.value,
             rev: a.rev.clone(),
+            covers: a.covers.clone(),
         })
     }
 }
@@ -1093,11 +1110,13 @@ fn push_after(
     )
 }
 
-/// Commit the agent repo alone, unpaired: its `@` with the title and
-/// body and no trailer, then its `main` set to it and pushed when the
-/// commit pushes. An `@` that is a work commit's pending partner keeps
-/// its change id, so the work commit's trailer still resolves, and a
-/// warning says the back-trailer is missing.
+/// Commit the agent repo alone: its `@` with the title and body,
+/// then its `main` set to it and pushed when the commit pushes.
+/// Unpaired it carries no trailer, and an `@` that is a work commit's
+/// pending partner keeps its change id, so the work commit's trailer
+/// still resolves, and a warning says the back-trailer is missing.
+/// With `--covers` it carries one `ochid:` per work commit covered,
+/// the pair a cycle's rungs make with one agent commit.
 fn commit_agent(
     ctx: &mut Context,
     pair: &Pair,
@@ -1107,7 +1126,16 @@ fn commit_agent(
     preflight(agent, "agent", true)?;
     let (text, _) = description(params, None)?;
     let chid = jj::chid_of(agent, "@")?;
-    if let Some(work) = crate::pair::work_commit(pair)?
+    let covered = match &params.covers {
+        Some(revset) => Some(covered_chids(pair, revset, &chid)?),
+        None => None,
+    };
+    let text = match &covered {
+        Some(chids) => with_ochids(&text, chids),
+        None => text,
+    };
+    if covered.is_none()
+        && let Some(work) = crate::pair::work_commit(pair)?
         && let crate::pair::Partner::Pending(at) = crate::pair::partner(pair, &work)?
     {
         warn!(
@@ -1128,7 +1156,14 @@ fn commit_agent(
         return Ok(());
     }
     let snapshot = crate::pair::Snapshot::take(agent)?;
-    info!("commit agent: {} -> @- {chid}, unpaired", agent.display());
+    match &covered {
+        Some(chids) => info!(
+            "commit agent: {} -> @- {chid}, covering {} work commit(s)",
+            agent.display(),
+            chids.len()
+        ),
+        None => info!("commit agent: {} -> @- {chid}, unpaired", agent.display()),
+    }
     if let Err(e) = ctx.session(agent)?.commit(&text) {
         snapshot.restore("commit", e.as_ref());
         return Err(e);
@@ -1141,6 +1176,43 @@ fn commit_agent(
     let session = ctx.session(agent)?;
     session.bookmark_set("main", "@-")?;
     session.git_push_bookmark("main")
+}
+
+/// The change ids of the work commits `revset` names, oldest first,
+/// each refused unless its `ochid:` names `agent_at`, the change the
+/// agent commit is made from, so every link is one both sides agree on.
+fn covered_chids(
+    pair: &Pair,
+    revset: &str,
+    agent_at: &str,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let work = pair.work.as_path();
+    let cids = jj::cids_of(work, revset)?;
+    if cids.is_empty() {
+        return Err(format!("commit --covers: '{revset}' names no work commit").into());
+    }
+    let mut chids = Vec::new();
+    let mut strays = Vec::new();
+    for cid in &cids {
+        let chid = jj::chid_of(work, cid)?;
+        let names = extract_ochid_from_desc(&jj::desc_of(work, cid)?)
+            .is_some_and(|ochid| extract_bare_id(&ochid) == agent_at);
+        if names {
+            chids.push(chid);
+        } else {
+            strays.push(chid);
+        }
+    }
+    if !strays.is_empty() {
+        return Err(format!(
+            "commit --covers: {} in '{revset}' do not name the agent @ {agent_at}, so the agent \
+             commit cannot cover them: {}",
+            strays.len(),
+            strays.join(", ")
+        )
+        .into());
+    }
+    Ok(chids)
 }
 
 /// What `--closing` does, decided before anything is made.
@@ -1847,6 +1919,52 @@ mod tests {
             "the agent main is pushed"
         );
         assert_eq!(chid(&fx.work, "@"), work_at, "the work repo is untouched");
+    }
+
+    /// `-s a --covers` links every work commit its revset names, one
+    /// `ochid:` each, oldest first, under the title given. A commit in
+    /// the revset that does not name the agent `@` refuses it before
+    /// anything is made, and `--covers` takes `-s a` alone.
+    #[test]
+    fn an_agent_commit_covers_the_work_commits_named() {
+        let fx = Fixture::new("commit-covers");
+        let mut a = args("w", &fx.work);
+        a.covers = Some("@-".to_string());
+        let err = CommitParams::try_from(&a).unwrap_err();
+        assert!(err.contains("takes -s a"), "{err}");
+
+        let agent_at = chid(&fx.bot, "@");
+        for rung in ["one", "two"] {
+            fs::write(fx.work.join(format!("{rung}.txt")), "work\n").expect("write");
+            let mut a = args("w", &fx.work);
+            a.title = Some(format!("feat: rung {rung}"));
+            let params = CommitParams::try_from(&a).expect("params");
+            commit(&mut test_ctx(), &params).expect("the work half is made");
+        }
+        let one = chid(&fx.work, "@--");
+        let two = chid(&fx.work, "@-");
+        fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write");
+
+        let mut a = args("a", &fx.work);
+        a.title = Some("feat: the cycle".to_string());
+        a.covers = Some("@---::@-".to_string());
+        let params = CommitParams::try_from(&a).expect("params");
+        let err = commit(&mut test_ctx(), &params).unwrap_err().to_string();
+        assert!(err.contains("do not name the agent @"), "{err}");
+        assert_eq!(chid(&fx.bot, "@"), agent_at, "nothing is committed");
+
+        a.covers = Some("@--::@-".to_string());
+        let params = CommitParams::try_from(&a).expect("params");
+        commit(&mut test_ctx(), &params).expect("the agent commit is made");
+        assert_eq!(chid(&fx.bot, "@-"), agent_at);
+        let desc = description(&fx.bot, "@-");
+        assert!(
+            desc.starts_with("feat: the cycle\n\n")
+                && desc
+                    .trim_end()
+                    .ends_with(&format!("ochid: {one}\nochid: {two}")),
+            "{desc}"
+        );
     }
 
     /// A commit stays local by default, `--local` and `--no-push` saying
