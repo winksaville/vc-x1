@@ -397,6 +397,27 @@ pub fn resolve_full_change_id(
     }
 }
 
+/// The shortest id an older trailer names its partner by, `vc-x1` having
+/// stamped 8 characters before 12, and once the full 32.
+pub const MIN_ID_LEN: usize = 8;
+
+/// Whether `id` reads as a change id or a prefix of one: jj's `k` to `z`
+/// alphabet, and at least [`MIN_ID_LEN`] long, so a SHA, a marker such as
+/// `lost`, or a stray word is not one.
+pub fn is_change_id_form(id: &str) -> bool {
+    id.len() >= MIN_ID_LEN && id.chars().all(|c| c.is_ascii_lowercase() && c >= 'k')
+}
+
+/// Whether `id` reads as a git SHA or a prefix of one: hex, at least
+/// [`MIN_ID_LEN`] long. An older trailer named its partner so, and jj's
+/// alphabets keep it from reading as a change id.
+pub fn is_commit_id_form(id: &str) -> bool {
+    id.len() >= MIN_ID_LEN
+        && id
+            .chars()
+            .all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
+}
+
 /// Extract the bare change ID from an ochid value: what follows the
 /// path form's last `/`, or the URL form's `#`.
 pub fn extract_bare_id(ochid_value: &str) -> &str {
@@ -800,6 +821,41 @@ mod tests {
         let desc = "Title\n";
         let result = append_ochid_trailer(desc, "/", "xyzxyzxyzxyz", DEFAULT_ID_LEN);
         assert_eq!(result, "Title\n\nochid: /xyzxyzxyzxyz\n");
+    }
+
+    /// A change id reads as one at 8 characters and up, in jj's `k` to
+    /// `z` alphabet, and a SHA, a marker, or a short prefix does not.
+    #[test]
+    fn a_change_id_form_is_k_to_z_and_eight_or_more() {
+        for id in [
+            "lontkwps",
+            "lontkwpsuzxz",
+            "pxqmtusnorrpkkkklllmmmnnnooopppq",
+        ] {
+            assert!(is_change_id_form(id), "{id}");
+        }
+        for id in [
+            "lost",
+            "none",
+            "lontkwp",
+            "34b6c258817b",
+            "lontkwpA",
+            "abcdefgh",
+        ] {
+            assert!(!is_change_id_form(id), "{id}");
+        }
+    }
+
+    /// A SHA reads as one at 8 hex characters and up, and a change id, a
+    /// marker, or a short prefix does not.
+    #[test]
+    fn a_commit_id_form_is_hex_and_eight_or_more() {
+        for id in ["3743deed", "3743deed09c0", "abcdef012345"] {
+            assert!(is_commit_id_form(id), "{id}");
+        }
+        for id in ["none", "3743dee", "lontkwpsuzxz", "3743DEED", "3743deeg"] {
+            assert!(!is_commit_id_form(id), "{id}");
+        }
     }
 
     #[test]

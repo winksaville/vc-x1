@@ -2,13 +2,16 @@
 //! to what `vc-x1` stamps today, only their descriptions changing.
 //!
 //! - `ochid:` becomes the partner's bare change id, so a label or URL
-//!   form goes.
+//!   form goes, and an older 8 or 32 character id, or a SHA, naming one
+//!   agent commit becomes its 12 character change id.
 //! - `ocid:` links the agent commit named: its SHA, or the placeholder
 //!   while it is still the uncommitted agent `@`.
 //! - `pcid:` links each parent, by its SHA now, so the range goes oldest
-//!   first, a commit's rewrite having changed the SHA its child links.
-//! - A trailer naming nothing that resolves, a `lost` or an old short
-//!   id, is left as it is, with no guessing and no `ocid:`.
+//!   first, a commit's rewrite having changed the SHA its child links. A
+//!   commit with no `ochid:` gets its `pcid:` lines alone.
+//! - A trailer naming nothing that resolves, a `lost` or a partner gone,
+//!   is left as it is, with no guessing and no `ocid:`, and the summary
+//!   names it.
 //!
 //! A Land runs [`update`] over the cycle too, with `add` off, so it only
 //! refreshes the links a commit has, `--no-url-trailer`'s having none.
@@ -22,8 +25,8 @@ use log::{debug, info, warn};
 
 use crate::context::Context;
 use crate::desc_helpers::{
-    DEFAULT_ID_LEN, Trailers, commit_url, extract_bare_id, ocid_placeholder_for, pcids_for,
-    repo_url_for, with_trailers,
+    Trailers, commit_url, extract_bare_id, is_change_id_form, is_commit_id_form,
+    ocid_placeholder_for, pcids_for, repo_url_for, with_trailers,
 };
 use crate::jj;
 use crate::options_flags::dry_run::DryRunFlag;
@@ -45,7 +48,7 @@ pub struct TrailersArgs {
     pub range: Option<String>,
 
     /// Rewrite a commit already on the trunk's remote, which is refused
-    /// without it
+    /// without it, a dry run excepted
     #[arg(long)]
     pub yes: bool,
 
@@ -88,7 +91,8 @@ impl SubcommandRunner for TrailersArgs {
 }
 
 /// Entry point: resolve the range, refuse a rewrite of the trunk's
-/// remote unless `--yes`, and update.
+/// remote unless `--yes` or a dry run, update, and sort every commit in
+/// the summary.
 pub fn trailers(
     ctx: &mut Context,
     params: &TrailersParams,
@@ -106,11 +110,14 @@ pub fn trailers(
         && jj::rev_exists(work, &remote_trunk)?
         && jj::matches(work, &format!("({revset}) & ::{remote_trunk}"))?
     {
-        return Err(format!(
-            "trailers: '{revset}' reaches commits on {remote_trunk}, so this would rewrite the \
-             trunk's published history: --yes does it anyway"
-        )
-        .into());
+        let reaches = format!(
+            "'{revset}' reaches commits on {remote_trunk}, so this would rewrite the trunk's \
+             published history"
+        );
+        if !params.dry_run {
+            return Err(format!("trailers: {reaches}: --yes does it anyway").into());
+        }
+        info!("trailers: [dry-run] {reaches}, which the run takes --yes for");
     }
     if repo_url_for(&params.pair.agent)?.is_none() {
         info!("trailers: the agent repo has no `origin` to link, so no `ocid:`");
@@ -118,7 +125,7 @@ pub fn trailers(
     if repo_url_for(work)?.is_none() {
         info!("trailers: the work repo has no `origin` to link, so no `pcid:`");
     }
-    let changed = update(
+    let outcome = update(
         ctx,
         &params.pair,
         &Update {
@@ -134,8 +141,37 @@ pub fn trailers(
     } else {
         "changed"
     };
-    info!("trailers: {verb} {changed} commit(s) in '{revset}'");
+    info!(
+        "trailers: {verb} {} of {} commit(s) in '{revset}', {} already current",
+        outcome.changed,
+        outcome.changed + outcome.current,
+        outcome.current
+    );
+    for (chid, value) in &outcome.unresolved {
+        let why = match extract_bare_id(value) {
+            "lost" | "none" => "a marker naming no partner",
+            _ => "which names no one agent commit",
+        };
+        info!("trailers: {chid} keeps `ochid: {value}`, {why}, so its `ocid:` is left as it is");
+    }
+    for chid in &outcome.no_ochid {
+        info!("trailers: {chid} has no `ochid:`, so it links its parents alone");
+    }
     Ok(())
+}
+
+/// What [`update`] did with each commit, for the summary.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct Outcome {
+    /// Commits whose trailers changed, or would in a dry run.
+    pub changed: usize,
+    /// Commits already as they would be stamped.
+    pub current: usize,
+    /// Each `ochid:` kept as it is, naming no one agent commit, by the
+    /// change id of the commit carrying it.
+    pub unresolved: Vec<(String, String)>,
+    /// Commits with no `ochid:`, their `pcid:` lines alone stamped.
+    pub no_ochid: Vec<String>,
 }
 
 /// What [`update`] does, and to which commits.
@@ -154,13 +190,13 @@ pub(crate) struct Update<'a> {
 }
 
 /// Rewrite the trailers of each commit in the range, oldest first,
-/// its tree checked unchanged, and return how many changed. Rerunning
+/// its tree checked unchanged, and return what became of each. Rerunning
 /// finds nothing to do. A failure restores the work repo.
 pub(crate) fn update(
     ctx: &mut Context,
     pair: &Pair,
     u: &Update,
-) -> Result<usize, Box<dyn std::error::Error>> {
+) -> Result<Outcome, Box<dyn std::error::Error>> {
     let (work, agent) = (pair.work.as_path(), pair.agent.as_path());
     let label = u.label;
     // By change id, since a rewrite changes the SHAs of what is above it.
@@ -172,40 +208,46 @@ pub(crate) fn update(
     let agent_at = jj::chid_of(agent, "@")?;
     let placeholder = ocid_placeholder_for(agent)?;
     let snapshot = crate::pair::Snapshot::take(work)?;
-    let mut changed = 0;
+    let mut outcome = Outcome::default();
     for chid in &chids {
         let desc = jj::desc_of(work, chid)?;
         let old = Trailers::of(&desc);
         if old.ochids.is_empty() {
-            continue;
+            if !u.add {
+                outcome.current += 1;
+                continue;
+            }
+            outcome.no_ochid.push(chid.clone());
         }
-        let resolves = |id: &str| -> Result<bool, Box<dyn std::error::Error>> {
-            Ok(id.len() == DEFAULT_ID_LEN && jj::rev_exists(agent, id)?)
-        };
+        // Each `ochid:` as the 12 character change id of the one agent
+        // commit it names, and `partner` the last one's, as `ocid:` links.
         let mut ochids = Vec::new();
+        let mut partner = None;
         for value in &old.ochids {
             let id = extract_bare_id(value);
-            ochids.push(match resolves(id)? {
-                true => id.to_string(),
-                false => value.clone(),
-            });
-        }
-        let partner = extract_bare_id(&ochids[ochids.len() - 1]).to_string();
-        let ocid = if !u.add && old.ocid.is_none() {
-            None
-        } else if !resolves(&partner)? {
-            old.ocid.clone()
-        } else if partner == agent_at && u.agent_at_committed {
-            agent_url
-                .as_deref()
-                .map(|url| commit_url(url, "<the agent commit's SHA>"))
-        } else if partner == agent_at {
-            placeholder.clone()
-        } else {
-            match &agent_url {
-                Some(url) => Some(commit_url(url, &jj::cid_of(agent, &partner)?)),
-                None => old.ocid.clone(),
+            partner = match is_change_id_form(id) || is_commit_id_form(id) {
+                true => jj::one_chid(agent, id)?,
+                false => None,
+            };
+            match &partner {
+                Some(full) => ochids.push(full.clone()),
+                None => {
+                    ochids.push(value.clone());
+                    outcome.unresolved.push((chid.clone(), value.clone()));
+                }
             }
+        }
+        let ocid = match &partner {
+            _ if !u.add && old.ocid.is_none() => None,
+            None => old.ocid.clone(),
+            Some(p) if *p == agent_at && u.agent_at_committed => agent_url
+                .as_deref()
+                .map(|url| commit_url(url, "<the agent commit's SHA>")),
+            Some(p) if *p == agent_at => placeholder.clone(),
+            Some(p) => match &agent_url {
+                Some(url) => Some(commit_url(url, &jj::cid_of(agent, p)?)),
+                None => old.ocid.clone(),
+            },
         };
         let pcids = if u.add || !old.pcids.is_empty() {
             pcids_for(work, &jj::parent_cids_of(work, chid)?)?
@@ -221,9 +263,10 @@ pub(crate) fn update(
             },
         );
         if new == desc {
+            outcome.current += 1;
             continue;
         }
-        changed += 1;
+        outcome.changed += 1;
         if u.dry {
             info!("{label}: [dry-run] {chid}:\n{new}");
             continue;
@@ -246,7 +289,7 @@ pub(crate) fn update(
             return Err(e);
         }
     }
-    Ok(changed)
+    Ok(outcome)
 }
 
 #[cfg(test)]
@@ -430,7 +473,113 @@ mod tests {
             },
         )
         .expect("updated");
-        assert_eq!(n, 0);
+        assert_eq!(n.changed, 0);
         assert_eq!(description(&fx.work, &first), before);
+    }
+
+    /// An older 8 or 32 character id, or a SHA, naming one agent commit
+    /// becomes its 12 character change id, linked by `ocid:`, and a `lost`
+    /// stays as it is, the outcome naming it.
+    #[test]
+    fn an_older_id_becomes_the_twelve() {
+        let fx = Fixture::new("trailers-older-id");
+        hosted(&fx);
+        let made = chid(&fx.bot, "@-");
+        let made_sha = cid(&fx.bot, "@-");
+        let full = jj_ok(
+            &fx.bot,
+            &["log", "-r", "@-", "--no-graph", "-T", "change_id"],
+        );
+        let full = full.trim();
+        assert_eq!(full.len(), 32, "{full}");
+        let short = rung(&fx, "short", &format!("/.claude/{}", &made[..8]));
+        let long = rung(&fx, "long", full);
+        let sha = rung(&fx, "sha", &format!("/.claude/{}", &made_sha[..12]));
+        let lost = rung(&fx, "lost", "/.claude/lost");
+
+        let outcome = update(
+            &mut test_ctx(),
+            &Pair {
+                work: fx.work.clone(),
+                agent: fx.bot.clone(),
+            },
+            &Update {
+                label: "t",
+                revset: "main..@-",
+                add: true,
+                agent_at_committed: false,
+                dry: false,
+            },
+        )
+        .expect("updated");
+
+        for c in [&short, &long, &sha] {
+            let desc = description(&fx.work, c);
+            assert!(
+                desc.contains(&format!(
+                    "\n\nochid: {made}\nocid: {AGENT_URL}/commit/{made_sha}\npcid: "
+                )),
+                "{desc}"
+            );
+        }
+        assert!(description(&fx.work, &lost).contains("ochid: /.claude/lost\n"));
+        assert_eq!(
+            outcome.unresolved,
+            vec![(lost.clone(), "/.claude/lost".to_string())]
+        );
+        assert_eq!((outcome.changed, outcome.current), (4, 0));
+    }
+
+    /// A commit with no `ochid:` gets its `pcid:` lines alone, named in the
+    /// outcome, and with `add` off, as a Land runs it, nothing.
+    #[test]
+    fn a_partnerless_commit_links_its_parents() {
+        let fx = Fixture::new("trailers-partnerless");
+        hosted(&fx);
+        fs::write(fx.work.join("bare.txt"), "x\n").expect("write");
+        jj_ok(&fx.work, &["commit", "-m", "feat: bare\n\nBody.\n"]);
+        let bare = chid(&fx.work, "@-");
+        let parent = cid(&fx.work, "main");
+        let pair = Pair {
+            work: fx.work.clone(),
+            agent: fx.bot.clone(),
+        };
+        let run = |add: bool| {
+            update(
+                &mut test_ctx(),
+                &pair,
+                &Update {
+                    label: "t",
+                    revset: "main..@-",
+                    add,
+                    agent_at_committed: false,
+                    dry: false,
+                },
+            )
+            .expect("updated")
+        };
+
+        let before = description(&fx.work, &bare);
+        assert_eq!(run(false).changed, 0);
+        assert_eq!(description(&fx.work, &bare), before);
+
+        let outcome = run(true);
+        assert_eq!(outcome.no_ochid, vec![bare.clone()]);
+        assert_eq!(
+            description(&fx.work, &bare).trim_end(),
+            format!("feat: bare\n\nBody.\n\npcid: {WORK_URL}/commit/{parent}")
+        );
+        assert_eq!(run(true).changed, 0, "a rerun rewrites nothing");
+    }
+
+    /// A dry run reaching the trunk's remote needs no `--yes`, and changes
+    /// nothing.
+    #[test]
+    fn a_dry_run_of_the_trunks_remote_needs_no_yes() {
+        let fx = Fixture::new("trailers-trunk-dry");
+        hosted(&fx);
+        let main = cid(&fx.work, "main");
+        trailers(&mut test_ctx(), &params(&fx, "::main", true)).expect("a dry run");
+        assert_eq!(cid(&fx.work, "main"), main);
     }
 }

@@ -23,8 +23,9 @@ block](agent-data/notes.md#the-in-progress-block).
 
 #### Problem
 
-(wink + agent, 2026-11-06) vc-x1 is to be succeeded by vc-x2, a fork made without history, and
-before the fork vc-x1 must be complete as the archive vc-x2 refers back to. It is not:
+(wink + agent, 2026-11-06) vc-x1 is to be succeeded by vc-x2, seeded from vc-x1's tree without
+history, and before it is seeded vc-x1 must be complete as the archive vc-x2 refers back to. It is
+not:
 
 - 659 of its 686 work commits carry `ochid:` alone, so their agent partner is not linked by SHA
   (`ocid:`) nor their parents (`pcid:`), and 2 carry no trailer. `trailers --update` stamps all
@@ -36,20 +37,26 @@ before the fork vc-x1 must be complete as the archive vc-x2 refers back to. It i
 
 Provisional:
 
-- `vc-x1 trailers --update --range ..@-` rewrites the whole history automatically, rehearsed in a
-  test repo made by `init --test-repo`, the code changed for the cases vc-x1's own history holds.
-- A test vc-x2 is made from the rehearsal without history, its first commit naming vc-x1's final
-  SHA by hand, and `lookup` is tried in it. What vc-x2 needs to reach vc-x1 is filed, not built.
-- After the Land, outside the cycle: the old `main` tagged, the backfill run on the real repos, the
-  rewrite pushed with wink's approval, and the final `main` tagged. vc-x1 is then complete and vc-x2
-  can be made.
+- `vc-x1 trailers --update --range ..@-` handles a whole history, rehearsed twice in a test repo
+  made by `init --test-repo`, the code changed for the cases vc-x1's own history holds and kept for
+  vc-x2 to inherit.
+- vc-x1's history is left as it is: `validate-desc` over it reports the known list,
+  [vc-x1-history.md](notes/vc-x1-history.md), and nothing else. A rewrite waits on the trailer
+  format vc-x2 decides, and may never be made.
+- A test vc-x2 is seeded from the rehearsal without history, its first commit naming vc-x1's final
+  SHA by hand, and `lookup` is tried in it. What vc-x2 needs is filed as `## Todo` entries, which
+  vc-x2 inherits with `TODO.md`, not built.
+- After the Land, outside the cycle: vc-x2 is seeded, a `git archive` of vc-x1's landed `main` made
+  the new root of `winksaville/vc-x2`, with a fresh `vc-x2.agent-session`, both adopted. A
+  continuation note in vc-x2's `TODO.md`, committed after the seed, hands the work to vc-x2's own
+  session, each push with wink's approval. Whether vc-x1's final `main` is tagged is wink's call.
 
 #### Acceptance check
 
 Provisional:
 
-- In a fresh clone of the rehearsal's remotes, `vc-x1 validate-desc` passes over the whole history,
-  and every work commit's `ochid:` and every agent commit's resolves.
+- In a fresh clone of the real remotes, `vc-x1 validate-desc` over each side reports an `err` or a
+  `miss` for the known list's commits and for no others.
 - The dry run over `..@-` sorts every commit into rewritten, already current, or left with its
   reason, and none is left unexplained.
 - In the test vc-x2, `lookup` reaches vc-x1's history for a sample of lines, by the hand-written
@@ -60,16 +67,21 @@ Provisional:
 - Retitled, wink's (2026-11-06): the cycle opened as **make vc-x1 content agnostic**, from the Todo
   **Build config moves to an xtask**, and the deliberation moved that subject to vc-x2, leaving
   this cycle the completing of vc-x1. The Todo returned to `## Todo` unchanged.
-- vc-x2 is a fork, wink's (2026-11-06): content agnostic, and its design is vc-x2's, not this
-  cycle's. What was decided toward it, recorded so it is not lost:
+- vc-x2 is seeded from vc-x1, wink's (2026-11-06): content agnostic, and its design is vc-x2's, not
+  this cycle's. What was decided toward it, recorded so it is not lost:
   - vc-x1 knows the two repos and their links and nothing of a project's content, so `validate`,
     `build`, `install`, `run`, and the Land's install move to a `cargo xtask`, which runs vc-x1.
-  - Fork first, then xtask, wink's: the repo becomes a cargo workspace for the xtask, and every
+  - Seeded first, then xtask, wink's: the repo becomes a cargo workspace for the xtask, and every
     line of that work is vc-x2's, so vc-x1 stays the stable tool that manages it.
   - Named vc-x2 from its start, the agent's, so `vc-x2` and `vc-x2-dev` install beside `vc-x1` and
     never replace it.
   - Made without history, wink's, its first commit naming vc-x1's final SHA, the agent's, so
     provenance crosses the gap, and its agent-repo fresh.
+  - Seeded, not forked, the agent's word with wink's agreement (2026-11-07): a GitHub fork shares
+    its parent's whole history, and vc-x2 shares none, its first commit being a new root holding
+    vc-x1's tree, made by `git archive` of vc-x1's `main`. Not a shallow clone, whose root keeps
+    vc-x1's SHA with a missing parent, and which we think GitHub refuses as a push into an empty
+    repo.
 - `TODO.md` is left as it is, wink's (2026-11-06): its clean-up is vc-x2's, which inherits the file,
   so this cycle does not go down that hole.
 - The whole history, wink's (2026-11-06): `trailers --update` over `..@-`, made fully automatic.
@@ -78,13 +90,76 @@ Provisional:
     needs real design is filed for vc-x2.
   - The counts (2026-11-06): 659 `ochid:` alone, 25 current, 2 with no trailer, 46 merges.
 - Rehearsed, then redone, the agent's: a test repo's remotes are local, so its trailers link by
-  `file:///` URL and its history is never pushed. The real run repeats the rehearsal on the real
-  repos after the Land, so it covers every commit, this cycle's included.
-  - Every work SHA on `main` changes, so the old `main` is tagged and pushed first, keeping the
-    landmarks, the messages' sha-links, and the transcripts' SHAs reachable. The rewrite of
-    `main@origin` takes `--yes` and wink's approval.
+  `file:///` URL and its history is never pushed. The real run was to repeat the rehearsal on the
+  real repos after the Land, and is not made, the history being left as it is (below).
+  - Every work SHA on `main` changes, and only the commit records: every tree is the same, the
+    second rehearsal's 686 rewritten commits naming exactly the original 686 trees, so the files and
+    the history's shape are unchanged. The rewrite of `main@origin` takes `--yes` and wink's
+    approval.
+  - No trailer names an old work SHA after the rewrite: an agent commit carries `ochid:` alone, a
+    change id the rewrite keeps, and every rewritten `pcid:` names its new parent, all 686 in the
+    second rehearsal. The old records are kept only for references from outside the trailers, the
+    landmarks and SHAs in `notes/` and `TODO.md`, the messages' sha-links, the transcripts, and
+    links posted elsewhere.
   - We think jj writes each rewritten commit's change id into its git header, so the change ids an
     agent commit's `ochid:` names survive a fresh clone. The rehearsal's fresh clone shows it.
+  - The first rehearsal (2026-11-06): 683 commits rewritten in 35m41s, a rerun finding nothing. In
+    its fresh clone `lookup` gave the same answer as the real repo for a sample of lines, since it
+    follows `ochid:` change ids and never a URL, so `file:///` and `https://` links read alike.
+  - Its errors, all older than the rewrite, wink's calls (2026-11-06): an older id form that
+    resolves is made the 12 by `trailers` and is a note in `validate-desc`, the agent-repo's
+    included, and what cannot resolve is a known list, its 3 unpushed drafts listed rather than
+    published. A SHA naming one agent commit is made a change id the same way, wink's call.
+  - The second rehearsal (2026-11-06), with the opening on its `main` and this rung's build: the
+    dry run sorted all 686 commits, the run changed 686 in 36m42s, and a rerun found 686 current.
+    In its fresh clone `validate-desc` reports an `err` or a `miss` for the known list's commits
+    and no others, 1 and 2 on the work side, 15 and 1 on the agent side.
+  - A tag on the old `main` makes every rewritten change divergent in a clone that fetches it,
+    the agent's test (2026-11-06): the tagged original and the rewrite share a change id, so an
+    `ochid:` naming it resolves to two commits. The old `main` is kept some other way, wink's to
+    decide before the real run.
+  - Kept by a GitHub fork, wink's (2026-11-07), tested on a throwaway pair: GitHub refuses a fork
+    into the account that owns its parent, so the fork is made in a second account, `inksaville`,
+    and renamed `vc-x1-original`. After a description rewrite and force-push of the parent:
+    - Each old SHA opens at the parent's `/commit/<sha>` URL, with a banner saying it belongs to no
+      branch, and at the fork's, and `git fetch origin <old-sha>` from the parent returns it.
+    - A fresh `git clone` or `jj git clone` of the parent holds the new history alone, with no
+      divergent change.
+    - We think GitHub collects garbage per fork network, so the fork's `main` keeps the old records
+      as long as the fork and the `inksaville` account exist, and a test minutes old cannot show
+      it. Branch protection on the fork's `main` and a backed-up mirror are wink's options.
+- vc-x1's history is left as it is, wink's (2026-11-09): its trailers are redesigned in vc-x2
+  (below), and a rewrite of vc-x1 waits on that format, maybe someday, maybe never. The backfill,
+  the fork, and the rewrite's push are not made.
+  - Unrewritten, with this cycle's build, `validate-desc` reports 674 ok, 1 err, and 2 miss on the
+    work side, the known list, a missing `ocid:` or `pcid:` being no error, and 637 ok, 13 err,
+    and 1 miss on the agent side. A fresh clone adds the 3 drafts, which resolve in wink's
+    work-repo alone, giving the list's 15.
+  - One error is local, the agent's finding (2026-11-09): `qnrtkuzytysk`'s partner `vznzonllovrk`
+    is divergent in wink's work-repo, a leftover `2fbd6c40c172` on no bookmark beside `main`'s
+    `ecdaeafa6be8`, and single in a fresh clone. Abandoning the leftover is wink's call.
+- The trailers, for vc-x2, wink's (2026-11-07):
+  - `ocid:` pins the agent commit's SHA, so an agent commit is never amended or squashed into, and
+    commit order is forced, the agent first or the `xxxx` placeholder. `pcid:` repeats git's
+    parents, and makes a describe rewrite every commit above it.
+  - Proposed: an `ochid:` and a link to the partner's repo, `ocid:` and `pcid:` dropped. An
+    agent-repo could then be cleaned by a squash-push, the change ids the `ochid:`s name surviving
+    it. Lost: GitHub's one click to the agent commit, plain git resolving the link, and the
+    transcript pinned by a hash.
+  - An agent working across several work-repos, each commit naming its work-repo, so the agent
+    cannot commit first and the agent-repo generalizes toward a work-repo.
+  - A malformed trailer is cheap to fix only at `@`, or at `@-` before it is pushed, so a check of
+    the commits being pushed, `validate-desc` over the range, catches it while it is cheap.
+- vc-x2 takes over by a continuation note, wink's (2026-11-09): after the plain copy, a note in
+  vc-x2's `TODO.md`, committed after the seed so the seed stays a copy of vc-x1's tree, and vc-x2's
+  own session does the work from there.
+  - The note points at vc-x2's `## Closed`, which holds this block, and at the filed Todo entries,
+    and says the installed `vc-x1` runs vc-x2's cycles until `vc-x2-dev` exists.
+  - The order, wink's, the bridge the agent's: renamed vc-x2 first, so nothing installs over
+    `vc-x1`; a cargo workspace with an xtask taking `validate`, `build`, `run`, and `install`;
+    `.vc-config.md`'s `[validate]` and `[install]` lists pointed at `cargo xtask`, which keeps the
+    managing tool working through the move; then those subcommands deleted from vc-x2.
+  - `custom.md` is not tracked, so the copy leaves it out, and vc-x2 gets its own if wanted.
 - `lookup`'s fixes lean vc-x2, wink's (2026-11-06), the agent's rule beside it: a fix that makes
   vc-x1 readable on its own history is vc-x1's, completing it, and one that crosses from vc-x2 into
   vc-x1 is vc-x2's, the only side with the gap.
@@ -107,11 +182,36 @@ opening was local, retitled it and returned the Todo it was opened from.
 before the agent-repo, older trailer forms, and merges. Run over `..@-` in a test repo of vc-x1,
 dry run first, and changed until every commit is rewritten, current, or left with its reason.
 
+* An `ochid:` naming its partner in an older form was left as it is, with no `ocid:`.
+  - One naming exactly one agent commit by an 8 or 32 character change id, or by a SHA, becomes
+    its 12 character change id and gets its `ocid:`. The forms are told apart by jj's alphabets,
+    `k` to `z` for a change id and hex for a SHA, and are 8 characters at least, so a marker such
+    as `lost` is never read as one.
+* A commit with no `ochid:` was skipped.
+  - It gets its `pcid:` lines alone, so every commit links its parents. A Land, which stamps
+    only the links a commit has, still skips it.
+* A dry run over the trunk's remote was refused without `--yes`, and it ended in a count.
+  - It runs, saying the real run takes `--yes`, and the summary sorts every commit: how many
+    change, how many are current, each `ochid:` kept and why, and each commit with none.
+* `validate-desc` made an older id an error though it names its partner.
+  - An 8 or 32 character change id naming exactly one commit is a note, since the agent-repo is
+    never rewritten and keeps the forms its commits were made with.
+* What no change resolves is the known list, [vc-x1-history.md](notes/vc-x1-history.md): 16
+  commits whose partner is gone, a draft never pushed, or named in a SHA's form that names
+  nothing, and 3 with no trailer. The acceptance check reads "no error outside the list".
+* The rewrite is quadratic, each describe rebasing the commits above it, and a linear one is
+  filed in the backlog, a whole-history backfill being rare.
+* Keeping the old `main` through a rewrite was tried, a tag making every rewritten change divergent
+  and a GitHub fork in a second account working. Neither is used, vc-x1's history being left as it
+  is, and both are recorded in the deliberation.
+
 ##### chore: a test vc-x2 reaches vc-x1's history
 
-Whether vc-x2, made without history, can reach the why and how of its first tree in vc-x1 is
-untested. A test vc-x2 is made from the rehearsal, its first commit naming vc-x1's final SHA, and
-`lookup` is tried in it, what vc-x2 needs being filed.
+Whether vc-x2, seeded without history, can reach the why and how of its first tree in vc-x1 is
+untested. A test vc-x2 is seeded from the rehearsal, its first commit naming vc-x1's final SHA, and
+`lookup` is tried in it. What vc-x2 needs is filed as `## Todo` entries: a `seeded-from:` trailer
+and `lookup` following it, adopt taking a renamed config, the trailer redesign, the push-time check,
+and the xtask move.
 
 ##### chore: complete vc-x1, ready for vc-x2 closing
 

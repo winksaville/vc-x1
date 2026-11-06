@@ -7,6 +7,22 @@ Same shape as `TODO.md > ## Todo`, [Todo format](../agent-data/notes.md#todo-for
 
 ## Todo
 
+### trailers rewrites a range in one transaction
+
+(wink + agent, 2026-11-06) `trailers --update` describes one commit at a time, each describe
+rebasing every descendant, so a whole history is quadratic: 35m41s for vc-x1's 683 commits in the
+rehearsal of **chore: complete vc-x1, ready for vc-x2**. One jj transaction that rewrites the range
+oldest first, each commit's new parents the rewritten ones, is linear. It was filed rather than
+built, the backfill being run once.
+
+### lookup's written row names an unrelated commit
+
+(wink + agent, 2026-11-06) Some lookups print a `written` row and its `partner` naming a commit
+older than the file, `src/lookup.rs:50` naming **Migrate CLI parsing to clap derive (0.8.0)** and
+`src/trailers.rs:105` **refactor: symlink → Context + SymlinkParams (0.48.0-1)**, while the
+`commit` row is right. Seen in the real repo and the rehearsal's fresh clone alike, so the rewrite
+of the trailers did not cause it.
+
 ### vc-x1 takes a lock of its own for a run that writes
 
 (wink + agent, 2026-10-11) Two `vc-x1` runs in one workspace can overlap, a user's two terminals

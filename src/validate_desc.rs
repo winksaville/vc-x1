@@ -22,8 +22,9 @@ use log::{debug, info};
 use crate::common;
 use crate::context::Context;
 use crate::desc_helpers::{
-    DEFAULT_ID_LEN, OCID_PLACEHOLDER, TitleMatch, Trailers, extract_bare_id, extract_ochids,
-    find_matching_commit, ochid_forms_for, ochid_prefix_for, repo_url_for, validate_ochid,
+    DEFAULT_ID_LEN, OCID_PLACEHOLDER, OchidIssues, TitleMatch, Trailers, extract_bare_id,
+    extract_ochids, find_matching_commit, is_change_id_form, ochid_forms_for, ochid_prefix_for,
+    repo_url_for, validate_ochid,
 };
 use crate::jj;
 use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, repo_scope_parser, side_keyword};
@@ -295,6 +296,18 @@ fn link_findings(
     Ok(found)
 }
 
+/// Whether the one thing wrong with an `ochid:` is its length, an older
+/// 8 or 32 character change id naming exactly one commit in `other`, which
+/// is a note rather than an issue, the agent-repo's history never being
+/// rewritten to the 12.
+fn is_older_id(issues: &OchidIssues, other: &Path) -> Result<bool, Box<dyn std::error::Error>> {
+    Ok(issues.wrong_prefix.is_none()
+        && !issues.not_found
+        && issues.wrong_length.is_some()
+        && is_change_id_form(&issues.bare_id)
+        && jj::one_chid(other, &issues.bare_id)?.is_some())
+}
+
 /// Scan one side's revision range against its other repo and print
 /// the table, returning how many commits have issues. A side with
 /// no other repo, a single-repo workspace, prints a notice and
@@ -375,6 +388,7 @@ fn validate_side(
             } else {
                 // Every `ochid:`, since a Land's agent commit has several.
                 let mut wrong = Vec::new();
+                let mut notes = Vec::new();
                 for value in extract_ochids(desc) {
                     let id = extract_bare_id(&value);
                     if id == "lost" || id == "none" {
@@ -387,7 +401,12 @@ fn validate_side(
                         &other_workspace,
                         &other_repo,
                     );
-                    if issues.any() {
+                    if is_older_id(&issues, &other_repo_path)? {
+                        notes.push(format!(
+                            "ochid: {value} is an older {}-character id, naming one commit",
+                            issues.bare_id.len()
+                        ));
+                    } else if issues.any() {
                         wrong.push(issues.summary());
                     }
                 }
@@ -404,8 +423,9 @@ fn validate_side(
                 };
                 wrong.extend(links.wrong);
                 wrong.dedup();
+                notes.extend(links.notes);
                 if wrong.is_empty() {
-                    for note in &links.notes {
+                    for note in &notes {
                         info!("note {change_short}  {note}");
                     }
                     CommitStatus::Ok
@@ -692,6 +712,38 @@ mod tests {
         let desc = format!("feat: x\n\nochid: {at}\npcid: file:///no/such/commit/abc\n");
         jj_ok(&fx.work, &["describe", "-m", &desc]);
         validate_desc(&ctx, &parse_params("w", &fx.work)).expect_err("a wrong pcid");
+    }
+
+    /// An older 8 or 32 character id naming one commit is a note, on
+    /// either side, and one naming none is still an issue.
+    #[test]
+    fn an_older_id_that_resolves_is_a_note() {
+        let fx = Fixture::new("vdesc-older-id");
+        let ctx = Context::load().expect("load user config");
+        let parse_params = |scope: &str, repo: &Path| {
+            let mut a = parse(&["vc-x1", "validate-desc", "-r", "@", "-s", scope]).expect("parses");
+            a.repo = Some(repo.to_path_buf());
+            ValidateDescParams::try_from(&a).expect("params")
+        };
+        let work_at = chid(&fx.work, "@-");
+        let full = jj_ok(
+            &fx.work,
+            &["log", "-r", "@-", "--no-graph", "-T", "change_id"],
+        );
+        for id in [&work_at[..8], full.trim()] {
+            jj_ok(
+                &fx.bot,
+                &["describe", "-m", &format!("feat: x\n\nochid: {id}\n")],
+            );
+            validate_desc(&ctx, &parse_params("a", &fx.bot)).expect(id);
+        }
+        jj_ok(&fx.bot, &["describe", "-m", "feat: x\n\nochid: zzzzzzzk\n"]);
+        validate_desc(&ctx, &parse_params("a", &fx.bot)).expect_err("names nothing");
+
+        let agent_at = chid(&fx.bot, "@");
+        let desc = format!("feat: x\n\nochid: /.claude/{}\n", &agent_at[..8]);
+        jj_ok(&fx.work, &["describe", "-m", &desc]);
+        validate_desc(&ctx, &parse_params("w", &fx.work)).expect("the work side too");
     }
 
     /// A URL-form trailer passes when its ID resolves in the other

@@ -343,6 +343,19 @@ pub fn chid_of(repo: &Path, rev: &str) -> Result<String> {
         .collect())
 }
 
+/// The change id of the one commit `id` names in `repo`, `None` when it
+/// names none, an ambiguous prefix, or several commits, a divergent change.
+pub fn one_chid(repo: &Path, id: &str) -> Result<Option<String>> {
+    match commits_of(repo, id) {
+        Ok(commits) => Ok(match commits.as_slice() {
+            [commit] => Some(common::format_chid(commit)),
+            _ => None,
+        }),
+        Err(e) if e.downcast_ref::<RevsetResolutionError>().is_some() => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
 /// `rev`'s tree ids as text, to compare a tree across a rewrite.
 pub fn tree_of(repo: &Path, rev: &str) -> Result<String> {
     Ok(commits_of(repo, rev)?
