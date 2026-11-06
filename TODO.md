@@ -10,12 +10,8 @@ The other files are listed in [zTOC.md](zTOC.md).
 Where the agent was, for the agent that comes next. Ephemeral, never a record, read first at
 acquaint, acted on, and reset to `_None._` by the reader.
 
-- The Land of **feat: init adopts a git repo, as a test repo too**: check that `main` is at its one
-  commit in both repos, the bookmark `feat-init-adopts-a-git-repo-as-a-test-repo-too` gone, and
-  `vc-x1 -V` naming that commit.
-- `~/tmp` holds the test workspaces of this cycle and the last, disposable once nothing needs them:
+- `~/tmp` holds the test workspaces of the last two cycles, disposable once nothing needs them:
   `acc/` (`a1`, `hw`, `remotes`), `t1`, `hw`, `por1`, `remotes`, `wt4` to `wt7`.
-- The top of `## Todo` is the carried plan, to re-deliberate before it is run.
 
 ## In Progress
 
@@ -23,7 +19,103 @@ A cycle's record has one home at a time, and while the cycle runs this is it. Th
 the specimen in [cycle-model.md](agent-data/cycle-model.md), and the rules are in [The In Progress
 block](agent-data/notes.md#the-in-progress-block).
 
-_No cycle currently in progress._
+### chore: complete vc-x1, ready for vc-x2
+
+#### Problem
+
+(wink + agent, 2026-11-06) vc-x1 is to be succeeded by vc-x2, a fork made without history, and
+before the fork vc-x1 must be complete as the archive vc-x2 refers back to. It is not:
+
+- 659 of its 686 work commits carry `ochid:` alone, so their agent partner is not linked by SHA
+  (`ocid:`) nor their parents (`pcid:`), and 2 carry no trailer. `trailers --update` stamps all
+  three, but only for a range above the trunk, and it has never been run over a whole history.
+- vc-x2, starting without history, reaches the why and how of its first tree only through vc-x1's
+  history, and whether `lookup` can follow it there is untested.
+
+#### Solution
+
+Provisional:
+
+- `vc-x1 trailers --update --range ..@-` rewrites the whole history automatically, rehearsed in a
+  test repo made by `init --test-repo`, the code changed for the cases vc-x1's own history holds.
+- A test vc-x2 is made from the rehearsal without history, its first commit naming vc-x1's final
+  SHA by hand, and `lookup` is tried in it. What vc-x2 needs to reach vc-x1 is filed, not built.
+- After the Land, outside the cycle: the old `main` tagged, the backfill run on the real repos, the
+  rewrite pushed with wink's approval, and the final `main` tagged. vc-x1 is then complete and vc-x2
+  can be made.
+
+#### Acceptance check
+
+Provisional:
+
+- In a fresh clone of the rehearsal's remotes, `vc-x1 validate-desc` passes over the whole history,
+  and every work commit's `ochid:` and every agent commit's resolves.
+- The dry run over `..@-` sorts every commit into rewritten, already current, or left with its
+  reason, and none is left unexplained.
+- In the test vc-x2, `lookup` reaches vc-x1's history for a sample of lines, by the hand-written
+  link if need be, and what vc-x2 must build to do it properly is a Todo entry.
+
+#### Deliberation
+
+- Retitled, wink's (2026-11-06): the cycle opened as **make vc-x1 content agnostic**, from the Todo
+  **Build config moves to an xtask**, and the deliberation moved that subject to vc-x2, leaving
+  this cycle the completing of vc-x1. The Todo returned to `## Todo` unchanged.
+- vc-x2 is a fork, wink's (2026-11-06): content agnostic, and its design is vc-x2's, not this
+  cycle's. What was decided toward it, recorded so it is not lost:
+  - vc-x1 knows the two repos and their links and nothing of a project's content, so `validate`,
+    `build`, `install`, `run`, and the Land's install move to a `cargo xtask`, which runs vc-x1.
+  - Fork first, then xtask, wink's: the repo becomes a cargo workspace for the xtask, and every
+    line of that work is vc-x2's, so vc-x1 stays the stable tool that manages it.
+  - Named vc-x2 from its start, the agent's, so `vc-x2` and `vc-x2-dev` install beside `vc-x1` and
+    never replace it.
+  - Made without history, wink's, its first commit naming vc-x1's final SHA, the agent's, so
+    provenance crosses the gap, and its agent-repo fresh.
+- `TODO.md` is left as it is, wink's (2026-11-06): its clean-up is vc-x2's, which inherits the file,
+  so this cycle does not go down that hole.
+- The whole history, wink's (2026-11-06): `trailers --update` over `..@-`, made fully automatic.
+  - Automatic for vc-x1's 686 work commits, not for any history, the agent's bound: the dry run
+    sorts every commit first, the code is changed only for the cases it shows, and a case that
+    needs real design is filed for vc-x2.
+  - The counts (2026-11-06): 659 `ochid:` alone, 25 current, 2 with no trailer, 46 merges.
+- Rehearsed, then redone, the agent's: a test repo's remotes are local, so its trailers link by
+  `file:///` URL and its history is never pushed. The real run repeats the rehearsal on the real
+  repos after the Land, so it covers every commit, this cycle's included.
+  - Every work SHA on `main` changes, so the old `main` is tagged and pushed first, keeping the
+    landmarks, the messages' sha-links, and the transcripts' SHAs reachable. The rewrite of
+    `main@origin` takes `--yes` and wink's approval.
+  - We think jj writes each rewritten commit's change id into its git header, so the change ids an
+    agent commit's `ochid:` names survive a fresh clone. The rehearsal's fresh clone shows it.
+- `lookup`'s fixes lean vc-x2, wink's (2026-11-06), the agent's rule beside it: a fix that makes
+  vc-x1 readable on its own history is vc-x1's, completing it, and one that crosses from vc-x2 into
+  vc-x1 is vc-x2's, the only side with the gap.
+  - The test vc-x2's link is hand-written, since vc-x2 does not yet read one, and its form is fixed
+    before the real vc-x2 is made, a change after meaning a rewrite of vc-x2's first commit.
+
+#### Rungs
+
+The rung subsections, in the ladder's order. The ladder itself is in `zTOC.md > ## Ladder`.
+
+##### chore: complete vc-x1, ready for vc-x2 opening
+
+The cycle's setup commit: the bookmark, `## Closed`'s contents deleted, the record written, and the
+version bumped. It opened as **make vc-x1 content agnostic**, and the deliberation, held while the
+opening was local, retitled it and returned the Todo it was opened from.
+
+##### feat: trailers --update rewrites a whole history
+
+`trailers --update` has stamped ranges above the trunk, never a whole history with commits from
+before the agent-repo, older trailer forms, and merges. Run over `..@-` in a test repo of vc-x1,
+dry run first, and changed until every commit is rewritten, current, or left with its reason.
+
+##### chore: a test vc-x2 reaches vc-x1's history
+
+Whether vc-x2, made without history, can reach the why and how of its first tree in vc-x1 is
+untested. A test vc-x2 is made from the rehearsal, its first commit naming vc-x1's final SHA, and
+`lookup` is tried in it, what vc-x2 needs being filed.
+
+##### chore: complete vc-x1, ready for vc-x2 closing
+
+Closing out the cycle.
 
 ## Waiting
 
@@ -3935,88 +4027,6 @@ own directory) are separate traversals over the same three values today, and fou
 
 The last cycle's finished record, moved here whole by its closing commit and deleted by the next
 opening ([Cycle-record](AGENTS.md#cycle-record)).
-
-### feat: init adopts a git repo, as a test repo too
-
-#### Problem
-
-`vc-x1 init --adopt` grows an existing repo into a dual workspace, and nothing rehearses it safely:
-
-- `--test-repo` refuses `--adopt`, so a conversion is tried on the real repo or not at all.
-- A git-only repo, `.git` with no `.jj`, as `cargo init` and `git clone` leave one, is refused until
-  `jj git init --colocate` is run by hand.
-- An adopted repo's `origin` decides where the agent-repo goes, a GitHub one meaning `gh repo
-  create`, so adopting a clone publishes.
-- An agent remote on a host vc-x1 cannot create is assumed to exist, and a missing one is found at
-  the push, after adopt has committed the work repo and made the agent-repo.
-
-#### Solution
-
-- `--adopt` takes a git-only repo, colocating it in place with its history unchanged.
-- `--test-repo` takes `--adopt`. The adopted repo's `origin`, a URL or a path, is replaced by
-  `REMOTES/<name>.git`, its `main` pushed there with the history under the adopt commit, and the
-  agent-repo is `REMOTES/<name>.agent-session.git`. The old `origin` is removed, and `--upstream
-  [NAME]` keeps it as NAME, `upstream` by default, refused when NAME is taken.
-- `--adopt`'s preflight checks that an agent remote vc-x1 does not create exists, before anything is
-  written.
-
-#### Acceptance check
-
-By `vc-x1-dev`, in `~/tmp`, with `vc-x1 validate` passing and a test for each case:
-
-- `cargo init t1`, `init --test-repo remotes --target t1 --adopt`, `vc-dr-apply.sh --lang rust` on
-  it, and a single-step cycle in it, `commit -s b --opening` then `commit -s b --closing @- --land
-  --push`: everything published is in `remotes/`, and `t1`'s `validate` passes.
-- A clone of a GitHub repo adopted the same way: its history is in `remotes/<name>.git` and nothing
-  reaches GitHub, and with `--upstream` its `upstream` names the GitHub URL and fetches.
-- An adopt naming an agent remote that does not exist is refused before anything is written.
-
-Result, passed (2026-11-05), in `~/tmp/acc`:
-
-- `cargo new a1` adopted as a test repo, applied with `--lang rust`, its `validate` passing, and its
-  single-step cycle closed, landed, and pushed: both repos' history is in `acc/remotes/` alone.
-- `octocat/Hello-World` cloned as `hw` and adopted with `--upstream`: `origin` is
-  `acc/remotes/hw.git`, `upstream` the GitHub URL and fetching, the history kept.
-- The missing agent remote's refusal, and a taken `--upstream` name's, are tests, with nothing
-  written.
-
-#### Deliberation
-
-- One single-step cycle, wink's call (2026-11-05): the carried rung **feat: a test repo converts an
-  existing repo**, taken from the last cycle's plan, retitled since its title read badly.
-- Git-only folded in: **init adopt takes a git-only repo** (2026-09-21), moved here, since `cargo
-  init`'s repo is git-only and the acceptance check starts there.
-- Repoint, not refuse, wink's (2026-11-05): `--test-repo` already says the remotes are REMOTES, so a
-  clone's `origin` moving there is what was asked, all of it local.
-  - Refusing, naming `git remote remove origin`, was the agent's first proposal.
-- Any host, the agent's: under `--test-repo` the old `origin`'s host does not matter, so GitHub,
-  GitLab, whose push-to-create would publish, and a path are treated alike.
-- The old `origin` is dropped by default, wink's (2026-11-05), the safer default, and `--upstream
-  [NAME]` keeps it, a fork's `upstream` being why NAME may be given.
-- The preflight, the agent's: a missing agent remote on another host failed late, and the check
-  before anything is written is small and on the same path.
-- A repo with no commit, `cargo new`'s, has its content committed, the agent's: with no history
-  under it there is no uncommitted work to keep apart, so it is adopted as a plain directory is, and
-  a repo with history keeps the clean check.
-- A git-only repo is colocated after the dry run, the agent's: jj reads its working copy only once
-  colocated, so its clean check and the agent-remote check run then, and a refusal there removes
-  the `.jj` init made, leaving the repo as it was found.
-- `main` alone is pushed to the test remote, the agent's: it carries the clone's history under the
-  adopt commit, as an adopt with no origin does today, and the clone's other bookmarks stay local,
-  the agent's earlier "every local bookmark" left for a case that needs it.
-- The opening was not committed first, the agent's error, wink's catch at review (2026-11-05): the
-  cycle was planned single-step and all its work done in the opening rung, so no bookmark existed,
-  where [Cycle shape](AGENTS.md#cycle-shape) has the opening committed first and the shape read from
-  the count. The bookmark was made by hand at the base, `jj bookmark create` then `jj bookmark set`,
-  for `commit --opening --skip local` to take, and the wording is filed as **Every cycle commits its
-  opening first**.
-- Left as their own Todos: **init defaults to --local**, the rest of **--repo takes a URL, and a
-  separate flag takes the path for local remotes**, **init and clone take --custom**, and **The run
-  record misses workspace init**.
-
-#### Rungs
-
-A single-step cycle, its one rung in `zTOC.md > ## Ladder` and no subsection under it.
 
 # References
 

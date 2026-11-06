@@ -4,7 +4,10 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 
 ## Ladder
 
-- 0.85.20 (done) feat: init adopts a git repo, as a test repo too
+- 0 (current) [chore: complete vc-x1, ready for vc-x2 opening](TODO.md#chore-complete-vc-x1-ready-for-vc-x2-opening)
+- [feat: trailers --update rewrites a whole history](TODO.md#feat-trailers---update-rewrites-a-whole-history)
+- [chore: a test vc-x2 reaches vc-x1's history](TODO.md#chore-a-test-vc-x2-reaches-vc-x1s-history)
+- [chore: complete vc-x1, ready for vc-x2 closing](TODO.md#chore-complete-vc-x1-ready-for-vc-x2-closing)
 
 ## The TOC
 
