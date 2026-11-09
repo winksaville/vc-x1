@@ -88,6 +88,10 @@ commands the repo check runs. A machine that lacks the hooks, a second one or a 
 found the first time a session starts there, and the install is the user's because it writes their
 settings, which every session on the machine reads.
 
+The tools check (wink, 2026-11-09) comes before the repo check because the repo check runs the
+tools, and a session that learns at its first commit which build it should have run has already
+stamped that commit ([Tools the session runs](#tools-the-session-runs)).
+
 ## Sync
 
 One section holds the command (wink, 2026-10-13) because it is run at several steps, and a
@@ -216,7 +220,11 @@ route, so a changed check is one of the things the deliberation exists to justif
 ### The per-rung flow
 
 **Validate at every commit, doc-only ones included**, because step 2 changed the version, and
-running the validation is how that is verified. **No validation while a review iterates** because a
+running the validation is how that is verified. **The dev build is installed before the review**
+(wink, 2026-11-09) because a review that runs the previous rung's build tests code that is not the
+diff: installed only after the commit, the reviewer's `vc-x1-dev` was one rung behind, 0.85.21-1
+during the review of 0.85.21-2. The install after the commit stays, so the next rung runs a build
+of the committed tree rather than of a working copy. **No validation while a review iterates** because a
 formatter mutates files in ways that interact badly with the user's mid-review edits, so it runs
 once, on the settled state, after the last edit.
 
@@ -246,16 +254,18 @@ by doing nothing, and publishing has one place to gate.
 #### A cycle is local by default
 
 Local is the default because the Land is where the decision is, so one approval belongs there.
-Nothing published can name a rung, so reshaping a ladder costs nothing, and the agent commit made
-first lets every commit link to it, a SHA included. The first cycle run this way changed its ladder
-several times at no cost.
+Nothing published can name a rung, so reshaping a ladder costs nothing, and a link names a change
+id, which a reshape keeps. The first cycle run this way changed its ladder several times at no cost.
 
 **The user decides when each side commits and publishes** (wink, 2026-11-03) because the user is
 always in control: the per-rung pairs came first, the local cycle after, and neither is the only
 shape, so the rules say what each shape needs rather than choosing one.
 
-**A published rung's `ocid:` is real** (wink, 2026-11-03) because a rung left at `xxxx` links
-nothing, and rewriting commits no one else has, their trees unchanged, costs only their SHAs.
+**No trailer holds a SHA** (wink, 2026-11-09) because a SHA changes with every rewrite. `ocid:`
+pinned the agent commit's, so an agent commit was never folded into and the order of commits was
+forced, and `pcid:` repeated git's parents and made a describe rewrite every commit above it.
+Neither repo could be left clean. `orepo:` with `ochid:` says where the partner is and survives a
+squash-push. Lost: GitHub's one click to the agent commit, and the transcript pinned by a hash.
 
 ### Commit description
 
@@ -290,8 +300,25 @@ user can still say no at no cost.
 
 The agent-repo is a live journal, so everything after a publishing command, its own record included,
 lands after it, and the agent cannot bring its own `@` to a fixed point. So the session's tail is
-bookkeeping that rides the next agent commit, and a Land folds nothing into its agent commit,
-since a fold changes the SHA every `ocid:` names.
+folded by the user after the session, the one moment the journal is still, by a squash-push into
+the last agent commit, which keeps the change id the `ochid:`s name (wink, 2026-11-09). An archive
+wants both repos clean. After a Land the agent published, the tail rides the next opening.
+
+A forced push asks rather than refuses (wink, 2026-11-09). A topic bookmark has few readers or
+none until it is published for merging, and even then a mistake found after the push wants an
+amend, so a rewrite is the user's choice, made each time. Only the `--yes` flag answers in
+advance, since a configured default is set once and then protects nothing. The agent-repo is
+personal but public, observed rather than cloned, so its forced update moves no one's history.
+
+Either order is correct (wink, 2026-11-09). The agent-repo went first while `ocid:` pinned the
+agent commit's SHA, so the work commit naming it was pushed only once that SHA was final. With
+`orepo:` and `ochid:` each side names the other by change id, which neither push changes, so one
+`squash-push -s b` publishes both.
+
+Work first is preferred (wink, 2026-11-09): the work-repo is the shared one, so its push is the one
+a concurrent push refuses, and refused first it leaves nothing published. The agent-repo, usually
+one user's, rarely refuses, and published first it would name a work commit no one else can see
+while the work side is repaired.
 
 ### Close-out
 
@@ -491,9 +518,9 @@ text written since teaches only jj's.
 ### Cross-repo linking (ochid trailers)
 
 An `ochid:` always means the other repo, so a label or URL in it told a tool nothing, and a change id
-survives a rewrite where a URL can go stale. Keeping the URLs on the work commit makes the work-repo the
-durable root. A commit cannot hold its own SHA, so a parent's is what names the work-repo at a real
-commit, and it still says where a forked commit came from.
+survives a rewrite where a SHA goes stale. The repo is said once, by `orepo:` above the `ochid:`s
+it covers, so an agent commit naming partners in several repos can group them, and a reader on
+either side knows where to look.
 
 **Trailers are stamped by push, never hand-written**, because the change id a trailer names does
 not exist until push makes the paired commit: an agent-repo ochid names `@-` after the push, and an
@@ -624,6 +651,15 @@ multi-dash version outright, and the PEP 440 reference parser (`packaging` 26.2,
 `+` are all invalid. `1.2.3+3.1` / `1.2.3+3.1.hotfix` parse at any depth. `1.2.3-1` parses but
 silently becomes the post-release `1.2.3.post1`. The one-dash dotted grammar is the largest form
 every medium accepts.
+
+### Tools the session runs
+
+**A dev build newer than the plain one is asked about** (wink, 2026-11-09) because the agent-files
+can be ahead of the installed tool. A session under v0.3.1-3 ran the plain `vc-x1` 0.85.20, whose
+banner named v0.3.1-3 while its commit stamped the `ocid:` and `pcid:` trailers the set had
+retired, and only `vc-x1-dev` 0.85.21-2 stamped the `orepo:` form the set describes. The plain
+build's banner names the set it embeds, not the behavior the set expects, so the versions are
+compared and the choice is the user's.
 
 ### Agent-files version
 

@@ -17,11 +17,10 @@
 //!   commits the journal as the partner. The pair is then made in
 //!   two steps, and the review's own transcript lands in the rung's
 //!   agent commit.
-//! - A trailer holds the partner's change id. With a hosted `origin` a
-//!   work commit also links by URL, `ocid:` the agent commit and `pcid:`
-//!   each parent. `-s b` commits the agent repo first, so its `ocid:` has
-//!   the real SHA, and `-s w`'s is a placeholder until a push or a Land
-//!   makes the agent commit.
+//! - A trailer holds the partner's change id, and with an `origin`
+//!   each half names the other's repo by `orepo:` above it. Neither
+//!   holds a SHA, so `-s w`'s trailers are final before the agent
+//!   commit is made.
 //! - `-s a` commits the agent repo alone, an unpaired commit with the
 //!   given title and body and no trailer, since it belongs to no
 //!   rung. An agent `@` that is a work commit's pending partner keeps
@@ -108,8 +107,8 @@ use log::{debug, info, warn};
 
 use crate::context::Context;
 use crate::desc_helpers::{
-    Trailers, commit_url, extract_bare_id, extract_ochid_from_desc, ocid_placeholder_for,
-    pcids_for, repo_url_for, with_ochids, with_trailer, with_trailers, without_trailer_lines,
+    Trailers, extract_bare_id, extract_ochid_from_desc, orepo_for, repo_url_for, with_ochids,
+    with_trailer, with_trailers, without_trailer_lines,
 };
 use crate::jj;
 use crate::land::LandPlan;
@@ -226,9 +225,8 @@ pub struct CommitArgs {
     #[arg(long, visible_alias = "no-push")]
     pub local: bool,
 
-    /// Stamp the `ochid:` alone, with no `ocid:` or `pcid:` links. `-s p`
-    /// stamps no trailer and `-s a` at most `ochid:`, so it changes
-    /// nothing there
+    /// Stamp the `ochid:` alone, with no `orepo:` link. `-s p` stamps no
+    /// trailer, so it changes nothing there
     #[arg(long)]
     pub no_url_trailer: bool,
 
@@ -358,7 +356,7 @@ pub struct CommitParams {
     pub land: Option<Option<String>>,
     /// With `--land`, the side of the cycle's bookmark kept.
     pub skip: Option<Skip>,
-    /// Stamp no `ocid:` or `pcid:` links.
+    /// Stamp no `orepo:` link.
     pub no_url_trailer: bool,
     /// Print the descriptions and commit nothing.
     pub dry_run: bool,
@@ -736,34 +734,17 @@ fn commit_pair(
     let work_at = draft.as_ref().map_or("@", |d| d.rev.as_str());
     let work_chid = jj::chid_of(work, work_at)?;
     let agent_chid = jj::chid_of(agent, "@")?;
-    // Without `--no-url-trailer`, a work commit links by URL. A pair made
-    // at once has the agent commit first, so its real SHA, and a work
-    // half alone holds the `ocid:` placeholder until a push or a Land.
-    let parents = match &merge {
-        Some((base, tip)) => vec![base.clone(), tip.clone()],
-        None => jj::parent_cids_of(work, work_at)?,
-    };
+    // Without `--no-url-trailer`, each half names the other's repo by
+    // `orepo:`. Neither trailer holds a SHA, so either half may be made
+    // first and neither is restamped once the other is.
     let links = !params.no_url_trailer;
-    let work_trailers = |ocid: Option<String>| -> Result<Trailers, Box<dyn std::error::Error>> {
-        Ok(Trailers {
-            ochids: vec![agent_chid.clone()],
-            ocid,
-            pcids: if links {
-                pcids_for(work, &parents)?
-            } else {
-                Vec::new()
-            },
-        })
-    };
-    let placeholder = if links {
-        ocid_placeholder_for(agent)?
-    } else {
-        None
-    };
-    let agent_desc = with_trailer(&text, &work_chid);
+    let work_desc = with_trailers(
+        &text,
+        &Trailers::new(orepo_for(agent, links)?, vec![agent_chid.clone()]),
+    );
+    let agent_desc = with_trailer(&text, orepo_for(work, links)?, &work_chid);
 
     if params.dry_run {
-        let work_desc = with_trailers(&text, &work_trailers(placeholder.clone())?);
         if let Some((base, tip)) = &merge {
             info!(
                 "commit: [dry-run] the work commit is the merge of {base} and the last rung {tip}"
@@ -822,12 +803,6 @@ fn commit_pair(
             return Err(e);
         }
     }
-    let ocid = match (agent_now && links, repo_url_for(agent)?) {
-        (true, Some(url)) => Some(commit_url(&url, &jj::cid_of(agent, "@-")?)),
-        (true, None) => None,
-        (false, _) => placeholder,
-    };
-    let work_desc = with_trailers(&text, &work_trailers(ocid)?);
     let made = match &draft {
         None => {
             info!("commit work: {} -> @- {work_chid}", work.display());
@@ -1178,7 +1153,7 @@ fn commit_agent(
         None => None,
     };
     let text = match &covered {
-        Some(chids) => with_ochids(&text, chids),
+        Some(chids) => with_ochids(&text, orepo_for(&pair.work, !params.no_url_trailer)?, chids),
         None => text,
     };
     if covered.is_none()
@@ -1476,7 +1451,7 @@ fn finalized_body(
 }
 
 /// The opening's body: its description less the title line and the
-/// `ochid:` and `ocid:` trailers.
+/// trailers `vc-x1` stamps.
 fn opening_body(repo: &Path) -> Result<String, Box<dyn std::error::Error>> {
     let desc = jj::desc_of(repo, "@-")?;
     Ok(without_trailer_lines(&desc)
@@ -1502,8 +1477,15 @@ fn finalize(
 ) -> Result<(), Box<dyn std::error::Error>> {
     preflight(repo, "work", false)?;
     let trailers = match pair {
+        // An older commit's `ocid:` and `pcid:` give way to `orepo:`.
         Some(pair) => match crate::pair::work_commit(pair)? {
-            Some(wc) => Some(wc.trailers),
+            Some(wc) => Some(Trailers {
+                orepo: match wc.trailers.orepo {
+                    Some(orepo) => Some(orepo),
+                    None => repo_url_for(&pair.agent)?,
+                },
+                ..wc.trailers
+            }),
             None => {
                 return Err(
                     "commit --closing: the work @- carries no `ochid:` trailer, so it \
@@ -2092,9 +2074,8 @@ mod tests {
             "{work_desc}"
         );
         assert!(
-            work_desc
-                .trim_end()
-                .contains(&format!("\n\nochid: {agent_at}\n")),
+            Trailers::of(&work_desc).ochids == [agent_at.clone()]
+                && Trailers::of(&work_desc).orepo.is_some(),
             "{work_desc}"
         );
         assert!(
@@ -2136,24 +2117,21 @@ mod tests {
         }
     }
 
-    /// With hosted origins `-s w` stamps the bare `ochid:`, the `ocid:`
-    /// placeholder, and each parent's `pcid:`, leaving the agent repo alone.
+    /// With hosted origins `-s w` stamps `orepo:` and the bare `ochid:`,
+    /// final before the agent commit is made, leaving the agent repo alone.
     #[test]
     fn work_stamps_a_bare_ochid_and_links() {
         let fx = Fixture::new("commit-url-w");
         set_hosted_origins(&fx);
         fs::write(fx.work.join("rung.txt"), "work\n").expect("write");
         let agent_at = chid(&fx.bot, "@");
-        let parent = jj::cid_of(&fx.work, "@-").expect("cid");
 
         let params = CommitParams::try_from(&args("w", &fx.bot)).expect("params");
         commit(&mut test_ctx(), &params).expect("the work half is made");
 
         assert!(
             description(&fx.work, "@-").trim_end().ends_with(&format!(
-                "\n\nochid: {agent_at}\n\
-                 ocid: https://github.com/o/r.agent-session/commit/xxxx\n\
-                 pcid: https://github.com/o/r/commit/{parent}"
+                "\n\norepo: https://github.com/o/r.agent-session\nochid: {agent_at}"
             )),
             "{}",
             description(&fx.work, "@-")
@@ -2197,36 +2175,32 @@ mod tests {
         assert!(!description(&fx.work, "@-").contains("ochid:"));
     }
 
-    /// `-s b` commits the agent repo first, so its `ocid:` has the real
-    /// SHA, and the agent commit carries the `ochid:` alone.
+    /// `-s b` makes both halves, each naming the other's repo by `orepo:`
+    /// above its `ochid:`, no SHA in either.
     #[test]
-    fn both_commits_the_agent_first_and_links_its_sha() {
+    fn both_names_each_others_repo() {
         let fx = Fixture::new("commit-url-b");
         set_hosted_origins(&fx);
         fs::write(fx.work.join("rung.txt"), "work\n").expect("write");
         fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write");
         let work_at = chid(&fx.work, "@");
         let agent_at = chid(&fx.bot, "@");
-        let parent = jj::cid_of(&fx.work, "@-").expect("cid");
 
         let params = CommitParams::try_from(&args("b", &fx.bot)).expect("params");
         commit(&mut test_ctx(), &params).expect("the pair is made");
 
-        let sha = jj::cid_of(&fx.bot, "@-").expect("cid");
         let work_desc = description(&fx.work, "@-");
         assert!(
             work_desc.trim_end().ends_with(&format!(
-                "\n\nochid: {agent_at}\n\
-                 ocid: https://github.com/o/r.agent-session/commit/{sha}\n\
-                 pcid: https://github.com/o/r/commit/{parent}"
+                "\n\norepo: https://github.com/o/r.agent-session\nochid: {agent_at}"
             )),
             "{work_desc}"
         );
         let agent_desc = description(&fx.bot, "@-");
         assert!(
-            agent_desc
-                .trim_end()
-                .ends_with(&format!("\n\nochid: {work_at}")),
+            agent_desc.trim_end().ends_with(&format!(
+                "\n\norepo: https://github.com/o/r\nochid: {work_at}"
+            )),
             "{agent_desc}"
         );
     }
@@ -2258,9 +2232,8 @@ mod tests {
             "{work_desc}"
         );
         assert!(
-            work_desc
-                .trim_end()
-                .contains(&format!("\n\nochid: {agent_at}\n")),
+            Trailers::of(&work_desc).ochids == [agent_at.clone()]
+                && Trailers::of(&work_desc).orepo.is_some(),
             "{work_desc}"
         );
         assert_eq!(chid(&fx.bot, "@"), agent_at, "the agent @ is left for push");
@@ -2400,18 +2373,15 @@ mod tests {
         for f in ["one.txt", "two.txt", "closing.txt"] {
             assert!(files.contains(f), "{f} missing:\n{files}");
         }
-        assert!(
-            description(&fx.work, "@-")
-                .trim_end()
-                .contains(&format!("\n\nochid: {agent_at}\n"))
+        // The merge names its partner, and no trailer names a parent,
+        // git holding the parents.
+        let desc = description(&fx.work, "@-");
+        assert_eq!(
+            Trailers::of(&desc).ochids,
+            std::slice::from_ref(&agent_at),
+            "{desc}"
         );
-        // Two `pcid:` lines, the trunk first, then the ladder's tip.
-        let pcids = Trailers::of(&description(&fx.work, "@-")).pcids;
-        let want = parents(&fx.work, "@-");
-        assert_eq!(pcids.len(), 2, "{pcids:?}");
-        for (pcid, parent) in pcids.iter().zip(&want) {
-            assert!(pcid.ends_with(&format!("/commit/{parent}")), "{pcid}");
-        }
+        assert!(!desc.contains("pcid:") && !desc.contains("ocid:"), "{desc}");
         assert_eq!(
             parents(&fx.work, "@"),
             [commit_id(&fx.work, "@-")],
@@ -2946,11 +2916,11 @@ mod tests {
     /// Finalizing keeps every trailer, once each and out of the body.
     #[test]
     fn finalizing_keeps_the_trailers() {
-        let fx = Fixture::new("commit-finalize-ocid");
+        let fx = Fixture::new("commit-finalize-orepo");
         open_cycle(&fx);
         let before = Trailers::of(&description(&fx.work, "@-"));
         assert!(
-            before.ocid.is_some() && !before.pcids.is_empty(),
+            before.orepo.is_some() && !before.ochids.is_empty(),
             "{before:?}"
         );
 
@@ -2959,7 +2929,7 @@ mod tests {
 
         let desc = description(&fx.work, "@-");
         assert_eq!(Trailers::of(&desc), before, "{desc}");
-        assert_eq!(desc.matches("ocid:").count(), 1, "{desc}");
+        assert_eq!(desc.matches("orepo:").count(), 1, "{desc}");
     }
 
     /// A branch of one commit above the trunk, the opening, is a

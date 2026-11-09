@@ -21,7 +21,7 @@ use std::path::Path;
 use log::{debug, info};
 
 use crate::common::mkdir_p;
-use crate::desc_helpers::{Trailers, commit_url, with_trailer, with_trailers};
+use crate::desc_helpers::{Trailers, with_trailer, with_trailers};
 use crate::jj;
 
 /// The title of a new repo's first commit.
@@ -142,9 +142,8 @@ pub struct CrossRefSide<'a> {
 ///
 /// Both sides must already have an initial commit shaped by
 /// `OchidStrategy::Placeholder`. After the rewrite, each commit's
-/// ochid trailer is the other's change id, and the work side also links
-/// by URL: `ocid:` the bot commit,
-/// rewritten first so its SHA is final, and `pcid:` each parent.
+/// ochid trailer is the other's change id, and with a URL each side
+/// names the other's repo by `orepo:` above it.
 ///
 /// Parameters:
 /// - `work`: the work side, receiving the bot side's value.
@@ -160,28 +159,15 @@ pub fn cross_ref_ochids(
     let (work_dir, work_chid) = (work.dir, work.chid);
     let (bot_dir, bot_chid) = (bot.dir, bot.chid);
 
-    debug!("bot side: rewrite initial commit's ochid to point at work chid");
-    jj::describe(bot_dir, "@-", &with_trailer(INITIAL_TITLE, work_chid))?;
     let cwd = std::env::current_dir()?;
     let canonical = |url: Option<&str>| url.and_then(|url| crate::url::link_repo_url(url, &cwd));
-    let trailers = Trailers {
-        ochids: vec![bot_chid.to_string()],
-        ocid: match canonical(bot.url) {
-            Some(url) => Some(commit_url(&url, &jj::cid_of(bot_dir, "@-")?)),
-            None => None,
-        },
-        pcids: match canonical(work.url) {
-            Some(url) => {
-                let root = jj::cid_of(work_dir, "root()")?;
-                jj::parent_cids_of(work_dir, "@-")?
-                    .iter()
-                    .filter(|parent| **parent != root)
-                    .map(|parent| commit_url(&url, parent))
-                    .collect()
-            }
-            None => Vec::new(),
-        },
-    };
+    debug!("bot side: rewrite initial commit's trailers to point at work chid");
+    jj::describe(
+        bot_dir,
+        "@-",
+        &with_trailer(INITIAL_TITLE, canonical(work.url), work_chid),
+    )?;
+    let trailers = Trailers::new(canonical(bot.url), vec![bot_chid.to_string()]);
     debug!("work side: rewrite initial commit's trailers to point at bot commit");
     jj::describe(work_dir, "@-", &with_trailers(work_title, &trailers))?;
 
@@ -236,16 +222,15 @@ mod tests {
             Some("git@github.com:o/r.git"),
             Some("https://github.com/o/r.agent-session.git"),
         );
-        let sha = jj::cid_of(&bot, "@-").expect("cid");
         assert!(
             desc(&work).ends_with(&format!(
-                "\n\nochid: {bc}\nocid: https://github.com/o/r.agent-session/commit/{sha}"
+                "\n\norepo: https://github.com/o/r.agent-session\nochid: {bc}"
             )),
             "{}",
             desc(&work)
         );
         assert!(
-            desc(&bot).ends_with(&format!("\n\nochid: {wc}")),
+            desc(&bot).ends_with(&format!("\n\norepo: https://github.com/o/r\nochid: {wc}")),
             "{}",
             desc(&bot)
         );

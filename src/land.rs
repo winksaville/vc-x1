@@ -2,8 +2,9 @@
 //! committed when the cycle's commits name it, the trunk is
 //! fast-forwarded to the cycle's last commit, and the cycle's bookmark
 //! is deleted, all on the machine, every check made before anything
-//! moves. `--push` also publishes, the agent repo first, and deletes
-//! the bookmark on `origin`, and without it `vc-x1 push` publishes.
+//! moves. `--push` also publishes, the work repo first and then the
+//! agent repo, and deletes the bookmark on `origin`, and without it
+//! `vc-x1 push` publishes.
 //!
 //! - [`plan`] refuses before anything is made: the trunk is a local
 //!   bookmark at its `origin` position, so the sync a Land begins with
@@ -13,9 +14,8 @@
 //! - [`run`] lands what the plan names: a conflicted target is refused,
 //!   the agent `@` is committed with one `ochid:` per work commit naming
 //!   it, oldest first, the trailers the cycle's commits carry are updated
-//!   by [`crate::trailers::update`], each placeholder `ocid:` getting its
-//!   SHA and each `pcid:` its parent's new SHA, the trunk
-//!   is fast-forwarded, and the cycle's bookmark is deleted, `--skip`
+//!   by [`crate::trailers::update`], an older commit's `ocid:` and
+//!   `pcid:` giving way to `orepo:`, the trunk is fast-forwarded, and the cycle's bookmark is deleted, `--skip`
 //!   keeping a side. A dry run makes every
 //!   check and says each step, and does none: each step is its line and
 //!   then the step behind `if !dry`, so a step added brings its dry-run
@@ -51,7 +51,7 @@ use log::{debug, info};
 use crate::commit::Skip;
 use crate::context::Context;
 use crate::desc_helpers::{
-    extract_bare_id, extract_ochid_from_desc, with_ochids, without_trailer_lines,
+    extract_bare_id, extract_ochid_from_desc, repo_url_for, with_ochids, without_trailer_lines,
 };
 use crate::jj;
 use crate::options_flags::dry_run::DryRunFlag;
@@ -85,7 +85,7 @@ pub struct LandArgs {
     #[arg(long)]
     pub delete_intermediate_bookmarks: bool,
 
-    /// Publish the Land, the agent repo first, and delete the cycle's
+    /// Publish the Land, the work repo first, and delete the cycle's
     /// bookmark on `origin` as well, a Land otherwise staying on the
     /// machine
     #[arg(long)]
@@ -452,7 +452,7 @@ fn land_agent_desc(
     }
     let desc = jj::desc_of(work, target)?;
     let text = without_trailer_lines(&desc).collect::<Vec<_>>().join("\n");
-    Ok(Some(with_ochids(&text, &values)))
+    Ok(Some(with_ochids(&text, repo_url_for(work)?, &values)))
 }
 
 /// Land what `land` plans onto `target`, named `what` in messages:
@@ -529,7 +529,7 @@ pub(crate) fn run(
             }
         }
     }
-    // By change id, since setting a commit's `ocid:` changes its SHA.
+    // By change id, since restamping a commit's trailers changes its SHA.
     let target_chid = jj::chid_of(repo, target)?;
     if let Some(pair) = &pair {
         crate::trailers::update(
@@ -539,7 +539,6 @@ pub(crate) fn run(
                 label,
                 revset: &format!("{trunk_cid}..({target})"),
                 add: false,
-                agent_at_committed: dry && agent_desc.is_some(),
                 dry,
             },
         )?;
@@ -572,7 +571,9 @@ pub(crate) fn run(
         }
         if let Some(pair) = &pair {
             info!("{label}:{tag} publish the agent main");
-            if !dry && agent_desc.is_some() {
+            // A published agent `@-` takes no fold, which would force the
+            // push, so the journal rides the next agent commit.
+            if !dry && (agent_desc.is_some() || crate::pair::is_published(&pair.agent, "@-")?) {
                 crate::push::publish_agent_main(ctx, &pair.agent)?;
             } else if !dry {
                 crate::squash_push::squash_push(
@@ -587,6 +588,7 @@ pub(crate) fn run(
                         at_rest: false,
                         yes: true,
                         dry_run: false,
+                        forced_yes: false,
                     },
                 )?;
             }
@@ -797,7 +799,6 @@ mod tests {
         assert_eq!(commit_id(&fx.bot, "main"), commit_id(&fx.bot, "@-"));
         assert_eq!(commit_id(&fx.bot, "main@origin"), agent_origin);
 
-        let stamped = commit_id(&fx.bot, "@-");
         fs::write(fx.bot.join("journal.jsonl"), "{\"later\":1}\n").expect("write");
         crate::push::push(
             &mut test_ctx(),
@@ -813,20 +814,23 @@ mod tests {
         )
         .expect("published");
         assert_eq!(commit_id(&fx.work, "main@origin"), tip);
-        assert_eq!(commit_id(&fx.bot, "main@origin"), stamped, "nothing folded");
+        // The Land's agent commit was not yet published, so the journal
+        // folds into it, the change id the trailers name kept, and both
+        // repos are left clean.
+        assert_eq!(chid(&fx.bot, "main@origin"), agent_at);
         assert!(
-            !jj::is_empty(&fx.bot, "@").expect("empty"),
-            "the journal stays in @"
+            jj::is_empty(&fx.bot, "@").expect("empty"),
+            "the journal folded"
         );
     }
 
-    /// With hosted origins a Land sets each `ocid:` to the agent commit's
-    /// SHA and each `pcid:` to its parent's new SHA: the change ids, trees,
-    /// and `ochid:` unchanged, the trunk at the rewritten tip, and the
-    /// cycle's bookmark gone. Its dry run sets none.
+    /// With hosted origins a Land leaves the rungs' trailers as made,
+    /// `orepo:` and `ochid:` naming no SHA, so no rung is rewritten, and
+    /// its agent commit names the work repo and each rung. Its dry run
+    /// changes nothing.
     #[test]
-    fn a_land_sets_each_ocid_and_pcid() {
-        let fx = Fixture::new("land-ocid");
+    fn a_land_rewrites_no_rung() {
+        let fx = Fixture::new("land-orepo");
         let (work_url, agent_url) = (
             "https://github.com/o/r",
             "https://github.com/o/r.agent-session",
@@ -835,57 +839,54 @@ mod tests {
         crate::test_helpers::git_ok(&fx.bot, &["remote", "set-url", "origin", agent_url]);
         let rungs = local_cycle(&fx);
         let agent_at = chid(&fx.bot, "@");
-        let main = commit_id(&fx.work, "main");
-        let trees: Vec<String> = rungs
-            .iter()
-            .map(|c| jj::tree_of(&fx.work, c).expect("tree"))
-            .collect();
+        let shas: Vec<String> = rungs.iter().map(|c| commit_id(&fx.work, c)).collect();
 
         let args = ["-s", "b", "--onto", "main"];
         let mut dry = args.to_vec();
         dry.push("--dry-run");
         land(&mut test_ctx(), &local_land_params(&fx, &dry)).expect("planned");
-        let placeholder = format!("ocid: {agent_url}/commit/xxxx");
-        for c in &rungs {
-            assert!(
-                jj::desc_of(&fx.work, c)
-                    .expect("desc")
-                    .contains(&placeholder)
-            );
-        }
-
         land(&mut test_ctx(), &local_land_params(&fx, &args)).expect("landed");
-        let sha = commit_id(&fx.bot, "@-");
-        let parents = [main, commit_id(&fx.work, &rungs[0])];
-        for ((c, tree), parent) in rungs.iter().zip(&trees).zip(&parents) {
+        for (c, sha) in rungs.iter().zip(&shas) {
             let desc = jj::desc_of(&fx.work, c).expect("desc");
             assert!(
-                desc.ends_with(&format!(
-                    "\n\nochid: {agent_at}\nocid: {agent_url}/commit/{sha}\n\
-                     pcid: {work_url}/commit/{parent}"
-                )),
+                desc.ends_with(&format!("\n\norepo: {agent_url}\nochid: {agent_at}")),
                 "{desc}"
             );
-            assert_eq!(&jj::tree_of(&fx.work, c).expect("tree"), tree);
+            assert_eq!(&commit_id(&fx.work, c), sha, "the rung is not rewritten");
         }
+        let agent_desc = jj::desc_of(&fx.bot, "@-").expect("desc");
+        assert!(
+            agent_desc.ends_with(&format!(
+                "\n\norepo: {work_url}\nochid: {}\nochid: {}",
+                rungs[0], rungs[1]
+            )),
+            "{agent_desc}"
+        );
         assert_eq!(chid(&fx.work, "main"), rungs[1]);
         assert!(!jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("local"));
-        assert_eq!(chid(&fx.work, "@-"), rungs[1]);
         assert!(jj::is_empty(&fx.work, "@").expect("empty"));
-        assert_eq!(commit_id(&fx.bot, "@-"), sha, "no fold");
     }
 
-    /// A pushed cycle is still fluid: its placeholders are set too, the
-    /// remote's copy going stale.
+    /// An older rung's `ocid:` gives way to `orepo:` at the Land, a pushed
+    /// one's included, the remote's copy going stale.
     #[test]
-    fn a_published_commits_ocid_is_set() {
-        let fx = Fixture::new("land-ocid-published");
+    fn an_older_rungs_links_become_orepo() {
+        let fx = Fixture::new("land-older-links");
         local_cycle(&fx);
         let placeholder = "https://h/o/r.agent-session/commit/xxxx";
         for rev in ["@--", "@-"] {
+            let text = crate::desc_helpers::without_trailer_lines(
+                &crate::test_helpers::description(&fx.work, rev),
+            )
+            .collect::<Vec<_>>()
+            .join("\n");
+            let ochid = crate::desc_helpers::extract_ochid_from_desc(
+                &crate::test_helpers::description(&fx.work, rev),
+            )
+            .expect("an ochid");
             let desc = format!(
-                "{}\nocid: {placeholder}\n",
-                crate::test_helpers::description(&fx.work, rev).trim_end()
+                "{}\n\nochid: {ochid}\nocid: {placeholder}\n",
+                text.trim_end()
             );
             jj_ok(&fx.work, &["describe", "-r", rev, "-m", &desc]);
         }
@@ -902,13 +903,13 @@ mod tests {
             ),
         )
         .expect("landed");
-        let sha = commit_id(&fx.bot, "@-");
         for rev in ["main-", "main"] {
             let desc = crate::test_helpers::description(&fx.work, rev);
             assert!(
-                desc.contains(&format!("ocid: https://h/o/r.agent-session/commit/{sha}")),
+                desc.contains("\n\norepo: https://h/o/r.agent-session\nochid: "),
                 "{rev}: {desc}"
             );
+            assert!(!desc.contains("ocid:"), "{rev}: {desc}");
         }
     }
 

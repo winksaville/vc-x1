@@ -49,15 +49,20 @@ pub fn read_body(body: &str, who: &str) -> Result<String, String> {
     }
 }
 
-/// The trailers `vc-x1` stamps. `ochid:` is the partner's change id in
-/// the other repo, one per commit an agent commit covers. A work commit
-/// also links by URL: `ocid:` the agent commit, and `pcid:` each parent.
+/// The trailers `vc-x1` stamps: `orepo:` the other repo's URL, and after
+/// it `ochid:` the partner's change id there, one per commit an agent
+/// commit covers. Together they say exactly where each partner is, and
+/// neither holds a SHA, so a rebase, a squash, or a squash-push leaves
+/// them valid.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Trailers {
+    pub orepo: Option<String>,
     pub ochids: Vec<String>,
-    pub ocid: Option<String>,
-    pub pcids: Vec<String>,
 }
+
+/// The keys `vc-x1` stamps or once stamped. A restamp removes them all,
+/// so an older commit's `ocid:` and `pcid:` give way to `orepo:`.
+const STAMPED_KEYS: [&str; 4] = ["orepo", "ochid", "ocid", "pcid"];
 
 impl Trailers {
     /// The trailers `desc` carries, column 0 only, as `extract_ochids`
@@ -72,18 +77,21 @@ impl Trailers {
                 .collect()
         };
         Self {
+            orepo: values("orepo:").pop(),
             ochids: values("ochid:"),
-            ocid: values("ocid:").pop(),
-            pcids: values("pcid:"),
         }
+    }
+
+    /// The trailers for partners `ochids` in the repo at `orepo`.
+    pub fn new(orepo: Option<String>, ochids: Vec<String>) -> Self {
+        Self { orepo, ochids }
     }
 
     /// The trailers as lines, in the order they are stamped.
     fn lines(&self) -> Vec<String> {
+        let orepo = self.orepo.iter().map(|v| format!("orepo: {v}"));
         let ochids = self.ochids.iter().map(|v| format!("ochid: {v}"));
-        let ocid = self.ocid.iter().map(|v| format!("ocid: {v}"));
-        let pcids = self.pcids.iter().map(|v| format!("pcid: {v}"));
-        ochids.chain(ocid).chain(pcids).collect()
+        orepo.chain(ochids).collect()
     }
 }
 
@@ -100,7 +108,7 @@ fn is_other_trailer(line: &str) -> bool {
     line.split_once(": ").is_some_and(|(key, value)| {
         !value.is_empty()
             && !key.is_empty()
-            && !["ochid", "ocid", "pcid"].contains(&key)
+            && !STAMPED_KEYS.contains(&key)
             && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
             && (key.contains('-') || !key.chars().any(|c| c.is_ascii_uppercase()))
     })
@@ -125,33 +133,21 @@ pub fn with_trailers(text: &str, trailers: &Trailers) -> String {
     format!("{body}\n\n{}", block.join("\n"))
 }
 
-/// `text` with one `ochid:` trailer, an agent commit's for one work commit.
-pub fn with_trailer(text: &str, chid: &str) -> String {
-    with_ochids(text, &[chid.to_string()])
+/// `text` with `orepo:` and one `ochid:` trailer, an agent commit's for
+/// one work commit.
+pub fn with_trailer(text: &str, orepo: Option<String>, chid: &str) -> String {
+    with_ochids(text, orepo, &[chid.to_string()])
 }
 
-/// `text` with one `ochid:` per change id, in order, the agent commit a
-/// Land makes for a whole cycle.
-pub fn with_ochids(text: &str, chids: &[String]) -> String {
-    with_trailers(
-        text,
-        &Trailers {
-            ochids: chids.to_vec(),
-            ..Trailers::default()
-        },
-    )
+/// `text` with `orepo:` and one `ochid:` per change id, in order, the
+/// agent commit a Land makes for a whole cycle.
+pub fn with_ochids(text: &str, orepo: Option<String>, chids: &[String]) -> String {
+    with_trailers(text, &Trailers::new(orepo, chids.to_vec()))
 }
 
-/// What an `ocid:` trailer's SHA is until the agent commit is made.
-pub const OCID_PLACEHOLDER: &str = "xxxx";
-
-/// The link to commit `sha` in the repo at canonical `url`.
-pub fn commit_url(url: &str, sha: &str) -> String {
-    format!("{url}/commit/{sha}")
-}
-
-/// The URL `repo`'s commits are linked by, from its `origin`: canonical,
-/// or `file:///` for a local remote, `None` with no `origin`.
+/// The URL `repo` is linked by, from its `origin`: canonical, or
+/// `file:///` for a local remote, `None` with no `origin`. A partner's
+/// `orepo:` holds it.
 pub fn repo_url_for(repo: &std::path::Path) -> Result<Option<String>, Box<dyn std::error::Error>> {
     let url = crate::jj::remote_url(repo, "origin")?;
     Ok(url
@@ -159,36 +155,22 @@ pub fn repo_url_for(repo: &std::path::Path) -> Result<Option<String>, Box<dyn st
         .and_then(|url| crate::url::link_repo_url(url, repo)))
 }
 
-/// The placeholder `ocid:` value for a commit in `repo`, `None` when
-/// it has no `origin`, since the value is a link.
-pub fn ocid_placeholder_for(
-    repo: &std::path::Path,
+/// The `orepo:` a commit names `other` by, `None` with `links` off or
+/// with no `origin` for `other`, since the value is a link.
+pub fn orepo_for(
+    other: &std::path::Path,
+    links: bool,
 ) -> Result<Option<String>, Box<dyn std::error::Error>> {
-    Ok(repo_url_for(repo)?.map(|url| commit_url(&url, OCID_PLACEHOLDER)))
+    if links { repo_url_for(other) } else { Ok(None) }
 }
 
-/// The `pcid:` values for `parents`, commit ids in `repo`, none with no
-/// `origin`, and the root commit, which is not a real one, left out.
-pub fn pcids_for(
-    repo: &std::path::Path,
-    parents: &[String],
-) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let Some(url) = repo_url_for(repo)? else {
-        return Ok(Vec::new());
-    };
-    let root = crate::jj::cid_of(repo, "root()")?;
-    Ok(parents
-        .iter()
-        .filter(|parent| **parent != root)
-        .map(|parent| commit_url(&url, parent))
-        .collect())
-}
-
-/// A description without its `ochid:`, `ocid:`, and `pcid:` lines.
+/// A description without the trailer lines `vc-x1` stamps or once
+/// stamped, `orepo:`, `ochid:`, `ocid:`, and `pcid:`.
 pub fn without_trailer_lines(desc: &str) -> impl Iterator<Item = &str> {
     desc.lines().filter(|line| {
-        !["ochid:", "ocid:", "pcid:"].iter().any(|key| {
+        !STAMPED_KEYS.iter().any(|key| {
             line.strip_prefix(key)
+                .and_then(|rest| rest.strip_prefix(':'))
                 .is_some_and(|value| is_trailer_value(value.trim()))
         })
     })
@@ -546,42 +528,58 @@ mod tests {
         let desc = "feat: x\n\nochid: trailers. A squash loses them.\n\nochid: abc";
         assert_eq!(extract_ochids(desc), ["abc"]);
         assert_eq!(Trailers::of(desc).ochids, ["abc"]);
-        assert_eq!(with_trailer(desc, "def"), desc.replace("abc", "def"));
+        assert_eq!(with_trailer(desc, None, "def"), desc.replace("abc", "def"));
     }
 
     /// Stamped trailers replace what the text carries and sit above a
     /// custom trailer, and body lines that only look like one stay body.
     #[test]
     fn trailers_round_trip_and_keep_a_custom_one() {
-        let t = Trailers {
-            ochids: vec!["abc".to_string()],
-            ocid: Some("u/commit/xxxx".to_string()),
-            pcids: vec!["w/commit/1".to_string(), "w/commit/2".to_string()],
-        };
+        let t = Trailers::new(Some("https://h/o/r".to_string()), vec!["abc".to_string()]);
         let desc = with_trailers("feat: x\n\nBody.\n", &t);
-        assert_eq!(
-            desc,
-            "feat: x\n\nBody.\n\nochid: abc\nocid: u/commit/xxxx\npcid: w/commit/1\npcid: w/commit/2"
-        );
+        assert_eq!(desc, "feat: x\n\nBody.\n\norepo: https://h/o/r\nochid: abc");
         assert_eq!(Trailers::of(&desc), t);
         assert_eq!(with_trailers(&desc, &t), desc, "stamping again is the same");
 
         let custom = "feat: x\n\nBody.\n\nochid: old\nreviewed-by: wink\nCo-Authored-By: a <b@c>";
         assert_eq!(
             with_trailers(custom, &t),
-            "feat: x\n\nBody.\n\nochid: abc\nocid: u/commit/xxxx\npcid: w/commit/1\npcid: w/commit/2\n\
+            "feat: x\n\nBody.\n\norepo: https://h/o/r\nochid: abc\n\
              reviewed-by: wink\nCo-Authored-By: a <b@c>"
         );
 
         assert_eq!(
-            with_trailer("feat: x\n\nSolution: do it.", "abc"),
+            with_trailer("feat: x\n\nSolution: do it.", None, "abc"),
             "feat: x\n\nSolution: do it.\n\nochid: abc",
             "a one-line paragraph is body"
         );
-        assert_eq!(with_trailer("feat: x", "abc"), "feat: x\n\nochid: abc");
+        assert_eq!(
+            with_trailer("feat: x", None, "abc"),
+            "feat: x\n\nochid: abc"
+        );
         assert_eq!(
             with_trailers("feat: x\n\nochid: abc", &Trailers::default()),
             "feat: x"
+        );
+    }
+
+    /// A restamp gives an older commit's `ocid:` and `pcid:` way to
+    /// `orepo:`, so a commit is in one form or the other, never both.
+    #[test]
+    fn a_restamp_replaces_the_older_links() {
+        let old = "feat: x\n\nBody.\n\nochid: abc\nocid: https://h/o/r.agent-session/commit/1234\n\
+                   pcid: https://h/o/r/commit/5678\nreviewed-by: wink";
+        let t = Trailers::new(
+            Some("https://h/o/r.agent-session".to_string()),
+            vec!["abc".to_string()],
+        );
+        assert_eq!(
+            with_trailers(old, &t),
+            "feat: x\n\nBody.\n\norepo: https://h/o/r.agent-session\nochid: abc\nreviewed-by: wink"
+        );
+        assert_eq!(
+            Trailers::of(old),
+            Trailers::new(None, vec!["abc".to_string()])
         );
     }
 

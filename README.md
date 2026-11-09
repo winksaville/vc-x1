@@ -760,18 +760,15 @@ repo is the workspace's other side, or `--other-repo` for one side. Reports stat
 `ok` (valid ochid), `lost` (ochid: lost), `none` (ochid: none), `err` (issues found), or `miss`
 (no ochid trailer).
 
-Every `ochid` on a commit is checked, in any form. A work commit's links are checked too, offline, from
-the two repos and what they know of their remotes, and a wrong one is an `err` that [`trailers
---update`](#trailers) repairs:
+Every `ochid` on a commit is checked, in any form. An `orepo` is checked too, offline, from the two
+repos and what they know of their remotes, and one naming the wrong repo is an `err` that [`trailers
+--update`](#trailers) repairs: it must name the other repo's `origin`. A work commit whose agent
+partner is committed but not yet on a remote is a `note`, not an error, since that is normal before
+a push. An older commit's `ocid` and `pcid` lines are not checked at all, since they name SHAs a
+squash may change and the `ochid` is the link.
 
-- `ocid` names the agent repo's `origin`, and its SHA is the commit the last `ochid` names, or `xxxx`
-  while that is the uncommitted agent `@`. An agent commit not yet on a remote is a `note`, not an error,
-  since that is normal before a push.
-- `pcid` names the work repo's `origin`, and its SHAs are the commit's parents, every one, in parent
-  order.
-
-A commit with no links passes, an older or `--no-url-trailer` commit having none. It does not fetch the
-URLs, so a private repo's link is not told apart from a broken one.
+A commit with no `orepo` passes, an older or `--no-url-trailer` commit having none. It does not fetch
+the URLs, so a private repo's link is not told apart from a broken one.
 
 ```
 # Both directions, all ancestors of @ on each side
@@ -1596,7 +1593,7 @@ vc-x1 init --target my-project --agent-repo my-project.claude
 | `-s, --scope <SCOPE>` | `both`, a dual workspace, or `por`, a plain single repo (no agent repo) [default: both] |
 | `--adopt` | Convert an existing TARGET into a dual workspace (see below) |
 | `--upstream [NAME]` | With `--test-repo` and `--adopt`, keep the old `origin` as NAME [default: upstream], removed otherwise |
-| `--no-url-trailer` | Stamp the work commit's `ochid:` alone, with no `ocid:` or `pcid:` links |
+| `--no-url-trailer` | Stamp `ochid:` alone, with no `orepo:` line |
 | `--agent-dir <DIR>` | The agent repo's directory, one name [default: .agent-session] |
 | `--agent-repo <NAME>` | The agent repo's whole remote name |
 | `--agent-suffix <SUFFIX>` | The work repo's name plus this names the agent repo [default: .agent-session] |
@@ -1848,12 +1845,16 @@ untracked bookmarks and edge configs where auto-advance is disabled.
 ### squash-push
 
 Squash `@` into `@-`, advance a bookmark, and push, capturing a repo's trailing working-copy writes
-and publish them in one step. Rewriting an already-pushed commit this way is a deliberate
-published-history rewrite, so the push is a forced update.
+and publish them in one step. Folding into a commit already on the remote would rewrite published
+history and force the push, so it asks first, and the `--yes` flag answers, while a fold into an
+unpublished commit pushes as a fast-forward.
 
 The primary use case is folding the bot repo's session tail: session data keeps landing in `@` after
 the last commit (including the record of the push itself), and only the user, acting after the bot
-goes quiet, can capture all of it. Zero ceremony by design:
+goes quiet, can capture all of it. After a session in which the agent landed locally, the agent
+repo's last commit is not yet published, so `vc-x1 squash-push -s a` folds the tail into it and
+pushes a fast-forward, and both repos end clean. After a Land the agent already published, it
+refuses, and the tail rides the next agent commit, the next cycle's opening. Zero ceremony by design:
 
 `--bookmark` defaults to the bookmark of the line you are on, the nearest one at or above the squash
 target. There is no literal default: on the agent repo the line's bookmark is `main`, and on a work
@@ -1887,11 +1888,16 @@ vc-x1 squash-push -s a --ask
 
 # Say what it found and what it would do, and change nothing
 vc-x1 squash-push -s a --dry-run
+
+# Amend a work-in-progress bookmark's published commit on purpose, a forced push
+vc-x1 squash-push -s w --bookmark feature --yes
 ```
 
 `-s` is required and `-R` optional, as for every write command: `-s` says which repos, `-R` says
 where, a path anywhere in the workspace for `w|a|b` or the plain repo itself for `p`, and the cwd
 without it. See [Repo set resolution](#sync) under `sync`.
+
+A run that folds into an unpublished commit, as after a local Land, pushes a fast-forward:
 
 ```
 .claude: dirty: @ has changes. squash-push? [y/N] y
@@ -1925,7 +1931,7 @@ vc-x1: clean
 | `--bookmark <NAME>` | Bookmark to advance and push [default: the line's own, see above]; the old positional is refused, naming this flag |
 | `-R, --repo <PATH>` | Path to jj repo [default: .] |
 | `--squash [<SOURCE,TARGET>]` | Squash pair [default: @,@-] |
-| `-y, --yes` | Act without asking, once the precheck found work |
+| `-y, --yes` | Act without asking, once the precheck found work, and confirm a forced push |
 | `--ask` | Ask before acting, overriding a configured `squash-push.yes` |
 
 Behavior notes:
@@ -1958,6 +1964,12 @@ Behavior notes:
   worth describing: the mismatch is normal there, since push's `bookmark-set` just moved the
   bookmark and this stage is what publishes it. The precheck's decision still applies, so a stage
   with nothing to do still does nothing.
+- It asks before a forced push, before changing anything. When the squash would fold into a target
+  already in `::<bookmark>@origin`, or `<bookmark>@origin` is not an ancestor of the target, the push
+  would be forced, so it warns "squash-push: the push of '<bm>' is forced, since <why>" and asks
+  "rewrite the published '<bm>@origin'? [y/N]". The `--yes` flag answers in advance, a configured
+  `squash-push.yes` never does, and without a tty and `--yes` it is an error that changes nothing.
+  As `vc-x1 push`'s stage it never forces. A bookmark with no remote yet is never asked about.
 - Preflight refuses bad states before rewriting anything: unresolvable squash revsets, an
   ochid-dropping squash (see [Testing the ochid-trailer guard](#testing-the-ochid-trailer-guard)),
   conflicts, a missing / untracked / non-forward bookmark, an undescribed push target.
@@ -2097,8 +2109,9 @@ committed with a warning, its change id kept, so the work commit's trailer still
 `-s a --covers <REVSET>` makes the agent commit that a cycle's rungs share: one `ochid:` per work
 commit the revset names, oldest first, the revset taken as written in the work repo with no trunk
 assumed. Every commit it names must name the agent `@` already, or nothing is made. Then `vc-x1
-trailers --update` gives each rung's `ocid:` the agent commit's SHA, and `vc-x1 push -s b` publishes
-both, the agent commit as it is, since a fold would change the SHA the links name:
+trailers --update` stamps each rung's `orepo:` and the 12-character `ochid:` where an older form
+stood, and `vc-x1 push -s b` publishes both. No trailer holds a SHA, so the links stay valid through a
+rebase or a fold:
 
 ```
 vc-x1 commit -s a --covers 'main..@-' --title "<cycle title>" --body "<body>"
@@ -2112,10 +2125,10 @@ and the description are reviewed before the commit, so what is pushed is what wa
 A commit stays on the machine unless `--push` asks, `--opening`'s bookmark included, for a look at it
 before `vc-x1 push`, and `--local`, or its alias `--no-push`, says so outright. A commit with `--no-advance` pushes only
 with `--push`, since its bookmark was left where it was.
-A work commit carries `ochid:`, `ocid:`, and one `pcid:` per parent, and an agent commit `ochid:` alone
-([Cross-repo Linking](#cross-repo-linking-with-git-trailers)). With `b` the agent commit is made first,
-so `ocid:` has its real SHA, and with `w` it is a placeholder until a push or a Land makes it. `--no-url-trailer` leaves
-out the links, and with `-s a` or `-s p`, whose trailers are `ochid:` alone or none, it changes nothing.
+Both sides carry `orepo:` then `ochid:`, a work commit's `orepo:` naming the agent repo and an agent
+commit's the work repo ([Cross-repo Linking](#cross-repo-linking-with-git-trailers)). Nothing is a
+placeholder or waits for a push or a Land. `--no-url-trailer` leaves out `orepo:`, and with `-s p`,
+whose commit has no trailers, it changes nothing.
 `-R` is optional and says where. `--body` is the text, or `@PATH` to read it from a file, since a
 body in commit-body form has markers and blank lines a shell quote mangles. The work repo's `@`
 must hold a change, and with `b` the agent repo's `@`, the session's journal, is committed as it
@@ -2125,7 +2138,7 @@ stands. A failure after the first commit restores both repos from `jj op` snapsh
 
 Land a cycle whose last commit is already made, on the machine: the agent `@` committed when the
 cycle's commits name it, `--onto` fast-forwarded to `--source`, and the cycle's bookmark deleted,
-every check made before anything moves. `--push` also publishes it, the agent repo first, and
+every check made before anything moves. `--push` also publishes it, the work repo first, and
 deletes the bookmark on `origin`, and without it `vc-x1 push -s b --bookmark <ONTO>` publishes, a
 published cycle's bookmark left on `origin` for `delete-bookmark`. It is the Land of a closing made
 without `--land`, or of a single-step commit, and the second half of `commit --closing ... --land`,
@@ -2133,11 +2146,11 @@ which runs the same code.
 
 The agent commit carries the last commit's text and one `ochid:` per work commit naming the agent
 `@`, oldest first. The links the cycle's commits carry are then updated by the pass
-[`trailers`](#trailers) runs, each placeholder `ocid:` taking that commit's SHA and each `pcid:` its
-parent's new SHA, trees checked unchanged, and a pushed commit is updated too, with a warning, its
-remote copy going stale. It adds no links to a commit made with none. The agent commit
-is published as it is, so what arrives in the agent `@` afterwards rides the next cycle rather than
-changing the SHA. A commit above `--source` naming the agent `@` is refused.
+[`trailers`](#trailers) runs with `add` off, so a commit that already links (has `orepo:`, `ocid:`
+or `pcid:`) gets `orepo:` and loses any `ocid:` and `pcid:`, trees checked unchanged. It adds no
+links to a commit made with none, and with the new form it rewrites no rung at all. The agent commit
+is not yet published, so `vc-x1 push` folds the journal into it and both repos end clean. A commit
+above `--source` naming the agent `@` is refused.
 
 ```bash
 vc-x1 land -s b --onto main                          # the one bookmark besides main, landed on it
@@ -2207,12 +2220,13 @@ vc-x1 trailers --update --range feat-a-cycle      # above the trunk up to a book
 vc-x1 trailers --update --range 'a..b' --yes      # a revset as written, the trunk's remote included
 ```
 
-The range goes oldest first, by change id, since a rewrite changes the SHA a child's `pcid:` links, so
-a dry run shows parents at their current SHAs. A trailer naming nothing that resolves, a `lost` or an
-old short id, is left as it is, with no `ocid:` and no guessing. A trailer `vc-x1` does not stamp is
-kept, below the ones it does. A commit on the trunk's remote is refused without `--yes`, and one
-published on a topic bookmark is rewritten with a warning. The work repo alone changes, an agent
-commit carrying only change ids.
+Each `ochid:` becomes the 12-character change id, an older 8 or 32-character id or a SHA naming one
+agent commit being expanded, with `orepo:` stamped above it and any `ocid:` and `pcid:` removed. No
+trailer holds a SHA, so the range need not go oldest first and there is no cascade. A commit with no
+`ochid:` has no partner to link and is only named in the summary. A trailer naming nothing that
+resolves, a `lost` or an old short id, is left as it is, with no guessing. A trailer `vc-x1` does not
+stamp is kept, below the ones it does. A commit on the trunk's remote is refused without `--yes`, and
+one published on a topic bookmark is rewritten with a warning.
 
 ### squash
 
@@ -2237,9 +2251,10 @@ is the partner and push commits it. A published side goes by where it was publis
 - a commit on `main`'s remote is history others have, refused without `--yes`
 - a published partner with only the journal to fold is left for push, whose agent half folds it
 
-A partner a work commit's `ocid:` links, or a Land made, is left as it is, the journal staying in `@`
-and its description unchanged, since either would change the SHA `ocid:` names, so `--title` then
-rewrites the work commit alone.
+A linked partner that is already published is left as it is, the journal staying in `@` for the next
+agent commit and its description unchanged, so `--title` then rewrites the work commit alone. An
+unpublished linked partner, a Land's agent commit included, takes the fold, since jj keeps the change
+id of the commit folded into and the `ochid:` naming it still resolves.
 
 A work `@-` with no trailer is not a pair's. `--title` with `--body` rewrites the descriptions and
 keeps each trailer, the one sanctioned re-describe of a trailer-carrying commit, warned or refused
@@ -2349,21 +2364,23 @@ push says so. What push refuses, with both repos as they were:
 - `-r` with `-s a`, the agent half publishing the agent `main`
 - the old positional, naming `--bookmark` or `-r`, the one it was
 
-The two halves are independent, since each trailer is fixed before push runs, so `push -s b` is
-`push -s a` then `push -s w`, the order the pair is completed in:
+The two halves are independent, each side naming the other by change id, which no push moves.
+`push -s b` makes every local step first, then publishes the work repo and then the agent repo, the
+order [`squash-push -s b`](#squash-push) publishes in:
 
-| Half | What it does |
+| Step | What it does |
 |------|--------------|
-| agent | Complete the partner by the state found: the agent `@-` names the work commit (`commit -s b`), so the journal folds into it; or the agent `@` is the change the work commit names (`commit -s w`), or the agent repo changed since, so the journal is committed as the partner with the work commit's own text. Then squash-push `main` (see [squash-push](#squash-push)) |
+| agent | Complete the partner by the state found: when the agent `@` is the change the work commit names (`commit -s w`), or the agent repo changed since, the journal is committed as the partner with the work commit's own text. Nothing is pushed |
 | work | Check the work trailer names the partner, restamping the unpublished work commit when it does not, said out loud. Then `jj bookmark set <bookmark> -r @-`, verify its remote refs are tracked, and `jj git push --bookmark <bookmark>` |
+| agent | Publish `main`: when the agent `@-` is a committed partner (`commit -s b`, or a Land's), the journal folds into it by squash-push (see [squash-push](#squash-push)), and when the partner is already published, `main` is pushed at it and the journal stays in `@` for the next agent commit |
 
 **Rerunning is always safe.** There is no saved state and no resume: every stage checks its own
 precondition and does nothing when its work is already done, so re-running after a failure is simply
 running. If a run fails, push stops and reports. A half that fails before its own push restores the
 repo it touched via `jj op restore` to a snapshot taken moments earlier in the same process. Once a
 half's push succeeds that half is published: from there a change is either a new pair on top, or an
-amend of what was pushed, where [`squash-push`](#squash-push) folds the working copy into the last
-commit and force-updates the remote. See the protocol's
+amend of what was pushed, where [`squash-push`](#squash-push) asks before the forced update and
+`--yes` answers. See the protocol's
 [at-rest contract](AGENTS.md#at-rest-push-stop-squash-push).
 
 | Flag | Description |
@@ -2417,7 +2434,7 @@ jj git push -R "$work"
 
 # 2. bot repo: trailing writes -> squash-push (fold into @-, push)
 echo notes > "$bot/notes.md"
-vc-x1 squash-push -s a -R "$bot"
+vc-x1 squash-push -s a -R "$bot" --yes
 
 # 3. cleanup when done (init also created a symlink under
 #    ~/.claude/projects/ pointing at the fixture, remove it too)
@@ -2429,9 +2446,10 @@ a plain dev commit on `@-` that we push directly. The bot repo mirrors the bot's
 session writes land in `@` (above the last committed commit), and squash-push folds those trailing
 writes into that commit just before pushing, so one atomic state goes upstream.
 
-The run is synchronous, no background child, so what you see is the whole flow:
+The fixture's bot `main` is already pushed, so folding into it is a forced push and the example
+passes `--yes`. The run is synchronous, no background child, so what you see is the whole flow:
 ```
-$ vc-x1 squash-push -s a -R "$bot"
+$ vc-x1 squash-push -s a -R "$bot" --yes
 squash-push: squashing @ -> @-...
 squash-push: setting bookmark 'main' to @-...
 squash-push: pushing 'main' to origin...
@@ -2450,8 +2468,10 @@ the counterpart repo's cross-links dangling (the incident is recorded in [record
 bug (0.65.1)](./notes/chores/chores-13.md#docs-record-finalize-ochid-loss-bug-0651)). The guard runs
 in preflight, before anything is rewritten.
 
-`squash-push` always pushes, so the examples run against a throwaway init fixture (same shape as
-[Testing push + squash-push](#testing-push--squash-push)) using its bot repo:
+`squash-push` always pushes, and the fixture's `main` is already published, so example 2's push asks
+first in the current command, `--yes` answering, which the transcripts below predate. The examples run against a
+throwaway init fixture (same shape as [Testing push + squash-push](#testing-push--squash-push))
+using its bot repo:
 
 ```bash
 parent=$(mktemp -u /tmp/vc-x1-guard-XXXXXX)
@@ -2506,30 +2526,32 @@ commit carries only change ids:
 
 ```
 # a work commit
+orepo: https://github.com/winksaville/vc-x1.agent-session
 ochid: qrxovvvqxnrq
-ocid: https://github.com/winksaville/vc-x1.agent-session/commit/<sha>
-pcid: https://github.com/winksaville/vc-x1/commit/<parent-sha>
 
 # an agent commit
+orepo: https://github.com/winksaville/vc-x1
 ochid: xwvlonzwkzpo
 ```
 
+- `orepo` (Other Repo) names the other repo, so a work commit's names the agent repo and an agent
+  commit's names the work repo. It comes first and covers the `ochid:` lines after it, so an agent
+  commit covering several work commits has one `orepo:` then one `ochid:` per work commit.
 - `ochid` (Other Change ID) is the partner's jj change ID in the other repo, always that repo, so it
   carries no path. A change ID survives a rewrite, where a SHA does not, and it is what the tools
   resolve. An agent commit has one per work commit it covers.
-- `ocid` (Other Commit ID) links the agent commit, and says where the agent repo lives. A pair made by
-  `commit -s b` has its real SHA, the agent commit being made first. `commit -s w` stamps
-  `.../commit/xxxx`, a stand-in until a push or a Land commits the agent repo and sets it, and the link
-  resolves once the agent repo is pushed. Nothing folds into a commit an `ocid` names, since that changes its SHA.
-- `pcid` (Parent Commit ID) links each parent, one line per parent in parent order, so a trapezoid
-  lists the trunk first. It repeats what git records until a commit is forked or copied, when it still
-  says where the commit came from. An initial commit has none.
+
+No trailer holds a SHA, so a rebase, a squash, or a squash-push leaves every link valid, and there is
+no placeholder and nothing for a push or a Land to set.
 
 The URL comes from the repo's `origin`, normalized to https with any user, password, port, and `.git`
 dropped, so ssh and https clones stamp the same value. A local `origin` links by `file:///<path>`, so
-that path is in the commit message, and it stays there if the repo is later pushed elsewhere.
-`--no-url-trailer` leaves out `ocid` and `pcid`. Other trailers are kept when a commit is rewritten,
-below these, so `custom.md` may add its own.
+that path is in the commit message, and it stays there if the repo is later pushed elsewhere. With no
+`origin` there is no `orepo:`. `--no-url-trailer` leaves out `orepo`. Other trailers are kept when a
+commit is rewritten, below these, so `custom.md` may add its own.
+
+Older history keeps its `ocid:` and `pcid:` lines, which named SHAs. Any restamp, by `vc-x1 trailers
+--update`, a Land, or `commit --closing` finalizing, removes them and writes `orepo:` instead.
 
 Earlier forms stay valid: `ochid: /.claude/<id>` and `ochid: /<id>`, where `/` is the workspace root and
 `/.claude` always means the agent repo, and `ochid: <repo-url>#<id>`. `validate-desc` reports a URL form

@@ -423,7 +423,7 @@ pub(crate) enum Commands {
         Status labels:\n  \
           ok   : ochid trailer is valid\n  \
           err  : ochid has issues (wrong prefix, wrong length, ID not found), or\n         \
-          a work commit's ocid or pcid names the wrong repo or commit\n  \
+          an orepo names the wrong repo\n  \
           note : ok, with something worth saying, an agent commit not yet pushed\n  \
           miss : no ochid trailer; shows match from other repo if found"
     )]
@@ -544,10 +544,16 @@ pub(crate) enum Commands {
         long_about = "Squash SOURCE into TARGET (defaults: SOURCE=@, TARGET=@-),\n\
         advance a bookmark, and push.\n\n\
         Captures a repo's trailing working-copy writes into the last\n\
-        commit and publishes it: rewriting an already-pushed commit,\n\
-        so the push is a forced update. Built for the bot repo\n\
-        (`.claude`, the session tail), and useful on the work repo as\n\
-        a deliberate amend-and-push.\n\n\
+        commit and publishes it. Built for the agent repo, the session\n\
+        tail folded into the last agent commit after a session, so both\n\
+        repos are clean: the change id folded into is kept, so the\n\
+        `ochid:` naming it still resolves.\n\n\
+        A push that would be forced, the target already on the\n\
+        bookmark's remote or the remote not below it, asks before\n\
+        anything changes, so a published commit is rewritten only by\n\
+        choice. The --yes flag answers in advance, a configured\n\
+        squash-push.yes never does, and without a tty and --yes it is\n\
+        an error.\n\n\
         Zero-ceremony default: bare `vc-x1 squash-push` squashes\n\
         @ -> @- in `.` and pushes the bookmark of the line you are\n\
         on. With an empty `@` but work still to do, the squash is\n\
@@ -593,16 +599,18 @@ pub(crate) enum Commands {
         half with its trailer naming the agent @ (-s w). Push publishes\n\
         the work @-, so new work in @ is left as it is, and it refuses\n\
         a work @- with no `ochid:` trailer, which is not a pair's commit.\n\n\
-        The halves are independent, each trailer being fixed before\n\
-        push runs, so -s b is -s a then -s w, the order the pair is\n\
-        completed in:\n\
-        \x20 - agent  complete the partner by the state found: fold the\n\
-        \x20          journal into a committed one, or commit it as the\n\
-        \x20          partner when pending or the agent repo changed;\n\
-        \x20          then squash-push main\n\
+        The halves are independent, each side naming the other by\n\
+        change id, which no push moves. -s b makes every local step\n\
+        first, then publishes the work repo and then the agent repo,\n\
+        the order `squash-push -s b` publishes in:\n\
+        \x20 - agent  complete the partner by the state found: commit the\n\
+        \x20          journal as the partner when pending or the agent\n\
+        \x20          repo changed\n\
         \x20 - work   restamp the unpublished work commit if its trailer\n\
         \x20          does not name the partner, then set and push\n\
-        \x20          <bookmark>\n\n\
+        \x20          <bookmark>\n\
+        \x20 - agent  publish main, the journal folded into a committed\n\
+        \x20          partner unless it is already published\n\n\
         -s is required: `b` both halves, `a` the agent half, `w` the work\n\
         half, `p` a plain repo's @- on its bookmark. -R is optional and\n\
         says where. --bookmark is the line's unless named, as a check or\n\
@@ -719,7 +727,7 @@ pub(crate) enum Commands {
         agent `@` committed when the cycle's commits name it, the links they\n\
         carry updated, --onto fast-forwarded to --source, and the cycle's\n\
         bookmark deleted, every check made before anything moves. --push also\n\
-        publishes it, the agent repo first, and deletes the bookmark on\n\
+        publishes it, the work repo first, and deletes the bookmark on\n\
         `origin`. `commit --closing ... --land` lands the same way, the\n\
         closing made first.\n\n\
         --source is a bookmark, the cycle's, or a revision, whose current\n\
@@ -743,20 +751,20 @@ pub(crate) enum Commands {
     #[command(long_about = "\
         Rewrite a range of work commits' trailers to what is stamped today,\n\
         only their descriptions changing, each tree checked unchanged.\n\n\
-        `ochid:` becomes the partner's bare change id. `ocid:` links the agent\n\
-        commit by its SHA, or the placeholder `xxxx` while it is the\n\
-        uncommitted agent `@`. `pcid:` links each parent by its SHA, one line\n\
-        per parent in parent order, so the range goes oldest first. Links use\n\
-        the `origin`'s canonical URL, or `file:///` for a local one. A trailer\n\
-        naming nothing that resolves, a `lost` or an old short id, is left as\n\
-        it is, and a trailer `vc-x1` does not stamp is kept.\n\n\
+        `ochid:` becomes the partner's bare change id, an older 8 or 32\n\
+        character id or a SHA naming one agent commit made its 12, and\n\
+        `orepo:` above it names the agent repo by its `origin`'s canonical\n\
+        URL, or `file:///` for a local one. An older commit's `ocid:` and\n\
+        `pcid:`, which named commits by SHA, go. A trailer naming nothing that\n\
+        resolves, a `lost` or a partner gone, is left as it is, and a trailer\n\
+        `vc-x1` does not stamp is kept.\n\n\
         --update is required, the one thing this does so far. --range is a\n\
         bookmark or revision, those above the trunk up to it, or a revset with\n\
         `..` or `::`, as written [default: above the trunk up to `@-`]. A\n\
         commit on the trunk's remote is refused without --yes, and one on a\n\
         topic bookmark is rewritten with a warning. --dry-run prints each\n\
-        description, parents at their current SHAs. The work repo alone\n\
-        changes, an agent commit carrying only change ids.")]
+        description. The work repo alone changes, an agent commit's trailers\n\
+        being change ids, which a rewrite keeps.")]
     Trailers(trailers::TrailersArgs),
 }
 

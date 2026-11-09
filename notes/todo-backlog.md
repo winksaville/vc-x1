@@ -7,6 +7,15 @@ Same shape as `TODO.md > ## Todo`, [Todo format](../agent-data/notes.md#todo-for
 
 ## Todo
 
+### gen-exmpl-1-3.sh is stale
+
+(wink + agent, 2026-11-09) `support/gen-exmpl-1-3.sh` regenerates README's "Testing the
+ochid-trailer guard" transcripts, but it calls `vc-x1 init` with a positional target and `--repo
+local=`, forms `init` now refuses, and its example 2 folds into the fixture's published agent
+`main`, which `squash-push` refuses without `--force` since **feat: orepo replaces ocid and pcid**.
+The README notes the transcripts predate the refusal. Bring the script to today's `init` and give
+example 2 an unpublished commit to fold into, then regenerate the transcripts.
+
 ### trailers rewrites a range in one transaction
 
 (wink + agent, 2026-11-06) `trailers --update` describes one commit at a time, each describe

@@ -602,10 +602,9 @@ pub enum PublishState {
 
 /// Resolve the at-rest publish state of `bookmark` in `repo`.
 ///
-/// The bookmark only moves inside a push / squash-push run, which
-/// publishes it in the same invocation, so between commands
-/// `bookmark == bookmark@origin` is the invariant. A mismatch means
-/// an earlier publish was lost (or origin moved out from under us).
+/// A mismatch is a bookmark not yet published, as a Land made
+/// locally leaves `main` until it is published, or origin moved out
+/// from under us.
 ///
 /// - Read-only: two facade commit-id lookups, nothing else.
 /// - Errors when the local bookmark itself does not resolve.
@@ -648,9 +647,8 @@ pub fn verify_bot_published(
         )
         .into()),
         PublishState::Mismatch { local, remote } => Err(format!(
-            "bot repo '{repo_str}': '{bookmark}' ({}) does not match '{bookmark}@origin' ({}): \
-             an earlier publish was likely lost; publish it with \
-             `vc-x1 squash-push -s a -R {repo_str}`, then retry",
+            "bot repo '{repo_str}': '{bookmark}' is at {} here and {} on origin, so it is not \
+             published: publish it with `vc-x1 squash-push -s a -R {repo_str}`, then retry",
             &local[..local.len().min(12)],
             &remote[..remote.len().min(12)]
         )

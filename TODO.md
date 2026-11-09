@@ -40,6 +40,8 @@ Provisional:
 - `vc-x1 trailers --update --range ..@-` handles a whole history, rehearsed twice in a test repo
   made by `init --test-repo`, the code changed for the cases vc-x1's own history holds and kept for
   vc-x2 to inherit.
+- The trailers name the partner by `orepo:` and `ochid:` alone, `ocid:` and `pcid:` dropped, so no
+  trailer holds a SHA and a squash-push leaves both repos clean, agent-files v0.3.1-3.
 - vc-x1's history is left as it is: `validate-desc` over it reports the known list,
   [vc-x1-history.md](notes/vc-x1-history.md), and nothing else. A rewrite waits on the trailer
   format vc-x2 decides, and may never be made.
@@ -128,9 +130,9 @@ Provisional:
     - We think GitHub collects garbage per fork network, so the fork's `main` keeps the old records
       as long as the fork and the `inksaville` account exist, and a test minutes old cannot show
       it. Branch protection on the fork's `main` and a backed-up mirror are wink's options.
-- vc-x1's history is left as it is, wink's (2026-11-09): its trailers are redesigned in vc-x2
-  (below), and a rewrite of vc-x1 waits on that format, maybe someday, maybe never. The backfill,
-  the fork, and the rewrite's push are not made.
+- vc-x1's history is left as it is, wink's (2026-11-09): its trailers are redesigned (below), and
+  a rewrite of vc-x1 into the new form is maybe someday, maybe never. The backfill, the fork, and
+  the rewrite's push are not made.
   - Unrewritten, with this cycle's build, `validate-desc` reports 674 ok, 1 err, and 2 miss on the
     work side, the known list, a missing `ocid:` or `pcid:` being no error, and 637 ok, 13 err,
     and 1 miss on the agent side. A fresh clone adds the 3 drafts, which resolve in wink's
@@ -138,18 +140,38 @@ Provisional:
   - One error is local, the agent's finding (2026-11-09): `qnrtkuzytysk`'s partner `vznzonllovrk`
     is divergent in wink's work-repo, a leftover `2fbd6c40c172` on no bookmark beside `main`'s
     `ecdaeafa6be8`, and single in a fresh clone. Abandoning the leftover is wink's call.
-- The trailers, for vc-x2, wink's (2026-11-07):
+- The trailers, wink's (2026-11-07, decided 2026-11-09):
   - `ocid:` pins the agent commit's SHA, so an agent commit is never amended or squashed into, and
     commit order is forced, the agent first or the `xxxx` placeholder. `pcid:` repeats git's
     parents, and makes a describe rewrite every commit above it.
-  - Proposed: an `ochid:` and a link to the partner's repo, `ocid:` and `pcid:` dropped. An
-    agent-repo could then be cleaned by a squash-push, the change ids the `ochid:`s name surviving
-    it. Lost: GitHub's one click to the agent commit, plain git resolving the link, and the
-    transcript pinned by a hash.
+  - Decided, an inserted rung: `orepo: <url-to-other-repo>` replaces `ocid:`, and with `ochid:`
+    names exactly where the partner is. `pcid:` is dropped too, the agent's case and wink's
+    agreement: git and GitHub already show the parents, `orepo:` names the repo, and a copied
+    commit's provenance is vc-x2's one `seeded-from:`. No trailer then holds a SHA, so a rebase,
+    a squash, or a squash-push leaves every link valid. Lost: GitHub's one click to the agent
+    commit, plain git resolving the link, and the transcript pinned by a hash.
+  - One `orepo:` covers the `ochid:` lines after it, so an agent commit naming partners in several
+    repos groups them, `orepo: A`, its `ochid:`s, then `orepo: B`, the agent's.
+  - `ocid:` and `pcid:` in history are an older form `validate-desc` does not check, the `ochid:`
+    being the link, since a squash-push may now change the SHA an old `ocid:` names.
   - An agent working across several work-repos, each commit naming its work-repo, so the agent
-    cannot commit first and the agent-repo generalizes toward a work-repo.
+    cannot commit first and the agent-repo generalizes toward a work-repo, is vc-x2's.
   - A malformed trailer is cheap to fix only at `@`, or at `@-` before it is pushed, so a check of
     the commits being pushed, `validate-desc` over the range, catches it while it is cheap.
+- Clean by squash-push, wink's (2026-11-09): after a session, `vc-x1 squash-push -s b` publishes the
+  work trunk and folds the agent tail into the last agent commit, so both repos are clean, which the
+  archived vc-x1 needs. A squash folds into the commit an `ochid:` names, never that commit away,
+  since jj keeps the change id of the commit squashed into.
+  - A Land is published by the agent only with wink's permission, the rule as it stands. In a run
+    of delegated cycles the next step after `land --push` is `commit --opening`, which carries the
+    tail, and no squash-push follows. Without it the agent lands locally, and wink publishes after
+    the session, the work repo first. Either order is correct, since no trailer holds a SHA, and
+    the work-repo goes first as the shared one, whose push is the one likely refused, wink's
+    (2026-11-09).
+  - `squash-push` asks before a push that would be forced, its target already in
+    `::<bookmark>@origin`, and the `--yes` flag answers, wink's (2026-11-09). A topic bookmark has
+    few readers until it is published, a mistake after a push wants an amend, and the agent-repo
+    is personal but public, so a rewrite is a choice made each time rather than a refusal.
 - vc-x2 takes over by a continuation note, wink's (2026-11-09): after the plain copy, a note in
   vc-x2's `TODO.md`, committed after the seed so the seed stays a copy of vc-x1's tree, and vc-x2's
   own session does the work from there.
@@ -205,13 +227,61 @@ dry run first, and changed until every commit is rewritten, current, or left wit
   and a GitHub fork in a second account working. Neither is used, vc-x1's history being left as it
   is, and both are recorded in the deliberation.
 
+##### feat: orepo replaces ocid and pcid
+
+`ocid:` names the agent commit by SHA and `pcid:` the parents by SHA, so a squash-push of the
+agent-repo, a rebase, or a describe makes them stale, and neither repo can be left clean. The
+trailers become `orepo:` and `ochid:`, the rules make squash-push the clean-up, and `squash-push`
+refuses a forced push. Agent-files v0.3.1-3.
+
+* Each side named its partner by change id, and a work commit also by the agent commit's SHA and its
+  parents' SHAs, `xxxx` standing in until the agent commit was made.
+  - Both sides stamp `orepo:`, the other repo's URL, above their `ochid:`s, and nothing holds a SHA,
+    so `commit -s w`'s trailers are final when made, push sets no SHA, and a Land rewrites no rung.
+  - A restamp, by `trailers --update`, a Land, or a closing finalized, gives an older commit's
+    `ocid:` and `pcid:` way to `orepo:`, and `validate-desc` checks `orepo:` and not the older form.
+* The journal was never folded into a partner an `ocid:` named or a Land made.
+  - It folds into any partner not yet published, a Land's included, the change id the `ochid:`
+    names kept, and stays in `@` for the next agent commit when the partner is published.
+* `squash-push` force-updated a published commit, its first purpose.
+  - It asks before a push that would be forced, before changing anything, and only the `--yes`
+    flag answers in advance, a configured `squash-push.yes` never. Without a tty it is an error, and
+    as push's stage it never forces. The dr-1 fixture builder's `--yes` covers its amend, the case
+    it models.
+* The rules forbade a squash-push and pinned the agent commit's SHA.
+  - At rest makes the user's squash-push after a session the clean-up, and a delegated run's
+    published Land leaves the tail to the next opening. `jj.md`, `rationale.md`, and `README.md`
+    follow.
+* The dev build was installed only after a rung's commit, so a review ran the previous rung's,
+  wink's finding (2026-11-09), `vc-x1-dev` 0.85.21-1 during this rung's review.
+  - Step 5 installs the working copy's dev build before the review and after each review fix, and
+    step 8 installs it again after the commit, wink's call.
+* wink's test workspace, `~/tmp/wt-21-3-1`, ran v0.3.1-3 end to end and found two gaps, its
+  agent-files changes taken here whole.
+  - At rest and the Land named `squash-push -R .agent-session`, which fails, `--scope` being
+    required, and an agent-repo-first order that no SHA-free trailer needs. They name
+    `squash-push -s b`, the work repo first.
+  - The plain `vc-x1` 0.85.20 stamped `ocid:` and `pcid:` under a banner naming v0.3.1-3. Acquaint
+    reports `vc-x1 -V` and `vc-x1-dev -V` and a newer dev build is the user's to choose, one
+    **Which build runs** bullet for this project's artifact and another's tool.
+* `squash-push` warned that an earlier publish was likely lost whenever the bookmark was off its
+  origin, the normal state after a Land made locally.
+  - Preflight already refuses a forced push, so it reports the bookmark below the squash target as
+    an info line, and warns only of a forced push. `validate-agent`'s refusal of an
+    unpublished agent `main` drops the same claim.
+* `push -s b` and `land --push` published the agent repo first, and `squash-push -s b` the work
+  repo first.
+  - `push` makes every local step first, the agent partner committed and the work commit
+    restamped, then publishes the work repo and then the agent repo, so all three publish in one
+    order. A work push that fails leaves the agent repo unpublished, and a rerun completes both.
+
 ##### chore: a test vc-x2 reaches vc-x1's history
 
 Whether vc-x2, seeded without history, can reach the why and how of its first tree in vc-x1 is
 untested. A test vc-x2 is seeded from the rehearsal, its first commit naming vc-x1's final SHA, and
 `lookup` is tried in it. What vc-x2 needs is filed as `## Todo` entries: a `seeded-from:` trailer
-and `lookup` following it, adopt taking a renamed config, the trailer redesign, the push-time check,
-and the xtask move.
+and `lookup` following it, adopt taking a renamed config, an agent across several work-repos, the
+push-time check, and the xtask move.
 
 ##### chore: complete vc-x1, ready for vc-x2 closing
 

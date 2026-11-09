@@ -128,7 +128,9 @@ in this order ([why](agent-data/rationale.md#acquaint)):
    ([custom.md](#custommd)).
 2. Hooks: `bash agent-data/hooks.sh check`, and what it finds missing, different, or
    unregistered is reported for the user to install ([Working practices](#working-practices)).
-3. Repo check: look at each repo of the workspace for the four findings below, and report what is
+3. Tools: `vc-x1 -V` and `vc-x1-dev -V`, both reported, and a dev build newer than the plain one
+   is the user's to choose ([Dev artifact name](agent-data/versioning.md#dev-artifact-name)).
+4. Repo check: look at each repo of the workspace for the four findings below, and report what is
    found before anything else. Nothing is opened, pushed, rebased, committed, or discarded until
    the user says how to proceed.
    - Not up to date: a repo whose `main` is behind, ahead of, or diverged from its remote's, as
@@ -136,17 +138,17 @@ in this order ([why](agent-data/rationale.md#acquaint)):
      in flight. A look that fails is reported as the check not made.
    - Uncommitted work: a work-repo `@` that is not empty, as `jj st` prints it. What the
      continuation notes account for, the notes themselves or a rung in flight they describe, is
-     theirs to direct at step 4, and any other change is a finding. The agent-repo's `@` holds the
+     theirs to direct at step 5, and any other change is a finding. The agent-repo's `@` holds the
      session's own data and is never one.
    - Work off `main`: commits on a bookmark, a cycle's or any other, that do not descend from the
      remote's `main`. The user is told, and a rebase onto `main` is suggested.
    - Conflicts: a conflicted commit or working copy, as `jj st` and `jj log -r 'conflicts()'` show
      them. The acquaint stops there and the user is informed.
-4. TODO.md: read the acquaint slice ([File
+5. TODO.md: read the acquaint slice ([File
    reads](agent-data/notes.md#file-reads-read-the-slice-you-need)), the continuation notes first,
    each acted on, filed or kept, and the section reset ([Todo
    format](agent-data/notes.md#todo-format)).
-5. Report: say where things stand, the cycle in flight, its ladder in `zTOC.md`, or the top of `##
+6. Report: say where things stand, the cycle in flight, its ladder in `zTOC.md`, or the top of `##
    Todo`, and wait.
 
 ## Sync
@@ -287,7 +289,9 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)):
 5. Validate: `vc-x1 validate` before every review, doc-only commits included. The full run rewrites
    files (`cargo fmt`), so use `--fast` while a review iterates. A failure is read and its cause
    named before validation runs again, and a failure that does not repeat is a finding, reported
-   and given a Todo entry.
+   and given a Todo entry. A rung that changes the artifact then installs the working copy's dev
+   build, `vc-x1 install --profile dev`, so the review runs the code under review, and again after
+   each review fix ([Dev artifact name](agent-data/versioning.md#dev-artifact-name)).
 6. Work review: stop before writing any description and say "please review", as its own message with
    no title or body. Iterate until the user says "continue" / "go". The review is of the
    working-copy diff ([jj basics](agent-data/jj.md#jj-basics)).
@@ -299,7 +303,7 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)):
 8. Commit: on the go, `vc-x1 commit -s w --title "..." --body "..."`, local ([Committing vs
    pushing](#committing-vs-pushing)), `--opening` added for the opening and `--closing <BM|REV>`
    for the closing ([Cycle shape](#cycle-shape)). A rung that changes the artifact then installs its
-   dev build, so the next rung runs the code just reviewed ([Dev artifact
+   dev build again, so the next rung runs the committed code, not the working copy's ([Dev artifact
    name](agent-data/versioning.md#dev-artifact-name)).
 
 ### Committing vs pushing
@@ -327,16 +331,16 @@ committed and when either is published, at any rung, every push still taking its
 - Any mix of work and agent commits is valid. `commit -s b` makes a 1:1 pair, `commit -s w` rungs
   then `commit -s a --covers <REVSET>` or the Land make N:1, and several agent commits naming one
   work commit make 1:M. The rule is the links: a work commit's `ochid:` names each agent change it
-  pairs with, an agent commit's names each work commit it covers, and an agent commit whose SHA an
-  `ocid:` names is never folded into ([Cross-repo
+  pairs with, an agent commit's names each work commit it covers, each below an `orepo:` naming the
+  other repo, and a squash folds into a commit an `ochid:` names, never that commit away, since jj
+  keeps the change id of the commit squashed into ([Cross-repo
   linking](agent-data/jj.md#cross-repo-linking-ochid-trailers)).
 - A backup, a move between machines, or someone else to see the cycle commits the agent side and
-  publishes mid-cycle, every published rung's `ocid:` made real first: `commit -s a --covers
-  <REVSET>`, then `trailers --update`, then `push -s b`.
-- The Land commits the agent `@` first, one `ochid:` per work commit it has not yet covered, and
-  sets the links on each work commit, trees unchanged.
+  publishes mid-cycle: `commit -s a --covers <REVSET>`, then `push -s b`.
+- The Land commits the agent `@` first, one `ochid:` per work commit it has not yet covered, an
+  older work commit's `ocid:` and `pcid:` giving way to `orepo:`, trees unchanged.
 - We think a cycle's whole transcript in one commit may near jj's new-file size limit, and the
-  mid-cycle backup's three commands want one.
+  mid-cycle backup's two commands want one.
 
 ### Commit description
 
@@ -366,11 +370,19 @@ item's tail ([why](agent-data/rationale.md#at-rest)):
 1. The agent publishes: a step that publishes is complete when its command is issued. The agent says
    what is worth saying *before* the final publishing command, responds with the one word
    "Published", and does nothing further until the user speaks.
-2. No squash-push: the session's tail is bookkeeping, and it rides the next agent commit.
+2. Clean by squash-push: a Land is published by the agent only with the user's permission. A run of
+   delegated cycles follows each `land --push` with the next `commit --opening`, which carries the
+   session's tail. A Land the agent made locally is published by the user after the session:
+   `vc-x1 squash-push -s b` pushes the work trunk first, the shared repo and so the push likely to
+   be refused, then folds the tail into the Land's agent commit and pushes it, so each `main` moves
+   once, forward.
+   `squash-push` asks before a push that would be forced, a published commit rewritten, and the
+   `--yes` flag answers, so the agent passes it only for a forced push the user approved.
 
-"Clean" means the work `@` is empty, the agent's `@` being the session's data and no finding, as
-[Acquaint](#acquaint) says. A late work-repo tweak after a push is a remote rewrite and takes approval
-like any push ([vc-x1 commit and push][vpush]).
+"Clean" means the work `@` is empty, and once the user's squash-push has run the agent's `@` too.
+Before it the agent's `@` is the session's data and no finding, as [Acquaint](#acquaint) says. A
+late work-repo tweak after a push is a remote rewrite and takes approval like any push ([vc-x1
+commit and push][vpush]).
 
 ### Close-out
 

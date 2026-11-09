@@ -73,29 +73,27 @@ the commit ID / git SHA, which changes on rewrite). Trailers are blank-line-sepa
 lines at the end of the commit body:
 
 ```
+orepo: https://github.com/owner/name.agent-session
 ochid: xvzvruqowktp
-ocid: https://github.com/owner/name.agent-session/commit/<sha>
-pcid: https://github.com/owner/name/commit/<parent-sha>
 ```
 
+- `orepo: <other-repo-url>`: the other repo, on both sides, a work commit naming the agent-repo and
+  an agent commit the work-repo. It covers the `ochid:` lines after it, so the pair says exactly
+  where each partner is.
 - `ochid: <chid>`: the partner's change id in the other repo, a bare 12-character id on both sides.
   Published `/<chid>`, `/.claude/<chid>`, and `<repo-url>#<chid>` stay valid.
-- `ocid: <agent-repo-url>/commit/<sha>`: on a work commit, the agent commit.
-- `pcid: <work-repo-url>/commit/<parent-sha>`: on a work commit, each parent, one line per parent in
-  parent order, the trunk first on a trapezoid.
 
-An agent commit carries `ochid:` alone, one per work commit it covers, so a local cycle's Land makes
-one agent commit naming them all. The URLs are from `origin`, normalized to https, or
-`file:///<path>` for a local one, and `--no-url-trailer` leaves them out.
+An agent commit carries one `ochid:` per work commit it covers, so a local cycle's Land makes one
+agent commit naming them all. The URL is from `origin`, normalized to https, or `file:///<path>` for
+a local one, and `--no-url-trailer` leaves it out. No trailer holds a SHA, so either side may be
+committed first, and a rebase, a squash, or a squash-push leaves every link valid, so long as a
+squash folds into the commit an `ochid:` names and never that commit away. An older commit's
+`ocid:` and `pcid:`, which named commits by SHA, are not checked, and a restamp replaces them with
+`orepo:`.
 
-The agent commit is made first where it can be. `commit -s b` stamps its real SHA, and `commit -s w`
-stamps `.../commit/xxxx` until the agent commit is made, mid-cycle by `commit -s a --covers
-<REVSET>` and `trailers --update`, or by the Land. A rung is published only with its `ocid:` real
-([A cycle is local by default](../AGENTS.md#a-cycle-is-local-by-default)), and we think one command
-of its own name, not an overloaded `push`, makes it so, proposed and not built. Nothing folds into a commit an `ocid:` names, so
-`squash` and `push` leave it, and the journal rides the next agent commit. A trailer `vc-x1` does
-not stamp is kept on a rewrite, so `custom.md` may add its own. `vc-x1 trailers --update` moves a
-range of commits to today's form, and a Land refreshes the links by the same pass.
+A trailer `vc-x1` does not stamp is kept on a rewrite, so `custom.md` may add its own. `vc-x1
+trailers --update` moves a range of commits to today's form, and a Land runs the same pass over its
+cycle.
 
 Use `vc-x1 chid -s work,agent -L` to capture the change IDs (first line work-repo, second agent
 repo).
@@ -153,12 +151,13 @@ push` is the push under [Approval per push](../AGENTS.md#before-any-push), with 
 before it and silence after ([At rest](../AGENTS.md#at-rest)):
 
 1. Sync: `vc-x1 sync -s b`, and a `main` it moved stops the Land ([Sync](../AGENTS.md#sync)).
-2. Integrate: `vc-x1 land -s b --onto <trunk>`, local: it commits the agent `@` as the partner, sets
-   each work commit's `ocid:` and `pcid:`, fast-forwards the trunk, and deletes the cycle's local
-   bookmark, every check made first. `--dry-run` says each step. The user may test here, before
-   anything is published.
-3. Publish: `vc-x1 push -s b --bookmark <trunk>`, the agent repo first and the work repo after.
-   `land --push` does steps 2 and 3 as one.
+2. Integrate: `vc-x1 land -s b --onto <trunk>`, local: it commits the agent `@` as the partner,
+   fast-forwards the trunk, and deletes the cycle's local bookmark, every check made first.
+   `--dry-run` says each step. The user may test here, before anything is published.
+3. Publish: `vc-x1 push -s b --bookmark <trunk>`, the work repo first, the journal folded into the
+   Land's agent commit while that is unpublished. `land --push` does steps 2 and 3 as one.
+   The agent publishes only with the user's permission, and otherwise the user does after the
+   session, by `vc-x1 squash-push -s b` ([At rest](../AGENTS.md#at-rest)).
 4. Remote bookmark: `vc-x1 delete-bookmark -s w --bookmark <bookmark> --skip local`, when the topic
    was ever pushed.
 5. Install: `vc-x1 build`, a `vc-x1 run -- -V` smoke check, and `vc-x1 install`, so the plain name

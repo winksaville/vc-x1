@@ -140,8 +140,8 @@ pub struct InitArgs {
     )]
     pub upstream: Option<String>,
 
-    /// Stamp the work commit's `ochid:` alone, with no `ocid:` or `pcid:`
-    /// links. A plain repo stamps no trailer, so it changes nothing there.
+    /// Stamp each initial commit's `ochid:` alone, with no `orepo:` link.
+    /// A plain repo stamps no trailer, so it changes nothing there.
     #[arg(long)]
     pub no_url_trailer: bool,
 

@@ -538,6 +538,8 @@ def main():
            "Fold the fix into the rung and re-push the bookmark", "Changes to push to origin:\n  bookmark: fix-the-design-note [move sideways]")
     a.pushes[pC1]["rewritten"] = True
     clock.tick(10)
+    # The amend rewrites the published partner on purpose, the case the
+    # fixture models, so the push is forced.
     jj.run([VC, "squash-push", "-s", "a", "--yes", "-R", str(agent)], work)
     a.pushes[pC1]["predecessor"] = True
     # The amend's lines are now in the partner's amended diff, so the

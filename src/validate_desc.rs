@@ -22,9 +22,9 @@ use log::{debug, info};
 use crate::common;
 use crate::context::Context;
 use crate::desc_helpers::{
-    DEFAULT_ID_LEN, OCID_PLACEHOLDER, OchidIssues, TitleMatch, Trailers, extract_bare_id,
-    extract_ochids, find_matching_commit, is_change_id_form, ochid_forms_for, ochid_prefix_for,
-    repo_url_for, validate_ochid,
+    DEFAULT_ID_LEN, OchidIssues, TitleMatch, Trailers, extract_bare_id, extract_ochids,
+    find_matching_commit, is_change_id_form, ochid_forms_for, ochid_prefix_for, repo_url_for,
+    validate_ochid,
 };
 use crate::jj;
 use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, repo_scope_parser, side_keyword};
@@ -199,99 +199,42 @@ struct LinkFindings {
     notes: Vec<String>,
 }
 
-/// Check a work commit's `ocid:` and `pcid:` links, offline, from the two
-/// repos and what they know of their remotes. Having none is not wrong,
-/// an older or `--no-url-trailer` commit having none. A wrong link is
+/// Check a commit's `orepo:` link, offline, from the other repo and what
+/// it knows of its remote. Having none is not wrong, an older or
+/// `--no-url-trailer` commit having none, and an older commit's `ocid:`
+/// and `pcid:` are not checked, since they name SHAs a squash or a
+/// squash-push may change, its `ochid:` being the link. A wrong link is
 /// repaired by `vc-x1 trailers --update`.
 ///
-/// - `ocid:` names the agent repo's `origin`, and its SHA is the commit
-///   the last `ochid:` names, or the placeholder while that is the
-///   uncommitted agent `@`. An agent commit not yet on a remote is a note.
-/// - `pcid:` names the work repo's `origin`, and its SHAs are the commit's
-///   parents, every one, in parent order.
+/// - `orepo:` names the other repo's `origin`.
+/// - On a work commit, an agent partner committed and not yet on a
+///   remote is a note.
 fn link_findings(
-    work: &Path,
-    agent: &Path,
-    commit: &str,
+    other: &Path,
     desc: &str,
-    id_len: usize,
+    work_side: bool,
 ) -> Result<LinkFindings, Box<dyn std::error::Error>> {
     let mut found = LinkFindings::default();
     let trailers = Trailers::of(desc);
-    let split = |value: &str| {
-        value
-            .rsplit_once("/commit/")
-            .map(|(url, sha)| (url.to_string(), sha.to_string()))
-    };
-    if let Some(ocid) = &trailers.ocid {
-        match split(ocid) {
-            None => found.wrong.push(format!("ocid: not a commit link: {ocid}")),
-            Some((url, sha)) => {
-                if let Some(want) = repo_url_for(agent)?
-                    && url != want
-                {
-                    found.wrong.push(format!("ocid: names {url}, not {want}"));
-                }
-                let partner = trailers.ochids.last().map(|o| extract_bare_id(o));
-                let partner = partner.filter(|id| {
-                    id.len() == id_len && id.chars().all(|c| c.is_ascii_alphanumeric())
-                });
-                if let Some(partner) = partner
-                    && jj::rev_exists(agent, partner)?
-                {
-                    let actual = jj::cid_of(agent, partner)?;
-                    let uncommitted = jj::chid_of(agent, "@")? == partner;
-                    if uncommitted && sha != OCID_PLACEHOLDER {
-                        found.wrong.push(format!(
-                            "ocid: has {sha}, and {partner} is the uncommitted agent @"
-                        ));
-                    } else if !uncommitted && sha == OCID_PLACEHOLDER {
-                        found.wrong.push(format!(
-                            "ocid: placeholder, and {partner} is committed at {actual}"
-                        ));
-                    } else if !uncommitted && sha != actual {
-                        found
-                            .wrong
-                            .push(format!("ocid: has {sha}, and {partner} is at {actual}"));
-                    } else if !uncommitted
-                        && !jj::matches(agent, &format!("{actual} & ::remote_bookmarks()"))?
-                    {
-                        found
-                            .notes
-                            .push(format!("the agent commit {actual} is not on a remote yet"));
-                    }
-                }
-            }
-        }
+    if let Some(orepo) = &trailers.orepo
+        && let Some(want) = repo_url_for(other)?
+        && *orepo != want
+    {
+        found
+            .wrong
+            .push(format!("orepo: names {orepo}, not {want}"));
     }
-    if !trailers.pcids.is_empty() {
-        let root = jj::cid_of(work, "root()")?;
-        let parents: Vec<String> = jj::parent_cids_of(work, commit)?
-            .into_iter()
-            .filter(|parent| *parent != root)
-            .collect();
-        let want_url = repo_url_for(work)?;
-        let mut shas = Vec::new();
-        for pcid in &trailers.pcids {
-            match split(pcid) {
-                None => found.wrong.push(format!("pcid: not a commit link: {pcid}")),
-                Some((url, sha)) => {
-                    if let Some(want) = &want_url
-                        && url != *want
-                    {
-                        found.wrong.push(format!("pcid: names {url}, not {want}"));
-                    }
-                    shas.push(sha);
-                }
-            }
-        }
-        if shas != parents {
-            found.wrong.push(format!(
-                "pcid: has [{}], and the parents are [{}]",
-                shas.join(", "),
-                parents.join(", ")
-            ));
-        }
+    let partner = trailers.ochids.last().map(|o| extract_bare_id(o));
+    if work_side
+        && let Some(partner) = partner
+        && is_change_id_form(partner)
+        && let Some(full) = jj::one_chid(other, partner)?
+        && jj::chid_of(other, "@")? != full
+        && !jj::matches(other, &format!("{full} & ::remote_bookmarks()"))?
+    {
+        found
+            .notes
+            .push(format!("the agent commit {full} is not on a remote yet"));
     }
     Ok(found)
 }
@@ -410,17 +353,7 @@ fn validate_side(
                         wrong.push(issues.summary());
                     }
                 }
-                let links = if common::is_bot_dir(repo_path) {
-                    LinkFindings::default()
-                } else {
-                    link_findings(
-                        repo_path,
-                        &other_repo_path,
-                        &commit_id.hex(),
-                        desc,
-                        params.id_len,
-                    )?
-                };
+                let links = link_findings(&other_repo_path, desc, !common::is_bot_dir(repo_path))?;
                 wrong.extend(links.wrong);
                 wrong.dedup();
                 notes.extend(links.notes);
@@ -549,89 +482,43 @@ mod tests {
         assert_eq!(params.repos[0].0, "agent");
     }
 
-    /// Run `validate-desc` over the work `@-` with its description set to
-    /// `trailers` below a title and return what is wrong with its links.
+    /// Check the links of a work commit described with `trailers` below a
+    /// title and return what is wrong with them.
     fn links(fx: &Fixture, trailers: &str) -> Vec<String> {
         let desc = format!("feat: x\n\n{trailers}\n");
-        jj_ok(&fx.work, &["describe", "-r", "@-", "-m", &desc]);
-        link_findings(
-            &fx.work,
-            &fx.bot,
-            &jj::cid_of(&fx.work, "@-").expect("cid"),
-            &desc,
-            12,
-        )
-        .expect("checked")
-        .wrong
+        link_findings(&fx.bot, &desc, true).expect("checked").wrong
     }
 
-    /// `ocid:` and `pcid:` are checked against the repos: each URL against
-    /// `origin`, the SHA against the commit `ochid:` names, the placeholder
-    /// only for the uncommitted agent `@`, and `pcid:` against the parents.
+    /// `orepo:` is checked against the other repo's `origin`, and an older
+    /// commit's `ocid:` and `pcid:` are not checked at all, whatever SHAs
+    /// they name, the `ochid:` being the link.
     #[test]
     fn links_are_checked_against_the_repos() {
         let fx = Fixture::new("vdesc-links");
-        fs::write(fx.work.join("a.txt"), "a\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "feat: a"]);
         let agent = crate::desc_helpers::repo_url_for(&fx.bot)
             .expect("url")
             .expect("url");
-        let work = crate::desc_helpers::repo_url_for(&fx.work)
-            .expect("url")
-            .expect("url");
         let at = chid(&fx.bot, "@");
-        let made = chid(&fx.bot, "@-");
-        let sha = jj::cid_of(&fx.bot, "@-").expect("cid");
-        let parent = jj::cid_of(&fx.work, "@--").expect("cid");
-        let pcid = format!("pcid: {work}/commit/{parent}");
 
         let good = [
-            format!("ochid: {at}\nocid: {agent}/commit/xxxx\n{pcid}"),
-            format!("ochid: {made}\nocid: {agent}/commit/{sha}\n{pcid}"),
+            format!("orepo: {agent}\nochid: {at}"),
             format!("ochid: {at}"),
+            format!("ochid: {at}\nocid: {agent}/commit/xxxx\npcid: https://h/o/x/commit/1234"),
+            format!("ochid: {at}\nocid: nonsense"),
         ];
         for trailers in &good {
             assert_eq!(links(&fx, trailers), Vec::<String>::new(), "{trailers}");
         }
 
-        let bad = [
-            (
-                format!("ochid: {made}\nocid: {agent}/commit/xxxx"),
-                "placeholder",
-            ),
-            (
-                format!("ochid: {at}\nocid: {agent}/commit/{sha}"),
-                "uncommitted",
-            ),
-            (
-                format!("ochid: {made}\nocid: {agent}/commit/{parent}"),
-                "is at",
-            ),
-            (
-                format!("ochid: {at}\nocid: https://h/o/x/commit/xxxx"),
-                "names",
-            ),
-            (format!("ochid: {at}\nocid: nonsense"), "not a commit link"),
-            (
-                format!("ochid: {at}\npcid: {work}/commit/{sha}"),
-                "the parents are",
-            ),
-            (format!("ochid: {at}\n{pcid}\n{pcid}"), "the parents are"),
-            (
-                format!("ochid: {at}\npcid: https://h/o/x/commit/{parent}"),
-                "names",
-            ),
-        ];
-        for (trailers, want) in &bad {
-            let wrong = links(&fx, trailers);
-            assert!(
-                wrong.iter().any(|w| w.contains(want)),
-                "{trailers}: {wrong:?}"
-            );
-        }
+        let wrong = links(&fx, &format!("orepo: https://h/o/x\nochid: {at}"));
+        assert!(
+            wrong.iter().any(|w| w.contains("names https://h/o/x")),
+            "{wrong:?}"
+        );
     }
 
-    /// An agent commit not yet on a remote is a note, nothing being wrong.
+    /// An agent commit not yet on a remote is a note, nothing being wrong,
+    /// and the agent side, whose partners are work commits, gets none.
     #[test]
     fn an_unpushed_agent_commit_is_a_note() {
         let fx = Fixture::new("vdesc-note");
@@ -640,52 +527,13 @@ mod tests {
         let agent = crate::desc_helpers::repo_url_for(&fx.bot)
             .expect("url")
             .expect("url");
-        let (made, sha) = (chid(&fx.bot, "@-"), jj::cid_of(&fx.bot, "@-").expect("cid"));
-        let found = link_findings(
-            &fx.work,
-            &fx.bot,
-            &jj::cid_of(&fx.work, "@-").expect("cid"),
-            &format!("feat: x\n\nochid: {made}\nocid: {agent}/commit/{sha}"),
-            12,
-        )
-        .expect("checked");
+        let made = chid(&fx.bot, "@-");
+        let desc = format!("feat: x\n\norepo: {agent}\nochid: {made}");
+        let found = link_findings(&fx.bot, &desc, true).expect("checked");
         assert_eq!(found.wrong, Vec::<String>::new());
         assert_eq!(found.notes.len(), 1, "{:?}", found.notes);
-    }
-
-    /// `pcid:` lines out of parent order are wrong, a merge's included.
-    #[test]
-    fn pcids_must_follow_parent_order() {
-        let fx = Fixture::new("vdesc-order");
-        let mut sides = Vec::new();
-        for name in ["a", "b"] {
-            jj_ok(&fx.work, &["new", "main"]);
-            fs::write(fx.work.join(format!("{name}.txt")), "x\n").expect("write");
-            jj_ok(&fx.work, &["commit", "-m", name]);
-            sides.push(jj::cid_of(&fx.work, "@-").expect("cid"));
-        }
-        jj_ok(&fx.work, &["new", &sides[0], &sides[1]]);
-        jj_ok(&fx.work, &["commit", "-m", "merge"]);
-        let work = crate::desc_helpers::repo_url_for(&fx.work)
-            .expect("url")
-            .expect("url");
-        let at = chid(&fx.bot, "@");
-        let line = |sha: &str| format!("pcid: {work}/commit/{sha}");
-        assert_eq!(
-            links(
-                &fx,
-                &format!("ochid: {at}\n{}\n{}", line(&sides[0]), line(&sides[1]))
-            ),
-            Vec::<String>::new()
-        );
-        assert_eq!(
-            links(
-                &fx,
-                &format!("ochid: {at}\n{}\n{}", line(&sides[1]), line(&sides[0]))
-            )
-            .len(),
-            1
-        );
+        let agent_side = link_findings(&fx.bot, &desc, false).expect("checked");
+        assert_eq!(agent_side.notes, Vec::<String>::new());
     }
 
     /// Every `ochid:` is checked, not only the last, and a wrong link is
@@ -709,9 +557,12 @@ mod tests {
         validate_desc(&ctx, &parse_params("a", &fx.bot)).expect_err("the first does not");
 
         let at = chid(&fx.bot, "@");
+        let desc = format!("feat: x\n\norepo: file:///no/such/repo\nochid: {at}\n");
+        jj_ok(&fx.work, &["describe", "-m", &desc]);
+        validate_desc(&ctx, &parse_params("w", &fx.work)).expect_err("a wrong orepo");
         let desc = format!("feat: x\n\nochid: {at}\npcid: file:///no/such/commit/abc\n");
         jj_ok(&fx.work, &["describe", "-m", &desc]);
-        validate_desc(&ctx, &parse_params("w", &fx.work)).expect_err("a wrong pcid");
+        validate_desc(&ctx, &parse_params("w", &fx.work)).expect("an older pcid is not checked");
     }
 
     /// An older 8 or 32 character id naming one commit is a note, on

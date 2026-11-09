@@ -92,10 +92,10 @@ pub enum Partner {
     /// The agent `@-` names the work commit, the pair made at once
     /// (`commit -s b`): the journal in `@` folds into it. Its id.
     Committed(String),
-    /// The agent `@-` names the work commit and a Land made it: it
-    /// names several, or the work commit's `ocid:` links it, so the
-    /// journal in `@` stays out, since a fold changes its SHA. Its id.
-    Landed(String),
+    /// The agent `@-` names the work commit and is already published,
+    /// so the journal in `@` stays out, since a fold would rewrite a
+    /// published commit, and rides the next agent commit. Its id.
+    Published(String),
     /// The agent `@` is the change the work commit names (`commit
     /// -s w`): the journal is the partner, for push to commit. Its id.
     Pending(String),
@@ -113,20 +113,18 @@ pub fn partner(pair: &Pair, work: &WorkCommit) -> Result<Partner, Box<dyn std::e
     let names_work = ochids
         .last()
         .is_some_and(|o| extract_bare_id(o) == work.chid);
-    Ok(
-        if names_work && (ochids.len() > 1 || work.trailers.ocid.is_some()) {
-            Partner::Landed(jj::chid_of(&pair.agent, "@-")?)
-        } else if names_work {
-            Partner::Committed(jj::chid_of(&pair.agent, "@-")?)
-        } else if agent_at == work.stamped {
-            Partner::Pending(agent_at)
-        } else {
-            Partner::Changed {
-                stamped: work.stamped.clone(),
-                agent_at,
-            }
-        },
-    )
+    Ok(if names_work && is_published(&pair.agent, "@-")? {
+        Partner::Published(jj::chid_of(&pair.agent, "@-")?)
+    } else if names_work {
+        Partner::Committed(jj::chid_of(&pair.agent, "@-")?)
+    } else if agent_at == work.stamped {
+        Partner::Pending(agent_at)
+    } else {
+        Partner::Changed {
+            stamped: work.stamped.clone(),
+            agent_at,
+        }
+    })
 }
 
 /// One repo's `jj op` id, captured before a half's first mutation,

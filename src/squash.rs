@@ -18,9 +18,10 @@
 //!   on a topic bookmark only, is rewritten with a warning, the next
 //!   push moving its bookmark. A commit on the trunk's remote is
 //!   history others have, refused without `--yes`. A published
-//!   partner with only the journal to fold is left for push, whose
-//!   agent half folds it. A partner a work commit's `ocid:` links, or a
-//!   Land made, is left as it is, since a fold changes its SHA.
+//!   partner with only the journal to fold is left as it is, the
+//!   journal riding the next agent commit, since a fold would rewrite
+//!   it. An unpublished partner, a Land's included, takes the fold, the
+//!   change id the work commit's `ochid:` names surviving it.
 //! - `--title` with `--body` rewrites the descriptions, keeping each
 //!   trailer, the one sanctioned re-describe of a trailer-carrying
 //!   commit: by this command, warned or refused as a fold is.
@@ -33,7 +34,7 @@ use clap::Args;
 use log::{debug, info, warn};
 
 use crate::context::Context;
-use crate::desc_helpers::{read_body, with_trailer, with_trailers};
+use crate::desc_helpers::{read_body, repo_url_for, with_trailer, with_trailers};
 use crate::jj;
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::scope::{
@@ -372,8 +373,10 @@ fn squash_pair(
             && agent == AgentStep::Fold
         {
             info!("squash agent: re-describe @-, its trailer kept");
-            ctx.session(&pair.agent)?
-                .describe("@-", &with_trailer(text, &work.chid))?;
+            ctx.session(&pair.agent)?.describe(
+                "@-",
+                &with_trailer(text, repo_url_for(&pair.work)?, &work.chid),
+            )?;
         }
         Ok(())
     })();
@@ -417,25 +420,14 @@ fn agent_step(
 ) -> Result<(AgentStep, Option<Published>), Box<dyn std::error::Error>> {
     refuse_conflicts(&pair.agent, "squash", "agent")?;
     Ok(match partner(pair, work)? {
-        Partner::Committed(_) => {
-            if text.is_none() && is_published(&pair.agent, "@-")? {
-                info!(
-                    "squash agent: the partner at @- is published, so the journal is push's to \
-                     fold"
-                );
-                return Ok((AgentStep::Leave, None));
-            }
-            let published = if text.is_some() || !jj::is_empty(&pair.agent, "@")? {
-                check_rewrite(&pair.agent, "agent", yes)?
-            } else {
-                None
-            };
-            (AgentStep::Fold, published)
+        Partner::Committed(_) => (AgentStep::Fold, None),
+        Partner::Published(_) if text.is_some() => {
+            (AgentStep::Fold, check_rewrite(&pair.agent, "agent", yes)?)
         }
-        Partner::Landed(partner) => {
+        Partner::Published(partner) => {
             info!(
-                "squash agent: the partner at @- {partner} is a Land's, so the journal stays in \
-                 @ for the next cycle"
+                "squash agent: the partner at @- {partner} is published, so the journal stays in \
+                 @ for the next agent commit"
             );
             (AgentStep::Leave, None)
         }
@@ -621,12 +613,33 @@ mod tests {
         assert!(is_empty(&fx.work, "@") && is_empty(&fx.bot, "@"));
     }
 
-    /// A linked pair: the fix folds into the work commit and the journal
-    /// stays out of the agent commit, whose SHA the `ocid:` names.
+    /// A linked pair not yet published: the fix folds into the work
+    /// commit and the journal into the agent commit, its change id, the
+    /// one the work commit's `ochid:` names, kept.
     #[test]
-    fn a_linked_partner_keeps_its_sha() {
+    fn a_linked_partner_takes_the_journal() {
         let fx = Fixture::new("squash-linked");
         make_pair(&fx, true);
+        let agent_id = chid(&fx.bot, "@-");
+        fs::write(fx.work.join("fix.txt"), "a review fix\n").expect("write");
+        fs::write(fx.bot.join("tail.jsonl"), "{\"line\":2}\n").expect("write");
+
+        run(&fx, both(), None).expect("squash");
+
+        assert!(files(&fx.work, "@-").contains("fix.txt"));
+        assert_eq!(chid(&fx.bot, "@-"), agent_id);
+        assert!(files(&fx.bot, "@-").contains("tail.jsonl"));
+        assert!(is_empty(&fx.bot, "@"), "the journal folded");
+    }
+
+    /// A published partner keeps its SHA: the journal stays in `@` for the
+    /// next agent commit, since a fold would rewrite a published commit.
+    #[test]
+    fn a_published_partner_keeps_its_sha() {
+        let fx = Fixture::new("squash-published");
+        make_pair(&fx, true);
+        jj_ok(&fx.bot, &["bookmark", "set", "main", "-r", "@-"]);
+        jj_ok(&fx.bot, &["git", "push", "--bookmark", "main"]);
         let sha = jj::cid_of(&fx.bot, "@-").expect("cid");
         fs::write(fx.work.join("fix.txt"), "a review fix\n").expect("write");
         fs::write(fx.bot.join("tail.jsonl"), "{\"line\":2}\n").expect("write");
