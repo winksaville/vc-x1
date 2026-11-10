@@ -42,6 +42,8 @@ Provisional:
   vc-x2 to inherit.
 - The trailers name the partner by `orepo:` and `ochid:` alone, `ocid:` and `pcid:` dropped, so no
   trailer holds a SHA and a squash-push leaves both repos clean, agent-files v0.3.1-3.
+- No push is forced without asking: `push` and `squash-push` ask, `--yes` answering, and `land` and
+  `commit` refuse one, agent-files v0.3.1-4.
 - vc-x1's history is left as it is: `validate-desc` over it reports the known list,
   [vc-x1-history.md](notes/vc-x1-history.md), and nothing else. A rewrite waits on the trailer
   format vc-x2 decides, and may never be made.
@@ -232,7 +234,7 @@ dry run first, and changed until every commit is rewritten, current, or left wit
 `ocid:` names the agent commit by SHA and `pcid:` the parents by SHA, so a squash-push of the
 agent-repo, a rebase, or a describe makes them stale, and neither repo can be left clean. The
 trailers become `orepo:` and `ochid:`, the rules make squash-push the clean-up, and `squash-push`
-refuses a forced push. Agent-files v0.3.1-3.
+asks before a forced push. Agent-files v0.3.1-3.
 
 * Each side named its partner by change id, and a work commit also by the agent commit's SHA and its
   parents' SHAs, `xxxx` standing in until the agent commit was made.
@@ -266,14 +268,34 @@ refuses a forced push. Agent-files v0.3.1-3.
     **Which build runs** bullet for this project's artifact and another's tool.
 * `squash-push` warned that an earlier publish was likely lost whenever the bookmark was off its
   origin, the normal state after a Land made locally.
-  - Preflight already refuses a forced push, so it reports the bookmark below the squash target as
-    an info line, and warns only of a forced push. `validate-agent`'s refusal of an
+  - A forced push is asked about, so it reports the bookmark below the squash target as an info
+    line, and warns only of a forced push. `validate-agent`'s refusal of an
     unpublished agent `main` drops the same claim.
 * `push -s b` and `land --push` published the agent repo first, and `squash-push -s b` the work
   repo first.
   - `push` makes every local step first, the agent partner committed and the work commit
     restamped, then publishes the work repo and then the agent repo, so all three publish in one
     order. A work push that fails leaves the agent repo unpublished, and a rerun completes both.
+
+##### feat: no push is forced without asking
+
+jj-lib forces every push, with a lease, so `push`, `land --push`, and `commit --push` rewrote a
+published bookmark moved sideways or back without a word, and only `squash-push` asked. The bookmark
+push under them all refuses a forced push its caller did not ask about, `push` asks as
+`squash-push` does, and `land` and `commit` refuse one. Agent-files v0.3.1-4.
+
+* A forced push was asked about by `squash-push` alone, wink's finding (2026-11-09).
+  - The bookmark push refuses a push whose `<bookmark>@origin` is not an ancestor of what goes out,
+    and a forced variant pushes it for a caller whose user said yes.
+  - `push` checks each bookmark it will push before anything moves, the work bookmark and agent
+    `main`, `-s p` and `-r` included, warns of a forced one, and asks at a terminal. `--yes`
+    answers in advance, and without a terminal and `--yes` it is an error that changes nothing.
+  - `land --push` and `commit --push` refuse one, since theirs are fast-forwards and a forced one is
+    a surprise, naming `push` and `squash-push` as the commands that ask.
+  - `squash-push` uses the same check and question, and as a stage takes its caller's answer.
+* The rules named `squash-push` alone as asking.
+  - Before any push says which commands ask and which refuse, and that the agent passes `--yes`
+    only for a forced push the user approved, and `rationale.md` and `README.md` follow.
 
 ##### chore: a test vc-x2 reaches vc-x1's history
 

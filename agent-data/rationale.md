@@ -309,6 +309,10 @@ none until it is published for merging, and even then a mistake found after the 
 amend, so a rewrite is the user's choice, made each time. Only the `--yes` flag answers in
 advance, since a configured default is set once and then protects nothing. The agent-repo is
 personal but public, observed rather than cloned, so its forced update moves no one's history.
+`push` asks as `squash-push` does, one rule for a forced push, and `land` and `commit` refuse one,
+since theirs are fast-forwards and a forced one is a surprise (wink, 2026-11-09). jj-lib forces
+every push, with a lease, so the bookmark push under them all refuses a forced push its caller did
+not ask about, and none is made silently.
 
 Either order is correct (wink, 2026-11-09). The agent-repo went first while `ocid:` pinned the
 agent commit's SHA, so the work commit naming it was pushed only once that SHA was final. With

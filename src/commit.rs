@@ -1128,6 +1128,9 @@ fn push_after(
             step: false,
             dry_run: dry,
             yes: true,
+            // A commit push is a fast-forward, so a forced one is a
+            // surprise, refused: `vc-x1 push` asks.
+            forced: crate::common::ForcedPush::Refuse,
         },
     )
 }
@@ -1197,7 +1200,7 @@ fn commit_agent(
     info!("commit agent: set main to @- and push it");
     let session = ctx.session(agent)?;
     session.bookmark_set("main", "@-")?;
-    session.git_push_bookmark("main")
+    session.git_push_bookmark("main", crate::jj::Force::Refuse)
 }
 
 /// The change ids of the work commits `revset` names, oldest first,
@@ -1720,12 +1723,14 @@ fn make_opening_bookmark(
     }
     if pushes {
         info!("commit --opening: push '{name}' to origin");
-        ctx.session(repo)?.git_push_bookmark(name).map_err(|e| {
-            format!(
-                "commit --opening: the opening is made and '{name}' is at {start} locally, but \
+        ctx.session(repo)?
+            .git_push_bookmark(name, crate::jj::Force::Refuse)
+            .map_err(|e| {
+                format!(
+                    "commit --opening: the opening is made and '{name}' is at {start} locally, but \
                  its push failed: {e}. The push after the review publishes both"
-            )
-        })?;
+                )
+            })?;
     }
     Ok(())
 }

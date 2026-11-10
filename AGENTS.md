@@ -359,6 +359,9 @@ Pushing is by `vc-x1 push`, and the Land's bookmark moves are `vc-x1 land` and `
 
 - This specific push has the user's explicit approval, or an explicit waiver covers it. `vc-x1 push
   --yes` is for that approval alone, since an agent can type it as easily as anything else.
+- A push that would be forced, a published commit rewritten, is asked about by `push` and
+  `squash-push` and refused by `land` and `commit`, and the `--yes` flag answers, so the agent
+  passes it only for a forced push the user approved.
 - Validation ran, and passed, after the last edit.
 - Closing words are written. Nothing follows the turn's final push.
 
@@ -376,8 +379,6 @@ item's tail ([why](agent-data/rationale.md#at-rest)):
    `vc-x1 squash-push -s b` pushes the work trunk first, the shared repo and so the push likely to
    be refused, then folds the tail into the Land's agent commit and pushes it, so each `main` moves
    once, forward.
-   `squash-push` asks before a push that would be forced, a published commit rewritten, and the
-   `--yes` flag answers, so the agent passes it only for a forced push the user approved.
 
 "Clean" means the work `@` is empty, and once the user's squash-push has run the agent's `@` too.
 Before it the agent's `@` is the session's data and no finding, as [Acquaint](#acquaint) says. A

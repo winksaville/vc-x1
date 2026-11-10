@@ -11,7 +11,9 @@
 //!   the bookmark's remote or the remote not below it, before changing
 //!   anything, so a published commit is rewritten only by choice. The
 //!   `--yes` flag answers in advance, a configured `squash-push.yes`
-//!   never does, and without a tty and the flag it is an error.
+//!   never does, and without a tty and the flag it is an error. As
+//!   push's or land's stage the caller has answered for it
+//!   ([`ForcedPush`]).
 //! - Runs synchronously: preflight validations, then squash +
 //!   bookmark-set + push. A failure is a visible non-zero exit
 //!   (the retired 0.69.0-2 predecessor delegated to a detached
@@ -44,6 +46,7 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use log::{debug, info, warn};
 
+use crate::common::ForcedPush;
 use crate::context::Context;
 use crate::desc_helpers::extract_ochids;
 use crate::jj;
@@ -144,10 +147,10 @@ pub struct SquashPushParams {
     /// Print what the precheck found and the steps it would take,
     /// and change nothing.
     pub dry_run: bool,
-    /// The `--yes` flag itself, never the config key: a forced push
-    /// confirmed in advance. Without it an at-rest run asks, and push's
-    /// stage refuses.
-    pub forced_yes: bool,
+    /// Who answers a forced push: `Yes` from the `--yes` flag itself,
+    /// never the config key, else `Ask`. Push's stage passes its own
+    /// answer, and land's `Refuse`.
+    pub forced: ForcedPush,
 }
 
 /// The `yes` choice: the flags, then the config key, then the
@@ -212,7 +215,11 @@ fn params_for(a: &SquashPushArgs, repo: PathBuf) -> Result<SquashPushParams, Str
             at_rest: true,
             yes,
             dry_run: a.dry_run.value,
-            forced_yes: a.yes,
+            forced: if a.yes {
+                ForcedPush::Yes
+            } else {
+                ForcedPush::Ask
+            },
         })
     }
 }
@@ -306,18 +313,6 @@ fn preflight(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>
         .into());
     }
 
-    // Push's stage has no one to ask, so it never forces.
-    if !params.at_rest
-        && !params.forced_yes
-        && let Some(why) = forced_push(repo, sq, bookmark)?
-    {
-        return Err(format!(
-            "squash-push: the push of '{bookmark}' would be forced, since {why}, so nothing is \
-             changed"
-        )
-        .into());
-    }
-
     Ok(())
 }
 
@@ -340,10 +335,7 @@ fn forced_push(
             "the squash target '{target}' is already on {remote}"
         )));
     }
-    if !jj::matches(repo, &format!("{remote}::({target})"))? {
-        return Ok(Some(format!("{remote} is not an ancestor of '{target}'")));
-    }
-    Ok(None)
+    crate::common::forced_bookmark_push(repo, bookmark, target)
 }
 
 /// Return the `ochid:` trailer values present in `source_desc` but
@@ -539,39 +531,6 @@ fn confirm(
     Ok(())
 }
 
-/// Ask before a forced push, a published commit rewritten.
-///
-/// The `--yes` flag answers in advance, and nothing else does: a
-/// configured `squash-push.yes` is set once and then protects nothing.
-/// Without the flag and without a tty it is an error, and a declined
-/// prompt is an error too.
-fn confirm_forced(
-    params: &SquashPushParams,
-    why: &str,
-    stdin_is_tty: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let bookmark = &params.bookmark;
-    if params.forced_yes {
-        debug!("squash-push: --yes confirms the forced push");
-        return Ok(());
-    }
-    if !stdin_is_tty {
-        return Err(format!(
-            "squash-push: the push of '{bookmark}' would be forced, since {why}, so nothing is \
-             changed: --yes rewrites it, or run it at a terminal to be asked"
-        )
-        .into());
-    }
-    let answer = crate::common::prompt(&format!(
-        "squash-push: rewrite the published '{bookmark}@origin'? [y/N] "
-    ))?;
-    let normalized = answer.trim().to_ascii_lowercase();
-    if normalized != "y" && normalized != "yes" {
-        return Err(format!("squash-push: declined the forced push (got {answer:?})").into());
-    }
-    Ok(())
-}
-
 /// True when `rev` has no file changes and no description: nothing
 /// worth squashing.
 fn rev_is_empty_undescribed(repo: &Path, rev: &str) -> Result<bool, Box<dyn std::error::Error>> {
@@ -593,7 +552,7 @@ fn rev_is_empty_undescribed(repo: &Path, rev: &str) -> Result<bool, Box<dyn std:
 /// - The after-check prints the state the run left and never fails,
 ///   so the exit code is the push's ([`RunState`]).
 /// - As push's stage (`at_rest` false) the decision stands and every
-///   line and the prompt go.
+///   line goes but a forced push's warning, the caller answering it.
 pub fn squash_push(
     ctx: &mut Context,
     params: &SquashPushParams,
@@ -608,13 +567,9 @@ pub fn squash_push(
     // anything. A forced push is warned of, and asked about below. A
     // bookmark ahead of origin is the common case, a Land made locally
     // and published after the session, so it is reported, not warned.
-    // Suppressed when run as push's `squash-push-bot` stage (see
-    // `at_rest`), which preflight has already kept from forcing.
-    let forced = if params.at_rest {
-        forced_push(&params.repo, sq, bookmark)?
-    } else {
-        None
-    };
+    // The info lines are suppressed when run as push's
+    // `squash-push-bot` stage (see `at_rest`), the warning is not.
+    let forced = forced_push(&params.repo, sq, bookmark)?;
     if let Some(why) = &forced {
         warn!("squash-push: the push of '{bookmark}' is forced, since {why}");
     } else if params.at_rest {
@@ -680,7 +635,13 @@ pub fn squash_push(
     // what the precheck found. A forced push has its own, which a
     // configured `squash-push.yes` does not skip.
     match &forced {
-        Some(why) => confirm_forced(params, why, ctx.stdin_is_tty)?,
+        Some(why) => crate::common::confirm_forced_push(
+            "squash-push",
+            bookmark,
+            why,
+            params.forced,
+            ctx.stdin_is_tty,
+        )?,
         None => confirm(params, &before, &label, ctx.stdin_is_tty)?,
     }
 
@@ -705,7 +666,14 @@ pub fn squash_push(
         .bookmark_set(bookmark, &sq.target)?;
 
     info!("squash-push: pushing '{bookmark}' to origin...");
-    ctx.session(&params.repo)?.git_push_bookmark(bookmark)?;
+    ctx.session(&params.repo)?.git_push_bookmark(
+        bookmark,
+        if forced.is_some() {
+            jj::Force::Allow
+        } else {
+            jj::Force::Refuse
+        },
+    )?;
 
     info!("squash-push: done");
 
@@ -976,7 +944,7 @@ mod tests {
             at_rest: true,
             yes: true,
             dry_run: false,
-            forced_yes: false,
+            forced: ForcedPush::Ask,
         };
         squash_push(&mut crate::test_helpers::test_ctx(), &params)
             .expect("squash-push should publish the lost commit");
@@ -1005,7 +973,7 @@ mod tests {
             at_rest: true,
             yes: true,
             dry_run: false,
-            forced_yes: false,
+            forced: ForcedPush::Ask,
         };
         let state = read_state(&params).expect("read state");
         assert!(state.nothing_to_do(), "{state:?}");
@@ -1042,7 +1010,7 @@ mod tests {
             at_rest: true,
             yes: true,
             dry_run: false,
-            forced_yes: false,
+            forced: ForcedPush::Ask,
         };
         let state = read_state(&params).expect("read state");
         // `@` is empty and undescribed and `main` matches origin, so
@@ -1086,7 +1054,7 @@ mod tests {
             at_rest: true,
             yes: true,
             dry_run: false,
-            forced_yes: false,
+            forced: ForcedPush::Ask,
         };
         let before = read_state(&params).expect("read state");
         assert_eq!(
@@ -1114,8 +1082,8 @@ mod tests {
 
     /// A fold into a commit already on the remote would force the push,
     /// so it asks first, and with no tty to ask it is refused with
-    /// nothing changed, a configured `yes` not answering. Push's stage
-    /// never forces, and the `--yes` flag does it.
+    /// nothing changed, a configured `yes` not answering. A stage told
+    /// to refuse refuses, and the `--yes` flag does it.
     #[test]
     fn a_forced_push_asks_and_yes_answers() {
         use crate::test_helpers::{Fixture, cid, jj_ok};
@@ -1130,7 +1098,7 @@ mod tests {
             at_rest: true,
             yes: true,
             dry_run: false,
-            forced_yes: false,
+            forced: ForcedPush::Ask,
         };
         let err = squash_push(&mut crate::test_helpers::test_ctx(), &params)
             .expect_err("refused")
@@ -1147,14 +1115,15 @@ mod tests {
         );
 
         params.at_rest = false;
+        params.forced = ForcedPush::Refuse;
         let err = squash_push(&mut crate::test_helpers::test_ctx(), &params)
-            .expect_err("push's stage refuses")
+            .expect_err("a stage told to refuse refuses")
             .to_string();
         assert!(err.contains("would be forced"), "{err}");
         assert_eq!(cid(&fx.bot, "main"), main_before, "main did not move");
 
         params.at_rest = true;
-        params.forced_yes = true;
+        params.forced = ForcedPush::Yes;
         squash_push(&mut crate::test_helpers::test_ctx(), &params).expect("forced");
         assert_ne!(cid(&fx.bot, "main"), main_before, "main was rewritten");
         assert_eq!(cid(&fx.bot, "main"), cid(&fx.bot, "main@origin"));
@@ -1260,7 +1229,7 @@ mod tests {
             at_rest: true,
             yes: false,
             dry_run: false,
-            forced_yes: false,
+            forced: ForcedPush::Ask,
         };
         let state = read_state(&params).expect("read state");
         // The test states no tty rather than inheriting `cargo
@@ -1293,7 +1262,7 @@ mod tests {
             at_rest: true,
             yes: false,
             dry_run: false,
-            forced_yes: false,
+            forced: ForcedPush::Ask,
         };
         squash_push(&mut crate::test_helpers::test_ctx(), &params)
             .expect("nothing to decline, so nothing is asked");
@@ -1315,7 +1284,7 @@ mod tests {
             at_rest: false,
             yes: false,
             dry_run: false,
-            forced_yes: false,
+            forced: ForcedPush::Ask,
         };
         let state = read_state(&stage).expect("read state");
         confirm(&stage, &state, "bot", false).expect("push's stage does not ask");
@@ -1350,7 +1319,7 @@ mod tests {
             at_rest: false,
             yes: true,
             dry_run: false,
-            forced_yes: false,
+            forced: ForcedPush::Ask,
         };
         assert!(read_state(&stage).expect("state").nothing_to_do());
 

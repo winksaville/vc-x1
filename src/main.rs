@@ -621,6 +621,9 @@ pub(crate) enum Commands {
         root are refused, and so is a REV of several commits.\n\n\
         Every argument is a flag: the old positional is refused, naming\n\
         --bookmark or -r, the one it was.\n\n\
+        A push that would be forced, a published commit rewritten, is\n\
+        warned of and asked about before anything moves, --yes answering\n\
+        in advance, and without a tty and --yes it is an error.\n\n\
         Rerunning is always safe: a half whose work is done finds nothing\n\
         to do. A half that fails before its own push restores the repo it\n\
         touched via `jj op restore`."
@@ -728,8 +731,9 @@ pub(crate) enum Commands {
         carry updated, --onto fast-forwarded to --source, and the cycle's\n\
         bookmark deleted, every check made before anything moves. --push also\n\
         publishes it, the work repo first, and deletes the bookmark on\n\
-        `origin`. `commit --closing ... --land` lands the same way, the\n\
-        closing made first.\n\n\
+        `origin`, and refuses a push that would be forced, which `push`\n\
+        or `squash-push` asks about. `commit --closing ... --land` lands\n\
+        the same way, the closing made first.\n\n\
         --source is a bookmark, the cycle's, or a revision, whose current\n\
         bookmark, else its nearest parent's above --onto, is the cycle's,\n\
         several refused with the list. Left out, it is the one local\n\

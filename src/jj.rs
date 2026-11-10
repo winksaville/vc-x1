@@ -65,6 +65,8 @@ use crate::common;
 pub(crate) mod run;
 pub(crate) mod session;
 
+pub use session::Force;
+
 /// Crate-standard boxed-error result, aliased locally for brevity.
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -98,9 +100,10 @@ pub fn bookmark_set(repo: &Path, name: &str, rev: &str) -> Result<()> {
 }
 
 /// One-shot `RepoSession::git_push_bookmark`: push local bookmark
-/// `name` to `origin` (`jj git push --bookmark <name>`).
-pub fn git_push_bookmark(repo: &Path, name: &str) -> Result<()> {
-    session::RepoSession::open(repo)?.git_push_bookmark(name)
+/// `name` to `origin` (`jj git push --bookmark <name>`), a push that
+/// would be forced refused unless `force` allows it.
+pub fn git_push_bookmark(repo: &Path, name: &str, force: Force) -> Result<()> {
+    session::RepoSession::open(repo)?.git_push_bookmark(name, force)
 }
 
 /// One-shot `RepoSession::new_on`: fresh empty `@` on top of `rev`

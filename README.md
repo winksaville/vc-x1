@@ -1969,7 +1969,8 @@ Behavior notes:
   would be forced, so it warns "squash-push: the push of '<bm>' is forced, since <why>" and asks
   "rewrite the published '<bm>@origin'? [y/N]". The `--yes` flag answers in advance, a configured
   `squash-push.yes` never does, and without a tty and `--yes` it is an error that changes nothing.
-  As `vc-x1 push`'s stage it never forces. A bookmark with no remote yet is never asked about.
+  As `vc-x1 push`'s stage it takes push's answer, and as `land`'s it refuses. A bookmark with no
+  remote yet is never asked about.
 - Preflight refuses bad states before rewriting anything: unresolvable squash revsets, an
   ochid-dropping squash (see [Testing the ochid-trailer guard](#testing-the-ochid-trailer-guard)),
   conflicts, a missing / untracked / non-forward bookmark, an undescribed push target.
@@ -2139,7 +2140,8 @@ stands. A failure after the first commit restores both repos from `jj op` snapsh
 Land a cycle whose last commit is already made, on the machine: the agent `@` committed when the
 cycle's commits name it, `--onto` fast-forwarded to `--source`, and the cycle's bookmark deleted,
 every check made before anything moves. `--push` also publishes it, the work repo first, and
-deletes the bookmark on `origin`, and without it `vc-x1 push -s b --bookmark <ONTO>` publishes, a
+deletes the bookmark on `origin`, and refuses a push that would be forced, which `push` and
+`squash-push` ask about. Without it `vc-x1 push -s b --bookmark <ONTO>` publishes, a
 published cycle's bookmark left on `origin` for `delete-bookmark`. It is the Land of a closing made
 without `--land`, or of a single-step commit, and the second half of `commit --closing ... --land`,
 which runs the same code.
@@ -2379,8 +2381,14 @@ precondition and does nothing when its work is already done, so re-running after
 running. If a run fails, push stops and reports. A half that fails before its own push restores the
 repo it touched via `jj op restore` to a snapshot taken moments earlier in the same process. Once a
 half's push succeeds that half is published: from there a change is either a new pair on top, or an
-amend of what was pushed, where [`squash-push`](#squash-push) asks before the forced update and
-`--yes` answers. See the protocol's
+amend of what was pushed, a forced push.
+
+**A forced push is asked about.** Before anything moves, push checks each bookmark it will push,
+and when `<bookmark>@origin` is not an ancestor of what goes out it warns "push: the push of '<bm>'
+is forced, since <why>" and asks "rewrite the published '<bm>@origin'? [y/N]". `--yes` answers in
+advance, and without a tty and `--yes` it is an error that changes nothing. `commit --push` and
+`land --push` refuse one, and the bookmark push under every command refuses one unless its caller
+asked, since jj-lib forces every push. See the protocol's
 [at-rest contract](AGENTS.md#at-rest-push-stop-squash-push).
 
 | Flag | Description |
@@ -2391,7 +2399,7 @@ amend of what was pushed, where [`squash-push`](#squash-push) asks before the fo
 | `--bookmark <NAME>` | Its name on the remote: a bookmark on the line, one at REV, or a new name created there [default: the line's, or the one at REV] |
 | `--dry-run` | Plan and print what would run, no side effects |
 | `--step` | Pause after every stage for an extra continue-prompt |
-| `-y, --yes` | Pass the `--step` gates without asking |
+| `-y, --yes` | Pass the `--step` gates, and a forced push, without asking |
 
 See [Add push subcommand (0.37.0)](./notes/chores/chores-05.md#add-push-subcommand-0370) for the
 full design and [per-step record](./notes/chores/chores-05.md#per-step-record) for what each

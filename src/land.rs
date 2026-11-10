@@ -560,6 +560,7 @@ pub(crate) fn run(
                     step: false,
                     dry_run: false,
                     yes: true,
+                    forced: crate::common::ForcedPush::Refuse,
                 },
             )?;
         }
@@ -567,14 +568,15 @@ pub(crate) fn run(
         info!("{label}:{tag} push '{trunk}'");
         if !dry {
             crate::common::verify_tracking(repo, trunk)?;
-            ctx.session(repo)?.git_push_bookmark(trunk)?;
+            ctx.session(repo)?
+                .git_push_bookmark(trunk, crate::jj::Force::Refuse)?;
         }
         if let Some(pair) = &pair {
             info!("{label}:{tag} publish the agent main");
             // A published agent `@-` takes no fold, which would force the
             // push, so the journal rides the next agent commit.
             if !dry && (agent_desc.is_some() || crate::pair::is_published(&pair.agent, "@-")?) {
-                crate::push::publish_agent_main(ctx, &pair.agent)?;
+                crate::push::publish_agent_main(ctx, &pair.agent, crate::jj::Force::Refuse)?;
             } else if !dry {
                 crate::squash_push::squash_push(
                     ctx,
@@ -588,7 +590,7 @@ pub(crate) fn run(
                         at_rest: false,
                         yes: true,
                         dry_run: false,
-                        forced_yes: false,
+                        forced: crate::common::ForcedPush::Refuse,
                     },
                 )?;
             }
@@ -810,6 +812,7 @@ mod tests {
                 step: false,
                 dry_run: false,
                 yes: true,
+                forced: crate::common::ForcedPush::Ask,
             },
         )
         .expect("published");

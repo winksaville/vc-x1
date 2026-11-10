@@ -56,6 +56,7 @@ fn test_params() -> PushParams {
         step: false,
         dry_run: false,
         yes: true,
+        forced: crate::common::ForcedPush::Ask,
     }
 }
 
@@ -669,6 +670,41 @@ fn push_publishes_the_work_repo_first() {
     push_in(&mut test_ctx(), &pair(&fx), &both(), &test_params()).expect("rerun");
     assert_eq!(chid(&fx.work, "main@origin"), work_at);
     assert_eq!(chid(&fx.bot, "main@origin"), agent_at);
+}
+
+/// A push that would be forced, a published commit rewritten, is asked
+/// about before anything moves. The bookmark push alone refuses it,
+/// with no terminal push refuses it and origin keeps what it had, and
+/// `--yes` rewrites it.
+#[test]
+fn push_asks_before_a_forced_push() {
+    let fx = Fixture::new("push-forced");
+    make_pair(&fx, "feat: published", true);
+    push_in(&mut test_ctx(), &pair(&fx), &both(), &test_params()).expect("first push");
+    let published = cid(&fx.work, "main@origin");
+    fs::write(fx.work.join("fix.txt"), "a fix after the push").expect("write");
+    jj_ok(&fx.work, &["squash", "--ignore-immutable"]);
+    let work_only = Scope(vec![Side::Work]);
+
+    let err = jj::git_push_bookmark(&fx.work, "main", jj::Force::Refuse)
+        .expect_err("the bookmark push refuses")
+        .to_string();
+    assert!(err.contains("would be forced"), "{err}");
+
+    let err = push_in(&mut test_ctx(), &pair(&fx), &work_only, &test_params())
+        .expect_err("refused without a terminal")
+        .to_string();
+    assert!(
+        err.contains("would be forced") && err.contains("--yes"),
+        "{err}"
+    );
+    assert_eq!(cid(&fx.work, "main@origin"), published, "origin kept it");
+
+    let mut params = test_params();
+    params.forced = ForcedPush::Yes;
+    push_in(&mut test_ctx(), &pair(&fx), &work_only, &params).expect("--yes forces it");
+    assert_ne!(cid(&fx.work, "main@origin"), published);
+    assert_eq!(cid(&fx.work, "main@origin"), cid(&fx.work, "@-"));
 }
 
 /// A dry run plans and prints, and moves nothing.

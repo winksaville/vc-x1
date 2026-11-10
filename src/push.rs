@@ -21,6 +21,10 @@
 //!   committed partner (`commit -s b`, or a Land's) unless the partner
 //!   is already published, since a fold would rewrite it.
 //!
+//! A push that would be forced, a published commit rewritten, is
+//! warned of and answered before anything moves, by `--yes` or a
+//! prompt, and without a tty and `--yes` it is an error.
+//!
 //! Before either: a work `@` that is not empty is refused, being a
 //! fix to fold or the next rung, the user's call, and so is a work
 //! `@-` with no `ochid:` trailer, which is not a pair's commit. Each
@@ -42,10 +46,10 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use log::{debug, info, warn};
 
-use crate::common::prompt;
+use crate::common::{ForcedPush, prompt};
 use crate::context::Context;
 use crate::desc_helpers::{Trailers, repo_url_for, with_trailer, with_trailers};
-use crate::jj;
+use crate::jj::{self, Force};
 use crate::options_flags::retired_positional::refusal;
 use crate::options_flags::scope::{
     ALL_REPO_SCOPES, REPO_SCOPE_FORMS, RepoScope, Scope, repo_scope_parser,
@@ -108,7 +112,7 @@ pub struct PushArgs {
     #[arg(long)]
     pub dry_run: bool,
 
-    /// Pass the `--step` gates without asking.
+    /// Pass the `--step` gates, and a forced push, without asking
     #[arg(short = 'y', long)]
     pub yes: bool,
 }
@@ -123,6 +127,9 @@ pub struct PushParams {
     pub step: bool,
     pub dry_run: bool,
     pub yes: bool,
+    /// Who answers a push that would be forced: `--yes`, else asked.
+    /// `commit --push` and `land --push` refuse one.
+    pub forced: ForcedPush,
 }
 
 /// What a run published, for the completion check: the work
@@ -148,6 +155,11 @@ impl From<&PushArgs> for PushParams {
             step: a.step,
             dry_run: a.dry_run,
             yes: a.yes,
+            forced: if a.yes {
+                ForcedPush::Yes
+            } else {
+                ForcedPush::Ask
+            },
         }
     }
 }
@@ -320,6 +332,7 @@ fn publish_elsewhere(
     } else {
         info!("push: {dry}publish '{name}' where it is, {short}, a commit already made");
     }
+    let force = answer_forced(ctx, repo, &name, &at, params)?;
     if params.dry_run {
         return Ok(true);
     }
@@ -328,7 +341,7 @@ fn publish_elsewhere(
     } else {
         crate::common::verify_tracking(repo, &name)?;
     }
-    ctx.session(repo)?.git_push_bookmark(&name)?;
+    ctx.session(repo)?.git_push_bookmark(&name, force)?;
     Ok(true)
 }
 
@@ -369,6 +382,19 @@ pub(crate) fn push_in(
     } else {
         None
     };
+    // A push that would be forced, a published commit rewritten, is
+    // answered here, before anything moves, and each half then pushes
+    // knowing the answer.
+    let work_force = match &bookmark {
+        Some(b) => answer_forced(ctx, &pair.work, b, WORK_COMMIT, params)?,
+        None => Force::Refuse,
+    };
+    let agent_force = if sides.has_bot() {
+        let target = agent_target(pair, &work)?;
+        answer_forced(ctx, &pair.agent, BOT_BOOKMARK, target, params)?
+    } else {
+        Force::Refuse
+    };
 
     // Every local step before any push: the agent partner completed,
     // then the work half restamps and publishes, then the agent `main`
@@ -385,7 +411,7 @@ pub(crate) fn push_in(
         if sides.has_bot() {
             step_gate(params, "the agent commit", "the work half")?;
         }
-        work_half(ctx, pair, &work, bookmark, params)?;
+        work_half(ctx, pair, &work, bookmark, params, work_force)?;
     }
     let partner = match agent {
         Some((partner, how)) => {
@@ -395,7 +421,7 @@ pub(crate) fn push_in(
                 step_gate(params, "the agent commit", "the agent publish")?;
             }
             if !params.dry_run {
-                agent_publish(ctx, pair, how)?;
+                agent_publish(ctx, pair, how, agent_force)?;
             }
             Some(partner)
         }
@@ -550,12 +576,13 @@ fn agent_publish(
     ctx: &mut Context,
     pair: &Pair,
     how: AgentPublish,
+    force: Force,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let agent_arg = pair.agent.to_string_lossy();
     match how {
         AgentPublish::Main => {
             info!("push agent: push {BOT_BOOKMARK} -R {agent_arg}");
-            publish_agent_main(ctx, &pair.agent)
+            publish_agent_main(ctx, &pair.agent, force)
         }
         AgentPublish::SquashPush => {
             info!("push agent: squash @ -> @- + push {BOT_BOOKMARK} -R {agent_arg}");
@@ -571,7 +598,11 @@ fn agent_publish(
                 at_rest: false,
                 yes: true,
                 dry_run: false,
-                forced_yes: false,
+                // Answered by push before anything moved.
+                forced: match force {
+                    Force::Allow => ForcedPush::Yes,
+                    Force::Refuse => ForcedPush::Refuse,
+                },
             };
             crate::squash_push::squash_push(ctx, &sp)
         }
@@ -583,11 +614,48 @@ fn agent_publish(
 pub(crate) fn publish_agent_main(
     ctx: &mut Context,
     agent: &Path,
+    force: Force,
 ) -> Result<(), Box<dyn std::error::Error>> {
     ctx.session(agent)?.bookmark_set(BOT_BOOKMARK, "@-")?;
     crate::common::verify_tracking(agent, BOT_BOOKMARK)?;
-    ctx.session(agent)?.git_push_bookmark(BOT_BOOKMARK)?;
-    Ok(())
+    ctx.session(agent)?.git_push_bookmark(BOT_BOOKMARK, force)
+}
+
+/// Answer, before anything moves, a push of `rev` as `bookmark` that
+/// would be forced: warned of, then answered as `params.forced` says.
+/// `Allow` when the push is forced and answered yes, `Refuse` when it
+/// is a fast-forward, so a push that turns forced after is refused. A
+/// dry run says so and asks nothing.
+fn answer_forced(
+    ctx: &Context,
+    repo: &Path,
+    bookmark: &str,
+    rev: &str,
+    params: &PushParams,
+) -> Result<Force, Box<dyn std::error::Error>> {
+    let Some(why) = crate::common::forced_bookmark_push(repo, bookmark, rev)? else {
+        return Ok(Force::Refuse);
+    };
+    warn!("push: the push of '{bookmark}' is forced, since {why}");
+    if params.dry_run {
+        info!("push: [dry-run] would ask before the forced push of '{bookmark}', unless --yes");
+        return Ok(Force::Allow);
+    }
+    crate::common::confirm_forced_push("push", bookmark, &why, params.forced, ctx.stdin_is_tty)?;
+    Ok(Force::Allow)
+}
+
+/// The agent commit `main` ends at, read before the agent half moves
+/// anything: the agent `@` when the journal is committed as the
+/// partner, else `@-`.
+fn agent_target(
+    pair: &Pair,
+    work: &WorkCommit,
+) -> Result<&'static str, Box<dyn std::error::Error>> {
+    Ok(match crate::pair::partner(pair, work)? {
+        Partner::Published(_) | Partner::Committed(_) => "@-",
+        Partner::Pending(_) | Partner::Changed { .. } => "@",
+    })
 }
 
 /// The work half: restamp the unpublished work commit when its
@@ -598,6 +666,7 @@ fn work_half(
     work: &WorkCommit,
     bookmark: &str,
     params: &PushParams,
+    force: Force,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let target = match crate::pair::partner(pair, work)? {
         Partner::Committed(partner) | Partner::Published(partner) => partner,
@@ -649,8 +718,7 @@ fn work_half(
     step_gate(params, "the work bookmark", "the work push")?;
     crate::common::verify_tracking(&pair.work, bookmark)?;
     info!("push work: git push --bookmark {bookmark} -R {work_arg}");
-    ctx.session(&pair.work)?.git_push_bookmark(bookmark)?;
-    Ok(())
+    ctx.session(&pair.work)?.git_push_bookmark(bookmark, force)
 }
 
 /// A description without its stamped trailer lines, trimmed, the text
@@ -742,6 +810,7 @@ fn push_por(
         return Err("push -s p: @- has no description, so it is not a commit to publish".into());
     }
     let bookmark = resolve_bookmark(repo, params)?;
+    let force = answer_forced(ctx, repo, &bookmark, WORK_COMMIT, params)?;
     let arg = repo.to_string_lossy();
     if params.dry_run {
         info!(
@@ -753,7 +822,7 @@ fn push_por(
     ctx.session(repo)?.bookmark_set(&bookmark, "@-")?;
     crate::common::verify_tracking(repo, &bookmark)?;
     info!("push push-work: git push --bookmark {bookmark} -R {arg}");
-    ctx.session(repo)?.git_push_bookmark(&bookmark)?;
+    ctx.session(repo)?.git_push_bookmark(&bookmark, force)?;
     info!("push: completed");
     Ok(())
 }

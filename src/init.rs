@@ -1827,7 +1827,7 @@ fn run_remote_step(
     // The facade's push establishes tracking as a side effect: no
     // `--allow-new`, no follow-up `jj bookmark track`.
     retry_op(&params.push_retry, || {
-        jj::git_push_bookmark(push_from, "main")
+        jj::git_push_bookmark(push_from, "main", jj::Force::Refuse)
     })?;
     Ok(())
 }
