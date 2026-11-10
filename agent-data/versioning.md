@@ -116,7 +116,8 @@ clobbers the binary consumers are running. The package keeps its plain name thro
   agent-files may describe what only the dev build does. Otherwise the session runs the plain name,
   since a dev build no newer is one an earlier cycle left behind
   ([why](rationale.md#tools-the-session-runs)).
-- **Promotion**: plain `<name>` updates only at Land, by `vc-x1 install`, from what is on the trunk.
+- **Promotion**: plain `<name>` updates only at Land, by `vc-x1 install`, from what is on the
+  target.
 - **Which binary**: `vc-x1 install` with no `--profile` is the release build, so a dev binary
   installs itself only with `--profile dev`.
 

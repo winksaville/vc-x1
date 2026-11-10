@@ -9,6 +9,8 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 - 2 (done) [feat: orepo replaces ocid and pcid](TODO.md#feat-orepo-replaces-ocid-and-pcid)
 - 3 (done) [feat: no push is forced without asking](TODO.md#feat-no-push-is-forced-without-asking)
 - 4 (done) [feat: a rung commits as a pair](TODO.md#feat-a-rung-commits-as-a-pair)
+- 5 (done) [feat: no trunk, every target is named](TODO.md#feat-no-trunk-every-target-is-named)
+- [feat: open makes the cycle's bookmark first](TODO.md#feat-open-makes-the-cycles-bookmark-first)
 - [chore: a test vc-x2 reaches vc-x1's history](TODO.md#chore-a-test-vc-x2-reaches-vc-x1s-history)
 - [chore: complete vc-x1, ready for vc-x2 closing](TODO.md#chore-complete-vc-x1-ready-for-vc-x2-closing)
 

@@ -46,6 +46,10 @@ Provisional:
   `commit` refuse one, agent-files v0.3.1-4.
 - A rung commits as a pair, `commit -s b`, so each rung's transcript is its own agent commit,
   agent-files v0.3.1-5.
+- No trunk: every target is named, `commit --closing` and `trailers` taking a required `--onto`,
+  and `[cycle] trunk` removed.
+- Branch first: `vc-x1 open` makes the cycle's bookmark on the empty `@` before the opening's first
+  edit, and `commit --opening` creates nothing.
 - vc-x1's history is left as it is: `validate-desc` over it reports the known list,
   [vc-x1-history.md](notes/vc-x1-history.md), and nothing else. A rewrite waits on the trailer
   format vc-x2 decides, and may never be made.
@@ -191,6 +195,21 @@ Provisional:
   vc-x1 is vc-x2's, the only side with the gap.
   - The test vc-x2's link is hand-written, since vc-x2 does not yet read one, and its form is fixed
     before the real vc-x2 is made, a change after meaning a rewrite of vc-x2's first commit.
+- No trunk, wink's (2026-11-10): a bookmark made is likely, not certainly, the one a cycle lands
+  on, so nothing is assumed to be the trunk and every target is named. **feat: no trunk, every
+  target is named** replaces the planned **feat: commit refuses to advance the trunk**, and the
+  guard it planned is dropped, a required target and the per-push approval being guard enough.
+- Branch first, wink's (2026-11-10): the cycle's bookmark is made before the bump, the opening's
+  first edit, not by the opening's commit, so every edit of the cycle is on its branch.
+  - The bookmark goes on the empty `@`, since on `@-` it shares `main`'s commit and the nearest
+    bookmark is two. `open` takes `--bookmark <NAME>` or `--title`, the title made a name by the
+    anchor algorithm, wink's.
+- The `wip` pair removed, wink's (2026-11-10): a work and an agent commit titled `wip`, pushed
+  after rung 4 for durability, were abandoned with `--restore-descendants --retain-bookmarks`,
+  their content carried into each `@`, and both remotes moved back to rung 4 by `jj git push`.
+  The installed `vc-x1` 0.85.20, older than this cycle, would have folded the agent `@` into rung
+  4's agent commit, and `vc-x1-dev` would have published it without folding, it being published.
+  Mid-cycle the tool that counts is `vc-x1-dev`.
 
 #### Rungs
 
@@ -320,6 +339,56 @@ commit. Agent-files v0.3.1-5.
     (2026-11-09).
 * This rung is the first committed with `-s b`.
 
+##### feat: no trunk, every target is named
+
+A trunk was assumed in several places, `[cycle] trunk` with `main` when absent in `commit` and
+`trailers`, and a hard-coded `main` in `squash` and `install`, though a bookmark made is only likely
+the one a cycle lands on, and a release branch is a target as much as `main` is. There is no trunk:
+the target is named by a required `--onto`, and what is history is jj's `immutable()`. Agent-files
+v0.3.1-6.
+
+* `commit --closing` takes a required `--onto <BOOKMARK>`, the target, its shape counted above it
+  and the trapezoid's first parent it, and `--land`, now a flag, lands on it.
+  - A closing without `--onto` is refused naming the likely target, the nearest bookmark at or
+    below the opening's parent, the opening the nearest commit below the tip titled " opening".
+  - It subsumes the Todo rung **commit --closing merges onto the cycle's base when it was opened
+    above the trunk**, the base now named.
+* What is history had been `main@origin`, and without a trunk it is jj's `immutable()`, wink's call
+  (2026-11-10): pushing is not dangerous in itself, so a cycle's bookmark pushed for a backup stays
+  mutable and its rungs take a fix with a warning, whichever flow a cycle runs.
+  - `squash` refuses a commit in `immutable()`, `main@origin`, tags, and what the user's
+    `immutable_heads()` adds, without `--ignore-immutable`, the flag `merge` and jj use, which
+    replaces its `--yes`. The agent side, on `main` alone, has its published commits there.
+  - `trailers --update` requires `--range`, a revset taken as written, its bare form and default
+    gone, and refuses a range reaching `immutable()` without `--ignore-immutable`.
+  - Option a, a draft being a commit on its line's own bookmark alone, was weighed and set aside: on
+    `main`'s line the line's own bookmark is `main`, so it could not tell a draft from history.
+* `install`'s report names every bookmark at the binary's commit, local and remote, or says it is
+  at none or not in the work repo, where it compared with `main` and `main@origin`.
+* `[cycle] trunk` leaves the schema and the model, and `configured_trunk` with it.
+* The agent-files name the target where they named the trunk: Terminology gains Target, and Cycle
+  shape, the per-rung flow's commit, `jj.md`'s create, close, Land, and shapes, and
+  `versioning.md`'s promotion follow, `rationale.md` saying why and retiring "trunk". `README.md`
+  and the help follow.
+  `sync`'s default `main`, `clone`'s tracking check, the agent side's `main`, and jj's own `trunk()`
+  are the repo's line or jj's, not a target, and stay.
+
+##### feat: open makes the cycle's bookmark first
+
+The cycle's bookmark is made by `commit --opening`, after the opening's record, ladder, and bump
+are already written on no branch. `vc-x1 open --bookmark <NAME>` or `--title "<cycle title>"`, the
+title made a name by the anchor algorithm, makes it first, on the empty `@`. Planned, not started.
+
+* `open` refuses a work `@` that is not empty, a repo not up to date with its remote, and a name in
+  use locally or on `origin`, then creates the bookmark on `@`, local. The agent-repo gets none.
+* Whether `open` also describes `@` with the opening's title is open: jj keeps a described empty
+  `@` that it would abandon undescribed, which keeps the bookmark off `main`'s commit, and a test
+  checks jj keeps the bookmark on the change through the commit.
+* `commit --opening` creates nothing: it gives the bookend title and refuses an `@-` whose bookmark
+  is not the title's slug.
+* The Opening's step 2 creates the bookmark, before the In Progress block and the bump. It subsumes
+  the Todo **Every cycle commits its opening first**.
+
 ##### chore: a test vc-x2 reaches vc-x1's history
 
 Whether vc-x2, seeded without history, can reach the why and how of its first tree in vc-x1 is
@@ -381,6 +450,61 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 `###` heading, so a citation is a link to its anchor. Long-tail entries live in
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
+
+### Work in progress is durable and continues on any machine
+
+(wink, 2026-11-10) A cycle stopped for the night was made durable by a work and an agent commit
+titled `wip`, pushed, and removing them took two abandons and two backward pushes by `jj`, since
+`vc-x1 push` would fold the agent `@` into the last rung's agent commit. A scheme is wanted that
+makes work in progress durable, on the remote, and easy to continue on this machine or another,
+then leaves no trace in the cycle's history once the rung it belongs to is committed.
+
+- We think a separate ref, a `wip/<bookmark>` on the remote holding both `@`s, is the shape: the
+  cycle's bookmark and the agent `main` never move for it, and a `continue` fetches it into `@`.
+- What the other machine's session reads is part of it: the continuation notes ride in the work
+  `@` and the transcript in the agent `@`.
+
+### push only publishes
+
+(wink + agent, 2026-11-10) `push`'s agent half folds the journal into an unpublished partner, or
+commits it as the partner, before it pushes `main`, so a push changes a commit. A push should only
+publish, the fold being `squash-push`'s. The agent `@` is always dirty: Claude Code writes after
+the agent's last command, so a tail is left whatever the agent runs, and it goes into the next
+agent commit, of the next rung, cycle, or session. Spawning a delayed capture was tried and dropped,
+its races and hand-off files costing more than housekeeping is worth.
+
+- `push` loses its fold and its commit of the journal, and refuses a pair whose agent half is not
+  committed, naming `commit -s a`.
+- Whether the agent publishes by `push` or by `squash-push` is decided by measurement, wink leaning
+  to `squash-push` to keep each rung's housekeeping in its own commit. Over a few rungs, record the
+  agent `@`'s entries and bytes before each publish, what `squash-push` folds and `push` leaves
+  forward, and at the next acquaint, the tail neither catches, each against its rung's agent commit.
+  The first sample: rung 4's agent commit is 470 entries, 813 KB, and what followed it to the
+  session's end 16 entries, 18 KB, mostly the records Claude Code writes after the agent stops.
+- The agent-files: At rest's "clean" is the work `@` alone, the agent `@` is never clean and
+  carries forward, and rung 4's "push folds the journal while unpublished" goes.
+
+### vc-x2: the agent-repo stays on main, agent branches set aside
+
+(wink + agent, 2026-11-10) A decision for vc-x2 to inherit, not work. Only the work-repo has a
+cycle bookmark, the agent `main` moving with every push. A cycle bookmark in the agent-repo too,
+landed with `--onto main`, would make the two sides alike in `push`, `squash`, and `land`, and it
+was weighed and set aside, wink's call: the agent-repo stays on `main`.
+
+- The agent `@` holds the live transcript, so it cannot follow the work-repo between branches: a
+  move rewrites the files on disk, truncating the live `.jsonl` to the other branch's copy, or,
+  with the files kept, carries one branch's lines into the other's commits. A session works on more
+  than one branch, so a rule of one branch per session is not feasible.
+- Two branches appending to one `.jsonl` conflict at merge, though every line differs, both being
+  inserts at the file's end, and separate files merge clean, a test of 2026-11-10. A resumed session
+  appends to its original file. The resolution is always both sides by each entry's time, git's
+  `merge=union`, which we think jj does not honour, so an auto-merge is feasible, and it was not
+  enough, the live file being the obstacle.
+- On `main` alone the agent `@` never moves, every agent commit lands on one line in time order,
+  nothing is merged, and the `ochid:` trailers pair the repos by change id, so an agent commit needs
+  no branch to be found from its work commit.
+- One session per workspace stays a rule, not enforced,
+  [session-lock.md](agent-data/session-lock.md) the tried `flock` should that change.
 
 ### close, land, and push compose with testing, to re-deliberate
 

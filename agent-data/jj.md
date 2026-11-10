@@ -119,7 +119,10 @@ the bookmark to advance. Every argument is a flag. What to keep in mind:
   one: it steers session pushes at the wrong remote ref.
 
 A late work-repo tweak after a push (a forgotten edit) is folded by `vc-x1 squash` and re-pushed,
-which is a remote rewrite and takes approval like any push.
+which is a remote rewrite and takes approval like any push. Pushing is not what makes a commit
+history: `squash` warns of a published commit jj counts mutable, a cycle's bookmark pushed for a
+backup among them, and refuses one in jj's `immutable()`, `main@origin`, tags, and what the user's
+`immutable_heads()` adds, without `--ignore-immutable`, as jj refuses it.
 
 ## Re-describing: coordinate first, and keep the trailer
 
@@ -139,38 +142,39 @@ holds the rule and when it applies, and this one holds the commands
 ([why](rationale.md#cycle-bookmarks-create-and-land)).
 
 **Create**, at the cycle's opening: `vc-x1 commit -s b --opening --title "<bare cycle title>" --body
-"..."` commits the opening and creates the bookmark at the trunk, named by the title's slug (the
+"..."` commits the opening and creates the bookmark at the work `@-`, named by the title's slug (the
 anchor algorithm in [Markdown anchor links](notes.md#markdown-anchor-links)), and kept local.
 
-**Close**: `vc-x1 commit -s b --closing <BM|REV>`, naming the cycle's tip, makes the closing: the
-merge of the trunk and the tip, or the one commit finalized in place. The trunk is `[cycle] trunk`,
-`main` when absent. Without a `[closing] body` in `.vc-config.md`, it needs `--body`.
+**Close**: `vc-x1 commit -s b --closing <BM|REV> --onto <BOOKMARK>`, naming the cycle's tip and its
+target, makes the closing: the merge of the target and the tip, or the one commit finalized in
+place. No target is assumed, and a closing without `--onto` is refused naming the bookmark below the
+opening. Without a `[closing] body` in `.vc-config.md`, it needs `--body`.
 
 **Land**, once the close-out is approved: the sequence that makes the cycle permanent. Its `vc-x1
 push` is the push under [Approval per push](../AGENTS.md#before-any-push), with the closing words
 before it and silence after ([At rest](../AGENTS.md#at-rest)):
 
 1. Sync: `vc-x1 sync -s b`, and a `main` it moved stops the Land ([Sync](../AGENTS.md#sync)).
-2. Integrate: `vc-x1 land -s b --onto <trunk>`, local: it commits the agent `@` as the partner of
-   the work commits that name it, none when every rung is a pair, fast-forwards the trunk, and
+2. Integrate: `vc-x1 land -s b --onto <target>`, local: it commits the agent `@` as the partner of
+   the work commits that name it, none when every rung is a pair, fast-forwards the target, and
    deletes the cycle's local bookmark, every check made first.
    `--dry-run` says each step. The user may test here, before anything is published.
-3. Publish: `vc-x1 push -s b --bookmark <trunk>`, the work repo first, the journal folded into the
+3. Publish: `vc-x1 push -s b --bookmark <target>`, the work repo first, the journal folded into the
    last agent commit while that is unpublished. `land --push` does steps 2 and 3 as one.
    The agent publishes only with the user's permission, and otherwise the user does after the
    session, by `vc-x1 squash-push -s b` ([At rest](../AGENTS.md#at-rest)).
 4. Remote bookmark: `vc-x1 delete-bookmark -s w --bookmark <bookmark> --skip local`, when the topic
    was ever pushed.
 5. Install: `vc-x1 build`, a `vc-x1 run -- -V` smoke check, and `vc-x1 install`, so the plain name
-   is replaced only by what is on the trunk.
+   is replaced only by what is on the target.
 
-- `vc-x1 land --onto` a bookmark that is not the trunk, a stack of cycles landing together, is the
-  command and not the sequence: nothing is installed, and the cycle is permanent only when it
-  reaches the trunk.
+- `vc-x1 land --onto` another cycle's bookmark, a stack of cycles landing together, is the command
+  and not the sequence: nothing is installed, and the cycle is permanent only when the stack lands
+  on its target.
 - Landing is the moment the cycle's commits become permanent. No record cites their SHAs
   ([Cycle-record](../AGENTS.md#cycle-record)): the landed commits are the record.
-- `vc-x1 land` only fast-forwards. A trunk that moved means the closing is made again, as its merge
-  has to join the new trunk.
+- `vc-x1 land` only fast-forwards. A target that moved means the closing is made again, as its merge
+  has to join the target where it is.
 
 **Reshape**, while the bookmark is a draft ([Cycles run on a
 bookmark](../AGENTS.md#cycles-run-on-a-bookmark)):
@@ -204,11 +208,11 @@ The shape a ladder lands in is carried by its closing commit, so nothing is resh
 [Land](#cycle-bookmarks-create-and-land) ([Close-out](../AGENTS.md#close-out)). A single-step cycle is
 one commit and lands as it is:
 
-- **trapezoid**: a merge commit whose first parent is the trunk and whose second is the ladder, so
+- **trapezoid**: a merge commit whose first parent is the target and whose second is the ladder, so
   `git log --first-parent` reads one commit per cycle while every rung stays reachable. It joins a
-  trunk that moved. With one rung the figure is a triangle.
-- **linear**, one commit per rung on the trunk, is proposed as `--shape linear` and not built. We
-  think it refuses a trunk that moved, since joining one would rewrite the reviewed ladder.
+  target that moved. With one rung the figure is a triangle.
+- **linear**, one commit per rung on the target, is proposed as `--shape linear` and not built. We
+  think it refuses a target that moved, since joining one would rewrite the reviewed ladder.
 
 Squash is not a shape: each rung's `ochid:` trailer is a change id, a squash keeps one and drops the
 rest, and every agent-repo commit that pointed at a dropped rung is left dangling ([Cycle

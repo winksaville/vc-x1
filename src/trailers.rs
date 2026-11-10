@@ -39,16 +39,15 @@ pub struct TrailersArgs {
     #[arg(long, required = true)]
     pub update: bool,
 
-    /// The commits: a bookmark or revision, those above the trunk up to
-    /// it, or a revset with `..` or `::`, as written [default: those
-    /// above the trunk up to `@-`]
-    #[arg(long, value_name = "BM|REV")]
-    pub range: Option<String>,
+    /// The commits, a revset taken as written, `main..@-` a cycle's
+    /// and `..@-` a whole history. Required: no base is assumed
+    #[arg(long, value_name = "REVSET", required = true)]
+    pub range: String,
 
-    /// Rewrite a commit already on the trunk's remote, which is refused
-    /// without it, a dry run excepted
+    /// Rewrite a commit in jj's `immutable()`, `main@origin` among
+    /// them, which is refused without it, a dry run excepted
     #[arg(long)]
-    pub yes: bool,
+    pub ignore_immutable: bool,
 
     /// Where: a path in the workspace, its root or either repo [default:
     /// the current directory]
@@ -64,8 +63,8 @@ pub struct TrailersArgs {
 #[derive(Debug)]
 pub struct TrailersParams {
     pub pair: Pair,
-    pub range: Option<String>,
-    pub yes: bool,
+    pub range: String,
+    pub ignore_immutable: bool,
     pub dry_run: bool,
 }
 
@@ -77,7 +76,7 @@ impl SubcommandRunner for TrailersArgs {
         Ok(TrailersParams {
             pair: crate::pair::resolve_pair(self.repo.as_deref()).map_err(|e| e.to_string())?,
             range: self.range.clone(),
-            yes: self.yes,
+            ignore_immutable: self.ignore_immutable,
             dry_run: self.dry_run.value,
         })
     }
@@ -88,8 +87,8 @@ impl SubcommandRunner for TrailersArgs {
     }
 }
 
-/// Entry point: resolve the range, refuse a rewrite of the trunk's
-/// remote unless `--yes` or a dry run, update, and sort every commit in
+/// Entry point: refuse a range reaching jj's `immutable()` unless
+/// `--ignore-immutable` or a dry run, update, and sort every commit in
 /// the summary.
 pub fn trailers(
     ctx: &mut Context,
@@ -97,25 +96,16 @@ pub fn trailers(
 ) -> Result<(), Box<dyn std::error::Error>> {
     debug!("trailers: enter {params:?}");
     let work = params.pair.work.as_path();
-    let trunk = crate::commit::configured_trunk(work)?;
-    let revset = match &params.range {
-        Some(r) if r.contains("..") || r.contains("::") => r.clone(),
-        Some(r) => format!("{trunk}..({r})"),
-        None => format!("{trunk}..@-"),
-    };
-    let remote_trunk = format!("{trunk}@origin");
-    if !params.yes
-        && jj::rev_exists(work, &remote_trunk)?
-        && jj::matches(work, &format!("({revset}) & ::{remote_trunk}"))?
-    {
+    let revset = params.range.clone();
+    if !params.ignore_immutable && jj::is_immutable(work, &revset)? {
         let reaches = format!(
-            "'{revset}' reaches commits on {remote_trunk}, so this would rewrite the trunk's \
-             published history"
+            "'{revset}' reaches commits in jj's `immutable()`, so this would rewrite history \
+             others have"
         );
         if !params.dry_run {
-            return Err(format!("trailers: {reaches}: --yes does it anyway").into());
+            return Err(format!("trailers: {reaches}: --ignore-immutable does it anyway").into());
         }
-        info!("trailers: [dry-run] {reaches}, which the run takes --yes for");
+        info!("trailers: [dry-run] {reaches}, which the run takes --ignore-immutable for");
     }
     if repo_url_for(&params.pair.agent)?.is_none() {
         info!("trailers: the agent repo has no `origin` to link, so no `orepo:`");
@@ -302,8 +292,8 @@ mod tests {
                 work: fx.work.clone(),
                 agent: fx.bot.clone(),
             },
-            range: Some(range.to_string()),
-            yes: false,
+            range: range.to_string(),
+            ignore_immutable: false,
             dry_run,
         }
     }
@@ -323,7 +313,7 @@ mod tests {
         let tree = jj::tree_of(&fx.work, &second).expect("tree");
 
         let before = description(&fx.work, &first);
-        let n = trailers(&mut test_ctx(), &params(&fx, "@-", true)).ok();
+        let n = trailers(&mut test_ctx(), &params(&fx, "main..@-", true)).ok();
         assert!(n.is_some(), "a dry run");
         assert_eq!(
             description(&fx.work, &first),
@@ -331,7 +321,7 @@ mod tests {
             "a dry run writes none"
         );
 
-        trailers(&mut test_ctx(), &params(&fx, "@-", false)).expect("updated");
+        trailers(&mut test_ctx(), &params(&fx, "main..@-", false)).expect("updated");
         for (c, partner) in [(&first, &made), (&second, &at)] {
             let desc = description(&fx.work, c);
             assert!(
@@ -347,23 +337,21 @@ mod tests {
         assert!(jj::is_empty(&fx.work, "@").expect("empty"));
 
         let sha = cid(&fx.work, &second);
-        trailers(&mut test_ctx(), &params(&fx, "@-", false)).expect("rerun");
+        trailers(&mut test_ctx(), &params(&fx, "main..@-", false)).expect("rerun");
         assert_eq!(cid(&fx.work, &second), sha, "a rerun rewrites nothing");
     }
 
-    /// With no `--range` it reaches `@-`, past a bookmark below it, and a
-    /// local `origin` is named by `file:///`.
+    /// The range is taken as written, `main..@-` reaching past a bookmark
+    /// below `@-`, and a local `origin` is named by `file:///`.
     #[test]
-    fn the_default_range_reaches_the_work_head() {
-        let fx = Fixture::new("trailers-default");
+    fn the_range_is_taken_as_written() {
+        let fx = Fixture::new("trailers-as-written");
         let made = chid(&fx.bot, "@-");
         let first = rung(&fx, "first", &format!("/.claude/{made}"));
         jj_ok(&fx.work, &["bookmark", "set", "topic", "-r", "@-"]);
         let second = rung(&fx, "second", &format!("/.claude/{made}"));
 
-        let mut p = params(&fx, "unused", false);
-        p.range = None;
-        trailers(&mut test_ctx(), &p).expect("updated");
+        trailers(&mut test_ctx(), &params(&fx, "main..@-", false)).expect("updated");
 
         for c in [&first, &second] {
             let desc = description(&fx.work, c);
@@ -423,16 +411,20 @@ mod tests {
         );
     }
 
-    /// A range reaching the trunk's remote is refused unless `--yes`.
+    /// A range reaching jj's `immutable()`, `main@origin`, is refused
+    /// unless `--ignore-immutable`.
     #[test]
-    fn the_trunks_remote_is_refused_unless_asked() {
-        let fx = Fixture::new("trailers-trunk");
+    fn immutable_is_refused_unless_asked() {
+        let fx = Fixture::new("trailers-immutable");
         hosted(&fx);
         let main = cid(&fx.work, "main");
         let err = trailers(&mut test_ctx(), &params(&fx, "::main", false))
             .expect_err("refused")
             .to_string();
-        assert!(err.contains("main@origin"), "{err}");
+        assert!(
+            err.contains("immutable()") && err.contains("--ignore-immutable"),
+            "{err}"
+        );
         assert_eq!(cid(&fx.work, "main"), main);
     }
 
@@ -549,11 +541,11 @@ mod tests {
         assert_eq!(description(&fx.work, &bare), before);
     }
 
-    /// A dry run reaching the trunk's remote needs no `--yes`, and changes
-    /// nothing.
+    /// A dry run reaching jj's `immutable()` needs no
+    /// `--ignore-immutable`, and changes nothing.
     #[test]
-    fn a_dry_run_of_the_trunks_remote_needs_no_yes() {
-        let fx = Fixture::new("trailers-trunk-dry");
+    fn a_dry_run_of_immutable_needs_no_override() {
+        let fx = Fixture::new("trailers-immutable-dry");
         hosted(&fx);
         let main = cid(&fx.work, "main");
         trailers(&mut test_ctx(), &params(&fx, "::main", true)).expect("a dry run");

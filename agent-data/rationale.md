@@ -48,7 +48,16 @@ differently next time.
 **Retired names.** "Bot repo" (2026-08-21), when the code respelled the side `agent`. "Instruction
 files", an earlier name for the agent-files. "Ladder (sub-cycle)" for a local ladder, under [Local
 ladders](#local-ladders). "Project layer" (2026-10-18), the project's own agent-files, retired when
-the one file it named became local ([custom.md](#custommd)).
+the one file it named became local ([custom.md](#custommd)). "Trunk" (2026-11-10), the one bookmark
+every cycle was assumed to land on, `[cycle] trunk` else `main`, retired for the target, named by
+`--onto` at each closing.
+
+**No target is assumed** (wink, 2026-11-10) because a bookmark made is likely, not certainly, the
+one a cycle lands on, and a release branch is a target as much as `main` is. A default would guess,
+and a required `--onto` costs one flag per closing. What is history, which `squash` and `trailers`
+refuse to rewrite without `--ignore-immutable`, is jj's `immutable()`, configured in jj, so vc-x1
+keeps no list of shared lines, and pushing a cycle's bookmark for a backup does not make its rungs
+history: pushing is not dangerous in itself.
 
 ## The dual-repo model
 
@@ -142,7 +151,7 @@ A cycle that pushes `main` directly makes every correction a coordinated force-p
 history. Landing costs one command and buys free rewrites for the whole cycle. A single-step cycle
 gets a bookmark for the same reason: a one-commit line is exactly where a pre-landing rewrite is
 cheapest. "Development is not done on `main`" is stated outright because the trapezoid recipe once
-allowed "a docs interlude between cycles" on the trunk line, and five docs commits went to `main`
+allowed "a docs interlude between cycles" on `main`'s line, and five docs commits went to `main`
 that way before a sixth was caught mid-draft and run as a cycle (2026-08-22). The owners will
 sometimes cheat, and the rule is still the rule.
 
@@ -160,7 +169,7 @@ lands because its commits are named by agent-repo trailers, and landing keeps ev
 
 ### Unplanned work
 
-The docs interlude, a commit landed on the trunk line between cycles, is retired (2026-08-27). A
+The docs interlude, a commit landed on `main`'s line between cycles, is retired (2026-08-27). A
 single-step cycle is the same one commit with a bookmark, a record, and a landing, and the five
 docs commits that went to `main` as interludes are the case against the exception ([Cycles run on
 a bookmark](#cycles-run-on-a-bookmark)). The choice between a rung and an entry is the user's
@@ -333,7 +342,7 @@ while the work side is repaired.
 ### Close-out
 
 Continuation notes go in the closing because notes written after the Land have no clean home: a commit
-after it puts a non-cycle commit on the trunk after the hard stop, and a squash into the closing
+after it puts a non-cycle commit on the target after the hard stop, and a squash into the closing
 rewrites the landmark just landed and verified. The cost, notes written before the Land they describe,
 suits a close-out. The shape is in the closing so it is in the commit that was reviewed, rather than a
 reshape at Land made after it.
@@ -449,7 +458,7 @@ the project's.
 **A new repo starts from an adopter's set** (wink, 2026-11-03) because an adopter carries the set
 already, so a template repository is a second copy to keep in step. **Its working copy's by
 default** (wink, 2026-11-04) because the rules being worked on are the ones a test repo is made to
-try, the obvious source, and `--landed` takes the trunk's when those are wanted.
+try, the obvious source, and `--landed` takes `main`'s when those are wanted.
 
 **An experiment comes before a proposal** because a rule is argued best by having been run, and
 the diff against the copy it started from keeps the trial visible while it runs.

@@ -645,21 +645,21 @@ pub(crate) enum Commands {
         commit made by hand becomes a rung's. A draft below `@-` is kept\n\
         local, since push publishes `@-`. Every argument is a flag: the old\n\
         positional is refused, naming -r.\n\n\
-        --closing <BM|REV> closes the cycle whose tip it names, onto the trunk,\n\
-        --land's or `[cycle] trunk`, `main` when absent: one commit above the\n\
-        trunk is finalized in place, more get the closing commit, the merge of\n\
-        the trunk and the tip. A tip that is not @- is closed by a detour, @\n\
-        moving onto it and returning after. --land [TRUNK] lands it: the trunk\n\
+        --closing <BM|REV> closes the cycle whose tip it names onto --onto\n\
+        <BOOKMARK>, required, since no target is assumed: one commit above it\n\
+        is finalized in place, more get the closing commit, the merge of\n\
+        --onto and the tip. A tip that is not @- is closed by a detour, @\n\
+        moving onto it and returning after. --land lands it: --onto\n\
         fast-forwarded and pushed and the closing's bookmark deleted, every\n\
         check first: the one named, or for a revision the current or nearest\n\
-        parent bookmark above the trunk, several refused with the list.\n\n\
+        parent bookmark above --onto, several refused with the list.\n\n\
         -s is required: `b` makes both commits now, `w` the work half with\n\
         the agent half left to push, `a` the agent repo alone, unpaired, with\n\
         no trailer, and `p` a plain repo with no trailer. -R is optional and\n\
         says where. --body is the text, or @PATH to read it from a file.\n\n\
         -s a --covers REVSET makes the agent commit a cycle's rungs share:\n\
         one `ochid:` per work commit REVSET names, oldest first, the revset\n\
-        taken as written, no trunk assumed, and each must name the agent @.")]
+        taken as written, no base assumed, and each must name the agent @.")]
     Commit(commit::CommitArgs),
 
     /// Fold the working copies into the pair before it is pushed, with -s
@@ -671,9 +671,11 @@ pub(crate) enum Commands {
         -s is required: `b` both sides, `w` the work side, `a` the agent\n\
         side, `p` a plain repo's @ into its @-. A pending partner, made by\n\
         `commit -s w`, is left for push, as is a published partner's\n\
-        journal. A draft, a commit published on a topic bookmark only, is\n\
-        rewritten with a warning, and a commit on main's remote is refused\n\
-        without --yes. --title with --body rewrites the descriptions,\n\
+        journal. A draft, a published commit jj counts mutable, a cycle's\n\
+        bookmark pushed for a backup among them, is rewritten with a\n\
+        warning, and one in jj's immutable(), `main@origin` among them, is\n\
+        refused without --ignore-immutable, as jj refuses it. --title with\n\
+        --body rewrites the descriptions,\n\
         keeping each trailer.\n\
         -R is optional and says where.")]
     Squash(squash::SquashArgs),
@@ -745,7 +747,7 @@ pub(crate) enum Commands {
         bookmarks strictly between --onto and --source too. --dry-run makes\n\
         every check and says each step.\n\n\
         -s is required: `b` a dual workspace, the agent `main` moved with\n\
-        the trunk, and `p` a plain repo. `w` alone could publish\n\
+        --onto, and `p` a plain repo. `w` alone could publish\n\
         trailers naming agent commits not yet published, and `a` alone has\n\
         no cycle to land, so both are refused. The install stays `vc-x1\n\
         install`, after.")]
@@ -762,11 +764,11 @@ pub(crate) enum Commands {
         `pcid:`, which named commits by SHA, go. A trailer naming nothing that\n\
         resolves, a `lost` or a partner gone, is left as it is, and a trailer\n\
         `vc-x1` does not stamp is kept.\n\n\
-        --update is required, the one thing this does so far. --range is a\n\
-        bookmark or revision, those above the trunk up to it, or a revset with\n\
-        `..` or `::`, as written [default: above the trunk up to `@-`]. A\n\
-        commit on the trunk's remote is refused without --yes, and one on a\n\
-        topic bookmark is rewritten with a warning. --dry-run prints each\n\
+        --update is required, the one thing this does so far, and so is\n\
+        --range, a revset taken as written, `main..@-` a cycle's and `..@-` a\n\
+        whole history, no base being assumed. A commit in jj's immutable(),\n\
+        `main@origin` among them, is refused without --ignore-immutable, and\n\
+        a mutable one is rewritten. --dry-run prints each\n\
         description. The work repo alone changes, an agent commit's trailers\n\
         being change ids, which a rewrite keeps.")]
     Trailers(trailers::TrailersArgs),
