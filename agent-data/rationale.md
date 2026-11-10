@@ -261,6 +261,12 @@ id, which a reshape keeps. The first cycle run this way changed its ladder sever
 always in control: the per-rung pairs came first, the local cycle after, and neither is the only
 shape, so the rules say what each shape needs rather than choosing one.
 
+**A rung commits as a pair** (wink, 2026-11-09) because nothing now needs the agent-repo still.
+While `ocid:` pinned the agent commit's SHA, a work commit could name it only once that SHA was
+final, so one agent commit a cycle, made at the Land, was the obvious shape. With change ids that
+holds no longer, and a pair per rung keeps each rung's transcript beside its work, one `ochid:`
+away, and splits a cycle's transcript rung by rung rather than into one large commit.
+
 **No trailer holds a SHA** (wink, 2026-11-09) because a SHA changes with every rewrite. `ocid:`
 pinned the agent commit's, so an agent commit was never folded into and the order of commits was
 forced, and `pcid:` repeated git's parents and made a describe rewrite every commit above it.

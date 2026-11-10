@@ -103,12 +103,12 @@ The trailers are **stamped by `vc-x1 commit`**. Never hand-write them into a com
 
 ## vc-x1 commit and push: what they do and do not do
 
-`vc-x1 commit -s w --title "..." --body "..."` commits the work repo with the title and body, stamps
-its trailers ([above](#cross-repo-linking-ochid-trailers)), and stays on this machine. `-s b` makes
-both repos' commits, the pair. `--push` publishes what was committed, as `vc-x1 push` does, and
-`vc-x1 show -s work -r @-` is the look at it before then. `-r` names a commit below `@`, described in
-place with its trailer stamped, and `--bookmark` the bookmark to advance. Every argument is a flag.
-What to keep in mind:
+`vc-x1 commit -s b --title "..." --body "..."` commits both repos with the title and body, the
+pair, stamps their trailers ([above](#cross-repo-linking-ochid-trailers)), and stays on this
+machine. `-s w` commits the work repo alone, its trailer naming the agent `@`. `--push` publishes
+what was committed, as `vc-x1 push` does, and `vc-x1 show -s work -r @-` is the look at it before
+then. `-r` names a commit below `@`, described in place with its trailer stamped, and `--bookmark`
+the bookmark to advance. Every argument is a flag. What to keep in mind:
 
 - **No checks of the project's own.** vc-x1 runs no build or tests. Validation is the per-rung
   flow's job, run *before* the commit.
@@ -138,11 +138,11 @@ The mechanics behind [Cycles run on a bookmark](../AGENTS.md#cycles-run-on-a-boo
 holds the rule and when it applies, and this one holds the commands
 ([why](rationale.md#cycle-bookmarks-create-and-land)).
 
-**Create**, at the cycle's opening: `vc-x1 commit -s w --opening --title "<bare cycle title>" --body
+**Create**, at the cycle's opening: `vc-x1 commit -s b --opening --title "<bare cycle title>" --body
 "..."` commits the opening and creates the bookmark at the trunk, named by the title's slug (the
 anchor algorithm in [Markdown anchor links](notes.md#markdown-anchor-links)), and kept local.
 
-**Close**: `vc-x1 commit -s w --closing <BM|REV>`, naming the cycle's tip, makes the closing: the
+**Close**: `vc-x1 commit -s b --closing <BM|REV>`, naming the cycle's tip, makes the closing: the
 merge of the trunk and the tip, or the one commit finalized in place. The trunk is `[cycle] trunk`,
 `main` when absent. Without a `[closing] body` in `.vc-config.md`, it needs `--body`.
 
@@ -151,11 +151,12 @@ push` is the push under [Approval per push](../AGENTS.md#before-any-push), with 
 before it and silence after ([At rest](../AGENTS.md#at-rest)):
 
 1. Sync: `vc-x1 sync -s b`, and a `main` it moved stops the Land ([Sync](../AGENTS.md#sync)).
-2. Integrate: `vc-x1 land -s b --onto <trunk>`, local: it commits the agent `@` as the partner,
-   fast-forwards the trunk, and deletes the cycle's local bookmark, every check made first.
+2. Integrate: `vc-x1 land -s b --onto <trunk>`, local: it commits the agent `@` as the partner of
+   the work commits that name it, none when every rung is a pair, fast-forwards the trunk, and
+   deletes the cycle's local bookmark, every check made first.
    `--dry-run` says each step. The user may test here, before anything is published.
 3. Publish: `vc-x1 push -s b --bookmark <trunk>`, the work repo first, the journal folded into the
-   Land's agent commit while that is unpublished. `land --push` does steps 2 and 3 as one.
+   last agent commit while that is unpublished. `land --push` does steps 2 and 3 as one.
    The agent publishes only with the user's permission, and otherwise the user does after the
    session, by `vc-x1 squash-push -s b` ([At rest](../AGENTS.md#at-rest)).
 4. Remote bookmark: `vc-x1 delete-bookmark -s w --bookmark <bookmark> --skip local`, when the topic

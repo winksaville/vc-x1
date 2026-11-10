@@ -44,6 +44,8 @@ Provisional:
   trailer holds a SHA and a squash-push leaves both repos clean, agent-files v0.3.1-3.
 - No push is forced without asking: `push` and `squash-push` ask, `--yes` answering, and `land` and
   `commit` refuse one, agent-files v0.3.1-4.
+- A rung commits as a pair, `commit -s b`, so each rung's transcript is its own agent commit,
+  agent-files v0.3.1-5.
 - vc-x1's history is left as it is: `validate-desc` over it reports the known list,
   [vc-x1-history.md](notes/vc-x1-history.md), and nothing else. A rewrite waits on the trailer
   format vc-x2 decides, and may never be made.
@@ -296,6 +298,27 @@ push under them all refuses a forced push its caller did not ask about, `push` a
 * The rules named `squash-push` alone as asking.
   - Before any push says which commands ask and which refuse, and that the agent passes `--yes`
     only for a forced push the user approved, and `rationale.md` and `README.md` follow.
+
+##### feat: a rung commits as a pair
+
+A rung was committed by `commit -s w` and the agent side once a cycle, at the Land, a shape `ocid:`
+needed, since a work commit could name the agent commit's SHA only once it was final. With no SHA in
+a trailer, a rung commits as a pair, `commit -s b`, and each rung's transcript is its own agent
+commit. Agent-files v0.3.1-5.
+
+* The per-rung flow committed by `commit -s w`, and the agent `@` held the session until the Land,
+  wink's call to pair 1:1 (2026-11-09).
+  - Step 8 commits by `commit -s b`, the opening and the closing included, and the default of A
+    cycle is local by default is a pair per commit, still local.
+  - A mid-cycle backup is `push -s b` alone, and `-s w` rungs first get their agent commit.
+  - The Land commits no agent `@` when every rung is a pair, and push folds the journal into the
+    last agent commit while it is unpublished. `jj.md`'s create, close, and Land follow.
+  - The "We think" note on a whole cycle's transcript nearing jj's new-file size limit comes out,
+    the transcript split rung by rung, and `rationale.md` says why the pair.
+* Step 6 said to iterate until approval without saying what an iteration is.
+  - A review iterates over steps 3 through 6 until the user approves, wink's wording
+    (2026-11-09).
+* This rung is the first committed with `-s b`.
 
 ##### chore: a test vc-x2 reaches vc-x1's history
 

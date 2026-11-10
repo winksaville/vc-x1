@@ -292,18 +292,20 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)):
    and given a Todo entry. A rung that changes the artifact then installs the working copy's dev
    build, `vc-x1 install --profile dev`, so the review runs the code under review, and again after
    each review fix ([Dev artifact name](agent-data/versioning.md#dev-artifact-name)).
-6. Work review: stop before writing any description and say "please review", as its own message with
-   no title or body. Iterate until the user says "continue" / "go". The review is of the
-   working-copy diff ([jj basics](agent-data/jj.md#jj-basics)).
+6. Work review: stop before writing any description and say "please review", as its own message
+   with no title or body. The review is of the working-copy diff ([jj
+   basics](agent-data/jj.md#jj-basics)). Iterate over steps 3 through 6 until the user approves
+   with "continue" or "go".
 7. Flip and describe: flip `(current)` to `(done)` the moment "done" is true, then write the
    description in [Commit-body form](agent-data/prose.md#commit-body-form), read from the file first
    with its specimen, [commit-model.md](agent-data/commit-model.md) ([Commit
    description](#commit-description)). A local description can still be changed before the Land, so
    it has no review of its own.
-8. Commit: on the go, `vc-x1 commit -s w --title "..." --body "..."`, local ([Committing vs
-   pushing](#committing-vs-pushing)), `--opening` added for the opening and `--closing <BM|REV>`
-   for the closing ([Cycle shape](#cycle-shape)). A rung that changes the artifact then installs its
-   dev build again, so the next rung runs the committed code, not the working copy's ([Dev artifact
+8. Commit: after approval, the work and agent repos are committed locally by
+   `vc-x1 commit -s b --title "..." --body "..."` ([Committing vs pushing](#committing-vs-pushing)),
+   with `--opening` added for the cycle's first commit and `--closing <BM|REV>` for its last
+   ([Cycle shape](#cycle-shape)). A rung that changes the artifact then installs its dev build
+   again, so the next rung runs the committed code, not the working copy's ([Dev artifact
    name](agent-data/versioning.md#dev-artifact-name)).
 
 ### Committing vs pushing
@@ -326,8 +328,8 @@ A cycle's commits stay on this machine until its Land, and the user decides when
 committed and when either is published, at any rung, every push still taking its own approval
 ([why](agent-data/rationale.md#a-cycle-is-local-by-default)).
 
-- The default: every commit is `vc-x1 commit -s w`, the opening's bookmark created and not pushed,
-  and the agent `@` holds the session until an agent commit is made.
+- The default: every commit is `vc-x1 commit -s b`, a pair, the agent commit holding the session
+  to that moment, and the opening's bookmark created and not pushed.
 - Any mix of work and agent commits is valid. `commit -s b` makes a 1:1 pair, `commit -s w` rungs
   then `commit -s a --covers <REVSET>` or the Land make N:1, and several agent commits naming one
   work commit make 1:M. The rule is the links: a work commit's `ochid:` names each agent change it
@@ -335,12 +337,11 @@ committed and when either is published, at any rung, every push still taking its
   other repo, and a squash folds into a commit an `ochid:` names, never that commit away, since jj
   keeps the change id of the commit squashed into ([Cross-repo
   linking](agent-data/jj.md#cross-repo-linking-ochid-trailers)).
-- A backup, a move between machines, or someone else to see the cycle commits the agent side and
-  publishes mid-cycle: `commit -s a --covers <REVSET>`, then `push -s b`.
-- The Land commits the agent `@` first, one `ochid:` per work commit it has not yet covered, an
-  older work commit's `ocid:` and `pcid:` giving way to `orepo:`, trees unchanged.
-- We think a cycle's whole transcript in one commit may near jj's new-file size limit, and the
-  mid-cycle backup's two commands want one.
+- A backup, a move between machines, or someone else to see the cycle publishes mid-cycle by
+  `push -s b`, and `-s w` rungs first get their agent commit, `commit -s a --covers <REVSET>`.
+- The Land commits the agent `@` first, one `ochid:` per work commit it has not yet covered, none
+  when every rung is a pair, an older work commit's `ocid:` and `pcid:` giving way to `orepo:`,
+  trees unchanged.
 
 ### Commit description
 
