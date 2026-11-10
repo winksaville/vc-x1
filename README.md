@@ -2004,12 +2004,15 @@ vc-x1 commit -s p -R ../other --title "..." --body "..."
 # A draft made by hand, the undescribed @-, described in place as the rung, its trailer stamped
 vc-x1 commit -s b -r @- --title "feat: a rung" --body @tmp/body.md
 
-# The cycle's opening, " opening" appended, its bookmark, feat-a-cycle, created at @- and pushed
+# The cycle's opening, " opening" appended, on its bookmark, feat-a-cycle, which `vc-x1 open` made
 vc-x1 commit -s b --opening --title "feat: a cycle" --body @tmp/body.md
 
 # The cycle's closing, its tip @-, onto main: one commit above main is finalized in place, more
 # get the closing commit, its title and body from the opening and the config
 vc-x1 commit -s b --closing @- --onto main
+
+# A single-step cycle with nothing committed, its work in @ on open's bookmark: one commit, landed
+vc-x1 commit -s b --closing @- --onto main --land --push --title "feat: add abc" --body "Why."
 
 # The same, the tip named by the cycle's bookmark, onto a release branch, and landed there
 vc-x1 commit -s b --closing feat-a-cycle --onto release-1 --land
@@ -2038,7 +2041,11 @@ a rebase. The commits between decide the shape:
 - More: the closing commit, the target and the tip merged into `@`, as `merge --target @ --from
   <target> --from <tip>` does, then committed, which keeps those parents, carrying the record move
   and what `@` holds. `--dead-end` always makes it, a one-commit branch included.
-- None: refused, the tip being in the target's ancestry.
+- None, the work in `@`, which carries the cycle's bookmark, [`open`](#open)'s: a single-step cycle
+  closed in one commit made now from `@`, under the bare cycle title, `--title` and `--body`
+  required, there being no opening to read. The tip is `@-`, the bookmark, or `@`. With nothing in
+  `@`, no bookmark on it, or `--dead-end`, it is refused, and so is `@` as the tip of a branch with
+  commits.
 
 A tip that is not `@-`, any commit on any line, is closed by a detour: `@` moves onto it first, so
 the closing is made from the tip's working copy, and returns after, to the same commit when it
@@ -2088,13 +2095,11 @@ vc-x1 commit -s b --closing @- --onto main --land --push # landed on main, and p
 
 `--opening [BOOKMARK]` makes the cycle's opening: `--title` is the bare cycle title and " opening"
 is appended, a title carrying it already refused. The bookmark is the one named, else the bare
-title's slug, the anchor a heading of the title gets, `feat: a cycle` naming `feat-a-cycle`. The bookmark is created at the work `@-`, where
-the cycle's branch starts, and it stays local like the rest unless `--push` asks. With `--no-advance
---push` it alone is pushed, a name for a commit already public, and the opening stays local. `--skip
-local` takes a bookmark already at `@-`, `--skip remote` creates it and pushes nothing even with
-`--push`, and `--skip both` only checks it. Every check runs before the commit: a bookmark to create
-must not exist, and with `--push` a push must not move one published elsewhere, and `@-` must already
-be on a remote.
+title's slug, the anchor a heading of the title gets, `feat: a cycle` naming `feat-a-cycle`, and
+[`open`](#open) made it first on the work `@`, so it followed the change into the opening. The
+opening creates none: an `@` without it is refused before the commit, naming `vc-x1 open`. It stays
+local like the rest unless `--push` asks, a rung's push, and `--no-advance` is refused, the bookmark
+being on the opening already.
 
 The line's bookmark advances to the work commit, locally: the nearest bookmark below the work
 `@-`, as `push` resolves it, the one `--bookmark` names, or `--opening`'s. jj moves a bookmark with
@@ -2125,7 +2130,7 @@ vc-x1 push -s b
 The commit is pushed in the same invocation, as `vc-x1 push` would after it: a pair by `push -s
 b`, a plain repo by `push -s p`, and an agent commit by publishing the agent repo's `main`. The diff
 and the description are reviewed before the commit, so what is pushed is what was reviewed.
-A commit stays on the machine unless `--push` asks, `--opening`'s bookmark included, for a look at it
+A commit stays on the machine unless `--push` asks, the opening's bookmark included, for a look at it
 before `vc-x1 push`, and `--local`, or its alias `--no-push`, says so outright. A commit with `--no-advance` pushes only
 with `--push`, since its bookmark was left where it was.
 Both sides carry `orepo:` then `ochid:`, a work commit's `orepo:` naming the agent repo and an agent
@@ -2136,6 +2141,28 @@ whose commit has no trailers, it changes nothing.
 body in commit-body form has markers and blank lines a shell quote mangles. The work repo's `@`
 must hold a change, and with `b` the agent repo's `@`, the session's journal, is committed as it
 stands. A failure after the first commit restores both repos from `jj op` snapshots.
+
+### open
+
+Open a cycle by making its bookmark first, on the work `@`, before the opening's record, ladder,
+and bump are written, so every edit of the cycle is on its branch. [`commit
+--opening`](#commit) then commits the opening on it.
+
+```bash
+vc-x1 open --title "feat: a cycle"            # feat-a-cycle, the title's slug
+vc-x1 open --bookmark mine                    # a name of your own
+vc-x1 open --title "feat: a cycle" --dry-run  # print the name, make nothing
+```
+
+`--title` is the bare cycle title, and the bookmark its slug, the anchor a heading of the title
+gets: lowercase, `-` and `_` kept, each space a `-`, everything else dropped, so `feat: no trunk,
+every target is named` names `feat-no-trunk-every-target-is-named`. `--bookmark` names it instead,
+and one of the two is required. A name in use, locally or on `origin`, is refused, since a new one
+would move or shadow it, and nothing else is: `@` may hold edits, which become the opening's, and
+a `main` not where its `origin` was last fetched is a warning, a Land onto a target that moved
+being refused anyway. The bookmark goes on `@`, so it follows the change through every snapshot and
+the opening's commit. The agent repo gets none, being on `main` alone, and nothing is pushed. `-R`
+is optional and says where, a workspace or a plain repo.
 
 ### land
 

@@ -710,6 +710,8 @@ mod tests {
     /// Returns the rung's commit id.
     fn pushed_cycle(fx: &Fixture) -> String {
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
+        // The bookmark `vc-x1 open` makes first, on the work `@`.
+        jj_ok(&fx.work, &["bookmark", "create", "feat-a-cycle", "-r", "@"]);
         vc_commit(
             fx,
             &[
@@ -744,6 +746,8 @@ mod tests {
     fn local_cycle(fx: &Fixture) -> Vec<String> {
         let mut made = Vec::new();
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
+        // The bookmark `vc-x1 open` makes first, on the work `@`.
+        jj_ok(&fx.work, &["bookmark", "create", "feat-a-cycle", "-r", "@"]);
         vc_commit(
             fx,
             &[

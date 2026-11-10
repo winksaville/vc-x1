@@ -48,7 +48,7 @@ Provisional:
   agent-files v0.3.1-5.
 - No trunk: every target is named, `commit --closing` and `trailers` taking a required `--onto`,
   and `[cycle] trunk` removed.
-- Branch first: `vc-x1 open` makes the cycle's bookmark on the empty `@` before the opening's first
+- Branch first: `vc-x1 open` makes the cycle's bookmark on the work `@` before the opening's first
   edit, and `commit --opening` creates nothing.
 - vc-x1's history is left as it is: `validate-desc` over it reports the known list,
   [vc-x1-history.md](notes/vc-x1-history.md), and nothing else. A rewrite waits on the trailer
@@ -376,18 +376,39 @@ v0.3.1-6.
 ##### feat: open makes the cycle's bookmark first
 
 The cycle's bookmark is made by `commit --opening`, after the opening's record, ladder, and bump
-are already written on no branch. `vc-x1 open --bookmark <NAME>` or `--title "<cycle title>"`, the
-title made a name by the anchor algorithm, makes it first, on the empty `@`. Planned, not started.
+are already written on no branch. `vc-x1 open --title "<cycle title>"`, or `--bookmark <NAME>`,
+makes it first, on `@`, the title made a name by the anchor algorithm, which is the reason for a
+command over `jj bookmark create`. Agent-files v0.3.1-7.
 
-* `open` refuses a work `@` that is not empty, a repo not up to date with its remote, and a name in
-  use locally or on `origin`, then creates the bookmark on `@`, local. The agent-repo gets none.
-* Whether `open` also describes `@` with the opening's title is open: jj keeps a described empty
-  `@` that it would abandon undescribed, which keeps the bookmark off `main`'s commit, and a test
-  checks jj keeps the bookmark on the change through the commit.
-* `commit --opening` creates nothing: it gives the bookend title and refuses an `@-` whose bookmark
-  is not the title's slug.
-* The Opening's step 2 creates the bookmark, before the In Progress block and the bump. It subsumes
-  the Todo **Every cycle commits its opening first**.
+* `open` refuses only what is dangerous, wink's: a name in use locally or on `origin`, which it
+  would move. `@` may hold edits, which become the opening's, and a repo not up to date with its
+  remote is a warning, a Land onto a target that moved being refused anyway. `--dry-run` prints
+  the name. The agent-repo gets no bookmark.
+* `open` only makes the bookmark, `@` undescribed: jj keeps an empty `@` that carries a bookmark
+  when it is left, described or not, and the bookmark stays with the change through a commit, a
+  test of 2026-11-10, so a description would protect nothing.
+* `commit --opening` creates nothing: it gives the bookend title and refuses an `@` without the
+  bookmark, the one named or the title's slug, naming `vc-x1 open --bookmark <NAME>`. Its `--skip`,
+  now `--land`'s alone, and the publishing of the name alone go, the bookmark never standing apart
+  from the opening, `--no-advance` with it is refused, having nothing to move, and `--opening
+  --push` is a rung's push. The tests open a cycle as `open` does, the bookmark on `@` first.
+* A branch with nothing committed above the target, its work in `@` on `open`'s bookmark, closes in
+  one commit made from `@`, wink's (2026-11-10): the single-step flow `open` makes, open, edit,
+  close, which had refused "nothing above 'main' to close". `--title` and `--body` are required,
+  there being no opening to read, the tip is `@-`, the bookmark, or `@`, and the closing's bookmark
+  and Land are planned from the state after the commit. An empty `@`, no bookmark on it, and
+  `--dead-end` are refused, and so is `@` as the tip of a branch with commits.
+* A plain commit on an opened branch advanced `main`, wink's finding (2026-11-11): the line's
+  bookmark was looked for from `@-` down, which missed `open`'s bookmark on `@`, so `main` on
+  `@-` was the nearest. The line now includes `@`, whose bookmark follows the change to `@-`.
+* `--land <value>`, the form before rung 5, was read as the retired positional and refused naming
+  `-r`, so it is refused naming `--onto <value> --land`, `--land` taking no value, the target
+  needing a flag of its own for a closing that does not land, wink's.
+* The Opening's step 2 runs `vc-x1 open`, before the In Progress block and the bump. It resolves
+  the Todo **Every cycle commits its opening first**, a cycle with no bookmark until its opening's
+  review, so that entry goes.
+* Named `open` as `land` is, a cycle's verbs needing no noun, wink's. A `cycle` command is
+  **vc-x2: a cycle command, open, close, and land**.
 
 ##### chore: a test vc-x2 reaches vc-x1's history
 
@@ -483,6 +504,39 @@ its races and hand-off files costing more than housekeeping is worth.
   session's end 16 entries, 18 KB, mostly the records Claude Code writes after the agent stops.
 - The agent-files: At rest's "clean" is the work `@` alone, the agent `@` is never clean and
   carries forward, and rung 4's "push folds the journal while unpublished" goes.
+
+### validate-desc shows a note as part of its row
+
+(wink + agent, 2026-11-10) `validate-desc` prints a note, a remark on a commit whose verdict is
+still `ok`, as a row of its own before the verdict, keyed by the same change id, so one commit reads
+as two: `note qrsqqzlyzzsm the agent commit rnnmsmxwtzol is not on a remote yet` above `ok
+qrsqqzlyzzsm feat: no trunk, every target is named`. Notes are common now that a rung commits as a
+pair locally, its agent partner unpushed until a push.
+
+- A note belongs to its row. A succinct mark is wanted, a `*` on the verdict or the like, TBD, with
+  the text said once below the table or under `-v`. Another option is there is a column of "other"
+  information that could be several characters wide with single character info. 
+- The two kinds: an agent partner committed and not yet on a remote, and an older 8 or 32 character
+  `ochid:` naming one commit. README's status list names neither, the second documented only in
+  the code, and both are written up there.
+
+### vc-x2: a cycle command, open, close, and land
+
+(wink + agent, 2026-11-10) The cycle protocol's commands are spread over `open`, `commit
+--opening`, `commit --closing`, and `land`, so `commit` does both committing and the cycle's
+bookends. One `cycle` command holding open, close, and land gives the protocol one home, and
+`commit` only commits. For vc-x2, a rename across the agent-files, README, the help, and the tests.
+
+- `cycle open` is `open`, the bookmark made first. It cannot make the opening commit, which comes
+  after the record, the ladder, and the bump, so the opening keeps two moments, and `--opening`
+  shrinks to the bookend title and its check, or goes.
+- `cycle close` is `commit --closing`, still a pair commit with a title, a body, `-s`, and the
+  record move, so it calls `commit`'s machinery. `cycle land` is `land`.
+- The shape is open: verbs as subcommands, `cycle open`, as **bookmark takes create, delete, and
+  move** chose, or flags, `cycle --open`, as **A hyphenated subcommand becomes a command and a
+  flag** prefers and the leaning against several positionals.
+- Decided with **vc-x1 do runs a recipe of vc-x1 commands** and **close, land, and push compose
+  with testing, to re-deliberate**, which cover the same commands.
 
 ### vc-x2: the agent-repo stays on main, agent branches set aside
 
@@ -832,24 +886,6 @@ land = [
   testing leaves a cycle able to continue**, and the one-command half of **The Land is one command,
   agent-files v0.3.1-3**, and **A hyphenated subcommand becomes a command and a flag** names its
   verbs, `close` for `commit --closing`.
-
-### Every cycle commits its opening first
-
-(wink + agent, 2026-11-05) [Cycle shape](AGENTS.md#cycle-shape) says every cycle starts with `commit
---opening`, a single-step cycle included, and that nothing is decided before its first commit, so
-the opening is committed first, making the bookmark, and the shape is read from the count after.
-Opening's "A single-step cycle does all of it in its one commit, after steps 1 and 2" and the
-per-rung flow's commit after review read the other way, and **feat: init adopts a git repo, as a
-test repo too** was planned single-step up front, all its work done in the opening rung, so it had
-no bookmark until review, which wink caught. Multi-step cycles hid it, their opening commit being
-small and made first.
-
-- The rule: the opening is committed first in every cycle, its review being of the record, the
-  ladder, and the bump, which makes the bookmark at the trunk. The work then goes on top as rungs,
-  or into the opening by `vc-x1 squash`, and the count decides the shape at the closing, `--closing`
-  finalizing one commit in place.
-- The agent-files: Opening's single-step sentence and its step 2, and the per-rung flow's note that
-  the opening rung's work is the setup, an `agent-files` proposal item.
 
 ### commit works at every scope, and --local keeps it on the machine
 

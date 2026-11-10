@@ -180,9 +180,9 @@ How a [cycle](#terminology) runs ([why](agent-data/rationale.md#cycle-protocol))
 
 ### Cycles run on a bookmark
 
-A cycle runs on one topic bookmark in the work-repo, created at the opening and named by the cycle
-title's slug ([why](agent-data/rationale.md#cycles-run-on-a-bookmark)). `main` advances only when
-the finished cycle lands on it, so development is never done on `main`, a single-step cycle
+A cycle runs on one topic bookmark in the work-repo, made first by `vc-x1 open` and named by the
+cycle title's slug ([why](agent-data/rationale.md#cycles-run-on-a-bookmark)). `main` advances only
+when the finished cycle lands on it, so development is never done on `main`, a single-step cycle
 included. The agent-repo needs no bookmark. Commands in [Cycle
 bookmarks](agent-data/jj.md#cycle-bookmarks-create-and-land), the long-lived case in [Long-lived
 bookmarks][llb].
@@ -192,20 +192,24 @@ bookmarks][llb].
 A cycle's shape is its branch's commit count, so nothing has to be decided before its first commit
 ([why](agent-data/rationale.md#cycle-shape)).
 
-- Every cycle starts with `vc-x1 commit --opening`, a single-step cycle included: it creates the
-  bookmark at the work `@-`, and its one commit begins as the opening.
-- One commit above the target is single-step: `vc-x1 commit --closing <BM|REV> --onto <BOOKMARK>`
-  finalizes that commit in place, the bare cycle title replacing the opening's, and it carries the
-  opening's duties, the work, and the close-out's duties.
+- Every cycle starts with `vc-x1 open`, which makes its bookmark on the work `@`, a single-step
+  cycle included. A ladder's first commit is then `vc-x1 commit --opening`.
+- No commit above the target, the work in `@`, is single-step: `vc-x1 commit --closing @- --onto
+  <BOOKMARK>` commits `@` as its one commit, under the bare cycle title, `--title` and `--body`
+  given, there being no opening to read, and it carries the opening's duties, the work, and the
+  close-out's duties.
+- One commit above the target, an opening committed first, is single-step too: `--closing`
+  finalizes that commit in place, the bare cycle title replacing the opening's.
 - More commits are a ladder: `--closing` makes the closing commit, the merge of the target and the
   ladder's tip. Every closing names its tip, by the cycle's bookmark or a revision, `@-` the common
-  one, and its target by `--onto`, so there is no bare form. A tip that is not `@-` is closed by a
+  one, and its target by `--onto`, so there is no bare form. `--land` lands it there in the same
+  invocation, and takes no value, the target being `--onto`'s. A tip that is not `@-` is closed by a
   detour, `@` moving onto it and returning after, and the commits above it stay as they are.
 - A ladder lands as a trapezoid, never squashed: every rung's `ochid:` trailer is a change id, and a
   squash discards all but one. We think a linear closing, a plain commit on the ladder, follows as
   a `--shape` flag, which is proposed and not built.
-- The closing's title and body may be left out: the cycle title is read from the opening, and the
-  body comes from `.vc-config.md`'s `[closing] body`.
+- The closing's title and body may be left out when there is an opening: the cycle title is read
+  from it, and the body comes from `.vc-config.md`'s `[closing] body`.
 - A dead end still closes and lands: a cycle abandoned after its opening keeps what is worth
   keeping, reverts the rest, and records what was tried, why it stopped, and what replaces it. Its
   closing is `--closing <BM|REV> --onto <BOOKMARK> --dead-end`, titled with the cycle title plus
@@ -259,8 +263,9 @@ carries steps 1 and 2. A single-step cycle does all of it in its one commit, aft
 ([Cycle shape](#cycle-shape)). Before that commit ([why](agent-data/rationale.md#opening)):
 
 1. Sync: sync both repos ([Sync](#sync)), whatever the cycle's form.
-2. Bookmark: `vc-x1 commit --opening` creates it, kept local, so there is nothing to do before the
-   commit but name it.
+2. Bookmark: `vc-x1 open --title "<bare cycle title>"` makes it on the work `@`, kept local, first,
+   so every edit of the cycle, the record and the bump among them, is on its branch. `commit
+   --opening` takes it and creates none.
 3. Waiting: check each `## Waiting` entry's condition, and promote what is met into `## Todo` at
    the rank it names.
 4. In Progress block: delete whatever `## Closed` holds, then move the chosen `## Todo` entry into
@@ -380,7 +385,7 @@ item's tail ([why](agent-data/rationale.md#at-rest)):
    what is worth saying *before* the final publishing command, responds with the one word
    "Published", and does nothing further until the user speaks.
 2. Clean by squash-push: a Land is published by the agent only with the user's permission. A run of
-   delegated cycles follows each `land --push` with the next `commit --opening`, which carries the
+   delegated cycles follows each `land --push` with the next cycle's opening, which carries the
    session's tail. A Land the agent made locally is published by the user after the session:
    `vc-x1 squash-push -s b` pushes the work target first, the shared repo and so the push likely to
    be refused, then folds the tail into the Land's agent commit and pushes it, so each `main` moves

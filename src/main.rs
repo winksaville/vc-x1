@@ -29,6 +29,7 @@ mod lookup;
 mod md_fence;
 mod merge;
 mod move_bookmark;
+mod open;
 mod options_flags;
 mod pair;
 mod push;
@@ -648,8 +649,10 @@ pub(crate) enum Commands {
         --closing <BM|REV> closes the cycle whose tip it names onto --onto\n\
         <BOOKMARK>, required, since no target is assumed: one commit above it\n\
         is finalized in place, more get the closing commit, the merge of\n\
-        --onto and the tip. A tip that is not @- is closed by a detour, @\n\
-        moving onto it and returning after. --land lands it: --onto\n\
+        --onto and the tip, and none, the work in @ on `vc-x1 open`'s\n\
+        bookmark, is committed now as the one commit, --title and --body\n\
+        given. A tip that is not @- is closed by a detour, @ moving onto it\n\
+        and returning after. --land, taking no value, lands it: --onto\n\
         fast-forwarded and pushed and the closing's bookmark deleted, every\n\
         check first: the one named, or for a revision the current or nearest\n\
         parent bookmark above --onto, several refused with the list.\n\n\
@@ -725,6 +728,20 @@ pub(crate) enum Commands {
         -s is required: `w` the work repo, `a` the agent repo, `b` both, and\n\
         `p` the repo -R names, as it is.")]
     DeleteBookmark(delete_bookmark::DeleteBookmarkArgs),
+
+    /// Open a cycle: make its bookmark on the work @, first
+    #[command(long_about = "\
+        Open a cycle by making its bookmark first, on the work @, before\n\
+        the opening's record, ladder, and bump are written, so every edit of\n\
+        the cycle is on its branch. `commit --opening` then takes it.\n\n\
+        --title is the bare cycle title, the bookmark its slug, the anchor a\n\
+        heading of the title gets, `feat: a cycle` naming `feat-a-cycle`, or\n\
+        --bookmark names it. One is required. A name in use, locally or on\n\
+        origin, is refused. @ may hold edits, which become the opening's, a\n\
+        `main` not where its origin was last fetched is a warning, and the\n\
+        agent repo gets no bookmark. Nothing is pushed. -R is optional and\n\
+        says where, a workspace or a plain repo. --dry-run prints the name.")]
+    Open(open::OpenArgs),
 
     /// Land a cycle whose last commit is made, with -s
     #[command(long_about = "\
@@ -1001,6 +1018,7 @@ fn main() -> ExitCode {
         Commands::Merge(args) => args.dispatch(&mut ctx),
         Commands::MoveBookmark(args) => args.dispatch(&mut ctx),
         Commands::DeleteBookmark(args) => args.dispatch(&mut ctx),
+        Commands::Open(args) => args.dispatch(&mut ctx),
         Commands::Land(args) => args.dispatch(&mut ctx),
         Commands::Trailers(args) => args.dispatch(&mut ctx),
     }

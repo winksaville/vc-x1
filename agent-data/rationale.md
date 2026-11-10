@@ -211,8 +211,12 @@ as `## Closed` is deleted by the next opening rather than by the closing.
 blocked entry cannot hold a place in the order: the first entry means "next", and a blocked entry
 there would say "do this" to every reader when the answer is "cannot" (wink, 2026-08-27).
 
-**The bookmark create is a push** because `vc-x1 push` requires the bookmark's remote refs to be
-tracked, so the create has to publish, and a publish takes push approval.
+**The bookmark is made first, by `vc-x1 open`** (wink, 2026-11-10), because the record, the
+ladder, and the bump are a cycle's first edits, and made before its bookmark they sit on no branch,
+a single-step cycle's included. It goes on `@`, so it follows the change into the opening, and a
+command makes it rather than `jj bookmark create` for the name, the title's slug by the anchor
+algorithm, which is fiddly by hand. It refuses only a name in use, the one thing it could break, and
+the opening's push publishes it, a rung's push.
 
 **The solution statement is provisional** because it is written before the work.
 

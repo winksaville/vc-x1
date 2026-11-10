@@ -80,13 +80,11 @@
 //!     and a finalized commit keeps the opening's.
 //! - `--opening <BOOKMARK>` makes the work commit the cycle's
 //!   opening: `--title` is the bare cycle title and " opening" is
-//!   appended. The bookmark is created at the work `@-`, where the
-//!   cycle's branch starts, and stays local like the rest unless
-//!   `--push` asks. With `--no-advance --push` it alone is pushed, a
-//!   name for a commit already public, and the opening stays local.
-//!   `--skip local` takes a bookmark already at `@-`, `--skip remote`
-//!   creates it and pushes nothing even with `--push`, and `--skip both`
-//!   only checks it is there. Every check runs before the commit.
+//!   appended. The bookmark, the one named or the title's slug, is
+//!   `vc-x1 open`'s, made first on the work `@`, so it follows the
+//!   change into the opening, and the opening creates none: one missing
+//!   is refused before the commit, naming `vc-x1 open`. It stays local
+//!   like the rest unless `--push` asks, a rung's push.
 //! - The line's bookmark advances to the work commit, locally: the
 //!   nearest bookmark below the work `@-`, as `push` resolves it, or
 //!   the one `--bookmark` names, any on the line at or below the work
@@ -189,18 +187,15 @@ pub struct CommitArgs {
     pub dead_end: bool,
 
     /// Make the work commit the cycle's opening: " opening" is
-    /// appended to the bare cycle title, and BOOKMARK is created at
-    /// the work `@-`, and is pushed to `origin` only with `--push`
-    /// [default: the bare title's slug]
+    /// appended to the bare cycle title, and BOOKMARK, which `vc-x1
+    /// open` made, must be on the work `@` [default: the bare title's
+    /// slug]
     #[arg(long, value_name = "BOOKMARK")]
     pub opening: Option<Option<String>>,
 
-    /// With `--opening`, what it leaves out: `local`, the bookmark is
-    /// already at the work `@-`; `remote`, it is not pushed even with
-    /// `--push`; `both`, it is only checked. With `--land`, which
-    /// side of the cycle's bookmark is kept: `local`, `remote`, or
-    /// `both`, none deleted
-    #[arg(long, value_enum, value_name = "SIDE")]
+    /// With `--land`, which side of the cycle's bookmark is kept:
+    /// `local`, `remote`, or `both`, none deleted
+    #[arg(long, value_enum, value_name = "SIDE", requires = "land")]
     pub skip: Option<Skip>,
 
     /// With `--closing`, land the cycle on `--onto`'s bookmark, the
@@ -249,15 +244,14 @@ pub struct CommitArgs {
     pub dry_run: DryRunFlag,
 }
 
-/// What `--skip` leaves out of `--opening`'s bookmark.
+/// Which side of the cycle's bookmark `--land` keeps.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
 pub enum Skip {
-    /// The bookmark exists at the work `@-` already, so it is not
-    /// created, and is pushed with `--push`.
+    /// The local bookmark is kept, only `origin`'s deleted.
     Local,
-    /// The bookmark is created and not pushed, even with `--push`.
+    /// The remote bookmark is kept, only the local one deleted.
     Remote,
-    /// The bookmark exists and is neither created nor pushed.
+    /// Both are kept, none deleted.
     Both,
 }
 
@@ -272,23 +266,10 @@ pub enum Advance {
     Off,
 }
 
-/// `--opening`'s bookmark and what `--skip` leaves out of it.
+/// `--opening`'s bookmark, which `vc-x1 open` made on the work `@`.
 #[derive(Debug)]
 pub struct Opening {
     pub bookmark: String,
-    pub skip: Option<Skip>,
-}
-
-impl Opening {
-    /// Whether the bookmark is created here, rather than found.
-    fn creates(&self) -> bool {
-        !matches!(self.skip, Some(Skip::Local | Skip::Both))
-    }
-
-    /// Whether the bookmark is pushed here.
-    fn pushes(&self) -> bool {
-        !matches!(self.skip, Some(Skip::Remote | Skip::Both))
-    }
 }
 
 /// The opening's title: the bare cycle title with " opening"
@@ -329,7 +310,7 @@ pub struct Closing {
 
 /// Refuse a bare cycle title that carries a bookend's suffix, since
 /// `--opening` and `--closing` append it and it is never doubled.
-fn refuse_suffixed(title: &str, flag: &str) -> Result<(), String> {
+pub(crate) fn refuse_suffixed(title: &str, flag: &str) -> Result<(), String> {
     for suffix in [" opening", " closing"] {
         if title.trim_end().ends_with(suffix) {
             return Err(format!(
@@ -398,14 +379,25 @@ impl TryFrom<&CommitArgs> for CommitParams {
     /// alone, read the body when it names a file, and check the
     /// description is not blank.
     fn try_from(a: &CommitArgs) -> Result<Self, String> {
+        // `--land <TRUNK>` took a value before the target became
+        // `--onto`'s, so a value after `--land` is that form, not the
+        // retired revision positional.
+        if let (Some(value), true) = (&a.retired, a.land) {
+            return Err(format!(
+                "commit --land: it takes no value now, the target being --onto's: `--onto {value} \
+                 --land`"
+            ));
+        }
         if let Some(value) = &a.retired {
             return Err(crate::options_flags::retired_positional::refusal(
                 "commit", value, "-r",
             ));
         }
-        if a.skip.is_some() && a.opening.is_none() && !a.land {
+        if a.opening.is_some() && a.no_advance {
             return Err(
-                "commit --skip: it takes --opening or --land, the bookmark it keeps".into(),
+                "commit --opening: its bookmark is on the opening already, made by \
+                        `vc-x1 open`, so --no-advance moves nothing"
+                    .into(),
             );
         }
         if a.rev.is_some() && (a.opening.is_some() || a.closing.is_some()) {
@@ -472,7 +464,6 @@ impl TryFrom<&CommitArgs> for CommitParams {
                 Some(opening_title(t)?),
                 Some(Opening {
                     bookmark: opening_bookmark(named.as_deref(), t)?,
-                    skip: a.skip,
                 }),
             ),
             (Some(_), None) => return Err("commit --opening: --title is required".into()),
@@ -564,7 +555,8 @@ fn with_detour(
         return run(ctx);
     };
     let tip = resolve_closing(repo, &c.rev)?;
-    if jj::matches(repo, &format!("{tip} & @-"))? {
+    // `@` itself is a branch with nothing committed, closed from `@`.
+    if jj::matches(repo, &format!("{tip} & (@ | @-)"))? {
         return run(ctx);
     }
     if params.dry_run {
@@ -702,7 +694,7 @@ fn commit_pair(
     let (work, agent) = (pair.work.as_path(), pair.agent.as_path());
     let closing = plan_closing(work, params)?;
     let tip = closing_tip(closing.as_ref()).to_string();
-    let closing_bm = closing_bookmark(work, params, &tip)?;
+    let closing_bm = closing_bookmark(work, params, closing.as_ref(), &tip)?;
     let land = plan_land(work, params, &tip, closing_bm.as_deref())?;
     // A Land commits the agent `@`, naming every commit that names it,
     // the closing among them.
@@ -759,7 +751,7 @@ fn commit_pair(
                 "commit: [dry-run] the work commit is the merge of {base} and the last rung {tip}"
             );
         }
-        dry_run_bookmarks(params, &plan);
+        dry_run_bookmarks(&plan);
         if let Some(r) = &record {
             r.write(true)?;
         }
@@ -831,7 +823,7 @@ fn commit_pair(
         return Err(e);
     }
     if !agent_now {
-        finish_bookmarks(ctx, work, params, &plan)?;
+        finish_bookmarks(ctx, work, &plan)?;
         info!(
             "commit: the work half is made, its trailer naming the agent @ {agent_chid}, which \
              push commits as the partner. Review it with `vc-x1 show -s work @- -R {}`",
@@ -847,7 +839,7 @@ fn commit_pair(
             land.as_ref(),
         );
     }
-    finish_bookmarks(ctx, work, params, &plan)?;
+    finish_bookmarks(ctx, work, &plan)?;
     info!(
         "commit: the pair is made, review it with `vc-x1 show -s both {work_at} -R {}`",
         work.display()
@@ -1016,11 +1008,15 @@ impl RecordMove {
 fn closing_bookmark(
     repo: &Path,
     params: &CommitParams,
+    plan: Option<&ClosingPlan>,
     tip: &str,
 ) -> Result<Option<String>, Box<dyn std::error::Error>> {
     let Some(c) = &params.closing else {
         return Ok(None);
     };
+    if let Some(ClosingPlan::Commit { bookmark }) = plan {
+        return Ok(Some(bookmark.clone()));
+    }
     let target = onto(repo, c, tip)?;
     let found =
         crate::land::cycle_bookmark(repo, "commit --closing", "--closing", &c.rev, &target, tip)?;
@@ -1054,7 +1050,7 @@ fn plan_land(
     let (true, Some(c)) = (params.land, &params.closing) else {
         return Ok(None);
     };
-    let skip = params.opening.as_ref().map_or(params.skip, |_| None);
+    let skip = params.skip;
     let target = onto(repo, c, tip)?;
     let plan = crate::land::plan(repo, "commit --land", target, tip, bookmark, skip, false)?;
     Ok(Some(LandPlan {
@@ -1117,12 +1113,6 @@ fn push_after(
     }
     if !params.push {
         info!("commit: kept local, `vc-x1 push` publishes it");
-        return Ok(());
-    }
-    if params.opening.is_some() && params.advance == Advance::Off {
-        info!(
-            "commit: the opening is kept local, its bookmark left at the start and published there"
-        );
         return Ok(());
     }
     let scope = publish.scope();
@@ -1264,6 +1254,11 @@ enum ClosingPlan {
         title: String,
         body: String,
     },
+    /// A branch with nothing committed above the target, its work in
+    /// `@` and `bookmark`, `vc-x1 open`'s, on it: a single-step cycle
+    /// whose one commit is made now from `@`, under the bare cycle
+    /// title and the body given, there being no opening to read.
+    Commit { bookmark: String },
 }
 
 /// The bookmark a closing merges onto and a Land lands on, `--onto`'s,
@@ -1312,6 +1307,17 @@ fn plan_closing(
         )
     })?;
     info!("commit --closing: close '{rev}' at {tip} onto '{target}' at {base}");
+    if let Some(plan) = plan_commit_closing(repo, params, c, &tip, &base, &target)? {
+        return Ok(Some(plan));
+    }
+    if tip == jj::cid_of(repo, "@")? {
+        return Err(format!(
+            "commit --closing: '{rev}' is the work @, which a closing commits only when the branch \
+             has nothing committed above '{target}': name the branch's last commit, @- the common \
+             one"
+        )
+        .into());
+    }
     let nodes = jj::cids_of(repo, &format!("{base}..{tip}"))?;
     if nodes.is_empty() {
         return Err(format!(
@@ -1354,6 +1360,79 @@ fn plan_closing(
         title: format!("{cycle}{suffix}"),
         body,
     }))
+}
+
+/// The closing of a branch with nothing committed above the target,
+/// the single-step cycle `vc-x1 open` leaves: the tip is the work `@`,
+/// named by its bookmark or `@`, or the target itself at `@-`, and
+/// `@-` is the target, so the cycle's one commit is made now from `@`.
+/// `None` when the branch has commits, the other shapes' case. Refused
+/// before anything is made: an empty `@`, no bookmark on `@` or several
+/// with none named, `--dead-end`, which closes a cycle with commits,
+/// and a title or body left out, there being no opening to read.
+fn plan_commit_closing(
+    repo: &Path,
+    params: &CommitParams,
+    c: &Closing,
+    tip: &str,
+    base: &str,
+    target: &str,
+) -> Result<Option<ClosingPlan>, Box<dyn std::error::Error>> {
+    let at = jj::cid_of(repo, "@")?;
+    let below = jj::cid_of(repo, "@-")?;
+    if !(tip == at || tip == below) || below != base {
+        return Ok(None);
+    }
+    let label = "commit --closing";
+    if jj::is_empty(repo, "@")? {
+        return Err(format!(
+            "{label}: nothing above '{target}' to close, '{}' having no commit above it and \
+             nothing to commit: a cycle starts with `vc-x1 open`",
+            c.rev
+        )
+        .into());
+    }
+    let mut on_at = jj::local_bookmarks_at(repo, "@")?;
+    on_at.retain(|b| b != target);
+    let bookmark = match on_at.as_slice() {
+        [] => {
+            return Err(format!(
+                "{label}: the work @ carries no bookmark, and a cycle runs on one: make it \
+                 first, `vc-x1 open --title \"<cycle title>\"`"
+            )
+            .into());
+        }
+        [one] => one.clone(),
+        many if many.contains(&c.rev) => c.rev.clone(),
+        many => {
+            return Err(format!(
+                "{label}: the work @ carries several bookmarks, {}, so name the cycle's, \
+                 --closing <BOOKMARK>",
+                many.join(", ")
+            )
+            .into());
+        }
+    };
+    if c.dead_end {
+        return Err(format!(
+            "{label} --dead-end: the branch has no commit above '{target}', and a dead end \
+             closes the commits a cycle made"
+        )
+        .into());
+    }
+    if params.title.is_none() || params.body.is_none() {
+        return Err(format!(
+            "{label}: the branch has no commit above '{target}', so its one commit is made now \
+             from the work @, and --title and --body are required, there being no opening to \
+             read them from"
+        )
+        .into());
+    }
+    info!(
+        "{label}: no commit above '{target}', a single-step cycle on '{bookmark}', its one \
+         commit made now from the work @"
+    );
+    Ok(Some(ClosingPlan::Commit { bookmark }))
 }
 
 /// `--closing`'s argument as one commit id, a bookmark or a revision
@@ -1557,13 +1636,9 @@ fn finalize(
 }
 
 /// What the commit does to bookmarks, resolved before anything is
-/// made: where `--opening`'s bookmark starts, and the bookmark
-/// advanced to the work commit.
+/// made: the bookmark advanced to the work commit.
 #[derive(Debug)]
 struct BookmarkPlan {
-    start: Option<String>,
-    /// Whether `--opening`'s bookmark is pushed.
-    push_opening: bool,
     advance: Option<String>,
     /// Where the advance goes: the work `@-` once `@` is committed,
     /// or a draft's change id, which its describe keeps.
@@ -1583,16 +1658,14 @@ fn plan_bookmarks(
     draft: Option<&Draft>,
     closing_bm: Option<&str>,
 ) -> Result<BookmarkPlan, Box<dyn std::error::Error>> {
-    // A cycle kept local publishes nothing at its opening.
-    let push_opening = params.push && params.opening.as_ref().is_some_and(Opening::pushes);
-    let start = match &params.opening {
-        Some(o) => Some(check_opening(repo, o, push_opening)?),
-        None => None,
-    };
-    // The line below the work commit: `@-` when `@` is committed, the
-    // draft itself otherwise, a bookmark on it being the line's.
+    if let Some(o) = &params.opening {
+        check_opening(repo, o)?;
+    }
+    // The work commit's line, the commit included: `@` when `@` is
+    // committed, whose bookmark, `vc-x1 open`'s, follows it to `@-`, so
+    // `main` below it is not the nearest, or the draft itself.
     let (below, target) = match draft {
-        None => ("@-".to_string(), "@-".to_string()),
+        None => ("@".to_string(), "@-".to_string()),
         Some(d) => (d.rev.clone(), jj::chid_of(repo, &d.rev)?),
     };
     let advance = match (&params.advance, &params.opening) {
@@ -1620,37 +1693,25 @@ fn plan_bookmarks(
             |e| format!("commit: {e} with --bookmark <NAME>, or pass --no-advance to move none"),
         )?),
     };
-    Ok(BookmarkPlan {
-        start,
-        push_opening,
-        advance,
-        target,
-    })
+    Ok(BookmarkPlan { advance, target })
 }
 
 /// What the bookmark plan would do, for a dry run.
-fn dry_run_bookmarks(params: &CommitParams, plan: &BookmarkPlan) {
-    if let (Some(o), Some(start)) = (&params.opening, &plan.start) {
-        dry_run_opening(o, start, plan.push_opening);
-    }
+fn dry_run_bookmarks(plan: &BookmarkPlan) {
     if let Some(name) = &plan.advance {
         info!("commit: [dry-run] advance '{name}' to the work commit, locally");
     }
 }
 
 /// Carry out the bookmark plan once the commits are made, so a failed
-/// commit moves no bookmark: the opening's bookmark created at its
-/// start and pushed, then the advance to the work commit, the work
-/// `@-` now, or the draft described in place.
+/// commit moves no bookmark: the advance to the work commit, the work
+/// `@-` now, or the draft described in place. An opening's bookmark is
+/// there already, having followed its change.
 fn finish_bookmarks(
     ctx: &mut Context,
     repo: &Path,
-    params: &CommitParams,
     plan: &BookmarkPlan,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if let (Some(o), Some(start)) = (&params.opening, &plan.start) {
-        make_opening_bookmark(ctx, repo, o, start, plan.push_opening)?;
-    }
     if let Some(name) = &plan.advance {
         info!("commit: advance '{name}' to the work commit, locally");
         ctx.session(repo)?.bookmark_set(name, &plan.target)?;
@@ -1658,94 +1719,19 @@ fn finish_bookmarks(
     Ok(())
 }
 
-/// `--opening`'s bookmark checked before anything is made, returning
-/// the commit id of the work `@-`, where the cycle's branch starts and
-/// the bookmark goes. A bookmark created here must not exist, and one
-/// taken by `--skip` must be at `@-` already. A push must not move a
-/// remote bookmark elsewhere, and `@-` must already be on a remote, so
-/// the push publishes a name and nothing unreviewed.
-fn check_opening(
-    repo: &Path,
-    o: &Opening,
-    pushes: bool,
-) -> Result<String, Box<dyn std::error::Error>> {
+/// `--opening`'s bookmark checked before anything is made: `vc-x1
+/// open` made it on the work `@`, the change the opening commits, and
+/// the opening creates none, so one missing is refused naming the
+/// command that makes it.
+fn check_opening(repo: &Path, o: &Opening) -> Result<(), Box<dyn std::error::Error>> {
     let name = &o.bookmark;
-    let start = jj::cid_of(repo, "@-")?;
-    let exists = jj::local_bookmark_exists(repo, name)?;
-    if o.creates() && exists {
+    if !jj::local_bookmarks_at(repo, "@")?.contains(name) {
         return Err(format!(
-            "commit --opening: the bookmark '{name}' exists in {} already: --skip local takes \
-             one at the work @- and pushes it, --skip both only checks it",
+            "commit --opening: the bookmark '{name}' is not on the work @ in {}, and the opening \
+             creates none: make it first, `vc-x1 open --bookmark {name}`",
             repo.display()
         )
         .into());
-    }
-    if !o.creates() && !jj::local_bookmarks_at(repo, "@-")?.contains(name) {
-        return Err(format!(
-            "commit --opening --skip: the bookmark '{name}' is not at the work @- {start} in {}, \
-             where the cycle's branch starts",
-            repo.display()
-        )
-        .into());
-    }
-    if pushes {
-        if let Some(at) = jj::remote_bookmark_targets(repo, "origin")?.get(name.as_str())
-            && *at != start
-        {
-            return Err(format!(
-                "commit --opening: the bookmark '{name}' is on origin at {at}, not the work @- \
-                 {start}, and the opening moves no published bookmark"
-            )
-            .into());
-        }
-        if !jj::matches(repo, "@- & ::remote_bookmarks()")? {
-            return Err(format!(
-                "commit --opening: the work @- {start} is on no remote, so pushing '{name}' at it \
-                 would publish unreviewed commits: --local creates it and pushes nothing"
-            )
-            .into());
-        }
-    }
-    Ok(start)
-}
-
-/// What `--opening` would do to its bookmark, for a dry run.
-fn dry_run_opening(o: &Opening, start: &str, pushes: bool) {
-    let name = &o.bookmark;
-    match (o.creates(), pushes) {
-        (true, true) => info!("commit: [dry-run] create '{name}' at {start} and push it to origin"),
-        (true, false) => info!("commit: [dry-run] create '{name}' at {start}, pushing nothing"),
-        (false, true) => info!("commit: [dry-run] push '{name}', at {start} already, to origin"),
-        (false, false) => info!("commit: [dry-run] '{name}' is at {start} already, nothing to do"),
-    }
-}
-
-/// Create `--opening`'s bookmark at `start` and push it, as `--skip`
-/// says, after the commit, so a failed commit leaves no bookmark. A
-/// failed push leaves the opening and the local bookmark, which the
-/// push after the review publishes.
-fn make_opening_bookmark(
-    ctx: &mut Context,
-    repo: &Path,
-    o: &Opening,
-    start: &str,
-    pushes: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let name = &o.bookmark;
-    if o.creates() {
-        info!("commit --opening: create '{name}' at {start}");
-        ctx.session(repo)?.bookmark_set(name, start)?;
-    }
-    if pushes {
-        info!("commit --opening: push '{name}' to origin");
-        ctx.session(repo)?
-            .git_push_bookmark(name, crate::jj::Force::Refuse)
-            .map_err(|e| {
-                format!(
-                    "commit --opening: the opening is made and '{name}' is at {start} locally, but \
-                 its push failed: {e}. The push after the review publishes both"
-                )
-            })?;
     }
     Ok(())
 }
@@ -1779,7 +1765,7 @@ fn commit_por(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let closing = plan_closing(repo, params)?;
     let tip = closing_tip(closing.as_ref()).to_string();
-    let closing_bm = closing_bookmark(repo, params, &tip)?;
+    let closing_bm = closing_bookmark(repo, params, closing.as_ref(), &tip)?;
     let land = plan_land(repo, params, &tip, closing_bm.as_deref())?;
     let record = match &closing {
         Some(_) => RecordMove::plan(repo)?,
@@ -1819,7 +1805,7 @@ fn commit_por(
         if let Some((base, tip)) = &merge {
             info!("commit: [dry-run] the merge of {base} and the last rung {tip}");
         }
-        dry_run_bookmarks(params, &plan);
+        dry_run_bookmarks(&plan);
         if let Some(r) = &record {
             r.write(true)?;
         }
@@ -1872,7 +1858,7 @@ fn commit_por(
         snapshot.restore("commit", e.as_ref());
         return Err(e);
     }
-    finish_bookmarks(ctx, repo, params, &plan)?;
+    finish_bookmarks(ctx, repo, &plan)?;
     push_after(
         ctx,
         repo,
@@ -2473,8 +2459,9 @@ mod tests {
         }
     }
 
-    /// `--closing` with no ladder, the work `@-` on `main`, is refused
-    /// before anything is committed.
+    /// `--closing` with no ladder, the work `@-` on `main`, and no
+    /// bookmark on `@` to close it from, is refused before anything is
+    /// committed, naming `vc-x1 open`.
     #[test]
     fn closing_with_no_ladder_is_refused() {
         let fx = Fixture::new("commit-closing-none");
@@ -2488,7 +2475,7 @@ mod tests {
         let err = commit(&mut test_ctx(), &params)
             .expect_err("no ladder")
             .to_string();
-        assert!(err.contains("nothing above"), "{err}");
+        assert!(err.contains("vc-x1 open"), "{err}");
         assert_eq!(chid(&fx.work, "@"), work_at, "nothing was committed");
     }
 
@@ -2519,18 +2506,31 @@ mod tests {
         (local, remote)
     }
 
+    /// The bookmark `vc-x1 open` makes on the work `@`, as a test makes
+    /// it, so the opening takes it.
+    fn open_bookmark(fx: &Fixture, name: &str) {
+        jj_ok(&fx.work, &["bookmark", "create", name, "-r", "@"]);
+    }
+
     /// `--opening` makes the opening under the bare title with
-    /// " opening" appended, and creates the bookmark at the work `@-`,
-    /// where the cycle starts, and pushes it, tracked, and the commit's
-    /// own push then publishes the opening on it.
+    /// " opening" appended, on the bookmark `vc-x1 open` made on the work
+    /// `@`, which followed the change into it, and `--push` publishes
+    /// both, a rung's push, the bookmark tracked.
     #[test]
-    fn opening_creates_and_pushes_the_bookmark() {
+    fn opening_takes_the_bookmark_open_made() {
         let fx = Fixture::new("commit-opening");
+        let o = crate::open::OpenParams {
+            work: fx.work.clone(),
+            agent: Some(fx.bot.clone()),
+            bookmark: "feat-a-cycle".to_string(),
+            dry_run: false,
+        };
+        crate::open::open(&mut test_ctx(), &o).expect("opened");
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
         fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write");
         let mut a = args("b", &fx.work);
         a.title = Some("feat: a cycle".to_string());
-        a.opening = Some(Some("feat-a-cycle".to_string()));
+        a.opening = Some(None);
         a.push = true;
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("the opening is made");
@@ -2550,7 +2550,7 @@ mod tests {
         );
     }
 
-    /// `--opening` with no value names the bookmark by the bare
+    /// `--opening` with no value takes the bookmark named by the bare
     /// title's slug, the rules' name for a cycle's bookmark, and a
     /// `--title` right after it is not taken for its value. A title
     /// with nothing to slug is refused.
@@ -2572,6 +2572,7 @@ mod tests {
         assert_eq!(a.title.as_deref(), Some("feat: vc-x1 single-step commit"));
 
         let fx = Fixture::new("commit-opening-slug");
+        open_bookmark(&fx, "feat-vc-x1-single-step-commit");
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
         let mut a = args("w", &fx.work);
         a.title = Some("feat: vc-x1 single-step commit".to_string());
@@ -2592,44 +2593,13 @@ mod tests {
         assert!(err.contains("no letters or digits"), "{err}");
     }
 
-    /// `--skip` leaves out what it names: `remote` creates the
-    /// bookmark and pushes nothing, `local` pushes one already at the
-    /// work `@-`, and `both` only checks it.
-    #[test]
-    fn skip_leaves_out_what_it_names() {
-        for (skip, made_before, pushed) in [
-            (Skip::Remote, false, false),
-            (Skip::Local, true, true),
-            (Skip::Both, true, false),
-        ] {
-            let fx = Fixture::new(&format!("commit-opening-skip-{skip:?}"));
-            let start = commit_id(&fx.work, "@-");
-            if made_before {
-                jj_ok(&fx.work, &["bookmark", "set", "feat-x", "-r", "@-"]);
-            }
-            fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
-            let mut a = args("w", &fx.work);
-            a.opening = Some(Some("feat-x".to_string()));
-            a.skip = Some(skip);
-            // Not `--local`, which would keep the bookmark too, and no
-            // advance, so what `--skip` does is all that is pushed.
-            a.push = true;
-            a.no_advance = true;
-            let params = CommitParams::try_from(&a).expect("params");
-            commit(&mut test_ctx(), &params).expect("the opening is made");
-            let (local, remote) = bookmark_state(&fx.work, "feat-x");
-            assert_eq!(local, Some(start.clone()), "{skip:?}");
-            assert_eq!(remote, pushed.then_some(start), "{skip:?}");
-        }
-    }
-
     /// An opening's bookmark stays off the remote by default, and by
-    /// `--local` and its alias, and `--push` publishes it. A `@-` on no
-    /// remote is no refusal then, since nothing is published.
+    /// `--local` and its alias, and `--push` publishes it.
     #[test]
     fn an_opening_kept_local_pushes_no_bookmark() {
         let open = |tag: &str, flag: Option<&str>| {
             let fx = Fixture::new(&format!("commit-opening-local-{tag}"));
+            open_bookmark(&fx, "feat-x");
             fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
             let mut argv = vec![
                 "vc-x1",
@@ -2656,7 +2626,7 @@ mod tests {
             ("alias", Some("--no-push")),
         ] {
             let (local, remote) = open(tag, flag);
-            assert!(local.is_some(), "{tag}: the bookmark is made");
+            assert!(local.is_some(), "{tag}: the bookmark is there");
             assert_eq!(remote, None, "{tag}: nothing is pushed");
         }
         let (_, remote) = open("push", Some("--push"));
@@ -2664,18 +2634,17 @@ mod tests {
     }
 
     /// Every refusal comes before anything is committed: a title that
-    /// carries " opening" already, a bookmark to create that exists, a
-    /// skipped one not at the work `@-`, and a push from a `@-` on no
-    /// remote. `--skip`
-    /// needs `--opening`, and `--opening` is not `--closing`.
+    /// carries " opening" already, `--no-advance`, which has nothing to
+    /// move, and a bookmark `vc-x1 open` has not made on the work `@`,
+    /// named in the refusal. `--skip` needs `--land`, and `--opening` is
+    /// not `--closing`.
     #[test]
     fn opening_refusals_commit_nothing() {
-        let a = parse(&[
+        let err = parse(&[
             "vc-x1", "commit", "-s", "b", "--title", "t", "--body", "b", "--skip", "both",
         ])
-        .expect("parses");
-        let err = CommitParams::try_from(&a).unwrap_err();
-        assert!(err.contains("--opening or --land"), "{err}");
+        .unwrap_err();
+        assert!(err.contains("--land"), "{err}");
         let err = parse(&[
             "vc-x1",
             "commit",
@@ -2700,55 +2669,28 @@ mod tests {
         let err = CommitParams::try_from(&a).unwrap_err();
         assert!(err.contains("already"), "{err}");
         a.title = Some("feat: x".to_string());
+        a.no_advance = true;
+        let err = CommitParams::try_from(&a).unwrap_err();
+        assert!(err.contains("--no-advance moves nothing"), "{err}");
+        a.no_advance = false;
 
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
         let work_at = chid(&fx.work, "@");
-        let refused = |a: &CommitArgs, why: &str| {
-            let params = CommitParams::try_from(a).expect("params");
-            let err = commit(&mut test_ctx(), &params).expect_err(why).to_string();
-            assert!(err.contains(why), "{why}: {err}");
-            assert_eq!(chid(&fx.work, "@"), work_at, "{why}: nothing was committed");
-        };
-
-        jj_ok(&fx.work, &["bookmark", "set", "feat-x", "-r", "@-"]);
-        refused(&a, "exists");
-        a.opening = Some(Some("feat-y".to_string()));
-        a.skip = Some(Skip::Both);
-        refused(&a, "is not at the work @-");
-        a.skip = None;
-
-        jj_ok(&fx.work, &["new", "@-"]);
-        fs::write(fx.work.join("local.txt"), "local\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "feat: unpublished"]);
-        fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
-        a.push = true;
         let params = CommitParams::try_from(&a).expect("params");
         let err = commit(&mut test_ctx(), &params)
-            .expect_err("unpublished")
+            .expect_err("no bookmark")
             .to_string();
-        assert!(err.contains("on no remote"), "{err}");
-    }
+        assert!(
+            err.contains("is not on the work @") && err.contains("vc-x1 open --bookmark feat-x"),
+            "{err}"
+        );
+        assert_eq!(chid(&fx.work, "@"), work_at, "nothing was committed");
 
-    /// A push that would move a bookmark published elsewhere is
-    /// refused before anything is committed.
-    #[test]
-    fn opening_moves_no_published_bookmark() {
-        let fx = Fixture::new("commit-opening-published");
-        fs::write(fx.work.join("side.txt"), "side\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "feat: side"]);
-        jj_ok(&fx.work, &["git", "push", "--named", "feat-x=@-"]);
-        jj_ok(&fx.work, &["bookmark", "delete", "feat-x"]);
-        jj_ok(&fx.work, &["new", "main"]);
-        fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
-        let work_at = chid(&fx.work, "@");
-        let mut a = args("w", &fx.work);
-        a.opening = Some(Some("feat-x".to_string()));
-        a.push = true;
-        let params = CommitParams::try_from(&a).expect("params");
+        jj_ok(&fx.work, &["bookmark", "create", "feat-x", "-r", "@-"]);
         let err = commit(&mut test_ctx(), &params)
-            .expect_err("published elsewhere")
+            .expect_err("below @")
             .to_string();
-        assert!(err.contains("is on origin"), "{err}");
+        assert!(err.contains("is not on the work @"), "{err}");
         assert_eq!(chid(&fx.work, "@"), work_at, "nothing was committed");
     }
 
@@ -2866,41 +2808,45 @@ mod tests {
         );
     }
 
-    /// `--opening` with `--no-advance` leaves its bookmark at the
-    /// start, where it was created and pushed.
+    /// A plain commit on a branch `vc-x1 open` made, its bookmark on
+    /// `@` and `main` on `@-`, keeps the cycle's bookmark on the commit
+    /// and leaves `main`, the bookmark on `@` being the line's nearest.
     #[test]
-    fn an_opening_without_the_advance_stays_at_the_start() {
-        let fx = Fixture::new("commit-opening-no-advance");
-        let start = commit_id(&fx.work, "@-");
-        fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
-        let mut a = args("w", &fx.work);
-        a.opening = Some(Some("feat-x".to_string()));
-        a.no_advance = true;
-        a.push = true;
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("the opening is made");
-        assert_eq!(
-            bookmark_state(&fx.work, "feat-x"),
-            (Some(start.clone()), Some(start))
-        );
+    fn a_plain_commit_on_an_opened_branch_leaves_main() {
+        let fx = Fixture::new("commit-opened-plain");
+        let start = commit_id(&fx.work, "main");
+        open_bookmark(&fx, "feat-x");
+        fs::write(fx.work.join("one.txt"), "one\n").expect("write");
+        let at = chid(&fx.work, "@");
+        let params = CommitParams::try_from(&args("w", &fx.work)).expect("params");
+        commit(&mut test_ctx(), &params).expect("the commit is made");
+        assert_eq!(chid(&fx.work, "@-"), at, "@ was committed");
+        assert_eq!(chid(&fx.work, "feat-x"), at, "feat-x is on the commit");
+        assert_eq!(commit_id(&fx.work, "main"), start, "main is left");
     }
 
-    /// A dry run of `--opening` creates and pushes nothing.
+    /// A dry run of `--opening` commits nothing and leaves the bookmark
+    /// where `vc-x1 open` made it.
     #[test]
-    fn an_opening_dry_run_makes_no_bookmark() {
+    fn an_opening_dry_run_commits_nothing() {
         let fx = Fixture::new("commit-opening-dry-run");
+        open_bookmark(&fx, "feat-x");
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
+        let at = chid(&fx.work, "@");
         let mut a = args("w", &fx.work);
         a.opening = Some(Some("feat-x".to_string()));
         a.dry_run.value = true;
         let params = CommitParams::try_from(&a).expect("params");
         commit(&mut test_ctx(), &params).expect("dry run");
-        assert_eq!(bookmark_state(&fx.work, "feat-x"), (None, None));
+        assert_eq!(chid(&fx.work, "@"), at, "nothing was committed");
+        assert_eq!(chid(&fx.work, "feat-x"), at, "the bookmark is on @ still");
     }
 
-    /// Open a cycle titled "feat: a cycle" with `--opening`, the pair
-    /// made at once, returning the opening's change id.
+    /// Open a cycle titled "feat: a cycle": its bookmark made on the work
+    /// `@`, as `vc-x1 open` makes it, then `--opening`, the pair made at
+    /// once, returning the opening's change id.
     fn open_cycle(fx: &Fixture) -> String {
+        open_bookmark(fx, "feat-a-cycle");
         fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
         let mut a = args("b", &fx.work);
         a.title = Some("feat: a cycle".to_string());
@@ -3345,6 +3291,87 @@ mod tests {
         }
     }
 
+    /// A branch with nothing committed, `vc-x1 open`'s bookmark on a `@`
+    /// holding the work, closes in one commit made from `@` and lands,
+    /// the tip named `@-`, the bookmark, or `@`: `main` is `@` committed
+    /// under the bare title and published, the agent `main` with it.
+    #[test]
+    fn a_branch_with_nothing_committed_closes_and_lands_in_one_commit() {
+        for rev in ["@-", "feat-abc", "@"] {
+            let fx = Fixture::new(&format!("commit-land-uncommitted-{}", rev.len()));
+            open_bookmark(&fx, "feat-abc");
+            fs::write(fx.work.join("abc.txt"), "abc\n").expect("write");
+            let work_at = chid(&fx.work, "@");
+            let mut a = closing_args(&fx, "b", rev);
+            a.title = Some("feat: add abc.txt".to_string());
+            a.body = Some("Created abc.".to_string());
+            a.land = true;
+            a.push = true;
+            let params = CommitParams::try_from(&a).expect("params");
+            commit(&mut test_ctx(), &params).expect("landed");
+
+            assert_eq!(
+                chid(&fx.work, "main"),
+                work_at,
+                "{rev}: main is @, committed"
+            );
+            assert_eq!(
+                chid(&fx.work, "main@origin"),
+                work_at,
+                "{rev}: and published"
+            );
+            let desc = description(&fx.work, "main");
+            assert!(
+                desc.starts_with("feat: add abc.txt\n\nCreated abc."),
+                "{rev}: {desc}"
+            );
+            assert!(
+                jj_ok(&fx.work, &["file", "list", "-r", "main"]).contains("abc.txt"),
+                "{rev}"
+            );
+            assert_eq!(
+                chid(&fx.bot, "main@origin"),
+                chid(&fx.bot, "@-"),
+                "{rev}: with the agent main"
+            );
+            assert!(
+                !jj::local_bookmark_exists(&fx.work, "feat-abc").expect("local"),
+                "{rev}: the cycle's bookmark is gone"
+            );
+        }
+    }
+
+    /// A branch with nothing committed is refused before anything is
+    /// made when `@` is empty, carries no bookmark, the title or body is
+    /// left out, or `--dead-end` asks for a closing commit.
+    #[test]
+    fn a_branch_with_nothing_committed_is_refused_before_anything_is_made() {
+        let fx = Fixture::new("commit-closing-uncommitted-refused");
+        let main = commit_id(&fx.work, "main");
+        let mut a = closing_args(&fx, "b", "@-");
+        a.title = Some("feat: add abc.txt".to_string());
+        a.body = Some("Created abc.".to_string());
+        let refused = |a: &CommitArgs, why: &str| {
+            let at = chid(&fx.work, "@");
+            let params = CommitParams::try_from(a).expect("params");
+            let err = commit(&mut test_ctx(), &params).expect_err(why).to_string();
+            assert!(err.contains(why), "{why}: {err}");
+            assert_eq!(chid(&fx.work, "@"), at, "{why}: nothing was committed");
+            assert_eq!(commit_id(&fx.work, "main"), main, "{why}: main stays");
+        };
+        open_bookmark(&fx, "feat-abc");
+        refused(&a, "nothing above 'main' to close");
+        fs::write(fx.work.join("abc.txt"), "abc\n").expect("write");
+        jj_ok(&fx.work, &["bookmark", "delete", "feat-abc"]);
+        refused(&a, "vc-x1 open");
+        open_bookmark(&fx, "feat-abc");
+        a.dead_end = true;
+        refused(&a, "--dead-end");
+        a.dead_end = false;
+        a.body = None;
+        refused(&a, "--title and --body are required");
+    }
+
     /// `--land` on a single-step cycle finalizes the opening, fast-
     /// forwards `main` to it and pushes it with the agent `main`, and
     /// deletes the cycle's bookmark locally and on origin.
@@ -3662,6 +3689,31 @@ mod tests {
         jj_ok(&fx.work, &["git", "push", "--bookmark", "main"]);
         jj_ok(&fx.work, &["new", &opening]);
         refused(&a, "rebase the branch");
+    }
+
+    /// `--land <TRUNK>`, the form before the target was `--onto`'s, is
+    /// refused naming `--onto`, not taken for the retired revision.
+    #[test]
+    fn a_value_after_land_names_onto() {
+        let a = parse(&[
+            "vc-x1",
+            "commit",
+            "-s",
+            "b",
+            "--closing",
+            "single-step-abc",
+            "--title",
+            "feat: add abc.txt",
+            "--body",
+            "Created abc",
+            "--land",
+            "main",
+            "--push",
+        ])
+        .expect("parses");
+        let err = CommitParams::try_from(&a).unwrap_err();
+        assert!(err.contains("`--onto main --land`"), "{err}");
+        assert!(!err.contains("-r main"), "{err}");
     }
 
     /// The target `--land` moves must be a local bookmark: an `--onto`

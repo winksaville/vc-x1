@@ -26,7 +26,7 @@ fixed directory.
 - `jj bookmark set <name> -r <rev> -R <repo>`: create the bookmark, or move an existing one, at
   `<rev>`. Moving it backwards needs `--allow-backwards`
 - `jj git push --named <name>=<rev> -R <repo>`: create *and* publish in one step, for a line that is
-  not a cycle's, whose bookmark `vc-x1 commit --opening` makes ([Cycle
+  not a cycle's, whose bookmark `vc-x1 open` makes ([Cycle
   bookmarks](#cycle-bookmarks-create-and-land))
 - In jj, the working copy (@) is always a mutable commit being edited. `jj commit` finalizes it and
   creates a new empty working copy on top.
@@ -141,13 +141,17 @@ The mechanics behind [Cycles run on a bookmark](../AGENTS.md#cycles-run-on-a-boo
 holds the rule and when it applies, and this one holds the commands
 ([why](rationale.md#cycle-bookmarks-create-and-land)).
 
-**Create**, at the cycle's opening: `vc-x1 commit -s b --opening --title "<bare cycle title>" --body
-"..."` commits the opening and creates the bookmark at the work `@-`, named by the title's slug (the
-anchor algorithm in [Markdown anchor links](notes.md#markdown-anchor-links)), and kept local.
+**Create**, first at the cycle's opening: `vc-x1 open --title "<bare cycle title>"` makes the
+bookmark on the work `@`, named by the title's slug (the anchor algorithm in [Markdown anchor
+links](notes.md#markdown-anchor-links)), or `--bookmark <NAME>`, and kept local. It refuses a name
+in use, locally or on `origin`, and nothing else, `@` holding edits or not. The bookmark follows the
+change, so `vc-x1 commit -s b --opening --title "<bare cycle title>" --body "..."` commits the
+opening on it, creating none, and refuses an `@` without it.
 
 **Close**: `vc-x1 commit -s b --closing <BM|REV> --onto <BOOKMARK>`, naming the cycle's tip and its
-target, makes the closing: the merge of the target and the tip, or the one commit finalized in
-place. No target is assumed, and a closing without `--onto` is refused naming the bookmark below the
+target, makes the closing: the merge of the target and the tip, the one commit finalized in place,
+or, with nothing committed above the target, the one commit made from `@`, `--title` and `--body`
+given. No target is assumed, and a closing without `--onto` is refused naming the bookmark below the
 opening. Without a `[closing] body` in `.vc-config.md`, it needs `--body`.
 
 **Land**, once the close-out is approved: the sequence that makes the cycle permanent. Its `vc-x1
