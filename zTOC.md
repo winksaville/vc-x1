@@ -4,14 +4,19 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 
 ## Ladder
 
-- 0 (done) [chore: complete vc-x1, ready for vc-x2 opening](TODO.md#chore-complete-vc-x1-ready-for-vc-x2-opening)
-- 1 (done) [feat: trailers --update rewrites a whole history](TODO.md#feat-trailers---update-rewrites-a-whole-history)
-- 2 (done) [feat: orepo replaces ocid and pcid](TODO.md#feat-orepo-replaces-ocid-and-pcid)
-- 3 (done) [feat: no push is forced without asking](TODO.md#feat-no-push-is-forced-without-asking)
-- 4 (done) [feat: a rung commits as a pair](TODO.md#feat-a-rung-commits-as-a-pair)
-- 5 (done) [feat: no trunk, every target is named](TODO.md#feat-no-trunk-every-target-is-named)
-- 6 (done) [feat: open makes the cycle's bookmark first](TODO.md#feat-open-makes-the-cycles-bookmark-first)
-- 0.85.21 (done) [chore: complete vc-x1, ready for vc-x2 closing](TODO.md#chore-complete-vc-x1-ready-for-vc-x2-closing)
+- 0 (done) [feat: improve vc-x1 cycle flow opening](TODO.md#feat-improve-vc-x1-cycle-flow-opening)
+- [feat: cycle --open makes the bookmark and record](TODO.md#feat-cycle---open-makes-the-bookmark-and-record)
+- [feat: the ladder is made from the rung headings](TODO.md#feat-the-ladder-is-made-from-the-rung-headings)
+- [feat: cycle --commit makes a rung](TODO.md#feat-cycle---commit-makes-a-rung)
+- [feat: cycle --close makes the closing](TODO.md#feat-cycle---close-makes-the-closing)
+- [feat: cycle --land advances the destination](TODO.md#feat-cycle---land-advances-the-destination)
+- [test: a rehearsal runs both cycle shapes](TODO.md#test-a-rehearsal-runs-both-cycle-shapes)
+- [feat: cycle --status says where the cycle stands](TODO.md#feat-cycle---status-says-where-the-cycle-stands)
+- [feat: commit refuses an unchanged version](TODO.md#feat-commit-refuses-an-unchanged-version)
+- [feat: an xtask bumps the version](TODO.md#feat-an-xtask-bumps-the-version)
+- [feat: the old cycle commands are removed](TODO.md#feat-the-old-cycle-commands-are-removed)
+- [docs: the Cycle Protocol follows the cycle command](TODO.md#docs-the-cycle-protocol-follows-the-cycle-command)
+- [feat: improve vc-x1 cycle flow closing](TODO.md#feat-improve-vc-x1-cycle-flow-closing)
 
 ## The TOC
 

@@ -417,6 +417,15 @@ a guard that stops legitimate scripts gets removed. Matching hooks run in parall
 over `bash-allow.sh`'s `allow` (https://code.claude.com/docs/en/hooks, PreToolUse decision
 control). The hooks are in the set so they travel with the rules they serve.
 
+**Long output keeps a file and shows a tail** (wink + agent, 2026-11-11): a validation printed
+every compile line and 869 test lines, the Bash tool returned its first part, and the agent, not
+seeing the line that said it passed, ran the whole validation again, a minute spent on a result the
+exit status had already given. The named commands are the rule and "in doubt" only its fallback,
+since a judgment is skipped exactly when the agent is confident and wrong, and the names a project
+adds are in its `custom.md` because the set names no project. The file is what makes one run
+enough: a tail alone shows the verdict and loses the failing test above it, so a failure would
+still be run twice.
+
 **Use https remotes, not ssh.** Unconditional rather than "when the agent is sandboxed" because the
 remote is chosen at clone time and whether a sandboxed agent will ever touch the repo is not
 knowable then. A sandbox denies ssh twice over: reads of `~/.ssh` are blocked except the signing key

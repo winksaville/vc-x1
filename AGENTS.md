@@ -106,6 +106,8 @@ silently.
   ([Working practices](#working-practices)).
 - Exit status: the command under test runs bare and last, `set -o pipefail` first when piped, and
   `bash-guard.sh` denies the masks it can see ([Working practices](#working-practices)).
+- Long output: a command known to print more than the Bash tool returns keeps its output in a file
+  and shows its tail, and a pass is its exit status ([Working practices](#working-practices)).
 - Stop and ask: on ambiguous input, on any deviation from the agreed plan, and when 5+ minutes
   on a simple task has produced no progress ([Stop and ask](#stop-and-ask)).
 - Changing the agent-files: a change to the rules is tried in the local copy, then proposed as one
@@ -453,6 +455,11 @@ the machine and collapses into the rung before the cycle continues, each validat
   its invocation, since the Bash tool reports a nonzero exit, with `set -o pipefail` first when it
   is piped. No `&&` after a piped stage, no trailing `; echo "exit=$?"`. To report and still fail:
   `cmd || { rc=$?; echo failed=$rc; exit $rc; }`.
+- Long output: the Bash tool returns only part of a long output, and the part it drops may hold
+  the result. A validation, build, or test run, an unbounded log or diff, each command `custom.md`
+  names, and any command whose length is in doubt runs as
+  `set -o pipefail; <command> 2>&1 | tee tmp/last.log | tail -25`. A pass is the exit status, so
+  nothing runs again to see one, and a failure is read from the file, the slice it needs.
 - Hooks: the Claude Code hooks are in `agent-data/` and `bash agent-data/hooks.sh install`, the
   user's to run, puts them in `~/.claude/hooks/` and registers them in `~/.claude/settings.json`.
   `bash-guard.sh` denies the two masks it can see, an echo of `$?` or `PIPESTATUS` and a `cargo`
