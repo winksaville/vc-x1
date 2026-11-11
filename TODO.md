@@ -48,11 +48,11 @@ to what the commands then do.
 
 #### Acceptance check
 
-Provisional: the rehearsal script runs a single-step and a ladder cycle end to end by `cycle`'s
-flags, open to Land, in a `~/tmp` workspace that holds no cargo project, every command exiting
-zero and the script checking what each left: the bookmark, the record, the ladder's markers, the
-commits' titles and trailers, and the destination where the Land put it. It runs as the first
-thing in closing and again after it.
+Provisional: `scripts/cycle-rehearsal.sh` runs two single-step cycles and a ladder end to end by
+`cycle`'s flags, open to Land, in a `~/tmp` workspace that holds no cargo project, every command
+exiting zero and the script checking what each left: the bookmark, the record, the ladder's
+markers, the commits' titles and trailers, and the destination where the Land put it. It exits
+zero. It runs as the first thing in closing and again after it.
 
 #### Deliberation
 
@@ -615,6 +615,35 @@ with local remotes and no cargo project, and runs a single-step and a ladder cyc
 `cycle`'s flags, open to Land, checking what each command left. It tries each way back from a
 fault after the closing, reopen, fix on top, and fix inside, and reports the ones the tool
 refuses. It is the cycle's acceptance check.
+
+- `scripts/cycle-rehearsal.sh [DIR]`, `~/tmp/cycle-rehearsal` by default, the binary `VC`,
+  `vc-x1-dev` by default. The workspace is `vc-x1 init --test-repo`'s, so nothing leaves the
+  machine, and the script removes the Claude Code symlink `init` makes for it.
+- Three cycles, each landed and published to the local remotes:
+  - A single-step cycle with nothing committed, closed and landed in one invocation, `cycle
+    --close --body --land main --push`.
+  - A single-step cycle whose opening is committed first, its closing squashed into it by
+    `--default-body`, then landed.
+  - A ladder of two work rungs, its `## Todo` entry moved by the open, a draft push between,
+    closed as a trapezoid, and landed.
+- 48 checks, all passing on its first run (2026-11-11): the bookmarks on both sides, the scaffold
+  and the ladder's markers, each title, the closing's parents, the trailers, both `main`s
+  published, and the work `@` empty.
+- The ways back from a fault after the closing, as found:
+  - Fix inside: `vc-x1 squash -s b` folds the fix into the closing, which stays a merge of two.
+  - Reopen: by `jj`, the bookmark set back to the last rung, the closing abandoned, and `@` put
+    on the tip. The record is then in progress again, the abandoned commit having carried the
+    move, so a fix rung commits by `cycle --commit` and `cycle --close` closes again. It leaves
+    the abandoned closing's agent commit in the agent-repo, harmless and unreferenced. A `cycle
+    --reopen` in place of the three `jj` commands is a candidate, not built.
+  - Fix on top: refused. After the closing nothing is in progress, so `cycle --commit` has no
+    cycle to commit a rung of. A plain `vc-x1 commit` above the closing works, and a second
+    closing has no command. For wink: whether fix on top is a way the tool should serve.
+- Also refused, as it should be: a commit whose title is no rung's.
+- Found by it: `cycle --close` prints `commit`'s warning that a title ends " closing", meant for
+  the old flags, which goes with them in **feat: the old cycle commands are removed**.
+- Not in `vc-x1 validate`: it takes about ten seconds and writes under `~/tmp`, so it is run by
+  hand, at the closing's two ends.
 
 ##### feat: cycle --status says where the cycle stands
 

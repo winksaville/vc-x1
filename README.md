@@ -2298,6 +2298,12 @@ publishes the destination, the work repo first, and deletes the cycle's bookmark
 Without `--land` it is the draft push of the cycle's bookmark. The install after a Land is the
 project's own.
 
+`scripts/cycle-rehearsal.sh` runs the flow end to end: it makes a throwaway dual workspace with
+local remotes and no cargo project under `~/tmp/cycle-rehearsal`, runs two single-step cycles and
+a ladder through these flags, open to Land, checks what each command left, and tries each way
+back from a fault found after a closing, naming the ones the tool refuses. `VC` names the binary,
+`vc-x1-dev` by default.
+
 ### land
 
 Land a cycle whose last commit is already made, on the machine: the agent `@` committed when the
