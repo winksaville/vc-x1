@@ -11,12 +11,18 @@ Where the agent was, for the agent that comes next. Ephemeral, never a record, r
 acquaint, acted on, and reset to `_None._` by the reader.
 
 - **feat: improve vc-x1 cycle flow** is open, its opening pushed as a draft on
-  `feat-improve-vc-x1-cycle-flow` (2026-11-11). wink then delegated the work rungs, each committed
-  locally as a pair with no review and no push, up to the closing and not including it. `zTOC.md`'s
-  ladder says how far that got, each rung's subsection says what it did and what it left for
-  wink, and the closing, the Land, and every push wait for wink.
-- `~/tmp` holds wink's test workspaces of the last cycle, `wt-21-3-1`, `wt-21-6`, and `remotes`,
-  disposable once the next cycle's rehearsal replaces them.
+  `feat-improve-vc-x1-cycle-flow` (2026-11-11). wink then delegated the work rungs, and all eleven
+  are committed locally as pairs, unreviewed and unpushed, so `zTOC.md`'s ladder reads `(done)`
+  to the closing, which is `(current)`. `vc-x1-dev cycle --status` says the same.
+  - Each rung's subsection under `#### Rungs` says what it did and what it left for wink, the
+    lines starting "For wink" and "Not done" among them.
+  - The closing, the Land, and every push wait for wink. The closing owes the acceptance check,
+    `scripts/cycle-rehearsal.sh`, at both ends, the record's finalizing, a row in
+    `notes/agent-files-size.md`, and `cargo xtask bump bare`.
+  - The installed `vc-x1` is 0.85.21 and has the old commands. `vc-x1-dev` is this branch's, and
+    is the one that has `cycle`, so the closing is `vc-x1-dev cycle --close --trapezoid main`.
+- `~/tmp` holds wink's test workspaces of the last cycle, `wt-21-6` and `remotes`, disposable now
+  that `scripts/cycle-rehearsal.sh` makes its own under `~/tmp/cycle-rehearsal`.
 
 ## In Progress
 
@@ -93,7 +99,7 @@ zero. It runs as the first thing in closing and again after it.
   - The rung was to be first, since every later rung runs validation several times, and was
     dropped later the same day, under Terms and scope below. The rule stands.
 - The agent-files change inside this cycle, as drafts of the open v0.3.1 proposal: the opening is
-  `v0.3.1-8` (wink, 2026-11-11). To decide: whether each later rung that edits them bumps the draft.
+  `v0.3.1-8` (wink, 2026-11-11), and the one later rung that edits them, the docs rung, is `-9`.
 
 The candidates the Todo entry carried, each to be decided in the deliberation after the opening,
 kept, changed, laddered as a rung, or filed back into `## Todo`:
@@ -752,6 +758,38 @@ revised to `cycle`'s flags and to the deliberation's decisions: deliberation bef
 commit, the acceptance check at both ends of the closing, the ways back from a fault as the
 user's choice, the two kinds of push, the Land's default and its merge, the ladder as the tool's,
 and the version as the project's. The agent-files version moves with it.
+
+- The agent-files are `v0.3.1-9`, a draft of the open v0.3.1 proposal, adopted locally by
+  `custom.md`. Only this rung edited them after the opening, so the draft moved once, which
+  settles "To decide" in the Deliberation.
+- `AGENTS.md`, by section:
+  - Terminology: a cycle's commits are `vc-x1 cycle`'s, the target is named on the command each
+    time and stored nowhere, and "draft push" and "publish" are defined.
+  - Rules: two new, the ladder is the tool's and the version is the project's, and Commit by the
+    tool names `cycle --commit` and `--close`.
+  - Cycle shape: every cycle has an opening and a closing, the count saying whether they are one
+    commit, and the defaults of each title and body.
+  - Opening: `cycle --open` writes the record, and a step is added, deliberate and plan, before
+    the bump, the opening carrying the plan.
+  - The per-rung flow: Mark current and Flip are gone, the tool's, so the steps are sync, bump,
+    work, subsection, validate, review, describe, commit, and the review iterates over 2 to 5.
+  - Close-out: the acceptance check first, a new step, test the closed cycle, where a fault's
+    way back is the user's choice, and the Land's refusal of a target that moved with its ways on.
+- A ladder still closes as a trapezoid in the rules, by `cycle --close --trapezoid <target>`,
+  and linear is said to be the user's to ask for, the agent's reading of wink's flag: the tool's
+  default is linear, and the rules' default is the trapezoid. For wink to confirm or turn over.
+- `jj.md`: Create, Close, and Land name the stages, the Land's sequence keeps its five steps, and
+  the linear shape is described as built.
+- `notes.md`: a rung's number is its position, no longer its version suffix, the markers are
+  computed, and the ladder's grammar is said to be strict.
+- `rationale.md` gains the why of each change under the mirrored heading, dated 2026-11-11, and
+  retires `--onto` under Terminology.
+- The skeleton `TODO.md` that `vc-dr-apply.sh` ships no longer names `commit --closing`.
+- Not done, the closing's: the row in `notes/agent-files-size.md`. `AGENTS.md` grew, 526 lines
+  to 560, against the quasi-goal.
+- Found: `vc-x1 validate-anchors` reports four problems, none of this cycle's making, one of
+  them a citation it misses, filed as **validate-anchors misses a citation after a wrapped code
+  span** in `## Todo`.
 
 ##### feat: improve vc-x1 cycle flow closing
 
@@ -2105,6 +2143,14 @@ bookends. One `cycle` command holding open, close, and land gives the protocol o
   flag** prefers and the leaning against several positionals.
 - Decided with **vc-x1 do runs a recipe of vc-x1 commands** and **close, land, and push compose
   with testing, to re-deliberate**, which cover the same commands.
+
+### validate-anchors misses a citation after a wrapped code span
+
+`vc-config-model.md` cites `[[30]]` right after a code span that wraps across two lines, `cargo`
+and `test`, and `vc-x1 validate-anchors` reports `[30]` as defined and never cited, on `main` too
+(2026-11-11). We think the code spans are blanked a line at a time, so the span's second half
+opens one that swallows the citation. The model is generated, so either the check or the wrap
+changes. Found by **feat: improve vc-x1 cycle flow**.
 
 ### validate-desc -r takes a revset without a word, and clone leaves a symlink
 
