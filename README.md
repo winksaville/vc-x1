@@ -2334,6 +2334,11 @@ changes no line of the file starting with the pattern, before anything is writte
 `version = ` inside a table is not the version's. Without the keys nothing is checked, and a
 project with no manifest names a file of its own.
 
+This project's own bump is an xtask, outside `vc-x1`: `cargo xtask bump next` adds one to the
+version's suffix in `Cargo.toml`, `cargo xtask bump bare` drops the suffix for a close-out, and
+`cargo xtask bump <VERSION>` sets it as written, each keeping the manifest's comments and layout
+and refreshing `Cargo.lock`, the build being `--locked`. `cargo xtask version` prints it.
+
 `scripts/cycle-rehearsal.sh` runs the flow end to end: it makes a throwaway dual workspace with
 local remotes and no cargo project under `~/tmp/cycle-rehearsal`, runs two single-step cycles and
 a ladder through these flags, open to Land, checks what each command left, and tries each way

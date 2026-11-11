@@ -1,0 +1,15 @@
+[package]
+name = "xtask"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# The project's own tasks, run by `cargo xtask <task>`, the alias in
+# `.cargo/config.toml`. Outside `vc-x1`, which knows nothing of the
+# work: the version and its bump are the project's.
+
+[dependencies]
+# The crate cargo's own `cargo add` edits a manifest with: it keeps
+# the comments, the layout, and the key order, and changes the one
+# value. At the version jj-lib already brings into the lock file.
+toml_edit = "0.25"

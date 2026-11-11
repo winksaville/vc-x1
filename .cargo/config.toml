@@ -1,0 +1,4 @@
+# `cargo xtask <task>` runs the project's own tasks, the `xtask`
+# package in this workspace: `cargo xtask bump next` for one.
+[alias]
+xtask = "run --quiet --package xtask --"

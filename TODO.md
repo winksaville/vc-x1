@@ -692,6 +692,27 @@ xtask sets it, `toml_edit` keeping the manifest's comments and layout, and refre
 in the same step, the build being `--locked`. It is the project's own tool, outside `vc-x1`, and
 the repo becomes a cargo workspace for it.
 
+- `cargo xtask bump <next|bare|VERSION>` and `cargo xtask version`, the alias in
+  `.cargo/config.toml`, the package in `xtask/`.
+  - `next` adds one to the suffix's last number and gives a bare version `-0`, `bare` drops the
+    suffix, and a version named is taken as written when it has one `-` at most and no `+`, the
+    suffix scheme's shape.
+  - A sub-cycle's suffix, `-3.1`, bumps its last number, `-3.2`.
+- `Cargo.lock` is refreshed by `cargo update --workspace --offline`, which touches the
+  workspace's own packages alone, so no dependency moves. This rung's own first build failed on
+  the stale lock before the xtask existed, a `--locked` build after a bump by hand.
+- `toml_edit` is at the version jj-lib already brings into the lock file, so the bump added no
+  download.
+- The workspace's default members are both packages, so `vc-x1 validate` formats, lints, and
+  tests the xtask with the rest, and a release build compiles it too, a second or so.
+- The root's `clippy.toml` bans spawning a process, for `vc-x1`. The xtask's one spawn, of
+  cargo, carries an `allow` with its reason.
+- Not done: the bump as a step some stage runs. The tool never bumps, so the order is the
+  user's or the agent's: `cargo xtask bump next`, then the work, then `cargo xtask` is not asked
+  again until the next rung. We think a `[cycle]` hook, a command the project names for the
+  tool to run before a commit, is the vc-x2 form.
+- **Build config moves to an xtask** in `## Todo` now has its crate to move into.
+
 ##### feat: the old cycle commands are removed
 
 Two spellings of one act are worse than either. `open` and `land` are removed, and `commit` loses
