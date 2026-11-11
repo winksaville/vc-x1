@@ -29,6 +29,7 @@ mod lookup;
 mod md_fence;
 mod merge;
 mod move_bookmark;
+mod open;
 mod options_flags;
 mod pair;
 mod push;
@@ -423,7 +424,7 @@ pub(crate) enum Commands {
         Status labels:\n  \
           ok   : ochid trailer is valid\n  \
           err  : ochid has issues (wrong prefix, wrong length, ID not found), or\n         \
-          a work commit's ocid or pcid names the wrong repo or commit\n  \
+          an orepo names the wrong repo\n  \
           note : ok, with something worth saying, an agent commit not yet pushed\n  \
           miss : no ochid trailer; shows match from other repo if found"
     )]
@@ -544,10 +545,16 @@ pub(crate) enum Commands {
         long_about = "Squash SOURCE into TARGET (defaults: SOURCE=@, TARGET=@-),\n\
         advance a bookmark, and push.\n\n\
         Captures a repo's trailing working-copy writes into the last\n\
-        commit and publishes it: rewriting an already-pushed commit,\n\
-        so the push is a forced update. Built for the bot repo\n\
-        (`.claude`, the session tail), and useful on the work repo as\n\
-        a deliberate amend-and-push.\n\n\
+        commit and publishes it. Built for the agent repo, the session\n\
+        tail folded into the last agent commit after a session, so both\n\
+        repos are clean: the change id folded into is kept, so the\n\
+        `ochid:` naming it still resolves.\n\n\
+        A push that would be forced, the target already on the\n\
+        bookmark's remote or the remote not below it, asks before\n\
+        anything changes, so a published commit is rewritten only by\n\
+        choice. The --yes flag answers in advance, a configured\n\
+        squash-push.yes never does, and without a tty and --yes it is\n\
+        an error.\n\n\
         Zero-ceremony default: bare `vc-x1 squash-push` squashes\n\
         @ -> @- in `.` and pushes the bookmark of the line you are\n\
         on. With an empty `@` but work still to do, the squash is\n\
@@ -593,16 +600,18 @@ pub(crate) enum Commands {
         half with its trailer naming the agent @ (-s w). Push publishes\n\
         the work @-, so new work in @ is left as it is, and it refuses\n\
         a work @- with no `ochid:` trailer, which is not a pair's commit.\n\n\
-        The halves are independent, each trailer being fixed before\n\
-        push runs, so -s b is -s a then -s w, the order the pair is\n\
-        completed in:\n\
-        \x20 - agent  complete the partner by the state found: fold the\n\
-        \x20          journal into a committed one, or commit it as the\n\
-        \x20          partner when pending or the agent repo changed;\n\
-        \x20          then squash-push main\n\
+        The halves are independent, each side naming the other by\n\
+        change id, which no push moves. -s b makes every local step\n\
+        first, then publishes the work repo and then the agent repo,\n\
+        the order `squash-push -s b` publishes in:\n\
+        \x20 - agent  complete the partner by the state found: commit the\n\
+        \x20          journal as the partner when pending or the agent\n\
+        \x20          repo changed\n\
         \x20 - work   restamp the unpublished work commit if its trailer\n\
         \x20          does not name the partner, then set and push\n\
-        \x20          <bookmark>\n\n\
+        \x20          <bookmark>\n\
+        \x20 - agent  publish main, the journal folded into a committed\n\
+        \x20          partner unless it is already published\n\n\
         -s is required: `b` both halves, `a` the agent half, `w` the work\n\
         half, `p` a plain repo's @- on its bookmark. -R is optional and\n\
         says where. --bookmark is the line's unless named, as a check or\n\
@@ -613,6 +622,9 @@ pub(crate) enum Commands {
         root are refused, and so is a REV of several commits.\n\n\
         Every argument is a flag: the old positional is refused, naming\n\
         --bookmark or -r, the one it was.\n\n\
+        A push that would be forced, a published commit rewritten, is\n\
+        warned of and asked about before anything moves, --yes answering\n\
+        in advance, and without a tty and --yes it is an error.\n\n\
         Rerunning is always safe: a half whose work is done finds nothing\n\
         to do. A half that fails before its own push restores the repo it\n\
         touched via `jj op restore`."
@@ -634,21 +646,23 @@ pub(crate) enum Commands {
         commit made by hand becomes a rung's. A draft below `@-` is kept\n\
         local, since push publishes `@-`. Every argument is a flag: the old\n\
         positional is refused, naming -r.\n\n\
-        --closing <BM|REV> closes the cycle whose tip it names, onto the trunk,\n\
-        --land's or `[cycle] trunk`, `main` when absent: one commit above the\n\
-        trunk is finalized in place, more get the closing commit, the merge of\n\
-        the trunk and the tip. A tip that is not @- is closed by a detour, @\n\
-        moving onto it and returning after. --land [TRUNK] lands it: the trunk\n\
+        --closing <BM|REV> closes the cycle whose tip it names onto --onto\n\
+        <BOOKMARK>, required, since no target is assumed: one commit above it\n\
+        is finalized in place, more get the closing commit, the merge of\n\
+        --onto and the tip, and none, the work in @ on `vc-x1 open`'s\n\
+        bookmark, is committed now as the one commit, --title and --body\n\
+        given. A tip that is not @- is closed by a detour, @ moving onto it\n\
+        and returning after. --land, taking no value, lands it: --onto\n\
         fast-forwarded and pushed and the closing's bookmark deleted, every\n\
         check first: the one named, or for a revision the current or nearest\n\
-        parent bookmark above the trunk, several refused with the list.\n\n\
+        parent bookmark above --onto, several refused with the list.\n\n\
         -s is required: `b` makes both commits now, `w` the work half with\n\
         the agent half left to push, `a` the agent repo alone, unpaired, with\n\
         no trailer, and `p` a plain repo with no trailer. -R is optional and\n\
         says where. --body is the text, or @PATH to read it from a file.\n\n\
         -s a --covers REVSET makes the agent commit a cycle's rungs share:\n\
         one `ochid:` per work commit REVSET names, oldest first, the revset\n\
-        taken as written, no trunk assumed, and each must name the agent @.")]
+        taken as written, no base assumed, and each must name the agent @.")]
     Commit(commit::CommitArgs),
 
     /// Fold the working copies into the pair before it is pushed, with -s
@@ -660,9 +674,11 @@ pub(crate) enum Commands {
         -s is required: `b` both sides, `w` the work side, `a` the agent\n\
         side, `p` a plain repo's @ into its @-. A pending partner, made by\n\
         `commit -s w`, is left for push, as is a published partner's\n\
-        journal. A draft, a commit published on a topic bookmark only, is\n\
-        rewritten with a warning, and a commit on main's remote is refused\n\
-        without --yes. --title with --body rewrites the descriptions,\n\
+        journal. A draft, a published commit jj counts mutable, a cycle's\n\
+        bookmark pushed for a backup among them, is rewritten with a\n\
+        warning, and one in jj's immutable(), `main@origin` among them, is\n\
+        refused without --ignore-immutable, as jj refuses it. --title with\n\
+        --body rewrites the descriptions,\n\
         keeping each trailer.\n\
         -R is optional and says where.")]
     Squash(squash::SquashArgs),
@@ -713,15 +729,30 @@ pub(crate) enum Commands {
         `p` the repo -R names, as it is.")]
     DeleteBookmark(delete_bookmark::DeleteBookmarkArgs),
 
+    /// Open a cycle: make its bookmark on the work @, first
+    #[command(long_about = "\
+        Open a cycle by making its bookmark first, on the work @, before\n\
+        the opening's record, ladder, and bump are written, so every edit of\n\
+        the cycle is on its branch. `commit --opening` then takes it.\n\n\
+        --title is the bare cycle title, the bookmark its slug, the anchor a\n\
+        heading of the title gets, `feat: a cycle` naming `feat-a-cycle`, or\n\
+        --bookmark names it. One is required. A name in use, locally or on\n\
+        origin, is refused. @ may hold edits, which become the opening's, a\n\
+        `main` not where its origin was last fetched is a warning, and the\n\
+        agent repo gets no bookmark. Nothing is pushed. -R is optional and\n\
+        says where, a workspace or a plain repo. --dry-run prints the name.")]
+    Open(open::OpenArgs),
+
     /// Land a cycle whose last commit is made, with -s
     #[command(long_about = "\
         Land a cycle whose last commit is already made, on the machine: the\n\
         agent `@` committed when the cycle's commits name it, the links they\n\
         carry updated, --onto fast-forwarded to --source, and the cycle's\n\
         bookmark deleted, every check made before anything moves. --push also\n\
-        publishes it, the agent repo first, and deletes the bookmark on\n\
-        `origin`. `commit --closing ... --land` lands the same way, the\n\
-        closing made first.\n\n\
+        publishes it, the work repo first, and deletes the bookmark on\n\
+        `origin`, and refuses a push that would be forced, which `push`\n\
+        or `squash-push` asks about. `commit --closing ... --land` lands\n\
+        the same way, the closing made first.\n\n\
         --source is a bookmark, the cycle's, or a revision, whose current\n\
         bookmark, else its nearest parent's above --onto, is the cycle's,\n\
         several refused with the list. Left out, it is the one local\n\
@@ -733,7 +764,7 @@ pub(crate) enum Commands {
         bookmarks strictly between --onto and --source too. --dry-run makes\n\
         every check and says each step.\n\n\
         -s is required: `b` a dual workspace, the agent `main` moved with\n\
-        the trunk, and `p` a plain repo. `w` alone could publish\n\
+        --onto, and `p` a plain repo. `w` alone could publish\n\
         trailers naming agent commits not yet published, and `a` alone has\n\
         no cycle to land, so both are refused. The install stays `vc-x1\n\
         install`, after.")]
@@ -743,20 +774,20 @@ pub(crate) enum Commands {
     #[command(long_about = "\
         Rewrite a range of work commits' trailers to what is stamped today,\n\
         only their descriptions changing, each tree checked unchanged.\n\n\
-        `ochid:` becomes the partner's bare change id. `ocid:` links the agent\n\
-        commit by its SHA, or the placeholder `xxxx` while it is the\n\
-        uncommitted agent `@`. `pcid:` links each parent by its SHA, one line\n\
-        per parent in parent order, so the range goes oldest first. Links use\n\
-        the `origin`'s canonical URL, or `file:///` for a local one. A trailer\n\
-        naming nothing that resolves, a `lost` or an old short id, is left as\n\
-        it is, and a trailer `vc-x1` does not stamp is kept.\n\n\
-        --update is required, the one thing this does so far. --range is a\n\
-        bookmark or revision, those above the trunk up to it, or a revset with\n\
-        `..` or `::`, as written [default: above the trunk up to `@-`]. A\n\
-        commit on the trunk's remote is refused without --yes, and one on a\n\
-        topic bookmark is rewritten with a warning. --dry-run prints each\n\
-        description, parents at their current SHAs. The work repo alone\n\
-        changes, an agent commit carrying only change ids.")]
+        `ochid:` becomes the partner's bare change id, an older 8 or 32\n\
+        character id or a SHA naming one agent commit made its 12, and\n\
+        `orepo:` above it names the agent repo by its `origin`'s canonical\n\
+        URL, or `file:///` for a local one. An older commit's `ocid:` and\n\
+        `pcid:`, which named commits by SHA, go. A trailer naming nothing that\n\
+        resolves, a `lost` or a partner gone, is left as it is, and a trailer\n\
+        `vc-x1` does not stamp is kept.\n\n\
+        --update is required, the one thing this does so far, and so is\n\
+        --range, a revset taken as written, `main..@-` a cycle's and `..@-` a\n\
+        whole history, no base being assumed. A commit in jj's immutable(),\n\
+        `main@origin` among them, is refused without --ignore-immutable, and\n\
+        a mutable one is rewritten. --dry-run prints each\n\
+        description. The work repo alone changes, an agent commit's trailers\n\
+        being change ids, which a rewrite keeps.")]
     Trailers(trailers::TrailersArgs),
 }
 
@@ -987,6 +1018,7 @@ fn main() -> ExitCode {
         Commands::Merge(args) => args.dispatch(&mut ctx),
         Commands::MoveBookmark(args) => args.dispatch(&mut ctx),
         Commands::DeleteBookmark(args) => args.dispatch(&mut ctx),
+        Commands::Open(args) => args.dispatch(&mut ctx),
         Commands::Land(args) => args.dispatch(&mut ctx),
         Commands::Trailers(args) => args.dispatch(&mut ctx),
     }

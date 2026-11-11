@@ -2,10 +2,18 @@
 //! parent, advance a bookmark, and push: capture a repo's trailing
 //! writes and publish them in one step.
 //!
-//! - Built for the bot's `.claude` bot repo, whose working copy
-//!   accumulates session data continuously (the session tail). Also
-//!   useful on the work repo as a deliberate amend-and-push (a
-//!   published-history rewrite, so the push is a forced update).
+//! - Built for the agent repo, whose working copy accumulates session
+//!   data continuously (the session tail): after a session it folds
+//!   the tail into the last agent commit and publishes it, so both
+//!   repos are clean. The change id of the commit folded into is kept,
+//!   so the `ochid:` naming it still resolves.
+//! - Asks before a push that would be forced, its target already on
+//!   the bookmark's remote or the remote not below it, before changing
+//!   anything, so a published commit is rewritten only by choice. The
+//!   `--yes` flag answers in advance, a configured `squash-push.yes`
+//!   never does, and without a tty and the flag it is an error. As
+//!   push's or land's stage the caller has answered for it
+//!   ([`ForcedPush`]).
 //! - Runs synchronously: preflight validations, then squash +
 //!   bookmark-set + push. A failure is a visible non-zero exit
 //!   (the retired 0.69.0-2 predecessor delegated to a detached
@@ -24,10 +32,9 @@
 //!   since a boolean flag cannot turn a configured true back off.
 //!   With the prompt on, a non-tty stdin is an error rather than a
 //!   hang, and a declined prompt is an error too.
-//! - Reports an at-rest publish mismatch (BOOKMARK not matching
-//!   `BOOKMARK@origin`, an earlier publish was lost) and proceeds:
-//!   publishing is the command's job, so healing is not
-//!   auto-fixing.
+//! - Reports where the bookmark stands against `BOOKMARK@origin`,
+//!   a bookmark ahead of it being the common case, a Land made locally,
+//!   and a forced push being warned of.
 //! - Says nothing and asks nothing as push's `squash-push-bot`
 //!   stage, which `at_rest` marks. Every line above is addressed to
 //!   a person, and mid-push there is neither a person to read them
@@ -39,6 +46,7 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use log::{debug, info, warn};
 
+use crate::common::ForcedPush;
 use crate::context::Context;
 use crate::desc_helpers::extract_ochids;
 use crate::jj;
@@ -53,8 +61,9 @@ use crate::subcommand::SubcommandRunner;
 /// scoped repo.
 ///
 /// Captures a repo's trailing working-copy writes into the last
-/// commit and publishes it: rewriting an already-pushed commit is
-/// a forced update. `-s` is required: `squash-push -s a` is the
+/// commit and publishes it. A push that would be forced, an
+/// already-pushed commit rewritten, asks first, and `--yes` answers.
+/// `-s` is required: `squash-push -s a` is the
 /// agent repo's session tail folded and pushed, `-s w` or `-s b`
 /// the fold-and-publish that asks nothing, and `-s p` a plain repo.
 #[derive(Args, Debug)]
@@ -89,7 +98,8 @@ pub struct SquashPushArgs {
     #[command(flatten)]
     pub squash: SquashOption,
 
-    /// Act without asking, once the precheck has found work
+    /// Act without asking, once the precheck has found work, a forced
+    /// push included
     #[arg(short = 'y', long = "yes", conflicts_with = "ask")]
     pub yes: bool,
 
@@ -137,6 +147,10 @@ pub struct SquashPushParams {
     /// Print what the precheck found and the steps it would take,
     /// and change nothing.
     pub dry_run: bool,
+    /// Who answers a forced push: `Yes` from the `--yes` flag itself,
+    /// never the config key, else `Ask`. Push's stage passes its own
+    /// answer, and land's `Refuse`.
+    pub forced: ForcedPush,
 }
 
 /// The `yes` choice: the flags, then the config key, then the
@@ -201,6 +215,11 @@ fn params_for(a: &SquashPushArgs, repo: PathBuf) -> Result<SquashPushParams, Str
             at_rest: true,
             yes,
             dry_run: a.dry_run.value,
+            forced: if a.yes {
+                ForcedPush::Yes
+            } else {
+                ForcedPush::Ask
+            },
         })
     }
 }
@@ -295,6 +314,28 @@ fn preflight(params: &SquashPushParams) -> Result<(), Box<dyn std::error::Error>
     }
 
     Ok(())
+}
+
+/// Why the push would be forced, `None` when it is a fast-forward of
+/// `<bookmark>@origin`, or the bookmark has no remote yet: a fold into a
+/// target already published, or a target the remote is not below.
+fn forced_push(
+    repo: &Path,
+    sq: &SquashSpec,
+    bookmark: &str,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let remote = format!("{bookmark}@origin");
+    if !jj::rev_exists(repo, &remote)? {
+        return Ok(None);
+    }
+    let target = &sq.target;
+    let folds = !jj::is_empty(repo, &sq.source)?;
+    if folds && jj::matches(repo, &format!("({target}) & ::{remote}"))? {
+        return Ok(Some(format!(
+            "the squash target '{target}' is already on {remote}"
+        )));
+    }
+    crate::common::forced_bookmark_push(repo, bookmark, target)
 }
 
 /// Return the `ochid:` trailer values present in `source_desc` but
@@ -511,7 +552,7 @@ fn rev_is_empty_undescribed(repo: &Path, rev: &str) -> Result<bool, Box<dyn std:
 /// - The after-check prints the state the run left and never fails,
 ///   so the exit code is the push's ([`RunState`]).
 /// - As push's stage (`at_rest` false) the decision stands and every
-///   line and the prompt go.
+///   line goes but a forced push's warning, the caller answering it.
 pub fn squash_push(
     ctx: &mut Context,
     params: &SquashPushParams,
@@ -522,22 +563,25 @@ pub fn squash_push(
 
     preflight(params)?;
 
-    // Report an at-rest publish mismatch before touching anything
-    // (0.69.0-3): the bookmark should match its origin counterpart
-    // between runs, so a mismatch means an earlier publish was
-    // lost. Publishing is this command's job, so it proceeds: the
-    // report is the point, not a refusal. Suppressed when run as
-    // push's `squash-push-bot` stage (see `at_rest`).
-    if params.at_rest {
+    // Report where the bookmark stands against origin before touching
+    // anything. A forced push is warned of, and asked about below. A
+    // bookmark ahead of origin is the common case, a Land made locally
+    // and published after the session, so it is reported, not warned.
+    // The info lines are suppressed when run as push's
+    // `squash-push-bot` stage (see `at_rest`), the warning is not.
+    let forced = forced_push(&params.repo, sq, bookmark)?;
+    if let Some(why) = &forced {
+        warn!("squash-push: the push of '{bookmark}' is forced, since {why}");
+    } else if params.at_rest {
         match crate::common::bookmark_publish_state(&params.repo, bookmark)? {
             crate::common::PublishState::InSync => {}
             crate::common::PublishState::NeverPushed => info!(
                 "squash-push: '{bookmark}' has never been pushed to origin: this run will \
                  publish it"
             ),
-            crate::common::PublishState::Mismatch { local, remote } => warn!(
-                "squash-push: '{bookmark}' ({}) does not match '{bookmark}@origin' ({}): an \
-                 earlier publish was likely lost; this run will publish it",
+            crate::common::PublishState::Mismatch { local, remote } => info!(
+                "squash-push: '{bookmark}' is at {} here and {} on origin, below the squash \
+                 target: this run will publish it",
                 &local[..local.len().min(12)],
                 &remote[..remote.len().min(12)]
             ),
@@ -575,14 +619,31 @@ pub fn squash_push(
             "squash-push: [dry-run] would set bookmark '{bookmark}' to {}",
             sq.target
         );
-        info!("squash-push: [dry-run] would push '{bookmark}' to origin");
+        if forced.is_some() {
+            info!(
+                "squash-push: [dry-run] would force-push '{bookmark}' to origin, asking first \
+                 unless --yes"
+            );
+        } else {
+            info!("squash-push: [dry-run] would push '{bookmark}' to origin");
+        }
         return Ok(());
     }
 
     // The prompt sits between the precheck and the work, so it is
     // asked only when there is something to decline, and it names
-    // what the precheck found.
-    confirm(params, &before, &label, ctx.stdin_is_tty)?;
+    // what the precheck found. A forced push has its own, which a
+    // configured `squash-push.yes` does not skip.
+    match &forced {
+        Some(why) => crate::common::confirm_forced_push(
+            "squash-push",
+            bookmark,
+            why,
+            params.forced,
+            ctx.stdin_is_tty,
+        )?,
+        None => confirm(params, &before, &label, ctx.stdin_is_tty)?,
+    }
 
     // Empty-source handling: nothing to squash, but the precheck
     // found work, so the push still runs.
@@ -605,7 +666,14 @@ pub fn squash_push(
         .bookmark_set(bookmark, &sq.target)?;
 
     info!("squash-push: pushing '{bookmark}' to origin...");
-    ctx.session(&params.repo)?.git_push_bookmark(bookmark)?;
+    ctx.session(&params.repo)?.git_push_bookmark(
+        bookmark,
+        if forced.is_some() {
+            jj::Force::Allow
+        } else {
+            jj::Force::Refuse
+        },
+    )?;
 
     info!("squash-push: done");
 
@@ -876,6 +944,7 @@ mod tests {
             at_rest: true,
             yes: true,
             dry_run: false,
+            forced: ForcedPush::Ask,
         };
         squash_push(&mut crate::test_helpers::test_ctx(), &params)
             .expect("squash-push should publish the lost commit");
@@ -904,6 +973,7 @@ mod tests {
             at_rest: true,
             yes: true,
             dry_run: false,
+            forced: ForcedPush::Ask,
         };
         let state = read_state(&params).expect("read state");
         assert!(state.nothing_to_do(), "{state:?}");
@@ -940,6 +1010,7 @@ mod tests {
             at_rest: true,
             yes: true,
             dry_run: false,
+            forced: ForcedPush::Ask,
         };
         let state = read_state(&params).expect("read state");
         // `@` is empty and undescribed and `main` matches origin, so
@@ -973,6 +1044,7 @@ mod tests {
         use crate::test_helpers::{Fixture, jj_ok};
 
         let fx = Fixture::new("sp-dirty-wc");
+        land_locally(&fx);
         std::fs::write(fx.bot.join("tail.txt"), "session tail\n").expect("write");
 
         let params = SquashPushParams {
@@ -982,9 +1054,13 @@ mod tests {
             at_rest: true,
             yes: true,
             dry_run: false,
+            forced: ForcedPush::Ask,
         };
         let before = read_state(&params).expect("read state");
-        assert_eq!(before.line("bot"), "bot: dirty: @ has changes");
+        assert_eq!(
+            before.line("bot"),
+            "bot: dirty: @ has changes, bookmark behind the squash target"
+        );
 
         squash_push(&mut crate::test_helpers::test_ctx(), &params).expect("squash and push");
         let cid = |rev: &str| {
@@ -995,6 +1071,62 @@ mod tests {
         };
         assert_eq!(cid("main"), cid("main@origin"));
         assert!(read_state(&params).expect("after").nothing_to_do());
+    }
+
+    /// An agent commit made and not yet pushed, as a local Land leaves
+    /// one: the tail folds into it and the push is a fast-forward.
+    fn land_locally(fx: &crate::test_helpers::Fixture) {
+        std::fs::write(fx.bot.join("land.txt"), "the Land's journal\n").expect("write");
+        crate::test_helpers::jj_ok(&fx.bot, &["commit", "-m", "chore: a Land's agent commit"]);
+    }
+
+    /// A fold into a commit already on the remote would force the push,
+    /// so it asks first, and with no tty to ask it is refused with
+    /// nothing changed, a configured `yes` not answering. A stage told
+    /// to refuse refuses, and the `--yes` flag does it.
+    #[test]
+    fn a_forced_push_asks_and_yes_answers() {
+        use crate::test_helpers::{Fixture, cid, jj_ok};
+
+        let fx = Fixture::new("sp-forced");
+        std::fs::write(fx.bot.join("tail.txt"), "session tail\n").expect("write");
+        let main_before = cid(&fx.bot, "main");
+        let mut params = SquashPushParams {
+            repo: fx.bot.clone(),
+            squash: squash_at(),
+            bookmark: "main".to_string(),
+            at_rest: true,
+            yes: true,
+            dry_run: false,
+            forced: ForcedPush::Ask,
+        };
+        let err = squash_push(&mut crate::test_helpers::test_ctx(), &params)
+            .expect_err("refused")
+            .to_string();
+        assert!(
+            err.contains("would be forced") && err.contains("--yes"),
+            "{err}"
+        );
+        assert_eq!(cid(&fx.bot, "main"), main_before, "main did not move");
+        assert_eq!(
+            jj_ok(&fx.bot, &["log", "-r", "@", "--no-graph", "-T", "empty"]),
+            "false",
+            "the tail is still in @"
+        );
+
+        params.at_rest = false;
+        params.forced = ForcedPush::Refuse;
+        let err = squash_push(&mut crate::test_helpers::test_ctx(), &params)
+            .expect_err("a stage told to refuse refuses")
+            .to_string();
+        assert!(err.contains("would be forced"), "{err}");
+        assert_eq!(cid(&fx.bot, "main"), main_before, "main did not move");
+
+        params.at_rest = true;
+        params.forced = ForcedPush::Yes;
+        squash_push(&mut crate::test_helpers::test_ctx(), &params).expect("forced");
+        assert_ne!(cid(&fx.bot, "main"), main_before, "main was rewritten");
+        assert_eq!(cid(&fx.bot, "main"), cid(&fx.bot, "main@origin"));
     }
 
     /// Flag, then key, then default, in that order, and `-y` with
@@ -1065,6 +1197,7 @@ mod tests {
         use crate::test_helpers::{Fixture, cid};
 
         let fx = Fixture::new("sp-dry-run");
+        land_locally(&fx);
         std::fs::write(fx.bot.join("tail.txt"), "session tail\n").expect("write");
         let main_before = cid(&fx.bot, "main");
         let mut args = parse(&["vc-x1", "squash-push", "-s", "a", "--dry-run"]);
@@ -1087,6 +1220,7 @@ mod tests {
         use crate::test_helpers::Fixture;
 
         let fx = Fixture::new("sp-ask-no-tty");
+        land_locally(&fx);
         std::fs::write(fx.bot.join("tail.txt"), "session tail\n").expect("write");
         let params = SquashPushParams {
             repo: fx.bot.clone(),
@@ -1095,6 +1229,7 @@ mod tests {
             at_rest: true,
             yes: false,
             dry_run: false,
+            forced: ForcedPush::Ask,
         };
         let state = read_state(&params).expect("read state");
         // The test states no tty rather than inheriting `cargo
@@ -1127,6 +1262,7 @@ mod tests {
             at_rest: true,
             yes: false,
             dry_run: false,
+            forced: ForcedPush::Ask,
         };
         squash_push(&mut crate::test_helpers::test_ctx(), &params)
             .expect("nothing to decline, so nothing is asked");
@@ -1148,6 +1284,7 @@ mod tests {
             at_rest: false,
             yes: false,
             dry_run: false,
+            forced: ForcedPush::Ask,
         };
         let state = read_state(&stage).expect("read state");
         confirm(&stage, &state, "bot", false).expect("push's stage does not ask");
@@ -1182,6 +1319,7 @@ mod tests {
             at_rest: false,
             yes: true,
             dry_run: false,
+            forced: ForcedPush::Ask,
         };
         assert!(read_state(&stage).expect("state").nothing_to_do());
 

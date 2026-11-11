@@ -14,13 +14,16 @@
 //!   -s w`), so the journal already is the partner and push commits
 //!   it; or changed since the commit, which push restamps. Only the
 //!   first has anything to fold.
-//! - A published side is a draft or the trunk's. A draft, published
-//!   on a topic bookmark only, is rewritten with a warning, the next
-//!   push moving its bookmark. A commit on the trunk's remote is
-//!   history others have, refused without `--yes`. A published
-//!   partner with only the journal to fold is left for push, whose
-//!   agent half folds it. A partner a work commit's `ocid:` links, or a
-//!   Land made, is left as it is, since a fold changes its SHA.
+//! - A published side is a draft or history. A draft, a commit jj
+//!   counts mutable, a cycle's bookmark pushed for a backup among them,
+//!   is rewritten with a warning, the next push moving its bookmark.
+//!   History is jj's `immutable()`, `main@origin`, tags, and what the
+//!   user's `immutable_heads()` adds, refused without
+//!   `--ignore-immutable`, as jj refuses it. A published
+//!   partner with only the journal to fold is left as it is, the
+//!   journal riding the next agent commit, since a fold would rewrite
+//!   it. An unpublished partner, a Land's included, takes the fold, the
+//!   change id the work commit's `ochid:` names surviving it.
 //! - `--title` with `--body` rewrites the descriptions, keeping each
 //!   trailer, the one sanctioned re-describe of a trailer-carrying
 //!   commit: by this command, warned or refused as a fold is.
@@ -33,7 +36,7 @@ use clap::Args;
 use log::{debug, info, warn};
 
 use crate::context::Context;
-use crate::desc_helpers::{read_body, with_trailer, with_trailers};
+use crate::desc_helpers::{read_body, repo_url_for, with_trailer, with_trailers};
 use crate::jj;
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::scope::{
@@ -75,10 +78,10 @@ pub struct SquashArgs {
     #[arg(long, value_name = "STR|@PATH", requires = "title")]
     pub body: Option<String>,
 
-    /// Rewrite a commit already on the trunk's remote, `main@origin`,
-    /// which is refused without it
+    /// Rewrite a commit in jj's `immutable()`, `main@origin` among
+    /// them, which is refused without it, as `jj` refuses it
     #[arg(long)]
-    pub yes: bool,
+    pub ignore_immutable: bool,
 
     /// Print what it would fold and re-describe, and change nothing
     #[command(flatten)]
@@ -94,8 +97,8 @@ pub struct SquashParams {
     pub text: Option<String>,
     /// Print the steps and change nothing.
     pub dry_run: bool,
-    /// Rewrite a commit on the trunk's remote.
-    pub yes: bool,
+    /// Rewrite a commit in jj's `immutable()`.
+    pub ignore_immutable: bool,
 }
 
 /// What `-s` resolved to.
@@ -146,7 +149,7 @@ impl TryFrom<&SquashArgs> for SquashParams {
             target,
             text,
             dry_run: a.dry_run.value,
-            yes: a.yes,
+            ignore_immutable: a.ignore_immutable,
         })
     }
 }
@@ -174,41 +177,40 @@ pub fn squash(ctx: &mut Context, params: &SquashParams) -> Result<(), Box<dyn st
     }
 }
 
-/// The trunk, whose published commits are history others have.
-const TRUNK: &str = "main";
-
 /// A published `@-` a run rewrites: the remote bookmarks at or above
-/// it, which the next push moves, and whether it is on the trunk's.
+/// it, which the next push moves, and whether it is in jj's
+/// `immutable()`, history others have.
 #[derive(Debug, PartialEq, Eq)]
 struct Published {
     refs: Vec<(String, String)>,
-    trunk: bool,
+    immutable: bool,
 }
 
-/// Check rewriting `@-` in `repo`: an unpublished one goes ahead, a
-/// draft, published on a topic bookmark only, goes ahead, and one on
-/// the trunk's remote is refused without `yes`. What is published is
-/// returned, for the warning made once the rewrite is.
+/// Check rewriting `@-` in `repo`: one in jj's `immutable()` is
+/// refused without `ignore_immutable`, as `jj` refuses it, whatever
+/// else holds it, and any other goes ahead, unpublished or a draft
+/// published on a mutable bookmark. What is published is returned, for
+/// the warning made once the rewrite is.
 fn check_rewrite(
     repo: &Path,
     label: &str,
-    yes: bool,
+    ignore_immutable: bool,
 ) -> Result<Option<Published>, Box<dyn std::error::Error>> {
-    if !is_published(repo, "@-")? {
-        return Ok(None);
-    }
-    let trunk = jj::matches(repo, &format!("@- & ::remote_bookmarks(exact:\"{TRUNK}\")"))?;
-    if trunk && !yes {
+    let immutable = jj::is_immutable(repo, "@-")?;
+    if immutable && !ignore_immutable {
         return Err(format!(
-            "squash: the {label} @- is on {TRUNK}'s remote, so folding into it or re-describing \
-             it rewrites history others have. Make the change the next rung, or pass --yes to \
-             rewrite it"
+            "squash: the {label} @- is immutable, in jj's `immutable()`, so folding into it or \
+             re-describing it rewrites history others have. Make the change the next rung, or \
+             pass --ignore-immutable to rewrite it"
         )
         .into());
     }
+    if !is_published(repo, "@-")? {
+        return Ok(None);
+    }
     Ok(Some(Published {
         refs: jj::remote_bookmarks_at(repo, "@-::")?,
-        trunk,
+        immutable,
     }))
 }
 
@@ -249,16 +251,16 @@ fn rewritten(
     } else {
         "@-"
     };
-    let trunk = if published.trunk {
-        format!(" on {TRUNK}'s remote,")
+    let immutable = if published.immutable {
+        " immutable,"
     } else {
-        String::new()
+        ""
     };
     let mut lines = Vec::new();
     for (name, remote) in &published.refs {
         if dry_run {
             lines.push(format!(
-                "squash: [dry-run] the content of {at}, {chid},{trunk} would change and not be \
+                "squash: [dry-run] the content of {at}, {chid},{immutable} would change and not be \
                  pushed, so pushing {name} would move {name}@{remote}"
             ));
             continue;
@@ -270,12 +272,12 @@ fn rewritten(
         let to = short(&jj::cid_of(repo, &format!("bookmarks(exact:\"{name}\")"))?);
         lines.push(if to.is_empty() {
             format!(
-                "squash: the content of {at}, {chid},{trunk} changed, and {name}@{remote}, at \
+                "squash: the content of {at}, {chid},{immutable} changed, and {name}@{remote}, at \
                  {from}, has no local bookmark to push"
             )
         } else {
             format!(
-                "squash: the content of {at}, {chid},{trunk} changed and is not pushed, so \
+                "squash: the content of {at}, {chid},{immutable} changed and is not pushed, so \
                  pushing {name} moves {name}@{remote} from {from} to {to}"
             )
         });
@@ -296,7 +298,7 @@ enum AgentStep {
 
 /// Fold the scoped sides of the pair, refusing before any mutation
 /// a work commit that is not a pair's, a conflicted side, a side on
-/// the trunk's remote without `--yes`, and a run with nothing to do.
+/// jj's `immutable()` without `--ignore-immutable`, and a run with nothing to do.
 fn squash_pair(
     ctx: &mut Context,
     pair: &Pair,
@@ -316,11 +318,11 @@ fn squash_pair(
     if sides.has_work() {
         refuse_conflicts(&pair.work, "squash", "work")?;
         if work_fold || text.is_some() {
-            work_published = check_rewrite(&pair.work, "work", params.yes)?;
+            work_published = check_rewrite(&pair.work, "work", params.ignore_immutable)?;
         }
     }
     let (agent, agent_published) = if sides.has_bot() {
-        agent_step(pair, &work, text, params.yes)?
+        agent_step(pair, &work, text, params.ignore_immutable)?
     } else {
         (AgentStep::Leave, None)
     };
@@ -372,8 +374,10 @@ fn squash_pair(
             && agent == AgentStep::Fold
         {
             info!("squash agent: re-describe @-, its trailer kept");
-            ctx.session(&pair.agent)?
-                .describe("@-", &with_trailer(text, &work.chid))?;
+            ctx.session(&pair.agent)?.describe(
+                "@-",
+                &with_trailer(text, repo_url_for(&pair.work)?, &work.chid),
+            )?;
         }
         Ok(())
     })();
@@ -407,35 +411,25 @@ fn say_all(
 
 /// Decide the agent side from where the partner stands, refusing a
 /// conflicted agent repo, and a re-describe of a partner on the
-/// trunk's remote without `yes`. A published partner with only the
+/// jj's `immutable()` without `ignore_immutable`. A published partner with only the
 /// journal to fold is left for push, whose agent half folds it.
 fn agent_step(
     pair: &Pair,
     work: &WorkCommit,
     text: Option<&str>,
-    yes: bool,
+    ignore_immutable: bool,
 ) -> Result<(AgentStep, Option<Published>), Box<dyn std::error::Error>> {
     refuse_conflicts(&pair.agent, "squash", "agent")?;
     Ok(match partner(pair, work)? {
-        Partner::Committed(_) => {
-            if text.is_none() && is_published(&pair.agent, "@-")? {
-                info!(
-                    "squash agent: the partner at @- is published, so the journal is push's to \
-                     fold"
-                );
-                return Ok((AgentStep::Leave, None));
-            }
-            let published = if text.is_some() || !jj::is_empty(&pair.agent, "@")? {
-                check_rewrite(&pair.agent, "agent", yes)?
-            } else {
-                None
-            };
-            (AgentStep::Fold, published)
-        }
-        Partner::Landed(partner) => {
+        Partner::Committed(_) => (AgentStep::Fold, None),
+        Partner::Published(_) if text.is_some() => (
+            AgentStep::Fold,
+            check_rewrite(&pair.agent, "agent", ignore_immutable)?,
+        ),
+        Partner::Published(partner) => {
             info!(
-                "squash agent: the partner at @- {partner} is a Land's, so the journal stays in \
-                 @ for the next cycle"
+                "squash agent: the partner at @- {partner} is published, so the journal stays in \
+                 @ for the next agent commit"
             );
             (AgentStep::Leave, None)
         }
@@ -470,7 +464,7 @@ fn squash_por(
         info!("squash: nothing to fold and no description to write");
         return Ok(());
     }
-    let published = check_rewrite(repo, "plain", params.yes)?;
+    let published = check_rewrite(repo, "plain", params.ignore_immutable)?;
     if dry_run {
         info!(
             "squash: [dry-run] would{} {} in {}",
@@ -561,7 +555,7 @@ mod tests {
             opening: None,
             advance: crate::commit::Advance::Line,
             push: false,
-            land: None,
+            land: false,
             skip: None,
             dry_run: false,
             rev: None,
@@ -575,7 +569,12 @@ mod tests {
         run_with(fx, sides, text, false)
     }
 
-    fn run_with(fx: &Fixture, sides: Scope, text: Option<&str>, yes: bool) -> Result<(), String> {
+    fn run_with(
+        fx: &Fixture,
+        sides: Scope,
+        text: Option<&str>,
+        ignore_immutable: bool,
+    ) -> Result<(), String> {
         let params = SquashParams {
             target: Target::Pair {
                 pair: pair(fx),
@@ -583,7 +582,7 @@ mod tests {
             },
             text: text.map(str::to_string),
             dry_run: false,
-            yes,
+            ignore_immutable,
         };
         squash(&mut test_ctx(), &params).map_err(|e| e.to_string())
     }
@@ -621,12 +620,33 @@ mod tests {
         assert!(is_empty(&fx.work, "@") && is_empty(&fx.bot, "@"));
     }
 
-    /// A linked pair: the fix folds into the work commit and the journal
-    /// stays out of the agent commit, whose SHA the `ocid:` names.
+    /// A linked pair not yet published: the fix folds into the work
+    /// commit and the journal into the agent commit, its change id, the
+    /// one the work commit's `ochid:` names, kept.
     #[test]
-    fn a_linked_partner_keeps_its_sha() {
+    fn a_linked_partner_takes_the_journal() {
         let fx = Fixture::new("squash-linked");
         make_pair(&fx, true);
+        let agent_id = chid(&fx.bot, "@-");
+        fs::write(fx.work.join("fix.txt"), "a review fix\n").expect("write");
+        fs::write(fx.bot.join("tail.jsonl"), "{\"line\":2}\n").expect("write");
+
+        run(&fx, both(), None).expect("squash");
+
+        assert!(files(&fx.work, "@-").contains("fix.txt"));
+        assert_eq!(chid(&fx.bot, "@-"), agent_id);
+        assert!(files(&fx.bot, "@-").contains("tail.jsonl"));
+        assert!(is_empty(&fx.bot, "@"), "the journal folded");
+    }
+
+    /// A published partner keeps its SHA: the journal stays in `@` for the
+    /// next agent commit, since a fold would rewrite a published commit.
+    #[test]
+    fn a_published_partner_keeps_its_sha() {
+        let fx = Fixture::new("squash-published");
+        make_pair(&fx, true);
+        jj_ok(&fx.bot, &["bookmark", "set", "main", "-r", "@-"]);
+        jj_ok(&fx.bot, &["git", "push", "--bookmark", "main"]);
         let sha = jj::cid_of(&fx.bot, "@-").expect("cid");
         fs::write(fx.work.join("fix.txt"), "a review fix\n").expect("write");
         fs::write(fx.bot.join("tail.jsonl"), "{\"line\":2}\n").expect("write");
@@ -727,7 +747,7 @@ mod tests {
             published,
             Published {
                 refs: vec![("topic".to_string(), "origin".to_string())],
-                trunk: false,
+                immutable: false,
             }
         );
         let from = short(&jj_ok(
@@ -757,11 +777,12 @@ mod tests {
         assert!(is_empty(&fx.work, "@"));
     }
 
-    /// A work commit on the trunk's remote is refused before anything
-    /// moves, and folded into with `--yes`. A work commit with no
-    /// trailer is not a pair's.
+    /// A work commit in jj's `immutable()`, on `main@origin`, is
+    /// refused before anything moves, and folded into with
+    /// `--ignore-immutable`. A work commit with no trailer is not a
+    /// pair's.
     #[test]
-    fn the_trunk_takes_yes_and_an_unpaired_commit_is_refused() {
+    fn immutable_takes_the_override_and_an_unpaired_commit_is_refused() {
         let fx = Fixture::new("squash-published");
         make_pair(&fx, true);
         jj_ok(&fx.work, &["bookmark", "set", "main", "-r", "@-"]);
@@ -769,13 +790,13 @@ mod tests {
         fs::write(fx.work.join("fix.txt"), "too late\n").expect("write");
         let err = run(&fx, both(), None).unwrap_err();
         assert!(
-            err.contains("main's remote") && err.contains("--yes"),
+            err.contains("is immutable") && err.contains("--ignore-immutable"),
             "{err}"
         );
         assert!(!is_empty(&fx.work, "@"), "nothing folded");
-        let published = check_rewrite(&fx.work, "work", true).expect("--yes goes ahead");
-        assert!(published.is_some_and(|p| p.trunk), "on the trunk");
-        run_with(&fx, both(), None, true).expect("squash --yes");
+        let published = check_rewrite(&fx.work, "work", true).expect("the override goes ahead");
+        assert!(published.is_some_and(|p| p.immutable), "immutable");
+        run_with(&fx, both(), None, true).expect("squash --ignore-immutable");
         assert!(files(&fx.work, "@-").contains("fix.txt"));
 
         let fx = Fixture::new("squash-unpaired");
@@ -824,7 +845,7 @@ mod tests {
             },
             text: Some("feat: x\n\nY.".to_string()),
             dry_run: true,
-            yes: false,
+            ignore_immutable: false,
         };
         squash(&mut test_ctx(), &params).expect("dry run");
         assert!(!is_empty(&fx.work, "@"), "the fix is still in @");
@@ -843,7 +864,7 @@ mod tests {
             target: Target::Por(fx.work.clone()),
             text: Some("feat: plainer\n\nA body.".to_string()),
             dry_run: false,
-            yes: false,
+            ignore_immutable: false,
         };
         squash(&mut test_ctx(), &params).expect("squash -s p");
         assert_eq!(chid(&fx.work, "@-"), id);

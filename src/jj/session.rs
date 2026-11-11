@@ -359,6 +359,18 @@ fn is_colocated(workspace: &Workspace, repo: &Arc<ReadonlyRepo>) -> bool {
     git_workdir.canonicalize().ok().as_deref() == dot_git.parent()
 }
 
+/// Whether a bookmark push may be forced, a published commit rewritten.
+/// The question is asked before the push, by the caller, and this is
+/// its answer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Force {
+    /// A push that would be forced is refused, a fast-forward pushed.
+    Refuse,
+    /// A push that would be forced is pushed, the caller's user having
+    /// said yes. A fast-forward is still a fast-forward.
+    Allow,
+}
+
 impl RepoSession {
     /// Create a colocated jj+git repo at `path` and open it as a
     /// session (`jj git init --colocate` on a fresh directory,
@@ -1092,13 +1104,20 @@ impl RepoSession {
     }
 
     /// Snapshot, then push local bookmark `name` to `origin`
-    /// (`jj git push --bookmark <name>`), force-with-lease against
-    /// the last-seen remote position.
+    /// (`jj git push --bookmark <name>`). With [`Force::Refuse`] a push
+    /// that would be forced, `name@origin` not an ancestor of the local
+    /// `name`, is refused.
+    ///
+    /// jj-lib forces every push, with a lease against the last-seen
+    /// remote position, so without this check a bookmark moved sideways
+    /// or back rewrites what origin published. [`Force::Allow`] is for a
+    /// caller that asked and was answered yes, and the lease holds
+    /// either way.
     ///
     /// Deviation from the CLI: no conflicted / no-description /
     /// private preflights on the pushed commits. The push callers
     /// validate the commit they publish before calling.
-    pub fn git_push_bookmark(&mut self, name: &str) -> Result<()> {
+    pub fn git_push_bookmark(&mut self, name: &str, force: Force) -> Result<()> {
         use jj_lib::git::{GitPushOptions, GitPushRefTargets, GitSettings};
         use jj_lib::merge::Diff;
         use jj_lib::ref_name::{RefNameBuf, RemoteName};
@@ -1120,6 +1139,20 @@ impl RepoSession {
         let before = remote_ref.target.as_normal().cloned();
         if before.as_ref() == Some(&local) {
             return Ok(()); // Already in sync, matching `jj git push` "Nothing changed".
+        }
+        if force == Force::Refuse
+            && let Some(published) = &before
+            && !self
+                .repo
+                .index()
+                .is_ancestor(published, &local)
+                .block_on()?
+        {
+            return Err(format!(
+                "the push of '{name}' would be forced, since {name}@origin is not an ancestor \
+                 of the local '{name}', so it is refused"
+            )
+            .into());
         }
         let ref_updates = GitPushRefTargets {
             bookmarks: vec![(

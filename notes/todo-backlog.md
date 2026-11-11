@@ -7,6 +7,31 @@ Same shape as `TODO.md > ## Todo`, [Todo format](../agent-data/notes.md#todo-for
 
 ## Todo
 
+### gen-exmpl-1-3.sh is stale
+
+(wink + agent, 2026-11-09) `support/gen-exmpl-1-3.sh` regenerates README's "Testing the
+ochid-trailer guard" transcripts, but it calls `vc-x1 init` with a positional target and `--repo
+local=`, forms `init` now refuses, and its example 2 folds into the fixture's published agent
+`main`, which `squash-push` refuses without `--force` since **feat: orepo replaces ocid and pcid**.
+The README notes the transcripts predate the refusal. Bring the script to today's `init` and give
+example 2 an unpublished commit to fold into, then regenerate the transcripts.
+
+### trailers rewrites a range in one transaction
+
+(wink + agent, 2026-11-06) `trailers --update` describes one commit at a time, each describe
+rebasing every descendant, so a whole history is quadratic: 35m41s for vc-x1's 683 commits in the
+rehearsal of **chore: complete vc-x1, ready for vc-x2**. One jj transaction that rewrites the range
+oldest first, each commit's new parents the rewritten ones, is linear. It was filed rather than
+built, the backfill being run once.
+
+### lookup's written row names an unrelated commit
+
+(wink + agent, 2026-11-06) Some lookups print a `written` row and its `partner` naming a commit
+older than the file, `src/lookup.rs:50` naming **Migrate CLI parsing to clap derive (0.8.0)** and
+`src/trailers.rs:105` **refactor: symlink → Context + SymlinkParams (0.48.0-1)**, while the
+`commit` row is right. Seen in the real repo and the rehearsal's fresh clone alike, so the rewrite
+of the trailers did not cause it.
+
 ### vc-x1 takes a lock of its own for a run that writes
 
 (wink + agent, 2026-10-11) Two `vc-x1` runs in one workspace can overlap, a user's two terminals

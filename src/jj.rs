@@ -65,6 +65,8 @@ use crate::common;
 pub(crate) mod run;
 pub(crate) mod session;
 
+pub use session::Force;
+
 /// Crate-standard boxed-error result, aliased locally for brevity.
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -98,9 +100,10 @@ pub fn bookmark_set(repo: &Path, name: &str, rev: &str) -> Result<()> {
 }
 
 /// One-shot `RepoSession::git_push_bookmark`: push local bookmark
-/// `name` to `origin` (`jj git push --bookmark <name>`).
-pub fn git_push_bookmark(repo: &Path, name: &str) -> Result<()> {
-    session::RepoSession::open(repo)?.git_push_bookmark(name)
+/// `name` to `origin` (`jj git push --bookmark <name>`), a push that
+/// would be forced refused unless `force` allows it.
+pub fn git_push_bookmark(repo: &Path, name: &str, force: Force) -> Result<()> {
+    session::RepoSession::open(repo)?.git_push_bookmark(name, force)
 }
 
 /// One-shot `RepoSession::new_on`: fresh empty `@` on top of `rev`
@@ -341,6 +344,19 @@ pub fn chid_of(repo: &Path, rev: &str) -> Result<String> {
         .iter()
         .map(common::format_chid)
         .collect())
+}
+
+/// The change id of the one commit `id` names in `repo`, `None` when it
+/// names none, an ambiguous prefix, or several commits, a divergent change.
+pub fn one_chid(repo: &Path, id: &str) -> Result<Option<String>> {
+    match commits_of(repo, id) {
+        Ok(commits) => Ok(match commits.as_slice() {
+            [commit] => Some(common::format_chid(commit)),
+            _ => None,
+        }),
+        Err(e) if e.downcast_ref::<RevsetResolutionError>().is_some() => Ok(None),
+        Err(e) => Err(e),
+    }
 }
 
 /// `rev`'s tree ids as text, to compare a tree across a rewrite.

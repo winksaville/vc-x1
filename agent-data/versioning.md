@@ -107,11 +107,17 @@ clobbers the binary consumers are running. The package keeps its plain name thro
 
 - **Name**: the `[profile.<name>]` table's `suffix` in `.vc-config.md`, `-dev` for the dev profile,
   so `vc-x1 install --profile dev` installs `<name>-dev` beside `<name>`.
-- **Which build runs**: when the dev build's version is newer than the plain name's, the session asks
-  the user whether to run it, and otherwise ignores it and runs the plain name, since a dev build no
-  newer is one an earlier cycle left behind. A project whose artifact is not a tool it runs skips
-  this.
-- **Promotion**: plain `<name>` updates only at Land, by `vc-x1 install`, from what is on the trunk.
+- **When**: before a rung's review, from the working copy, so the review runs the code under review,
+  and again after its commit, so the next rung runs the committed tree ([The per-rung
+  flow](../AGENTS.md#the-per-rung-flow)).
+- **Which build runs**: for this project's artifact or another project's tool the session runs,
+  `vc-x1` the common one, acquaint reports `<tool> -V` and `<tool>-dev -V`. A dev build newer than
+  the plain name is the user's to choose, and the choice holds for the session, since the
+  agent-files may describe what only the dev build does. Otherwise the session runs the plain name,
+  since a dev build no newer is one an earlier cycle left behind
+  ([why](rationale.md#tools-the-session-runs)).
+- **Promotion**: plain `<name>` updates only at Land, by `vc-x1 install`, from what is on the
+  target.
 - **Which binary**: `vc-x1 install` with no `--profile` is the release build, so a dev binary
   installs itself only with `--profile dev`.
 

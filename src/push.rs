@@ -4,21 +4,26 @@
 //!
 //! `vc-x1 commit` makes the pair, the work commit and the agent
 //! commit, each naming the other, or the work half alone with its
-//! trailer naming the agent `@`. Each trailer is fixed before push
-//! runs, so the two halves are independent, and `push -s b` is
-//! `push -s a` then `push -s w`, the order the pair is completed in:
+//! trailer naming the agent `@`. Each side names the other by change
+//! id, which no push moves, so the two halves are independent. `push
+//! -s b` makes every local step first, then publishes the work repo
+//! and then the agent repo, the order `squash-push -s b` publishes in:
 //!
 //! - the agent half completes the agent commit by the state it
-//!   finds, folding the journal into a committed partner (`commit
-//!   -s b`) unless the partner is linked by an `ocid:` or names several
-//!   commits, since a fold changes its SHA, or committing it as the partner with the work commit's
-//!   own text when the agent `@` is the change the work commit names
-//!   (`commit -s w`) or the agent repo changed since, then sets and
-//!   pushes `main`;
+//!   finds, committing the journal as the partner with the work
+//!   commit's own text when the agent `@` is the change the work
+//!   commit names (`commit -s w`) or the agent repo changed since;
 //! - the work half checks its trailer names the partner, restamping
 //!   the unpublished work commit when it does not, said out loud,
 //!   then sets and pushes the bookmark `@-` sits on, or the one
-//!   named, a new name created there.
+//!   named, a new name created there;
+//! - the agent half then publishes `main`, folding the journal into a
+//!   committed partner (`commit -s b`, or a Land's) unless the partner
+//!   is already published, since a fold would rewrite it.
+//!
+//! A push that would be forced, a published commit rewritten, is
+//! warned of and answered before anything moves, by `--yes` or a
+//! prompt, and without a tty and `--yes` it is an error.
 //!
 //! Before either: a work `@` that is not empty is refused, being a
 //! fix to fold or the next rung, the user's call, and so is a work
@@ -41,12 +46,10 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 use log::{debug, info, warn};
 
-use crate::common::prompt;
+use crate::common::{ForcedPush, prompt};
 use crate::context::Context;
-use crate::desc_helpers::{
-    OCID_PLACEHOLDER, Trailers, commit_url, repo_url_for, with_trailer, with_trailers,
-};
-use crate::jj;
+use crate::desc_helpers::{Trailers, repo_url_for, with_trailer, with_trailers};
+use crate::jj::{self, Force};
 use crate::options_flags::retired_positional::refusal;
 use crate::options_flags::scope::{
     ALL_REPO_SCOPES, REPO_SCOPE_FORMS, RepoScope, Scope, repo_scope_parser,
@@ -109,7 +112,7 @@ pub struct PushArgs {
     #[arg(long)]
     pub dry_run: bool,
 
-    /// Pass the `--step` gates without asking.
+    /// Pass the `--step` gates, and a forced push, without asking
     #[arg(short = 'y', long)]
     pub yes: bool,
 }
@@ -124,6 +127,9 @@ pub struct PushParams {
     pub step: bool,
     pub dry_run: bool,
     pub yes: bool,
+    /// Who answers a push that would be forced: `--yes`, else asked.
+    /// `commit --push` and `land --push` refuse one.
+    pub forced: ForcedPush,
 }
 
 /// What a run published, for the completion check: the work
@@ -149,6 +155,11 @@ impl From<&PushArgs> for PushParams {
             step: a.step,
             dry_run: a.dry_run,
             yes: a.yes,
+            forced: if a.yes {
+                ForcedPush::Yes
+            } else {
+                ForcedPush::Ask
+            },
         }
     }
 }
@@ -321,6 +332,7 @@ fn publish_elsewhere(
     } else {
         info!("push: {dry}publish '{name}' where it is, {short}, a commit already made");
     }
+    let force = answer_forced(ctx, repo, &name, &at, params)?;
     if params.dry_run {
         return Ok(true);
     }
@@ -329,7 +341,7 @@ fn publish_elsewhere(
     } else {
         crate::common::verify_tracking(repo, &name)?;
     }
-    ctx.session(repo)?.git_push_bookmark(&name)?;
+    ctx.session(repo)?.git_push_bookmark(&name, force)?;
     Ok(true)
 }
 
@@ -370,18 +382,51 @@ pub(crate) fn push_in(
     } else {
         None
     };
+    // A push that would be forced, a published commit rewritten, is
+    // answered here, before anything moves, and each half then pushes
+    // knowing the answer.
+    let work_force = match &bookmark {
+        Some(b) => answer_forced(ctx, &pair.work, b, WORK_COMMIT, params)?,
+        None => Force::Refuse,
+    };
+    let agent_force = if sides.has_bot() {
+        let target = agent_target(pair, &work)?;
+        answer_forced(ctx, &pair.agent, BOT_BOOKMARK, target, params)?
+    } else {
+        Force::Refuse
+    };
 
-    let partner = if sides.has_bot() {
+    // Every local step before any push: the agent partner completed,
+    // then the work half restamps and publishes, then the agent `main`
+    // is published. Either order is correct, each side naming the other
+    // by change id, which neither push moves. Work first, as `squash-push
+    // -s b` publishes: the work-repo is the shared one, so its push is the
+    // one likely refused, and refused first it leaves nothing published.
+    let agent = if sides.has_bot() {
         Some(agent_half(ctx, pair, &work, params)?)
     } else {
         None
     };
     if let Some(bookmark) = &bookmark {
         if sides.has_bot() {
-            step_gate(params, "the agent half", "the work half")?;
+            step_gate(params, "the agent commit", "the work half")?;
         }
-        work_half(ctx, pair, &work, bookmark, params)?;
+        work_half(ctx, pair, &work, bookmark, params, work_force)?;
     }
+    let partner = match agent {
+        Some((partner, how)) => {
+            if sides.has_work() {
+                step_gate(params, "the work push", "the agent publish")?;
+            } else {
+                step_gate(params, "the agent commit", "the agent publish")?;
+            }
+            if !params.dry_run {
+                agent_publish(ctx, pair, how, agent_force)?;
+            }
+            Some(partner)
+        }
+        None => None,
+    };
 
     if params.dry_run {
         info!("push: DRY-RUN complete: no changes written");
@@ -435,27 +480,36 @@ fn resolve_bookmark(
     }
 }
 
-/// The agent half: complete the partner by the state found, then set
-/// and push `main`. Returns the partner's change id, where `main`
-/// ends.
+/// How the agent half publishes `main`, once the work half has.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AgentPublish {
+    /// Set `main` at `@-` and push, folding nothing: the partner is
+    /// already published.
+    Main,
+    /// Fold the journal into `@-` and push, by `squash-push`.
+    SquashPush,
+}
+
+/// The agent half's local steps: complete the partner by the state
+/// found, committing the journal as the partner when the work commit
+/// names the agent `@`. Pushes nothing, [`agent_publish`] does, after
+/// the work half. Returns the partner's change id, where `main` ends,
+/// and how `main` is published.
 fn agent_half(
     ctx: &mut Context,
     pair: &Pair,
     work: &WorkCommit,
     params: &PushParams,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<(String, AgentPublish), Box<dyn std::error::Error>> {
     // The intent lines carry the dry-run tag too, or they read as done.
     let dry = if params.dry_run { "[dry-run] " } else { "" };
     let (partner, commit_journal) = match crate::pair::partner(pair, work)? {
-        Partner::Landed(partner) => {
+        Partner::Published(partner) => {
             info!(
-                "push agent: {dry}publish {BOT_BOOKMARK} at the partner @- {partner}, which a Land \
-                 made, leaving the journal in @"
+                "push agent: {dry}publish {BOT_BOOKMARK} at the partner @- {partner}, which is \
+                 already published, leaving the journal in @ for the next agent commit"
             );
-            if !params.dry_run {
-                publish_agent_main(ctx, &pair.agent)?;
-            }
-            return Ok(partner);
+            return Ok((partner, AgentPublish::Main));
         }
         Partner::Committed(partner) => {
             info!(
@@ -496,48 +550,112 @@ fn agent_half(
         if commit_journal {
             info!("push agent: [dry-run] would run jj commit -R {agent_arg} -m <work text+ochid>");
         }
-        info!("push agent: [dry-run] would squash @ -> @- and push {BOT_BOOKMARK} -R {agent_arg}");
-        return Ok(partner);
+        info!(
+            "push agent: [dry-run] would squash @ -> @- and push {BOT_BOOKMARK} -R {agent_arg}, \
+             after the work half"
+        );
+        return Ok((partner, AgentPublish::SquashPush));
     }
     if commit_journal {
         let text = without_trailers(&jj::desc_of(&pair.work, "@-")?);
-        let desc = with_trailer(&text, &work.chid);
+        let desc = with_trailer(&text, repo_url_for(&pair.work)?, &work.chid);
         let snapshot = Snapshot::take(&pair.agent)?;
         info!("push agent: commit -R {agent_arg}");
         if let Err(e) = ctx.session(&pair.agent)?.commit(&desc) {
             snapshot.restore("push agent", e.as_ref());
             return Err(e);
         }
-        step_gate(params, "the agent commit", "the agent publish")?;
     }
-    info!("push agent: squash @ -> @- + push {BOT_BOOKMARK} -R {agent_arg}");
-    let sp = crate::squash_push::SquashPushParams {
-        repo: pair.agent.clone(),
-        squash: SquashSpec {
-            source: "@".to_string(),
-            target: "@-".to_string(),
-        },
-        bookmark: BOT_BOOKMARK.to_string(),
-        // Mid-push the mismatch is the normal state, since this stage
-        // is what publishes main: don't report a lost publish.
-        at_rest: false,
-        yes: true,
-        dry_run: false,
-    };
-    crate::squash_push::squash_push(ctx, &sp)?;
-    Ok(partner)
+    Ok((partner, AgentPublish::SquashPush))
 }
 
-/// Set the agent `main` at `@-` and push it, folding nothing, so the
-/// commit a Land made goes out with the SHA `ocid:` names.
+/// The agent half's publish, after the work half: `main` set at the
+/// partner and pushed, the journal folded into it first unless the
+/// partner is already published.
+fn agent_publish(
+    ctx: &mut Context,
+    pair: &Pair,
+    how: AgentPublish,
+    force: Force,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let agent_arg = pair.agent.to_string_lossy();
+    match how {
+        AgentPublish::Main => {
+            info!("push agent: push {BOT_BOOKMARK} -R {agent_arg}");
+            publish_agent_main(ctx, &pair.agent, force)
+        }
+        AgentPublish::SquashPush => {
+            info!("push agent: squash @ -> @- + push {BOT_BOOKMARK} -R {agent_arg}");
+            let sp = crate::squash_push::SquashPushParams {
+                repo: pair.agent.clone(),
+                squash: SquashSpec {
+                    source: "@".to_string(),
+                    target: "@-".to_string(),
+                },
+                bookmark: BOT_BOOKMARK.to_string(),
+                // Mid-push, the bookmark off its origin is the normal
+                // state, since this stage is what publishes main.
+                at_rest: false,
+                yes: true,
+                dry_run: false,
+                // Answered by push before anything moved.
+                forced: match force {
+                    Force::Allow => ForcedPush::Yes,
+                    Force::Refuse => ForcedPush::Refuse,
+                },
+            };
+            crate::squash_push::squash_push(ctx, &sp)
+        }
+    }
+}
+
+/// Set the agent `main` at `@-` and push it, folding nothing, so a
+/// partner already published is never rewritten.
 pub(crate) fn publish_agent_main(
     ctx: &mut Context,
     agent: &Path,
+    force: Force,
 ) -> Result<(), Box<dyn std::error::Error>> {
     ctx.session(agent)?.bookmark_set(BOT_BOOKMARK, "@-")?;
     crate::common::verify_tracking(agent, BOT_BOOKMARK)?;
-    ctx.session(agent)?.git_push_bookmark(BOT_BOOKMARK)?;
-    Ok(())
+    ctx.session(agent)?.git_push_bookmark(BOT_BOOKMARK, force)
+}
+
+/// Answer, before anything moves, a push of `rev` as `bookmark` that
+/// would be forced: warned of, then answered as `params.forced` says.
+/// `Allow` when the push is forced and answered yes, `Refuse` when it
+/// is a fast-forward, so a push that turns forced after is refused. A
+/// dry run says so and asks nothing.
+fn answer_forced(
+    ctx: &Context,
+    repo: &Path,
+    bookmark: &str,
+    rev: &str,
+    params: &PushParams,
+) -> Result<Force, Box<dyn std::error::Error>> {
+    let Some(why) = crate::common::forced_bookmark_push(repo, bookmark, rev)? else {
+        return Ok(Force::Refuse);
+    };
+    warn!("push: the push of '{bookmark}' is forced, since {why}");
+    if params.dry_run {
+        info!("push: [dry-run] would ask before the forced push of '{bookmark}', unless --yes");
+        return Ok(Force::Allow);
+    }
+    crate::common::confirm_forced_push("push", bookmark, &why, params.forced, ctx.stdin_is_tty)?;
+    Ok(Force::Allow)
+}
+
+/// The agent commit `main` ends at, read before the agent half moves
+/// anything: the agent `@` when the journal is committed as the
+/// partner, else `@-`.
+fn agent_target(
+    pair: &Pair,
+    work: &WorkCommit,
+) -> Result<&'static str, Box<dyn std::error::Error>> {
+    Ok(match crate::pair::partner(pair, work)? {
+        Partner::Published(_) | Partner::Committed(_) => "@-",
+        Partner::Pending(_) | Partner::Changed { .. } => "@",
+    })
 }
 
 /// The work half: restamp the unpublished work commit when its
@@ -548,22 +666,13 @@ fn work_half(
     work: &WorkCommit,
     bookmark: &str,
     params: &PushParams,
+    force: Force,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let found = crate::pair::partner(pair, work)?;
-    let made = matches!(found, Partner::Committed(_) | Partner::Landed(_));
-    let target = match found {
-        Partner::Committed(partner) | Partner::Landed(partner) => partner,
+    let target = match crate::pair::partner(pair, work)? {
+        Partner::Committed(partner) | Partner::Published(partner) => partner,
         Partner::Pending(agent_at) | Partner::Changed { agent_at, .. } => agent_at,
     };
     let restamp = work.stamped != target;
-    // The agent half has just made the commit a placeholder stands for.
-    let set_sha = made
-        && work
-            .trailers
-            .ocid
-            .as_deref()
-            .is_some_and(|ocid| ocid.ends_with(&format!("/commit/{OCID_PLACEHOLDER}")))
-        && !is_published(&pair.work, "@-")?;
     let dry = if params.dry_run { "[dry-run] " } else { "" };
     if restamp {
         if is_published(&pair.work, "@-")? {
@@ -581,9 +690,6 @@ fn work_half(
     } else {
         info!("push work: {dry}publish {} on {bookmark}", work.chid);
     }
-    if set_sha {
-        info!("push work: {dry}set the `ocid:` of @- to the agent commit's SHA");
-    }
     let work_arg = pair.work.to_string_lossy();
     if params.dry_run {
         info!("push work: [dry-run] would run jj bookmark set {bookmark} -r @- -R {work_arg}");
@@ -592,17 +698,12 @@ fn work_half(
     }
     let snapshot = Snapshot::take(&pair.work)?;
     let local = (|| -> Result<(), Box<dyn std::error::Error>> {
-        if restamp || set_sha {
+        if restamp {
             let desc = jj::desc_of(&pair.work, "@-")?;
             let text = without_trailers(&desc);
             let mut trailers = Trailers::of(&desc);
-            if restamp {
-                info!("push work: restamp @- to name {target}");
-                trailers.ochids = vec![target.clone()];
-            }
-            if set_sha && let Some(url) = repo_url_for(&pair.agent)? {
-                trailers.ocid = Some(commit_url(&url, &jj::cid_of(&pair.agent, "@-")?));
-            }
+            info!("push work: restamp @- to name {target}");
+            trailers.ochids = vec![target.clone()];
             ctx.session(&pair.work)?
                 .describe("@-", &with_trailers(&text, &trailers))?;
         }
@@ -617,12 +718,11 @@ fn work_half(
     step_gate(params, "the work bookmark", "the work push")?;
     crate::common::verify_tracking(&pair.work, bookmark)?;
     info!("push work: git push --bookmark {bookmark} -R {work_arg}");
-    ctx.session(&pair.work)?.git_push_bookmark(bookmark)?;
-    Ok(())
+    ctx.session(&pair.work)?.git_push_bookmark(bookmark, force)
 }
 
-/// A description without its `ochid:` and `ocid:` lines, trimmed, the
-/// text a partner commit shares.
+/// A description without its stamped trailer lines, trimmed, the text
+/// a partner commit shares.
 fn without_trailers(desc: &str) -> String {
     crate::desc_helpers::without_trailer_lines(desc)
         .collect::<Vec<_>>()
@@ -710,6 +810,7 @@ fn push_por(
         return Err("push -s p: @- has no description, so it is not a commit to publish".into());
     }
     let bookmark = resolve_bookmark(repo, params)?;
+    let force = answer_forced(ctx, repo, &bookmark, WORK_COMMIT, params)?;
     let arg = repo.to_string_lossy();
     if params.dry_run {
         info!(
@@ -721,7 +822,7 @@ fn push_por(
     ctx.session(repo)?.bookmark_set(&bookmark, "@-")?;
     crate::common::verify_tracking(repo, &bookmark)?;
     info!("push push-work: git push --bookmark {bookmark} -R {arg}");
-    ctx.session(repo)?.git_push_bookmark(&bookmark)?;
+    ctx.session(repo)?.git_push_bookmark(&bookmark, force)?;
     info!("push: completed");
     Ok(())
 }

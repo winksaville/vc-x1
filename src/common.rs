@@ -589,6 +589,78 @@ pub fn verify_tracking(repo: &Path, bookmark: &str) -> Result<(), Box<dyn std::e
     Ok(())
 }
 
+/// Who answers a push that would be forced, a published commit
+/// rewritten.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ForcedPush {
+    /// The `--yes` flag: answered yes in advance.
+    Yes,
+    /// Asked at a terminal, refused without one.
+    Ask,
+    /// Refused: `land`, and a stage whose caller has already asked.
+    Refuse,
+}
+
+/// Why pushing `rev` as `bookmark` would be forced: `None` when origin
+/// has no `bookmark` or `rev` descends from `bookmark@origin`.
+pub fn forced_bookmark_push(
+    repo: &Path,
+    bookmark: &str,
+    rev: &str,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let remote = format!("{bookmark}@origin");
+    if !crate::jj::rev_exists(repo, &remote)? {
+        return Ok(None);
+    }
+    if crate::jj::matches(repo, &format!("{remote}::({rev})"))? {
+        return Ok(None);
+    }
+    Ok(Some(format!("{remote} is not an ancestor of '{rev}'")))
+}
+
+/// Answer a push of `bookmark` that would be forced, since `why`, as
+/// `forced` says: `Yes` passes, `Refuse` is an error, and `Ask` prompts
+/// at a terminal, an error without one or on a decline. Called before
+/// anything changes, so every error leaves the repos as they were.
+pub fn confirm_forced_push(
+    cmd: &str,
+    bookmark: &str,
+    why: &str,
+    forced: ForcedPush,
+    stdin_is_tty: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let refused = format!("{cmd}: the push of '{bookmark}' would be forced, since {why}");
+    match forced {
+        ForcedPush::Yes => {
+            debug!("{cmd}: --yes confirms the forced push of '{bookmark}'");
+            Ok(())
+        }
+        ForcedPush::Refuse => Err(format!(
+            "{refused}, so nothing is changed: `vc-x1 push` and `vc-x1 squash-push` ask, \
+             and their --yes rewrites it"
+        )
+        .into()),
+        ForcedPush::Ask if !stdin_is_tty => Err(format!(
+            "{refused}, so nothing is changed: --yes rewrites it, or run it at a terminal to be \
+             asked"
+        )
+        .into()),
+        ForcedPush::Ask => {
+            let answer = prompt(&format!(
+                "{cmd}: rewrite the published '{bookmark}@origin'? [y/N] "
+            ))?;
+            let normalized = answer.trim().to_ascii_lowercase();
+            if normalized != "y" && normalized != "yes" {
+                return Err(format!(
+                    "{cmd}: declined the forced push of '{bookmark}' (got {answer:?})"
+                )
+                .into());
+            }
+            Ok(())
+        }
+    }
+}
+
 /// At-rest publish state of a bookmark vs its `@origin` counterpart.
 #[derive(Debug, PartialEq, Eq)]
 pub enum PublishState {
@@ -602,10 +674,9 @@ pub enum PublishState {
 
 /// Resolve the at-rest publish state of `bookmark` in `repo`.
 ///
-/// The bookmark only moves inside a push / squash-push run, which
-/// publishes it in the same invocation, so between commands
-/// `bookmark == bookmark@origin` is the invariant. A mismatch means
-/// an earlier publish was lost (or origin moved out from under us).
+/// A mismatch is a bookmark not yet published, as a Land made
+/// locally leaves `main` until it is published, or origin moved out
+/// from under us.
 ///
 /// - Read-only: two facade commit-id lookups, nothing else.
 /// - Errors when the local bookmark itself does not resolve.
@@ -648,9 +719,8 @@ pub fn verify_bot_published(
         )
         .into()),
         PublishState::Mismatch { local, remote } => Err(format!(
-            "bot repo '{repo_str}': '{bookmark}' ({}) does not match '{bookmark}@origin' ({}): \
-             an earlier publish was likely lost; publish it with \
-             `vc-x1 squash-push -s a -R {repo_str}`, then retry",
+            "bot repo '{repo_str}': '{bookmark}' is at {} here and {} on origin, so it is not \
+             published: publish it with `vc-x1 squash-push -s a -R {repo_str}`, then retry",
             &local[..local.len().min(12)],
             &remote[..remote.len().min(12)]
         )

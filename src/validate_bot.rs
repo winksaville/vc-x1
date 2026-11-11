@@ -201,7 +201,7 @@ mod tests {
             repo: fx.bot.clone(),
         };
         let err = validate_bot(&params).unwrap_err().to_string();
-        assert!(err.contains("does not match"), "got: {err}");
+        assert!(err.contains("is not published"), "got: {err}");
         assert!(err.contains("squash-push"), "got: {err}");
     }
 

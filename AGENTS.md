@@ -20,7 +20,7 @@ Agent-files version: the set's own version, `vX.Y.Z`, the name of an empty
 adoptions ([Agent-files version](agent-data/versioning.md#agent-files-version)).
 
 Set: the agent-files as an adopter carries them, the copy a new repo starts from, applied by
-`scripts/vc-dr-apply.sh` from that adopter's working copy, or with `--landed` from its trunk.
+`scripts/vc-dr-apply.sh` from that adopter's working copy, or with `--landed` from its `main`.
 Adopter: a project carrying a copy of the set.
 Proposer: the adopter a proposal comes from. There is no maintainer and no template repository, only
 adopters and proposers, and the copy a proposal starts from is whichever adopter's the proposer
@@ -28,17 +28,21 @@ took.
 
 Cycle: one change, run from opening to closing as one commit or a ladder of them, each made by
 `vc-x1 commit` ([Cycle protocol](#cycle-protocol)). Its shape is its branch's commit count, a
-single-step cycle being one commit above the trunk and a multi-step one more ([Cycle
+single-step cycle being one commit above its target and a multi-step one more ([Cycle
 shape](#cycle-shape)). Both run on a bookmark, and both stay on this machine until the Land unless
 the user decides otherwise.
 
 Land: the sequence that makes a cycle permanent, on the user's go at the close-out: sync, integrate,
 publish, install ([Land](agent-data/jj.md#cycle-bookmarks-create-and-land)). `vc-x1 land` names its
 integrate step alone, and a rule writes "Land" for the sequence and `vc-x1 land` for the command.
-Land is onto the trunk, `[cycle] trunk`, `main` when absent. Before it the cycle is a draft on its
-bookmark, after it the commits are permanent.
+Land is onto the cycle's target. Before it the cycle is a draft on its bookmark, after it the
+commits are permanent.
 
-Trapezoid: the default close-out shape, a merge commit whose first parent is the trunk line and
+Target: the bookmark a cycle closes onto and lands on, named by `--onto` at the closing and never
+assumed, since a bookmark made is likely, not certainly, the one a cycle lands on. `main` by
+convention, and a release branch is a target as much as `main` is.
+
+Trapezoid: the default close-out shape, a merge commit whose first parent is the target's line and
 whose second is the cycle's ladder ([Close-out shapes](agent-data/jj.md#close-out-shapes)). Names
 both the merge commit and the figure the graph draws around it.
 
@@ -86,7 +90,7 @@ silently.
   agent-files](#a-sessions-rules-are-its-own-agent-files)).
 - Bookmark per cycle: a cycle runs on one topic bookmark in the work-repo, and `main` advances
   only when the cycle lands ([Cycles run on a bookmark](#cycles-run-on-a-bookmark)).
-- Shape by count: a branch with one commit above the trunk is single-step and more is a ladder, and
+- Shape by count: a branch with one commit above its target is single-step and more is a ladder, and
   a ladder lands as a trapezoid, never squashed ([Cycle shape](#cycle-shape)).
 - Local by default: a cycle's commits stay on this machine until the Land, and the user decides when
   each side commits and publishes ([A cycle is local by default](#a-cycle-is-local-by-default)).
@@ -128,7 +132,9 @@ in this order ([why](agent-data/rationale.md#acquaint)):
    ([custom.md](#custommd)).
 2. Hooks: `bash agent-data/hooks.sh check`, and what it finds missing, different, or
    unregistered is reported for the user to install ([Working practices](#working-practices)).
-3. Repo check: look at each repo of the workspace for the four findings below, and report what is
+3. Tools: `vc-x1 -V` and `vc-x1-dev -V`, both reported, and a dev build newer than the plain one
+   is the user's to choose ([Dev artifact name](agent-data/versioning.md#dev-artifact-name)).
+4. Repo check: look at each repo of the workspace for the four findings below, and report what is
    found before anything else. Nothing is opened, pushed, rebased, committed, or discarded until
    the user says how to proceed.
    - Not up to date: a repo whose `main` is behind, ahead of, or diverged from its remote's, as
@@ -136,17 +142,17 @@ in this order ([why](agent-data/rationale.md#acquaint)):
      in flight. A look that fails is reported as the check not made.
    - Uncommitted work: a work-repo `@` that is not empty, as `jj st` prints it. What the
      continuation notes account for, the notes themselves or a rung in flight they describe, is
-     theirs to direct at step 4, and any other change is a finding. The agent-repo's `@` holds the
+     theirs to direct at step 5, and any other change is a finding. The agent-repo's `@` holds the
      session's own data and is never one.
    - Work off `main`: commits on a bookmark, a cycle's or any other, that do not descend from the
      remote's `main`. The user is told, and a rebase onto `main` is suggested.
    - Conflicts: a conflicted commit or working copy, as `jj st` and `jj log -r 'conflicts()'` show
      them. The acquaint stops there and the user is informed.
-4. TODO.md: read the acquaint slice ([File
+5. TODO.md: read the acquaint slice ([File
    reads](agent-data/notes.md#file-reads-read-the-slice-you-need)), the continuation notes first,
    each acted on, filed or kept, and the section reset ([Todo
    format](agent-data/notes.md#todo-format)).
-5. Report: say where things stand, the cycle in flight, its ladder in `zTOC.md`, or the top of `##
+6. Report: say where things stand, the cycle in flight, its ladder in `zTOC.md`, or the top of `##
    Todo`, and wait.
 
 ## Sync
@@ -174,9 +180,9 @@ How a [cycle](#terminology) runs ([why](agent-data/rationale.md#cycle-protocol))
 
 ### Cycles run on a bookmark
 
-A cycle runs on one topic bookmark in the work-repo, created at the opening and named by the cycle
-title's slug ([why](agent-data/rationale.md#cycles-run-on-a-bookmark)). `main` advances only when
-the finished cycle lands on it, so development is never done on `main`, a single-step cycle
+A cycle runs on one topic bookmark in the work-repo, made first by `vc-x1 open` and named by the
+cycle title's slug ([why](agent-data/rationale.md#cycles-run-on-a-bookmark)). `main` advances only
+when the finished cycle lands on it, so development is never done on `main`, a single-step cycle
 included. The agent-repo needs no bookmark. Commands in [Cycle
 bookmarks](agent-data/jj.md#cycle-bookmarks-create-and-land), the long-lived case in [Long-lived
 bookmarks][llb].
@@ -186,23 +192,28 @@ bookmarks][llb].
 A cycle's shape is its branch's commit count, so nothing has to be decided before its first commit
 ([why](agent-data/rationale.md#cycle-shape)).
 
-- Every cycle starts with `vc-x1 commit --opening`, a single-step cycle included: it creates the
-  bookmark at the trunk, and its one commit begins as the opening.
-- One commit above the trunk is single-step: `vc-x1 commit --closing <BM|REV>` finalizes that commit
-  in place, the bare cycle title replacing the opening's, and it carries the opening's duties, the
-  work, and the close-out's duties.
-- More commits are a ladder: `--closing` makes the closing commit, the merge of the trunk and the
+- Every cycle starts with `vc-x1 open`, which makes its bookmark on the work `@`, a single-step
+  cycle included. A ladder's first commit is then `vc-x1 commit --opening`.
+- No commit above the target, the work in `@`, is single-step: `vc-x1 commit --closing @- --onto
+  <BOOKMARK>` commits `@` as its one commit, under the bare cycle title, `--title` and `--body`
+  given, there being no opening to read, and it carries the opening's duties, the work, and the
+  close-out's duties.
+- One commit above the target, an opening committed first, is single-step too: `--closing`
+  finalizes that commit in place, the bare cycle title replacing the opening's.
+- More commits are a ladder: `--closing` makes the closing commit, the merge of the target and the
   ladder's tip. Every closing names its tip, by the cycle's bookmark or a revision, `@-` the common
-  one, so there is no bare form. A tip that is not `@-` is closed by a detour, `@` moving onto it
-  and returning after, and the commits above it stay as they are.
+  one, and its target by `--onto`, so there is no bare form. `--land` lands it there in the same
+  invocation, and takes no value, the target being `--onto`'s. A tip that is not `@-` is closed by a
+  detour, `@` moving onto it and returning after, and the commits above it stay as they are.
 - A ladder lands as a trapezoid, never squashed: every rung's `ochid:` trailer is a change id, and a
   squash discards all but one. We think a linear closing, a plain commit on the ladder, follows as
   a `--shape` flag, which is proposed and not built.
-- The closing's title and body may be left out: the cycle title is read from the opening, and the
-  body comes from `.vc-config.md`'s `[closing] body`.
+- The closing's title and body may be left out when there is an opening: the cycle title is read
+  from it, and the body comes from `.vc-config.md`'s `[closing] body`.
 - A dead end still closes and lands: a cycle abandoned after its opening keeps what is worth
   keeping, reverts the rest, and records what was tried, why it stopped, and what replaces it. Its
-  closing is `--closing <BM|REV> --dead-end`, titled with the cycle title plus " dead-end closing".
+  closing is `--closing <BM|REV> --onto <BOOKMARK> --dead-end`, titled with the cycle title plus
+  " dead-end closing".
 
 ### Unplanned work
 
@@ -252,8 +263,9 @@ carries steps 1 and 2. A single-step cycle does all of it in its one commit, aft
 ([Cycle shape](#cycle-shape)). Before that commit ([why](agent-data/rationale.md#opening)):
 
 1. Sync: sync both repos ([Sync](#sync)), whatever the cycle's form.
-2. Bookmark: `vc-x1 commit --opening` creates it, kept local, so there is nothing to do before the
-   commit but name it.
+2. Bookmark: `vc-x1 open --title "<bare cycle title>"` makes it on the work `@`, kept local, first,
+   so every edit of the cycle, the record and the bump among them, is on its branch. `commit
+   --opening` takes it and creates none.
 3. Waiting: check each `## Waiting` entry's condition, and promote what is met into `## Todo` at
    the rank it names.
 4. In Progress block: delete whatever `## Closed` holds, then move the chosen `## Todo` entry into
@@ -287,20 +299,24 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)):
 5. Validate: `vc-x1 validate` before every review, doc-only commits included. The full run rewrites
    files (`cargo fmt`), so use `--fast` while a review iterates. A failure is read and its cause
    named before validation runs again, and a failure that does not repeat is a finding, reported
-   and given a Todo entry.
-6. Work review: stop before writing any description and say "please review", as its own message with
-   no title or body. Iterate until the user says "continue" / "go". The review is of the
-   working-copy diff ([jj basics](agent-data/jj.md#jj-basics)).
+   and given a Todo entry. A rung that changes the artifact then installs the working copy's dev
+   build, `vc-x1 install --profile dev`, so the review runs the code under review, and again after
+   each review fix ([Dev artifact name](agent-data/versioning.md#dev-artifact-name)).
+6. Work review: stop before writing any description and say "please review", as its own message
+   with no title or body. The review is of the working-copy diff ([jj
+   basics](agent-data/jj.md#jj-basics)). Iterate over steps 3 through 6 until the user approves
+   with "continue" or "go".
 7. Flip and describe: flip `(current)` to `(done)` the moment "done" is true, then write the
    description in [Commit-body form](agent-data/prose.md#commit-body-form), read from the file first
    with its specimen, [commit-model.md](agent-data/commit-model.md) ([Commit
    description](#commit-description)). A local description can still be changed before the Land, so
    it has no review of its own.
-8. Commit: on the go, `vc-x1 commit -s w --title "..." --body "..."`, local ([Committing vs
-   pushing](#committing-vs-pushing)), `--opening` added for the opening and `--closing <BM|REV>`
-   for the closing ([Cycle shape](#cycle-shape)). A rung that changes the artifact then installs its
-   dev build, so the next rung runs the code just reviewed ([Dev artifact
-   name](agent-data/versioning.md#dev-artifact-name)).
+8. Commit: after approval, the work and agent repos are committed locally by
+   `vc-x1 commit -s b --title "..." --body "..."` ([Committing vs pushing](#committing-vs-pushing)),
+   with `--opening` added for the cycle's first commit and `--closing <BM|REV> --onto <BOOKMARK>`
+   for its last ([Cycle shape](#cycle-shape)). A rung that changes the artifact then installs its
+   dev build again, so the next rung runs the committed code, not the working copy's ([Dev
+   artifact name](agent-data/versioning.md#dev-artifact-name)).
 
 ### Committing vs pushing
 
@@ -322,21 +338,20 @@ A cycle's commits stay on this machine until its Land, and the user decides when
 committed and when either is published, at any rung, every push still taking its own approval
 ([why](agent-data/rationale.md#a-cycle-is-local-by-default)).
 
-- The default: every commit is `vc-x1 commit -s w`, the opening's bookmark created and not pushed,
-  and the agent `@` holds the session until an agent commit is made.
+- The default: every commit is `vc-x1 commit -s b`, a pair, the agent commit holding the session
+  to that moment, and the opening's bookmark created and not pushed.
 - Any mix of work and agent commits is valid. `commit -s b` makes a 1:1 pair, `commit -s w` rungs
   then `commit -s a --covers <REVSET>` or the Land make N:1, and several agent commits naming one
   work commit make 1:M. The rule is the links: a work commit's `ochid:` names each agent change it
-  pairs with, an agent commit's names each work commit it covers, and an agent commit whose SHA an
-  `ocid:` names is never folded into ([Cross-repo
+  pairs with, an agent commit's names each work commit it covers, each below an `orepo:` naming the
+  other repo, and a squash folds into a commit an `ochid:` names, never that commit away, since jj
+  keeps the change id of the commit squashed into ([Cross-repo
   linking](agent-data/jj.md#cross-repo-linking-ochid-trailers)).
-- A backup, a move between machines, or someone else to see the cycle commits the agent side and
-  publishes mid-cycle, every published rung's `ocid:` made real first: `commit -s a --covers
-  <REVSET>`, then `trailers --update`, then `push -s b`.
-- The Land commits the agent `@` first, one `ochid:` per work commit it has not yet covered, and
-  sets the links on each work commit, trees unchanged.
-- We think a cycle's whole transcript in one commit may near jj's new-file size limit, and the
-  mid-cycle backup's three commands want one.
+- A backup, a move between machines, or someone else to see the cycle publishes mid-cycle by
+  `push -s b`, and `-s w` rungs first get their agent commit, `commit -s a --covers <REVSET>`.
+- The Land commits the agent `@` first, one `ochid:` per work commit it has not yet covered, none
+  when every rung is a pair, an older work commit's `ocid:` and `pcid:` giving way to `orepo:`,
+  trees unchanged.
 
 ### Commit description
 
@@ -355,6 +370,9 @@ Pushing is by `vc-x1 push`, and the Land's bookmark moves are `vc-x1 land` and `
 
 - This specific push has the user's explicit approval, or an explicit waiver covers it. `vc-x1 push
   --yes` is for that approval alone, since an agent can type it as easily as anything else.
+- A push that would be forced, a published commit rewritten, is asked about by `push` and
+  `squash-push` and refused by `land` and `commit`, and the `--yes` flag answers, so the agent
+  passes it only for a forced push the user approved.
 - Validation ran, and passed, after the last edit.
 - Closing words are written. Nothing follows the turn's final push.
 
@@ -366,11 +384,17 @@ item's tail ([why](agent-data/rationale.md#at-rest)):
 1. The agent publishes: a step that publishes is complete when its command is issued. The agent says
    what is worth saying *before* the final publishing command, responds with the one word
    "Published", and does nothing further until the user speaks.
-2. No squash-push: the session's tail is bookkeeping, and it rides the next agent commit.
+2. Clean by squash-push: a Land is published by the agent only with the user's permission. A run of
+   delegated cycles follows each `land --push` with the next cycle's opening, which carries the
+   session's tail. A Land the agent made locally is published by the user after the session:
+   `vc-x1 squash-push -s b` pushes the work target first, the shared repo and so the push likely to
+   be refused, then folds the tail into the Land's agent commit and pushes it, so each `main` moves
+   once, forward.
 
-"Clean" means the work `@` is empty, the agent's `@` being the session's data and no finding, as
-[Acquaint](#acquaint) says. A late work-repo tweak after a push is a remote rewrite and takes approval
-like any push ([vc-x1 commit and push][vpush]).
+"Clean" means the work `@` is empty, and once the user's squash-push has run the agent's `@` too.
+Before it the agent's `@` is the session's data and no finding, as [Acquaint](#acquaint) says. A
+late work-repo tweak after a push is a remote rewrite and takes approval like any push ([vc-x1
+commit and push][vpush]).
 
 ### Close-out
 

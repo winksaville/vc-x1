@@ -56,6 +56,7 @@ fn test_params() -> PushParams {
         step: false,
         dry_run: false,
         yes: true,
+        forced: crate::common::ForcedPush::Ask,
     }
 }
 
@@ -90,7 +91,7 @@ fn make_pair_with(
         opening: None,
         advance: crate::commit::Advance::Off,
         push: false,
-        land: None,
+        land: false,
         skip: None,
         dry_run: false,
         rev: None,
@@ -101,24 +102,24 @@ fn make_pair_with(
     (work_at, agent_at)
 }
 
-/// A pair made at once with links: the work commit's `ocid:` names the
-/// partner's SHA, so push publishes it unfolded and the journal stays.
+/// A pair made at once with links: the work commit names the partner
+/// by `orepo:` and change id, no SHA, so push folds the journal into the
+/// unpublished partner, its change id kept, and both repos are clean.
 #[test]
-fn push_leaves_the_journal_out_of_a_linked_pair() {
+fn push_folds_the_journal_into_a_linked_pair() {
     let fx = Fixture::new("push-pair-linked");
-    make_pair(&fx, "feat: linked", true);
-    let sha = cid(&fx.bot, "@-");
+    let (_, agent_at) = make_pair(&fx, "feat: linked", true);
     fs::write(fx.bot.join("tail.jsonl"), "{\"line\":2}\n").expect("write tail");
 
     push_in(&mut test_ctx(), &pair(&fx), &both(), &test_params()).expect("push");
 
-    assert_eq!(cid(&fx.bot, "main@origin"), sha, "the SHA `ocid:` names");
+    assert_eq!(chid(&fx.bot, "main@origin"), agent_at, "the change named");
     assert!(
-        description(&fx.work, "main").contains(&format!("/commit/{sha}")),
+        description(&fx.work, "main").contains("orepo: file:///"),
         "{}",
         description(&fx.work, "main")
     );
-    assert!(!is_empty(&fx.bot, "@"), "the journal stays in @");
+    assert!(is_empty(&fx.bot, "@"), "the journal folded");
 }
 
 /// A pair made at once with no links: push folds the journal that
@@ -176,7 +177,7 @@ fn push_completes_a_pair_made_in_two_steps() {
     assert!(
         work_desc
             .trim_end()
-            .contains(&format!("\n\nochid: {agent_at}\n")),
+            .contains(&format!("\nochid: {agent_at}")),
         "{work_desc}"
     );
     assert_eq!(cid(&fx.bot, "main@origin"), cid(&fx.bot, "main"));
@@ -381,7 +382,7 @@ fn push_restamps_when_the_agent_at_changed() {
     assert!(
         work_desc
             .trim_end()
-            .contains(&format!("\n\nochid: {agent_at}\n")),
+            .contains(&format!("\nochid: {agent_at}")),
         "restamped:\n{work_desc}"
     );
     assert_eq!(
@@ -630,12 +631,80 @@ fn push_agent_half_then_work_half() {
         "no restamp: the trailer already names the partner"
     );
     assert!(
-        work_desc.contains(&format!(
-            "/commit/{}\n",
-            crate::jj::cid_of(&fx.bot, "main").expect("cid")
-        )),
-        "the placeholder takes the SHA the agent half made:\n{work_desc}"
+        work_desc.contains("orepo: ") && !work_desc.contains("ocid:"),
+        "the trailers were final before the agent half ran:\n{work_desc}"
     );
+}
+
+/// `-s b` publishes the work repo first: a work push that fails leaves
+/// the agent partner committed on the machine and its `main`
+/// unpublished, and a rerun once the remote is back publishes both.
+#[test]
+fn push_publishes_the_work_repo_first() {
+    let fx = Fixture::new("push-work-first");
+    let (work_at, agent_at) = make_pair(&fx, "feat: work first", false);
+    let bot_origin_before = cid(&fx.bot, "main@origin");
+    let url = jj_ok(&fx.work, &["git", "remote", "list"])
+        .split_whitespace()
+        .nth(1)
+        .expect("origin url") // OK: the fixture's work repo has an origin
+        .to_string();
+    jj_ok(
+        &fx.work,
+        &["git", "remote", "set-url", "origin", "/nonexistent/remote"],
+    );
+
+    push_in(&mut test_ctx(), &pair(&fx), &both(), &test_params()).expect_err("work push fails");
+    assert_eq!(
+        chid(&fx.bot, "@-"),
+        agent_at,
+        "the partner is committed locally"
+    );
+    assert_eq!(
+        cid(&fx.bot, "main@origin"),
+        bot_origin_before,
+        "the agent repo is not published before the work repo"
+    );
+
+    jj_ok(&fx.work, &["git", "remote", "set-url", "origin", &url]);
+    push_in(&mut test_ctx(), &pair(&fx), &both(), &test_params()).expect("rerun");
+    assert_eq!(chid(&fx.work, "main@origin"), work_at);
+    assert_eq!(chid(&fx.bot, "main@origin"), agent_at);
+}
+
+/// A push that would be forced, a published commit rewritten, is asked
+/// about before anything moves. The bookmark push alone refuses it,
+/// with no terminal push refuses it and origin keeps what it had, and
+/// `--yes` rewrites it.
+#[test]
+fn push_asks_before_a_forced_push() {
+    let fx = Fixture::new("push-forced");
+    make_pair(&fx, "feat: published", true);
+    push_in(&mut test_ctx(), &pair(&fx), &both(), &test_params()).expect("first push");
+    let published = cid(&fx.work, "main@origin");
+    fs::write(fx.work.join("fix.txt"), "a fix after the push").expect("write");
+    jj_ok(&fx.work, &["squash", "--ignore-immutable"]);
+    let work_only = Scope(vec![Side::Work]);
+
+    let err = jj::git_push_bookmark(&fx.work, "main", jj::Force::Refuse)
+        .expect_err("the bookmark push refuses")
+        .to_string();
+    assert!(err.contains("would be forced"), "{err}");
+
+    let err = push_in(&mut test_ctx(), &pair(&fx), &work_only, &test_params())
+        .expect_err("refused without a terminal")
+        .to_string();
+    assert!(
+        err.contains("would be forced") && err.contains("--yes"),
+        "{err}"
+    );
+    assert_eq!(cid(&fx.work, "main@origin"), published, "origin kept it");
+
+    let mut params = test_params();
+    params.forced = ForcedPush::Yes;
+    push_in(&mut test_ctx(), &pair(&fx), &work_only, &params).expect("--yes forces it");
+    assert_ne!(cid(&fx.work, "main@origin"), published);
+    assert_eq!(cid(&fx.work, "main@origin"), cid(&fx.work, "@-"));
 }
 
 /// A dry run plans and prints, and moves nothing.
@@ -668,7 +737,7 @@ fn push_por_publishes_the_commit_on_its_bookmark() {
         opening: None,
         advance: crate::commit::Advance::Line,
         push: false,
-        land: None,
+        land: false,
         skip: None,
         dry_run: false,
         rev: None,

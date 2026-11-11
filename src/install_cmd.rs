@@ -61,9 +61,6 @@ use crate::context::Context;
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::subcommand::SubcommandRunner;
 
-/// The trunk the report compares the binary's commit with.
-const TRUNK: &str = "main";
-
 /// The key naming the install directory, and its placeholder.
 const INSTALL_DIR_KEY: &str = "install.dir";
 
@@ -130,10 +127,11 @@ pub struct Reported {
 /// either is made.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Facts {
-    /// The local trunk's commit, `None` when there is no such bookmark.
-    pub trunk: Option<String>,
-    /// The remote trunk's commit, `None` when it is not known.
-    pub trunk_origin: Option<String>,
+    /// The bookmarks at the binary's commit, local ones by name and
+    /// remote ones as `name@remote`, sorted, `None` when the commit is
+    /// unknown or not found in the work repo. No bookmark is assumed to
+    /// be the one that matters, so the report names them all.
+    pub at: Option<Vec<String>>,
     /// The manifest's version.
     pub version: String,
     /// True when the binary is there.
@@ -325,16 +323,31 @@ fn guard_others(root: &Path, profile: &Profile, dest: &Path) -> Result<(), Strin
 }
 
 /// Gather the facts about the binary at `bin`, after the build, and
-/// about the trunk of the work repo at `root`.
+/// the bookmarks at its commit in the work repo at `root`.
 pub fn gather(root: &Path, bin: &Path, dest: &Path) -> Result<Facts, String> {
+    let reported = run_version(bin).as_deref().and_then(parse_reported);
+    let at = reported
+        .as_ref()
+        .and_then(|r| r.commit.as_deref())
+        .and_then(|c| bookmarks_at(root, c));
     Ok(Facts {
-        trunk: crate::jj::cid_of(root, TRUNK).ok(),
-        trunk_origin: crate::jj::cid_of(root, &format!("{TRUNK}@origin")).ok(),
+        at,
         version: manifest_version(root)?,
         bin_exists: bin.is_file(),
-        reported: run_version(bin).as_deref().and_then(parse_reported),
+        reported,
         dest_dir_exists: dest.parent().is_some_and(Path::is_dir),
     })
+}
+
+/// The bookmarks at commit `c` in `root`, local by name and remote as
+/// `name@remote`, sorted, `None` when `c` does not resolve to one commit.
+fn bookmarks_at(root: &Path, c: &str) -> Option<Vec<String>> {
+    crate::jj::cid_of(root, c).ok()?;
+    let mut at = crate::jj::local_bookmarks_at(root, c).ok()?;
+    let remote = crate::jj::remote_bookmarks_at(root, c).ok()?;
+    at.extend(remote.into_iter().map(|(name, r)| format!("{name}@{r}")));
+    at.sort();
+    Some(at)
 }
 
 /// The directory the copy goes to: `dir`, the `--dir` value, against
@@ -458,11 +471,6 @@ pub fn parse_reported(output: &str) -> Option<Reported> {
     })
 }
 
-/// True when the commit prefix `c` names the commit id `id`.
-fn names(c: &str, id: Option<&String>) -> bool {
-    id.is_some_and(|id| id.starts_with(c))
-}
-
 /// The report: what is being copied, one fact per line, for the user
 /// to judge. Nothing in it refuses.
 pub fn report(f: &Facts) -> Vec<String> {
@@ -484,13 +492,13 @@ pub fn report(f: &Facts) -> Vec<String> {
             out.push("state unknown".to_string());
         }
         Some(c) => {
-            let on_trunk = names(c, f.trunk.as_ref());
-            let on_origin = names(c, f.trunk_origin.as_ref());
-            let where_ = match (on_trunk, on_origin) {
-                (true, true) => format!("`{TRUNK}` and `{TRUNK}@origin`"),
-                (true, false) => format!("`{TRUNK}`, not yet `{TRUNK}@origin`"),
-                (false, true) => format!("`{TRUNK}@origin`, not the local `{TRUNK}`"),
-                (false, false) => format!("not `{TRUNK}`"),
+            let where_ = match f.at.as_deref() {
+                None => "not found in the work repo".to_string(),
+                Some([]) => "at no bookmark".to_string(),
+                Some(at) => {
+                    let named: Vec<String> = at.iter().map(|b| format!("`{b}`")).collect();
+                    format!("at {}", named.join(", "))
+                }
             };
             out.push(format!("commit {c}, {where_}"));
             // A commit with no state after it is a clean build.
@@ -673,8 +681,7 @@ mod tests {
     /// Facts for a clean build of a pushed `main`.
     fn good() -> Facts {
         Facts {
-            trunk: Some(C.to_string()),
-            trunk_origin: Some(C.to_string()),
+            at: Some(vec!["main".to_string(), "main@origin".to_string()]),
             version: "0.85.7".to_string(),
             bin_exists: true,
             reported: Some(Reported {
@@ -920,7 +927,7 @@ mod tests {
         assert_eq!(
             reported(&f),
             "version 0.85.7\n\
-             commit 0123456789ab, `main` and `main@origin`\n\
+             commit 0123456789ab, at `main`, `main@origin`\n\
              state clean"
         );
         assert_eq!(refused(&f), "");
@@ -932,32 +939,33 @@ mod tests {
     #[test]
     fn a_dirty_cycle_build_is_reported_not_refused() {
         let mut f = good();
-        f.trunk = Some("d".repeat(40));
-        f.trunk_origin = Some("d".repeat(40));
+        f.at = Some(vec!["feat-a-cycle".to_string()]);
         f.version = "0.85.7-3".to_string();
         let r = f.reported.as_mut().unwrap();
         r.version = "0.85.7-3".to_string();
         r.state = Some("dirty".to_string());
         let rep = reported(&f);
         assert!(rep.contains("a suffixed (pre-release) version"), "{rep}");
-        assert!(rep.contains("commit 0123456789ab, not `main`"), "{rep}");
+        assert!(
+            rep.contains("commit 0123456789ab, at `feat-a-cycle`"),
+            "{rep}"
+        );
         assert!(rep.contains("state dirty"), "{rep}");
         assert_eq!(refused(&f), "");
     }
 
-    /// Where the commit sits against the local and remote trunk.
+    /// The commit is placed by the bookmarks at it, none assumed to be
+    /// the one that matters: those it has, none, or a commit the work
+    /// repo does not hold.
     #[test]
-    fn the_commit_is_placed_against_the_trunk() {
+    fn the_commit_is_placed_by_its_bookmarks() {
         let mut f = good();
-        f.trunk_origin = Some("e".repeat(40));
-        assert!(reported(&f).contains("`main`, not yet `main@origin`"));
-        let mut f = good();
-        f.trunk = Some("e".repeat(40));
-        assert!(reported(&f).contains("`main@origin`, not the local `main`"));
-        let mut f = good();
-        f.trunk = None;
-        f.trunk_origin = None;
-        assert!(reported(&f).contains(", not `main`"));
+        f.at = Some(vec!["main".to_string()]);
+        assert!(reported(&f).contains("commit 0123456789ab, at `main`\n"));
+        f.at = Some(Vec::new());
+        assert!(reported(&f).contains("commit 0123456789ab, at no bookmark"));
+        f.at = None;
+        assert!(reported(&f).contains("commit 0123456789ab, not found in the work repo"));
     }
 
     /// The version line names a binary older or newer than the
