@@ -2164,6 +2164,35 @@ being refused anyway. The bookmark goes on `@`, so it follows the change through
 the opening's commit. The agent repo gets none, being on `main` alone, and nothing is pushed. `-R`
 is optional and says where, a workspace or a plain repo.
 
+### cycle
+
+Run a cycle by its stages, each a flag, one command for the acts the flow has. The stages are
+being built, `--open` the first, and until the rest are, [`commit`](#commit) and [`land`](#land)
+make the commits and the Land.
+
+```bash
+vc-x1 cycle --open --title "feat: a cycle"              # the bookmark, and the record
+vc-x1 cycle --open --title "feat: a cycle" --no-record  # the bookmark alone
+vc-x1 cycle --open --title "feat: a cycle" --dry-run    # say each edit, make none
+```
+
+`--open` opens a cycle. It makes the bookmark on the work `@` first, as [`open`](#open) does, the
+slug of `--title` or `--bookmark`'s name, and then writes the cycle's record into the working
+copy:
+
+- In `TODO.md`, what `## Closed` holds is deleted, its intro kept, and the `## Todo` entry titled
+  as `--title` is moved into an `## In Progress` scaffold: the title, the item headings, the
+  entry's text under Problem, and the opening and closing rung subsections. No entry of that title
+  is an empty scaffold, and says so.
+- In `zTOC.md`, the ladder is replaced with the opening, current, and the closing.
+
+Everything is planned before anything is made, so a cycle in progress, a `TODO.md` with no `## In
+Progress`, and a name in use are each refused with the workspace as it was. `--no-record`,
+`--bookmark` without `--title`, and a workspace with no `TODO.md` get the bookmark alone. Nothing
+is committed or pushed, and the version is the project's to bump: the tool never writes it. A
+reference definition only `## Closed` cited is left, for `validate-anchors` to name. `-R` is
+optional and says where, a workspace or a plain repo.
+
 ### land
 
 Land a cycle whose last commit is already made, on the machine: the agent `@` committed when the

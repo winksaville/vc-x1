@@ -11,6 +11,7 @@ mod config_cmd;
 mod config_md;
 mod config_schema;
 mod context;
+mod cycle;
 mod delete_bookmark;
 mod desc;
 mod desc_helpers;
@@ -743,6 +744,24 @@ pub(crate) enum Commands {
         says where, a workspace or a plain repo. --dry-run prints the name.")]
     Open(open::OpenArgs),
 
+    /// Run a cycle's stages: --open
+    #[command(long_about = "\
+        Run a cycle by its stages, each a flag, one command for the acts\n\
+        the flow has.\n\n\
+        --open opens a cycle: it makes the bookmark on the work @ first, as\n\
+        `vc-x1 open` does, the slug of --title or --bookmark's name, then\n\
+        writes the cycle's record. In TODO.md what `## Closed` holds is\n\
+        deleted and the `## Todo` entry titled as --title is moved into an\n\
+        `## In Progress` scaffold, an empty one when no entry matches, and\n\
+        in zTOC.md the ladder is replaced with the opening and the closing.\n\
+        Every check is made before anything changes: a cycle in progress is\n\
+        refused, as is a name in use. --no-record makes the bookmark alone,\n\
+        as does --bookmark without --title, and a workspace with no TODO.md.\n\
+        --dry-run says each edit and makes none. Nothing is committed or\n\
+        pushed, and the version is the project's to bump.\n\n\
+        -R is optional and says where, a workspace or a plain repo.")]
+    Cycle(cycle::CycleArgs),
+
     /// Land a cycle whose last commit is made, with -s
     #[command(long_about = "\
         Land a cycle whose last commit is already made, on the machine: the\n\
@@ -1019,6 +1038,7 @@ fn main() -> ExitCode {
         Commands::MoveBookmark(args) => args.dispatch(&mut ctx),
         Commands::DeleteBookmark(args) => args.dispatch(&mut ctx),
         Commands::Open(args) => args.dispatch(&mut ctx),
+        Commands::Cycle(args) => args.dispatch(&mut ctx),
         Commands::Land(args) => args.dispatch(&mut ctx),
         Commands::Trailers(args) => args.dispatch(&mut ctx),
     }

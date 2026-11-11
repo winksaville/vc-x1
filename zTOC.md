@@ -5,7 +5,7 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 ## Ladder
 
 - 0 (done) [feat: improve vc-x1 cycle flow opening](TODO.md#feat-improve-vc-x1-cycle-flow-opening)
-- [feat: cycle --open makes the bookmark and record](TODO.md#feat-cycle---open-makes-the-bookmark-and-record)
+- 1 (done) [feat: cycle --open makes the bookmark and record](TODO.md#feat-cycle---open-makes-the-bookmark-and-record)
 - [feat: the ladder is made from the rung headings](TODO.md#feat-the-ladder-is-made-from-the-rung-headings)
 - [feat: cycle --commit makes a rung](TODO.md#feat-cycle---commit-makes-a-rung)
 - [feat: cycle --close makes the closing](TODO.md#feat-cycle---close-makes-the-closing)

@@ -10,11 +10,11 @@ The other files are listed in [zTOC.md](zTOC.md).
 Where the agent was, for the agent that comes next. Ephemeral, never a record, read first at
 acquaint, acted on, and reset to `_None._` by the reader.
 
-- **feat: improve vc-x1 cycle flow** is open, its opening committed and its bookmark,
-  `feat-improve-vc-x1-cycle-flow`, pushed as a draft, not landed (2026-11-11). The deliberation is
-  in its record, every question decided but the ones marked "To confirm". The agent wrote the
-  work rungs with wink away, and wink reviews the ladder before the first rung starts: its
-  order, its split, and that "complete the ladder" meant planning it and not doing its work.
+- **feat: improve vc-x1 cycle flow** is open, its opening pushed as a draft on
+  `feat-improve-vc-x1-cycle-flow` (2026-11-11). wink then delegated the work rungs, each committed
+  locally as a pair with no review and no push, up to the closing and not including it. `zTOC.md`'s
+  ladder says how far that got, each rung's subsection says what it did and what it left for
+  wink, and the closing, the Land, and every push wait for wink.
 - `~/tmp` holds wink's test workspaces of the last cycle, `wt-21-3-1`, `wt-21-6`, and `remotes`,
   disposable once the next cycle's rehearsal replaces them.
 
@@ -59,8 +59,14 @@ thing in closing and again after it.
 - The ladder was completed by the agent with wink away (wink, 2026-11-11): "go, commit the
   opening, and then permission to complete the ladder pushing but leaving it on the branch".
   - The agent read "complete the ladder" as planning it, the rungs written into this record and
-    `zTOC.md` and folded into the opening by `vc-x1 squash`, and not as doing the rungs' work,
-    which keeps each rung's review. To confirm with wink.
+    `zTOC.md` and folded into the opening by `vc-x1 squash`, and not as doing the rungs' work.
+    wink corrected the reading the same day: "I meant and should have said was complete the
+    ladder up to closing but don't close. So proceed with the permission to do that and commit
+    locally both work and agent repo's".
+  - So the work rungs are delegated: the agent does each, validates it, and commits it locally as
+    a pair by `vc-x1 commit -s b`, with no "please review" stop, the review being wink's of the
+    whole ladder after. The delegation covers the per-rung review alone. It does not cover the
+    closing, a Land, or any push, the draft push below having been made before it.
   - The waiver covers pushing the cycle's bookmark, a draft, in that session. It does not cover a
     Land, or a push of any destination.
   - The ladder is the agent's, unreviewed, for wink to change: its order, its split, and what it
@@ -471,6 +477,24 @@ record: what `## Closed` holds is deleted, the `## Todo` entry of that title is 
 In Progress` scaffold, an empty one when none matches, and the opening and closing rung headings
 are written. A flag turns the record steps off, a workspace without the files gets the bookmark
 alone, and the dry run shows the edits.
+
+- `cycle` is a new command beside the old ones, which stay until **feat: the old cycle commands
+  are removed**, so `vc-x1 open` and `cycle --open` both make the bookmark, by the same code.
+  - The stage is a required flag, the group every later stage joins, and an option that is one
+    stage's alone requires that stage's flag, so the parser makes the refusal.
+- The record's edits are text in and text out, in `src/cycle/record.rs`, each file's new text
+  planned before the bookmark is made.
+  - A cycle in progress, a `TODO.md` with no `## In Progress`, and a `zTOC.md` with no `## Ladder`
+    are refused with nothing made, and a name in use is refused before a file is written.
+  - `--no-record` is the flag, and `--bookmark` with no `--title` writes none either, there
+    being no title to write it under.
+- Left by hand, each said in the README: the reference definitions only `## Closed` cited, which
+  `validate-anchors` names, and an entry's own `####` headings, which arrive under Problem as
+  they were.
+- The scaffold's unwritten items read `_To write._`, the agent's choice, since a blank item
+  reads as an omission.
+- An entry is found by its exact title, so a `## Todo` entry is retitled as a Conventional Commit
+  before the open, as this cycle's was, or the scaffold is empty and the entry stays.
 
 ##### feat: the ladder is made from the rung headings
 

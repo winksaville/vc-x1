@@ -856,15 +856,15 @@ fn commit_pair(
 }
 
 /// The cycle-record's file, at the repo's root.
-const RECORD: &str = "TODO.md";
+pub(crate) const RECORD: &str = "TODO.md";
 
 /// An empty `## In Progress`.
-const NONE_IN_PROGRESS: &str = "_No cycle currently in progress._";
+pub(crate) const NONE_IN_PROGRESS: &str = "_No cycle currently in progress._";
 
 /// The body of `heading`'s section in `text`, as byte offsets: from
 /// the line after the heading to the next `## ` or `# ` heading, else
 /// the end. A heading inside a fenced code block is not one.
-fn section(text: &str, heading: &str) -> Option<(usize, usize)> {
+pub(crate) fn section(text: &str, heading: &str) -> Option<(usize, usize)> {
     let mut body = None;
     let mut fenced = false;
     let mut at = 0;
