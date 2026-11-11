@@ -720,6 +720,31 @@ Two spellings of one act are worse than either. `open` and `land` are removed, a
 cycle. The README and the tests follow, and **vc-x2: a cycle command, open, close, and land** in
 `## Todo` retires at the close-out.
 
+- `open` and `land` are no longer commands, and each still parses, hidden, so its refusal names
+  the stage that took its place, `cycle --open` and `cycle --land <BOOKMARK>`. `commit`'s three
+  flags are refused the same way. `--onto`, `--dead-end`, and `--skip` on `commit` are gone
+  outright, each having needed one of the three.
+- What was removed from `commit` is the closing's own code, which `cycle --close` replaced and
+  does not call: the detour around a tip that is not `@-`, the closing's plan and its three
+  shapes, the title read from the opening commit, and the Land run from inside a commit. The
+  file went from 3911 lines to 1933.
+  - Kept, as `cycle`'s: the pair's commit, the squash into an opening, the record's move, and the
+    version check. `title` and `body` are required again, no closing deriving them.
+- `src/open.rs` and `src/land.rs` stay as the code `cycle` calls, less their argument parsers.
+- `cycle --land` took `--delete-intermediate-bookmarks`, which the last rung left with `vc-x1
+  land`. A Land by a revision, `land --source @-`, has no flag: `--bookmark` names the cycle's
+  bookmark, and a cycle with none is found as the one local bookmark besides the destination.
+- Tests: 29 of `commit`'s tests of the old flags went with them, their behavior being `cycle`'s
+  tests' and the rehearsal's, and `land`'s and `open`'s build their params without a parser.
+  - Not carried over: the detour's tests, there being no detour, and
+    `the_fixture_lands_by_three_lines`, which ran the old three-command Land on the fixture.
+- `commit`'s warning of a title ending " closing", which `cycle --close` set off, went with the
+  flag it pointed at.
+- The agent-files and the skeleton `TODO.md` that `vc-dr-apply.sh` ships still name the old
+  commands, and are the next rung's.
+- The installed `vc-x1`, 0.85.21, still has the old commands until this cycle lands and its
+  release build is installed, so the rungs here are committed by `vc-x1-dev cycle --commit`.
+
 ##### docs: the Cycle Protocol follows the cycle command
 
 The agent-files describe the flow the old commands made. The Cycle Protocol and `jj.md` are

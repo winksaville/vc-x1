@@ -597,7 +597,7 @@ pub enum ForcedPush {
     Yes,
     /// Asked at a terminal, refused without one.
     Ask,
-    /// Refused: `land`, and a stage whose caller has already asked.
+    /// Refused: a Land, and a stage whose caller has already asked.
     Refuse,
 }
 

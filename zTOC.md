@@ -14,8 +14,8 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 - 7 (done) [feat: cycle --status says where the cycle stands](TODO.md#feat-cycle---status-says-where-the-cycle-stands)
 - 8 (done) [feat: commit refuses an unchanged version](TODO.md#feat-commit-refuses-an-unchanged-version)
 - 9 (done) [feat: an xtask bumps the version](TODO.md#feat-an-xtask-bumps-the-version)
-- 10 (current) [feat: the old cycle commands are removed](TODO.md#feat-the-old-cycle-commands-are-removed)
-- [docs: the Cycle Protocol follows the cycle command](TODO.md#docs-the-cycle-protocol-follows-the-cycle-command)
+- 10 (done) [feat: the old cycle commands are removed](TODO.md#feat-the-old-cycle-commands-are-removed)
+- 11 (current) [docs: the Cycle Protocol follows the cycle command](TODO.md#docs-the-cycle-protocol-follows-the-cycle-command)
 - [feat: improve vc-x1 cycle flow closing](TODO.md#feat-improve-vc-x1-cycle-flow-closing)
 
 ## The TOC

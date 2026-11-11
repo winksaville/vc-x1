@@ -1,5 +1,7 @@
 //! The `cycle` subcommand: a cycle's acts, each a stage named by a
-//! flag, taken out of `commit`, `open`, and `land`.
+//! flag. The bookmark is [`crate::open`]'s to make, the commits
+//! [`crate::commit`]'s, and the Land [`crate::land`]'s, none of which
+//! is a command of its own for a cycle.
 //!
 //! - `--open` opens a cycle: the bookmark first, on the work `@`, as
 //!   [`crate::open`] makes it, then the cycle's record, the edits
@@ -159,7 +161,13 @@ pub struct CycleArgs {
         requires = "land",
         help_heading = "Land"
     )]
-    pub skip: Option<crate::commit::Skip>,
+    pub skip: Option<crate::land::Skip>,
+
+    /// With `--land`, also delete the bookmarks on the commits strictly
+    /// between the destination and the cycle's last commit, a stack of
+    /// cycles landing together [default: named as merged and kept]
+    #[arg(long, requires = "land", help_heading = "Land")]
+    pub delete_intermediate_bookmarks: bool,
 
     /// With `--commit` or `--close`, which repos: `b|both` both commits now,
     /// `w|work` the work half with the agent half left to push, and
@@ -197,7 +205,7 @@ pub struct CycleArgs {
     pub dry_run: DryRunFlag,
 }
 
-/// `--open`'s inputs: the bookmark's, as `open` takes them, and the
+/// `--open`'s inputs: the bookmark's, as [`crate::open::open`] takes them, and the
 /// title the record is written under, `None` when no record is.
 #[derive(Debug)]
 pub struct OpenCycle {
@@ -251,7 +259,8 @@ pub struct LandCycle {
     pub agent: Option<PathBuf>,
     pub dest: String,
     pub merge: bool,
-    pub skip: Option<crate::commit::Skip>,
+    pub skip: Option<crate::land::Skip>,
+    pub delete_intermediate: bool,
     pub push: bool,
     /// The merge commit's title and body, when given.
     pub title: Option<String>,
@@ -382,6 +391,7 @@ impl CycleArgs {
             dest: dest.clone(),
             merge: self.merge,
             skip: self.skip,
+            delete_intermediate: self.delete_intermediate_bookmarks,
             push: self.push,
             title: self.title.clone().filter(|_| alone),
             body,
@@ -537,12 +547,8 @@ fn commit_params(
         target,
         title: Some(title),
         body: Some(body),
-        closing: None,
-        opening: None,
         advance: crate::commit::Advance::Named(bookmark),
         push: c.push,
-        land: false,
-        skip: None,
         no_url_trailer: false,
         dry_run: c.running.dry_run,
         rev: None,
@@ -975,7 +981,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
             );
         }
         if fold {
-            crate::commit::finalize(ctx, work, pair.as_ref(), &title, Some(&body), true)?;
+            crate::commit::finalize(ctx, work, pair.as_ref(), &title, &body, true)?;
         } else {
             // A dry run writes no record, so the work @ may hold nothing.
             let mut params = commit_params(&c.rung, title, body, bookmark);
@@ -1013,7 +1019,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
             m.write(false)?;
         }
         if fold {
-            return crate::commit::finalize(ctx, work, pair.as_ref(), &title, Some(&body), false);
+            return crate::commit::finalize(ctx, work, pair.as_ref(), &title, &body, false);
         }
         if let Some(parents) = &parents {
             crate::merge::set_parents(ctx, work, "@", parents, "cycle --close")?;
@@ -1096,7 +1102,7 @@ fn land(ctx: &mut Context, l: &LandCycle) -> Result<(), Box<dyn std::error::Erro
 /// holds, else the one local bookmark besides the destination. A cycle
 /// still in progress is refused, a destination that moved is refused
 /// naming the ways on, and `--merge` joins it by a merge commit first.
-/// The Land itself is `vc-x1 land`'s code.
+/// The Land itself is [`crate::land::land`].
 fn land_closed(
     ctx: &mut Context,
     l: &LandCycle,
@@ -1155,7 +1161,7 @@ fn land_closed(
             source: Some(source),
             onto: l.dest.clone(),
             skip: l.skip,
-            delete_intermediate: false,
+            delete_intermediate: l.delete_intermediate,
             push: l.push,
             dry_run: l.running.dry_run,
         },

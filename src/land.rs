@@ -45,74 +45,25 @@
 
 use std::path::{Path, PathBuf};
 
-use clap::Args;
 use log::{debug, info};
 
-use crate::commit::Skip;
 use crate::context::Context;
 use crate::desc_helpers::{
     extract_bare_id, extract_ochid_from_desc, repo_url_for, with_ochids, without_trailer_lines,
 };
 use crate::jj;
-use crate::options_flags::dry_run::DryRunFlag;
-use crate::options_flags::scope::{RepoScope, repo_scope_parser};
+use crate::options_flags::scope::RepoScope;
 use crate::options_flags::squash::SquashSpec;
-use crate::subcommand::SubcommandRunner;
 
-/// Land a cycle whose last commit is made: `--onto` fast-forwarded to
-/// `--source` and the cycle's bookmark deleted, locally unless `--push`.
-#[derive(Args, Debug)]
-pub struct LandArgs {
-    /// The cycle's last commit: a bookmark, the cycle's, or a revision,
-    /// whose current bookmark, else its nearest parent's above `--onto`,
-    /// is the cycle's [default: the one local bookmark besides `--onto`]
-    #[arg(long, value_name = "BM|REV")]
-    pub source: Option<String>,
-
-    /// The bookmark landed on, fast-forwarded to `--source`: a local
-    /// bookmark at its `origin` position that `--source` descends from
-    #[arg(long, value_name = "BOOKMARK", required = true)]
-    pub onto: String,
-
-    /// Which side of the cycle's bookmark is kept: `local`, `remote`,
-    /// or `both`, none deleted
-    #[arg(long, value_enum, value_name = "SIDE", hide_possible_values = true)]
-    pub skip: Option<Skip>,
-
-    /// Also delete the bookmarks on the commits strictly between `--onto`
-    /// and `--source`, locally and on origin, as `--skip` allows: a stack
-    /// of cycles landing together [default: named as merged and kept]
-    #[arg(long)]
-    pub delete_intermediate_bookmarks: bool,
-
-    /// Publish the Land, the work repo first, and delete the cycle's
-    /// bookmark on `origin` as well, a Land otherwise staying on the
-    /// machine
-    #[arg(long)]
-    pub push: bool,
-
-    /// Where: a path in the workspace for `-s b`, or the repo itself for
-    /// `-s p` [default: the current directory]
-    #[arg(short = 'R', long, value_name = "PATH")]
-    pub repo: Option<PathBuf>,
-
-    /// Which repos, required: `b` a dual workspace's, `p` a plain repo
-    #[arg(
-        short = 's',
-        long,
-        value_name = "SCOPE",
-        value_parser = repo_scope_parser(&["both", "por"]),
-        required = true,
-        help = "Which repos, required: `b|both` or `p|por`",
-        long_help = "Which repos, required: `b|both` a dual workspace, or `p|por` a plain repo. \
-                     `w` alone is refused, since it could publish trailers naming agent commits \
-                     not yet published, and `a` alone, which has no cycle to land"
-    )]
-    pub scope: RepoScope,
-
-    /// Make every check and say each step, and change nothing
-    #[command(flatten)]
-    pub dry_run: DryRunFlag,
+/// Which side of the cycle's bookmark a Land keeps.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum Skip {
+    /// The local bookmark is kept, only `origin`'s deleted.
+    Local,
+    /// The remote bookmark is kept, only the local one deleted.
+    Remote,
+    /// Both are kept, none deleted.
+    Both,
 }
 
 /// Inputs to the land op, flat, owned, clap-free.
@@ -128,63 +79,6 @@ pub struct LandParams {
     pub delete_intermediate: bool,
     pub push: bool,
     pub dry_run: bool,
-}
-
-impl TryFrom<&LandArgs> for LandParams {
-    type Error = String;
-
-    /// Resolve the scope to the repo the Land moves bookmarks in.
-    fn try_from(a: &LandArgs) -> Result<Self, String> {
-        let repo = match &a.scope {
-            RepoScope::Por => {
-                let repos = crate::common::resolve_scoped_repos(&a.scope, a.repo.as_deref())
-                    .map_err(|e| e.to_string())?;
-                match repos.as_slice() {
-                    [repo] => repo.clone(),
-                    other => {
-                        return Err(format!("land -s p: expected one repo, got {}", other.len()));
-                    }
-                }
-            }
-            RepoScope::Sides(sides) if sides.is_both() => {
-                crate::pair::resolve_pair(a.repo.as_deref())
-                    .map_err(|e| e.to_string())?
-                    .work
-            }
-            RepoScope::Sides(_) => {
-                return Err(
-                    "land: a work-only Land would publish trailers naming agent commits its \
-                     agent half may not have published, and the agent repo alone has no cycle to \
-                     land, so the scope is `-s b`, or `-s p` for a plain repo"
-                        .into(),
-                );
-            }
-        };
-        Ok(LandParams {
-            repo,
-            scope: a.scope.clone(),
-            source: a.source.clone(),
-            onto: a.onto.clone(),
-            skip: a.skip,
-            delete_intermediate: a.delete_intermediate_bookmarks,
-            push: a.push,
-            dry_run: a.dry_run.value,
-        })
-    }
-}
-
-impl SubcommandRunner for LandArgs {
-    type Params = LandParams;
-
-    /// Delegate to the `TryFrom<&LandArgs>` impl above.
-    fn to_params(&self) -> Result<Self::Params, String> {
-        LandParams::try_from(self)
-    }
-
-    /// Run the `land` op.
-    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
-        land(ctx, params)
-    }
 }
 
 /// Entry point: resolve `--source` and the cycle's bookmark, plan the
@@ -691,19 +585,44 @@ mod tests {
         local_land_params(fx, &args)
     }
 
-    /// `vc-x1 land <args>` in the fixture's work repo, parsed.
+    /// The params of a Land in the fixture's work repo, from the flags
+    /// `cycle --land` passes on, written as `vc-x1 land`'s were.
     fn local_land_params(fx: &Fixture, args: &[&str]) -> LandParams {
-        let mut argv = vec!["vc-x1", "land"];
-        argv.extend_from_slice(args);
-        let Ok(Cli {
-            command: Some(Commands::Land(mut a)),
-            ..
-        }) = Cli::try_parse_from(&argv)
-        else {
-            panic!("expected Land: {argv:?}");
+        let mut p = LandParams {
+            repo: fx.work.clone(),
+            scope: RepoScope::Sides(Scope(vec![Side::Work, Side::Bot])),
+            source: None,
+            onto: String::new(),
+            skip: None,
+            delete_intermediate: false,
+            push: false,
+            dry_run: false,
         };
-        a.repo = Some(fx.work.clone());
-        LandParams::try_from(&a).expect("land params")
+        let mut args = args.iter();
+        while let Some(flag) = args.next() {
+            let mut value = || args.next().expect("a value").to_string();
+            match *flag {
+                "-s" => {
+                    if value() == "p" {
+                        p.scope = RepoScope::Por;
+                    }
+                }
+                "--source" => p.source = Some(value()),
+                "--onto" => p.onto = value(),
+                "--skip" => {
+                    p.skip = Some(match value().as_str() {
+                        "local" => Skip::Local,
+                        "remote" => Skip::Remote,
+                        _ => Skip::Both,
+                    })
+                }
+                "--delete-intermediate-bookmarks" => p.delete_intermediate = true,
+                "--push" => p.push = true,
+                "--dry-run" => p.dry_run = true,
+                other => panic!("unknown flag {other}"),
+            }
+        }
+        p
     }
 
     /// A cycle pushed on `feat-a-cycle`: its opening and one rung.
@@ -718,9 +637,8 @@ mod tests {
                 "-s",
                 "b",
                 "--push",
-                "--opening",
                 "--title",
-                "feat: a cycle",
+                "feat: a cycle opening",
                 "--body",
                 "Why.",
             ],
@@ -753,9 +671,8 @@ mod tests {
             &[
                 "-s",
                 "w",
-                "--opening",
                 "--title",
-                "feat: a cycle",
+                "feat: a cycle opening",
                 "--body",
                 "Why.",
             ],
@@ -1021,52 +938,20 @@ mod tests {
         jj_ok(&fx.work, &["commit", "-m", "feat: a rung"]);
         jj_ok(&fx.work, &["git", "push", "--named", "feat-a-cycle=@-"]);
         let tip = commit_id(&fx.work, "feat-a-cycle");
-        let argv = [
-            "vc-x1",
-            "land",
-            "-s",
-            "p",
-            "--source",
-            "feat-a-cycle",
-            "--onto",
-            "main",
-            "--push",
-        ];
-        let Ok(Cli {
-            command: Some(Commands::Land(mut a)),
-            ..
-        }) = Cli::try_parse_from(argv)
-        else {
-            panic!("expected Land");
+        let p = LandParams {
+            repo: fx.work.clone(),
+            scope: RepoScope::Por,
+            source: Some("feat-a-cycle".to_string()),
+            onto: "main".to_string(),
+            skip: None,
+            delete_intermediate: false,
+            push: true,
+            dry_run: false,
         };
-        a.repo = Some(fx.work.clone());
-        let p = LandParams::try_from(&a).expect("land params");
         land(&mut test_ctx(), &p).expect("landed");
         assert_eq!(commit_id(&fx.work, "main"), tip);
         assert_eq!(commit_id(&fx.work, "main@origin"), tip);
         assert!(!on_origin(&fx.work, "feat-a-cycle"), "deleted on origin");
-    }
-
-    /// `-s w` and `-s a` are refused before anything is read: a dual
-    /// workspace lands both repos together.
-    #[test]
-    fn one_side_alone_is_refused() {
-        let fx = Fixture::new("land-one-side");
-        for scope in ["w", "a"] {
-            let argv = [
-                "vc-x1", "land", "-s", scope, "--source", "main", "--onto", "main",
-            ];
-            let Ok(Cli {
-                command: Some(Commands::Land(mut a)),
-                ..
-            }) = Cli::try_parse_from(argv)
-            else {
-                panic!("expected Land");
-            };
-            a.repo = Some(fx.work.clone());
-            let err = LandParams::try_from(&a).expect_err("refused");
-            assert!(err.contains("the scope is `-s b`"), "{scope}: {err}");
-        }
     }
 
     /// A stack: `earlier` on the opening, between `main` and the tip,

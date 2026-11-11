@@ -128,7 +128,7 @@ pub struct PushParams {
     pub dry_run: bool,
     pub yes: bool,
     /// Who answers a push that would be forced: `--yes`, else asked.
-    /// `commit --push` and `land --push` refuse one.
+    /// `commit --push` and `cycle --land --push` refuse one.
     pub forced: ForcedPush,
 }
 

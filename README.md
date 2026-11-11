@@ -166,7 +166,7 @@ vc-x1 symlink [--target P] [OPTS]         # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
 vc-x1 squash-push -s a [--bookmark NAME]  # Squash @ into @-, advance a bookmark, push
 vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
-vc-x1 land -s b --onto T [--source S]      # Land a made cycle: fast-forward, delete its bookmark, locally
+vc-x1 cycle --open|--commit|--close|--land  # Run a cycle's stages, --status saying where it stands
 vc-x1 trailers --update [--range R]        # Rewrite a range's trailers to what is stamped today
 vc-x1 squash -s b [--title T --body B]     # Fold the working copies into the pair
 vc-x1 merge -s w --target T --from S...    # Add sources to a target's parents, keeping its change
@@ -425,8 +425,8 @@ Scopes: `w`=work, `a`=agent, `b`=both, `p`=por.
 |---|---|---|
 | `sync`, `squash`, `squash-push`, `push`, `status`, `move-bookmark`, `delete-bookmark` | `w a b p` | |
 | `validate-desc` | `w a b` | a plain repo has no other repo to check its descriptions against |
-| `commit` | `w a b p` | `a` refused with a REV, with `--opening` or `--closing`, and on an agent `@` paired to a work commit |
-| `land` | `b p` | `w` could publish trailers naming agent commits left unpublished, and `a` has no cycle |
+| `commit` | `w a b p` | `a` refused with a REV, and on an agent `@` paired to a work commit |
+| `cycle` | `w b p` | optional, `b` in a dual workspace and `p` in a plain repo by default, and `w` refused with `--land`, which could publish trailers naming agent commits left unpublished |
 | `merge` | `w p` | the agent repo never holds a merge |
 
 The rule: a scope is valid when what it publishes names nothing it leaves unpublished. A commit made
@@ -1969,7 +1969,7 @@ Behavior notes:
   would be forced, so it warns "squash-push: the push of '<bm>' is forced, since <why>" and asks
   "rewrite the published '<bm>@origin'? [y/N]". The `--yes` flag answers in advance, a configured
   `squash-push.yes` never does, and without a tty and `--yes` it is an error that changes nothing.
-  As `vc-x1 push`'s stage it takes push's answer, and as `land`'s it refuses. A bookmark with no
+  As `vc-x1 push`'s stage it takes push's answer, and as a Land's it refuses. A bookmark with no
   remote yet is never asked about.
 - Preflight refuses bad states before rewriting anything: unresolvable squash revsets, an
   ochid-dropping squash (see [Testing the ochid-trailer guard](#testing-the-ochid-trailer-guard)),
@@ -2004,18 +2004,6 @@ vc-x1 commit -s p -R ../other --title "..." --body "..."
 # A draft made by hand, the undescribed @-, described in place as the rung, its trailer stamped
 vc-x1 commit -s b -r @- --title "feat: a rung" --body @tmp/body.md
 
-# The cycle's opening, " opening" appended, on its bookmark, feat-a-cycle, which `vc-x1 open` made
-vc-x1 commit -s b --opening --title "feat: a cycle" --body @tmp/body.md
-
-# The cycle's closing, its tip @-, onto main: one commit above main is finalized in place, more
-# get the closing commit, its title and body from the opening and the config
-vc-x1 commit -s b --closing @- --onto main
-
-# A single-step cycle with nothing committed, its work in @ on open's bookmark: one commit, landed
-vc-x1 commit -s b --closing @- --onto main --land --push --title "feat: add abc" --body "Why."
-
-# The same, the tip named by the cycle's bookmark, onto a release branch, and landed there
-vc-x1 commit -s b --closing feat-a-cycle --onto release-1 --land
 ```
 
 `-r, --revision REV` is the commit the description is for: `@` by default, committed as the
@@ -2024,85 +2012,15 @@ trailer stamped, so a commit made by hand becomes a rung's. The draft must be un
 remote bookmark reaching it, carry no trailer yet, since a pair's commit is re-described by
 `squash --title --body`, and hold a change. `@` is left as it is, as `push` leaves new work, the
 line's bookmark advances to the draft, and a draft below `@-` is kept local, since push publishes
-`@-`. Not with `--opening` or `--closing`, whose commits are made from `@`. The positional it was
-is refused, naming `-r`.
+`@-`. The positional it was is refused, naming `-r`.
 
-`--closing <BM|REV>` closes the cycle whose tip the argument names, a bookmark or a revision as jj
-resolves them, a name that is both being the bookmark, onto `--onto <BOOKMARK>`, the target. It is
-required, since no target is assumed: a bookmark made is likely, not certainly, the one a cycle
-lands on, and a closing without it is refused naming the bookmark below the opening. The target is
-read where it is now, so one that moved during the cycle is joined by the merge rather than needing
-a rebase. The commits between decide the shape:
-
-- One, the opening: a single-step cycle, finalized in place with no new commit. `@` is folded into
-  it when it sits on it, and it takes the bare cycle title, its body and trailer kept, so its
-  change id and its partner stand, and the agent `@` is left for `push`. The line's bookmark
-  follows the rewrite. A commit that is not an opening is refused, unless `--title` is given.
-- More: the closing commit, the target and the tip merged into `@`, as `merge --target @ --from
-  <target> --from <tip>` does, then committed, which keeps those parents, carrying the record move
-  and what `@` holds. `--dead-end` always makes it, a one-commit branch included.
-- None, the work in `@`, which carries the cycle's bookmark, [`open`](#open)'s: a single-step cycle
-  closed in one commit made now from `@`, under the bare cycle title, `--title` and `--body`
-  required, there being no opening to read. The tip is `@-`, the bookmark, or `@`. With nothing in
-  `@`, no bookmark on it, or `--dead-end`, it is refused, and so is `@` as the tip of a branch with
-  commits.
-
-A tip that is not `@-`, any commit on any line, is closed by a detour: `@` moves onto it first, so
-the closing is made from the tip's working copy, and returns after, to the same commit when it
-held work and to a fresh empty one on its parent when it did not. The commits above such a tip
-stay as they are, their line unclosed, and two heads close one at a time, each landed before the
-next, since the second's first parent is the target as it then stands.
-
-`--title` and `--body` are optional with `--closing`. The cycle title is read from the opening, its
-" opening" removed, and " closing" is appended for a closing commit, " dead-end closing" with
-`--dead-end`. A given `--title` is the bare cycle title. The closing commit's
-body defaults to `[closing] body` in `.vc-config.md`, its `{title}` the cycle title, and a
-finalized commit keeps the opening's. Without `--closing` a title ending " closing" is warned
-about, since it may be a closing not asked for.
-
-A closing moves the cycle's record in the repo's `TODO.md` before it commits, so the commit carries
-it: the `## In Progress` block, its first `###` heading to the section's end, replaces the `##
-Closed` block, and `## In Progress` reads "_No cycle currently in progress._", each section's intro
-kept, while `zTOC.md`'s ladder stays as it is, so the landmark keeps it. A finalized commit's kept
-body gains "See details in TODO.md.". The move is planned and checked before anything is made: no
-`TODO.md`, no `## In Progress`, or nothing in it moves nothing and says so, and a cycle in progress
-with no `## Closed` is refused with the file as it was.
-
-`--land` lands the cycle in the same invocation, on the machine: the closing is made, the agent `@`
-committed when the cycle's commits name it, the target fast-forwarded to the closing, and the
-closing's bookmark deleted, `--skip local|remote|both` keeping what it names. `--push` also
-publishes it and deletes the bookmark on `origin`. The target is `--onto`'s, the closing's first
-parent, so a cycle lands with `commit --closing @- --onto main --land`. The closing's own push to
-the cycle's bookmark is skipped, the bookmark being deleted.
-`--land` is the closing then [`land`](#land), one code path, in one step.
-
-The closing's bookmark is the one its commit carries and a Land deletes, and `--closing`'s
-argument decides it. A bookmark named is that one. A revision means the current bookmark on the
-tip, else the nearest parent's above the target. Several at that height are refused with the list,
-since naming one of them settles it, and none means the closing carries none, kept local unless
-`--land` lands it, since a push would publish it on the target. The branch's other bookmarks are
-merged by the Land and left as they are, each named after it, yours to keep or delete. Every check runs first, so a
-refusal leaves everything as it was: the target must be a local bookmark at its `origin` position,
-since a target that moved stops a Land, the closing must merge onto it, and the branch must descend
-from it, so the tree landed is the one reviewed. A conflicted closing is made but not landed. The
-install stays `vc-x1 install`, after.
-
-```bash
-vc-x1 commit -s b --closing @- --onto main --land        # the cycle at @-, landed on main
-vc-x1 commit -s b --closing @- --onto dev --land         # landed on dev, the merge's base
-vc-x1 commit -s b --closing @- --onto main --land --push # landed on main, and published
-```
-
-`--opening [BOOKMARK]` makes the cycle's opening: `--title` is the bare cycle title and " opening"
-is appended, a title carrying it already refused. The bookmark is the one named, else the bare
-title's slug, the anchor a heading of the title gets, `feat: a cycle` naming `feat-a-cycle`, and
-[`open`](#open) made it first on the work `@`, so it followed the change into the opening. The
-opening creates none: an `@` without it is refused before the commit, naming `vc-x1 open`. It stays
-local like the rest unless `--push` asks, a rung's push, and `--no-advance` is refused, the bookmark
-being on the opening already.
+A cycle's opening, rungs, closing, and Land are [`cycle`](#cycle)'s, which makes its commits by
+this command's code, so `commit` is the plain commit of the pair, for work outside a cycle.
+`--opening`, `--closing`, and `--land` are retired, each refused naming the stage that took its
+place.
 
 The line's bookmark advances to the work commit, locally: the nearest bookmark below the work
-`@-`, as `push` resolves it, the one `--bookmark` names, or `--opening`'s. jj moves a bookmark with
+`@-`, as `push` resolves it, or the one `--bookmark` names. jj moves a bookmark with
 its commit through a later squash or amend, so the advance holds through the review's fixes, and
 the remote moves only at `push`. `--no-advance` leaves the bookmark where it is, and a line with no
 bookmark or several is refused before anything is made. The agent repo's `main` is push's to set.
@@ -2130,7 +2048,7 @@ vc-x1 push -s b
 The commit is pushed in the same invocation, as `vc-x1 push` would after it: a pair by `push -s
 b`, a plain repo by `push -s p`, and an agent commit by publishing the agent repo's `main`. The diff
 and the description are reviewed before the commit, so what is pushed is what was reviewed.
-A commit stays on the machine unless `--push` asks, the opening's bookmark included, for a look at it
+A commit stays on the machine unless `--push` asks, for a look at it
 before `vc-x1 push`, and `--local`, or its alias `--no-push`, says so outright. A commit with `--no-advance` pushes only
 with `--push`, since its bookmark was left where it was.
 Both sides carry `orepo:` then `ochid:`, a work commit's `orepo:` naming the agent repo and an agent
@@ -2141,28 +2059,6 @@ whose commit has no trailers, it changes nothing.
 body in commit-body form has markers and blank lines a shell quote mangles. The work repo's `@`
 must hold a change, and with `b` the agent repo's `@`, the session's journal, is committed as it
 stands. A failure after the first commit restores both repos from `jj op` snapshots.
-
-### open
-
-Open a cycle by making its bookmark first, on the work `@`, before the opening's record, ladder,
-and bump are written, so every edit of the cycle is on its branch. [`commit
---opening`](#commit) then commits the opening on it.
-
-```bash
-vc-x1 open --title "feat: a cycle"            # feat-a-cycle, the title's slug
-vc-x1 open --bookmark mine                    # a name of your own
-vc-x1 open --title "feat: a cycle" --dry-run  # print the name, make nothing
-```
-
-`--title` is the bare cycle title, and the bookmark its slug, the anchor a heading of the title
-gets: lowercase, `-` and `_` kept, each space a `-`, everything else dropped, so `feat: no trunk,
-every target is named` names `feat-no-trunk-every-target-is-named`. `--bookmark` names it instead,
-and one of the two is required. A name in use, locally or on `origin`, is refused, since a new one
-would move or shadow it, and nothing else is: `@` may hold edits, which become the opening's, and
-a `main` not where its `origin` was last fetched is a warning, a Land onto a target that moved
-being refused anyway. The bookmark goes on `@`, so it follows the change through every snapshot and
-the opening's commit. The agent repo gets none, being on `main` alone, and nothing is pushed. `-R`
-is optional and says where, a workspace or a plain repo.
 
 ### cycle
 
@@ -2188,9 +2084,14 @@ vc-x1 cycle --land main --merge                         # join a main that moved
 vc-x1 cycle --status                                    # where the cycle stands, and what is next
 ```
 
-`--open` opens a cycle. It makes the bookmark on the work `@` first, as [`open`](#open) does, the
-slug of `--title` or `--bookmark`'s name, and then writes the cycle's record into the working
-copy:
+`--open` opens a cycle. It makes the bookmark on the work `@` first, so every edit of the cycle
+is on its branch, and then writes the cycle's record into the working copy. The bookmark is the
+slug of `--title`, the anchor a heading of the title gets: lowercase, `-` and `_` kept, each space
+a `-`, everything else dropped, so `feat: no trunk, every target is named` names
+`feat-no-trunk-every-target-is-named`. `--bookmark` names it instead. A name in use, locally or on
+`origin`, is refused, since a new one would move or shadow it. `@` may hold edits, which become
+the opening's, a `main` not where its `origin` was last fetched is a warning, the agent repo gets
+no bookmark, being on `main` alone, and nothing is pushed. The record:
 
 - In `TODO.md`, what `## Closed` holds is deleted, its intro kept, and the `## Todo` entry titled
   as `--title` is moved into an `## In Progress` scaffold: the title, the item headings, the
@@ -2276,9 +2177,9 @@ The closing carries the record: the ladder is rewritten, every rung done, one un
 single-step cycle, and the `## In Progress` block moves to `## Closed`. Both files are put back
 and the repo restored when the commit is not made. `-s` and `--push` are `--commit`'s.
 
-`--land <BOOKMARK>` lands a closed cycle on the destination, by the code [`land`](#land) runs: the
-agent `@` is committed when the cycle's commits name it, the destination is fast-forwarded to the
-cycle's last commit, and the cycle's bookmark is deleted, `--skip` keeping a side. The
+`--land <BOOKMARK>` lands a closed cycle on the destination: the agent `@` is committed when the
+cycle's commits name it, the destination is fast-forwarded to the cycle's last commit, and the
+cycle's bookmark is deleted, every check made before anything moves. The
 destination is any local bookmark, named each time and never assumed. The cycle is the one `##
 Closed` holds, its bookmark the title's slug, or `--bookmark`'s, or the one local bookmark besides
 the destination, and a cycle still in progress is refused, naming `cycle --close`.
@@ -2296,9 +2197,43 @@ cycle forked is refused naming the ways on:
 
 After `--close` in the same invocation, `--land` lands the closing just made, its checks made
 before the closing is, so a destination that cannot be landed on closes nothing. `--push`
-publishes the destination, the work repo first, and deletes the cycle's bookmark on `origin`.
-Without `--land` it is the draft push of the cycle's bookmark. The install after a Land is the
-project's own.
+publishes the destination, the work repo first, and deletes the cycle's bookmark on `origin`, and
+it refuses a push that would be forced, which `push` and `squash-push` ask about. Without `--land`
+it is the draft push of the cycle's bookmark. Without `--push` the Land stays on the machine, and
+`vc-x1 push -s b --bookmark <BOOKMARK>` publishes it, a published cycle's bookmark left on `origin`
+for `delete-bookmark`. The install after a Land is the project's own.
+
+The agent commit a Land makes carries the last commit's text and one `ochid:` per work commit
+naming the agent `@`, oldest first, none when every rung is a pair. The links the cycle's commits
+carry are then updated by the pass [`trailers`](#trailers) runs, so a commit that links by an
+older `ocid:` or `pcid:` gets `orepo:` in their place, trees checked unchanged. A conflicted last
+commit is not landed.
+
+`--skip local|remote|both` keeps that side of the cycle's bookmark, and with no `--push` the
+remote side is left whatever it says. The branch's other bookmarks are merged by the Land and left
+as they are, each named after it, and `--delete-intermediate-bookmarks` deletes those strictly
+between the destination and the cycle's last commit, a stack of cycles landing together. A
+bookmark at the tip beside the cycle's is kept either way, since it may be one you put there.
+
+Closing and landing as two invocations leaves a pause to test in. A Land only fast-forwards, so
+the destination becomes the closing commit itself, its id and its tree, and the release build of
+the committed source, installed off the PATH by `install --dir`, is the binary that ships:
+
+```bash
+vc-x1 cycle --close --trapezoid main       # the closing, on the cycle's bookmark, main unmoved
+mkdir -p tmp/candidate                     # install --dir takes a directory that exists
+vc-x1 install --dir tmp/candidate          # its release build, the plain name, off the PATH
+tmp/candidate/vc-x1 -V                     # the closing's commit, clean
+# ... the final testing, with tmp/candidate/vc-x1 ...
+tmp/candidate/vc-x1 cycle --land main --dry-run   # the steps it would take
+tmp/candidate/vc-x1 cycle --land main --push      # the tree tested, landed and published
+tmp/candidate/vc-x1 install                # now on main, it installs itself under the plain name
+cmp tmp/candidate/vc-x1 ~/.cargo/bin/vc-x1 # the binary tested is the one installed
+```
+
+The plain `vc-x1` on the PATH is left to what is on `main` until the Land, so whatever relies on it
+never runs a candidate, and the candidate makes its own Land. A binary embeds its commit and
+whether the tree was clean, no time, so the build after the fast-forward is the build tested.
 
 `--status` says where the cycle stands, and changes nothing:
 
@@ -2344,80 +2279,6 @@ local remotes and no cargo project under `~/tmp/cycle-rehearsal`, runs two singl
 a ladder through these flags, open to Land, checks what each command left, and tries each way
 back from a fault found after a closing, naming the ones the tool refuses. `VC` names the binary,
 `vc-x1-dev` by default.
-
-### land
-
-Land a cycle whose last commit is already made, on the machine: the agent `@` committed when the
-cycle's commits name it, `--onto` fast-forwarded to `--source`, and the cycle's bookmark deleted,
-every check made before anything moves. `--push` also publishes it, the work repo first, and
-deletes the bookmark on `origin`, and refuses a push that would be forced, which `push` and
-`squash-push` ask about. Without it `vc-x1 push -s b --bookmark <ONTO>` publishes, a
-published cycle's bookmark left on `origin` for `delete-bookmark`. It is the Land of a closing made
-without `--land`, or of a single-step commit, and the second half of `commit --closing ... --land`,
-which runs the same code.
-
-The agent commit carries the last commit's text and one `ochid:` per work commit naming the agent
-`@`, oldest first. The links the cycle's commits carry are then updated by the pass
-[`trailers`](#trailers) runs with `add` off, so a commit that already links (has `orepo:`, `ocid:`
-or `pcid:`) gets `orepo:` and loses any `ocid:` and `pcid:`, trees checked unchanged. It adds no
-links to a commit made with none, and with the new form it rewrites no rung at all. The agent commit
-is not yet published, so `vc-x1 push` folds the journal into it and both repos end clean. A commit
-above `--source` naming the agent `@` is refused.
-
-```bash
-vc-x1 land -s b --onto main                          # the one bookmark besides main, landed on it
-vc-x1 land -s b --source feat-a-cycle --onto main    # the cycle's bookmark named
-vc-x1 land -s b --source @- --onto dev               # a revision, its bookmark the nearest one
-vc-x1 land -s b --source feat-c --onto main --delete-intermediate-bookmarks   # a stack of cycles
-vc-x1 land -s p -R ../other --onto main --dry-run    # a plain repo, every check, nothing moved
-vc-x1 land -s b --onto main --push                   # landed and published
-```
-
-Testing before publishing is the reason to use it over `commit --land`. A Land only fast-forwards,
-so `main` becomes the source commit itself, its id and its tree, and the release build of the
-committed source, installed off the PATH by `install --dir`, is the binary that ships:
-
-```bash
-vc-x1 commit -s b --closing @- --onto main # the closing, on the cycle's bookmark, main unmoved
-mkdir -p tmp/candidate                     # install --dir takes a directory that exists
-vc-x1 install --dir tmp/candidate          # its release build, the plain name, off the PATH
-tmp/candidate/vc-x1 -V                     # the closing's commit, clean
-# ... the final testing, with tmp/candidate/vc-x1 ...
-tmp/candidate/vc-x1 land -s b --onto main --dry-run   # the steps it would take
-tmp/candidate/vc-x1 land -s b --onto main --push      # the tree tested, landed and published
-tmp/candidate/vc-x1 install                # now on main, it installs itself under the plain name
-cmp tmp/candidate/vc-x1 ~/.cargo/bin/vc-x1 # the binary tested is the one installed
-```
-
-The plain `vc-x1` on the PATH is left to what is on `main` until the Land, so whatever relies on it
-never runs a candidate, and the candidate makes its own Land. A binary embeds its commit and
-whether the tree was clean, no time, so the build after the fast-forward is the build tested. A
-`main` that moved meanwhile is refused, and the rebase it needs makes a new tree, built and tested
-again. A longer test is the same with a directory that lasts, put first on the PATH of the shell
-it is tried from. `commit --closing ... --land` is the one step when no test pause is wanted, and
-`--dry-run` makes every check and says each step, the look before either.
-
-`--source <BM|REV>` names the cycle's last commit, a bookmark, the cycle's, or a revision, whose
-current bookmark, else its nearest parent's above `--onto`, is the cycle's, several at that height
-refused with the list, as `commit --closing` decides it. Left out, it is the one local bookmark
-besides `--onto`, every local bookmark counted, and none or several is refused with their names,
-so a stack of cycles names its tip. `--onto <BOOKMARK>` is any local bookmark at its `origin`
-position that `--source` descends from, so a bushy tree lands anywhere, and one that is not an
-ancestor is refused: `land` makes no merge, which is `commit --closing`'s. A conflicted source is
-not landed.
-
-With `--push` the publish follows where the source is. At the work `@-`, whose pair may be
-unfinished, `--onto` goes through `push`, which finishes it. Below it, the pair is finished, so
-`--onto` is pushed alone and the agent `main` published. `--skip local|remote|both` keeps that side
-of the cycle's bookmark, and with no `--push` the remote side is left whatever it says. The branch's other bookmarks are merged by the Land and left as they are, each named
-after it, and `--delete-intermediate-bookmarks` deletes those strictly between `--onto` and
-`--source`, locally and on origin as `--skip` allows, a stack of cycles landing together. A
-bookmark at the tip beside the cycle's is kept either way, since it may be one you put there.
-
-`-s` is required: `b` a dual workspace, the agent `main` moved with `--onto`, and `p` a
-plain repo. `w` alone could publish trailers naming agent commits not yet published, and `a`
-alone has no cycle to land, so both are refused ([Write scopes](#write-scopes)). The install
-stays `vc-x1 install`.
 
 ### trailers
 
@@ -2600,8 +2461,8 @@ amend of what was pushed, a forced push.
 and when `<bookmark>@origin` is not an ancestor of what goes out it warns "push: the push of '<bm>'
 is forced, since <why>" and asks "rewrite the published '<bm>@origin'? [y/N]". `--yes` answers in
 advance, and without a tty and `--yes` it is an error that changes nothing. `commit --push` and
-`land --push` refuse one, and the bookmark push under every command refuses one unless its caller
-asked, since jj-lib forces every push. See the protocol's
+`cycle --land --push` refuse one, and the bookmark push under every command refuses one unless its
+caller asked, since jj-lib forces every push. See the protocol's
 [at-rest contract](AGENTS.md#at-rest-push-stop-squash-push).
 
 | Flag | Description |
@@ -2772,7 +2633,8 @@ that path is in the commit message, and it stays there if the repo is later push
 commit is rewritten, below these, so `custom.md` may add its own.
 
 Older history keeps its `ocid:` and `pcid:` lines, which named SHAs. Any restamp, by `vc-x1 trailers
---update`, a Land, or `commit --closing` finalizing, removes them and writes `orepo:` instead.
+--update`, a Land, or `cycle --close` squashing into an opening, removes them and writes `orepo:`
+instead.
 
 Earlier forms stay valid: `ochid: /.claude/<id>` and `ochid: /<id>`, where `/` is the workspace root and
 `/.claude` always means the agent repo, and `ochid: <repo-url>#<id>`. `validate-desc` reports a URL form

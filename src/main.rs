@@ -647,16 +647,9 @@ pub(crate) enum Commands {
         commit made by hand becomes a rung's. A draft below `@-` is kept\n\
         local, since push publishes `@-`. Every argument is a flag: the old\n\
         positional is refused, naming -r.\n\n\
-        --closing <BM|REV> closes the cycle whose tip it names onto --onto\n\
-        <BOOKMARK>, required, since no target is assumed: one commit above it\n\
-        is finalized in place, more get the closing commit, the merge of\n\
-        --onto and the tip, and none, the work in @ on `vc-x1 open`'s\n\
-        bookmark, is committed now as the one commit, --title and --body\n\
-        given. A tip that is not @- is closed by a detour, @ moving onto it\n\
-        and returning after. --land, taking no value, lands it: --onto\n\
-        fast-forwarded and pushed and the closing's bookmark deleted, every\n\
-        check first: the one named, or for a revision the current or nearest\n\
-        parent bookmark above --onto, several refused with the list.\n\n\
+        A cycle's opening, rungs, closing, and Land are `vc-x1 cycle`'s, which\n\
+        makes its commits by this command's code. --opening, --closing, and\n\
+        --land are retired, each refused naming its stage.\n\n\
         -s is required: `b` makes both commits now, `w` the work half with\n\
         the agent half left to push, `a` the agent repo alone, unpaired, with\n\
         no trailer, and `p` a plain repo with no trailer. -R is optional and\n\
@@ -733,26 +726,20 @@ pub(crate) enum Commands {
         `p` the repo -R names, as it is.")]
     DeleteBookmark(delete_bookmark::DeleteBookmarkArgs),
 
-    /// Open a cycle: make its bookmark on the work @, first
-    #[command(long_about = "\
-        Open a cycle by making its bookmark first, on the work @, before\n\
-        the opening's record, ladder, and bump are written, so every edit of\n\
-        the cycle is on its branch. `commit --opening` then takes it.\n\n\
-        --title is the bare cycle title, the bookmark its slug, the anchor a\n\
-        heading of the title gets, `feat: a cycle` naming `feat-a-cycle`, or\n\
-        --bookmark names it. One is required. A name in use, locally or on\n\
-        origin, is refused. @ may hold edits, which become the opening's, a\n\
-        `main` not where its origin was last fetched is a warning, and the\n\
-        agent repo gets no bookmark. Nothing is pushed. -R is optional and\n\
-        says where, a workspace or a plain repo. --dry-run prints the name.")]
-    Open(open::OpenArgs),
+    /// Retired: `open`, now `cycle --open`, refused naming it.
+    #[command(name = "open", hide = true, disable_help_flag = true)]
+    OpenOld {
+        /// Swallowed so the fix-it shows for any invocation.
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true, num_args = 0..)]
+        rest: Vec<String>,
+    },
 
     /// Run a cycle's stages: --open, --commit, --close, --land, and --status
     #[command(long_about = "\
         Run a cycle by its stages, each a flag, one command for the acts\n\
         the flow has.\n\n\
-        --open opens a cycle: it makes the bookmark on the work @ first, as\n\
-        `vc-x1 open` does, the slug of --title or --bookmark's name, then\n\
+        --open opens a cycle: it makes the bookmark on the work @ first,\n\
+        the slug of --title or --bookmark's name, kept local, then\n\
         writes the cycle's record. In TODO.md what `## Closed` holds is\n\
         deleted and the `## Todo` entry titled as --title is moved into an\n\
         `## In Progress` scaffold, an empty one when no entry matches, and\n\
@@ -800,7 +787,7 @@ pub(crate) enum Commands {
         rung done, and the record moved to `## Closed`, both in the commit.\n\
         The acceptance check comes first, by hand, and again after.\n\n\
         --land <BOOKMARK> lands a closed cycle on the destination, any\n\
-        bookmark, none assumed, by the code `vc-x1 land` runs: the agent @\n\
+        bookmark, none assumed: the agent @\n\
         committed when the cycle's commits name it, the destination\n\
         fast-forwarded to the cycle's last commit, and the cycle's bookmark\n\
         deleted, --skip keeping a side. The cycle is the one `## Closed`\n\
@@ -825,32 +812,13 @@ pub(crate) enum Commands {
         -R is optional and says where, a workspace or a plain repo.")]
     Cycle(cycle::CycleArgs),
 
-    /// Land a cycle whose last commit is made, with -s
-    #[command(long_about = "\
-        Land a cycle whose last commit is already made, on the machine: the\n\
-        agent `@` committed when the cycle's commits name it, the links they\n\
-        carry updated, --onto fast-forwarded to --source, and the cycle's\n\
-        bookmark deleted, every check made before anything moves. --push also\n\
-        publishes it, the work repo first, and deletes the bookmark on\n\
-        `origin`, and refuses a push that would be forced, which `push`\n\
-        or `squash-push` asks about. `commit --closing ... --land` lands\n\
-        the same way, the closing made first.\n\n\
-        --source is a bookmark, the cycle's, or a revision, whose current\n\
-        bookmark, else its nearest parent's above --onto, is the cycle's,\n\
-        several refused with the list. Left out, it is the one local\n\
-        bookmark besides --onto. --onto is a local bookmark at its\n\
-        `origin` position that --source descends from, so a bushy tree lands\n\
-        anywhere, and Land only fast-forwards: a merge is `commit\n\
-        --closing`'s. --skip keeps a side of the cycle's bookmark, `local`,\n\
-        `remote`, or `both`, and --delete-intermediate-bookmarks deletes the\n\
-        bookmarks strictly between --onto and --source too. --dry-run makes\n\
-        every check and says each step.\n\n\
-        -s is required: `b` a dual workspace, the agent `main` moved with\n\
-        --onto, and `p` a plain repo. `w` alone could publish\n\
-        trailers naming agent commits not yet published, and `a` alone has\n\
-        no cycle to land, so both are refused. The install stays `vc-x1\n\
-        install`, after.")]
-    Land(land::LandArgs),
+    /// Retired: `land`, now `cycle --land`, refused naming it.
+    #[command(name = "land", hide = true, disable_help_flag = true)]
+    LandOld {
+        /// Swallowed so the fix-it shows for any invocation.
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true, num_args = 0..)]
+        rest: Vec<String>,
+    },
 
     /// Update the trailers of a range of work commits to what is stamped today
     #[command(long_about = "\
@@ -1100,9 +1068,23 @@ fn main() -> ExitCode {
         Commands::Merge(args) => args.dispatch(&mut ctx),
         Commands::MoveBookmark(args) => args.dispatch(&mut ctx),
         Commands::DeleteBookmark(args) => args.dispatch(&mut ctx),
-        Commands::Open(args) => args.dispatch(&mut ctx),
+        Commands::OpenOld { .. } => {
+            error!(
+                "open: retired, a cycle's acts being `vc-x1 cycle`'s: `vc-x1 cycle --open --title \
+                 \"<cycle title>\"` makes the bookmark and the record, and `--no-record` the \
+                 bookmark alone."
+            );
+            ExitCode::FAILURE
+        }
         Commands::Cycle(args) => args.dispatch(&mut ctx),
-        Commands::Land(args) => args.dispatch(&mut ctx),
+        Commands::LandOld { .. } => {
+            error!(
+                "land: retired, a cycle's acts being `vc-x1 cycle`'s: `vc-x1 cycle --land \
+                 <BOOKMARK>` lands a closed cycle on the destination, `--bookmark` naming the \
+                 cycle's when it is not the title's slug."
+            );
+            ExitCode::FAILURE
+        }
         Commands::Trailers(args) => args.dispatch(&mut ctx),
     }
 }
@@ -1110,6 +1092,16 @@ fn main() -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `open` and `land` are retired: each still parses, hidden, with
+    /// any arguments, for its refusal to name `cycle`'s stage.
+    #[test]
+    fn the_cycles_commands_are_retired() {
+        let open = Cli::try_parse_from(["vc-x1", "open", "--title", "feat: x"]).expect("parses");
+        assert!(matches!(open.command, Some(Commands::OpenOld { .. })));
+        let land = Cli::try_parse_from(["vc-x1", "land", "-s", "b", "--onto", "main"]).expect("p");
+        assert!(matches!(land.command, Some(Commands::LandOld { .. })));
+    }
 
     #[test]
     fn unknown_command() {
