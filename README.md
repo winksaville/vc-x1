@@ -2167,14 +2167,16 @@ is optional and says where, a workspace or a plain repo.
 ### cycle
 
 Run a cycle by its stages, each a flag, one command for the acts the flow has. The stages are
-being built, `--open` and `--ladder` so far, and until the rest are, [`commit`](#commit) and
-[`land`](#land) make the commits and the Land.
+being built, `--open`, `--ladder`, and `--commit` so far, and until the rest are,
+[`commit --closing`](#commit) and [`land`](#land) make the closing and the Land.
 
 ```bash
 vc-x1 cycle --open --title "feat: a cycle"              # the bookmark, and the record
 vc-x1 cycle --open --title "feat: a cycle" --no-record  # the bookmark alone
 vc-x1 cycle --open --title "feat: a cycle" --dry-run    # say each edit, make none
 vc-x1 cycle --ladder                                    # the ladder, from the rung headings
+vc-x1 cycle --commit                                    # the opening, a cycle's first commit
+vc-x1 cycle --commit --title "feat: one rung" --body @body.txt  # a work rung
 ```
 
 `--open` opens a cycle. It makes the bookmark on the work `@` first, as [`open`](#open) does, the
@@ -2217,6 +2219,27 @@ twice, a ladder whose first rung is not the cycle title plus " opening" or whose
 plus " closing", and a line of the ladder already there that is not a rung, a left-margin `- `
 with a number and marker or neither and a link whose slug is its title's. A done rung below the
 current one is a warning. `--dry-run` prints the ladder and writes none.
+
+`--commit` commits the working copies as a rung of the cycle in progress, by the code
+[`commit`](#commit) runs, so a dual workspace gets the pair, each half stamped with the other's
+change id, and a plain repo one commit with no trailer.
+
+- A cycle's first commit is its opening, which the tool sees and no flag says. Its title is the
+  cycle title plus " opening" and its body `[opening] body` from the config, `{title}` the cycle
+  title, or a body naming the cycle and its record when the key is absent. A `--body` given takes
+  its place.
+- Any other commit is a work rung, which gives `--title`, a rung heading under `#### Rungs` not yet
+  committed, and `--body`, the text or `@PATH`.
+- The ladder is rewritten first, the rung done and the next current, so `zTOC.md` at the commit
+  shows the cycle as of it, and it is put back when the commit is not made.
+- The cycle's bookmark is the one advanced, the slug of the title in `## In Progress` or
+  `--bookmark`'s, so no other bookmark on the line moves.
+
+`-s` is `b` in a dual workspace and `p` in a plain repo unless given, and `w` makes the work half
+with the agent half left to `push`. `--push` publishes the rung on the cycle's bookmark, a draft
+push. Refused before the ladder is written: a title that is no rung's, a rung committed already,
+which [`squash`](#squash) continues, the closing's title, an empty work `@`, and a work rung with
+no title or body. `--dry-run` prints the descriptions and commits nothing.
 
 ### land
 

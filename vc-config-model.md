@@ -129,8 +129,15 @@ suffix = "-dev"
 <property> = "value"
 ```
 
+The `[opening]` table
+- body: The opening commit's default body, `{title}` the cycle title [[26]]
+```toml
+[opening]
+body = "Opens the cycle {title}. See details in TODO.md."
+```
+
 The `[closing]` table
-- body: The closing commit's default body, `{title}` the cycle title [[26]]
+- body: The closing commit's default body, `{title}` the cycle title [[27]]
 ```toml
 [closing]
 body = "Closes the cycle {title}. See details in TODO.md."
@@ -138,7 +145,7 @@ body = "Closes the cycle {title}. See details in TODO.md."
 
 The `[test]` table
 - fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
-  test` [[27]]
+  test` [[28]]
 ```toml
 [test]
 fixtures = ".fixtures"
@@ -171,5 +178,6 @@ fixtures = ".fixtures"
 [23]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamebin
 [24]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamesuffix
 [25]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenameproperty
-[26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
-[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
+[26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#openingbody
+[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
+[28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures

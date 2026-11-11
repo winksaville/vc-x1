@@ -25,39 +25,73 @@ use crate::context::Context;
 use crate::jj;
 use crate::open::OpenParams;
 use crate::options_flags::dry_run::DryRunFlag;
-use crate::options_flags::scope::RepoScope;
+use crate::options_flags::scope::{RepoScope, repo_scope_parser};
 use crate::subcommand::SubcommandRunner;
 
 /// Run a cycle's stages.
 #[derive(Args, Debug)]
-#[group(id = "stage", required = true, args = ["open", "ladder"])]
+#[group(id = "stage", required = true, args = ["open", "ladder", "commit"])]
 pub struct CycleArgs {
     /// Open a cycle: make its bookmark on the work `@`, then write its
     /// record, `TODO.md`'s `## In Progress` scaffold and `zTOC.md`'s
     /// ladder
-    #[arg(long, help_heading = "Stages")]
+    #[arg(long, help_heading = "Stages", conflicts_with_all = ["ladder", "commit"])]
     pub open: bool,
 
     /// Make `zTOC.md`'s ladder from the rung headings under `####
     /// Rungs` in `TODO.md`, each marker computed from the cycle's
     /// commits
-    #[arg(long, help_heading = "Stages")]
+    #[arg(long, help_heading = "Stages", conflicts_with_all = ["commit", "title"])]
     pub ladder: bool,
 
-    /// The bare cycle title, a Conventional Commit: the bookmark is its
-    /// slug, and the record is written under it
+    /// Commit the working copies as a rung of the cycle in progress,
+    /// the ladder rewritten into it: the cycle's first commit is its
+    /// opening, its title and body defaulted, and a work rung gives
+    /// both
+    #[arg(long, help_heading = "Stages")]
+    pub commit: bool,
+
+    /// With `--open`, the bare cycle title, a Conventional Commit: the
+    /// bookmark is its slug, and the record is written under it. With
+    /// `--commit`, the rung's title, a heading under `#### Rungs`
+    /// [default: the opening's, for a cycle's first commit]
     #[arg(long, value_name = "STR")]
     pub title: Option<String>,
 
+    /// With `--commit`, the rung's body, the problem and its solution,
+    /// or @PATH to read it from a file [default: `[opening] body`, for
+    /// a cycle's first commit]
+    #[arg(long, value_name = "STR|@PATH", requires = "commit")]
+    pub body: Option<String>,
+
     /// The cycle's bookmark, in place of the title's slug: the name
     /// `--open` makes, and the one another stage reads the cycle's
-    /// commits from
+    /// commits from and advances
     #[arg(long, value_name = "NAME")]
     pub bookmark: Option<String>,
 
     /// With `--open`, make the bookmark alone and write no record
     #[arg(long, requires = "open", help_heading = "Open")]
     pub no_record: bool,
+
+    /// With `--commit`, which repos: `b|both` both commits now,
+    /// `w|work` the work half with the agent half left to push, and
+    /// `p|por` a plain repo's commit [default: `b` in a dual
+    /// workspace, `p` in a plain repo]
+    #[arg(
+        short = 's',
+        long,
+        value_name = "SCOPE",
+        value_parser = repo_scope_parser(&["work", "both", "por"]),
+        requires = "commit",
+        help_heading = "Commit"
+    )]
+    pub scope: Option<RepoScope>,
+
+    /// With `--commit`, publish the rung on the cycle's bookmark, a
+    /// draft push, a commit otherwise staying on the machine
+    #[arg(long, requires = "commit", help_heading = "Commit")]
+    pub push: bool,
 
     /// Where: a path in the workspace, its root or either repo, or a
     /// plain repo [default: the current directory]
@@ -86,11 +120,25 @@ pub struct Running {
     pub dry_run: bool,
 }
 
+/// `--commit`'s inputs: the cycle, the repos the commit is made in,
+/// and the title and body given.
+#[derive(Debug)]
+pub struct CommitRung {
+    pub running: Running,
+    /// The agent repo, and whether its commit is made now, `None` for
+    /// a plain repo.
+    pub agent: Option<(PathBuf, bool)>,
+    pub title: Option<String>,
+    pub body: Option<String>,
+    pub push: bool,
+}
+
 /// Inputs to the cycle op, flat, owned, clap-free, a stage each.
 #[derive(Debug)]
 pub enum CycleParams {
     Open(OpenCycle),
     Ladder(Running),
+    Commit(CommitRung),
 }
 
 /// The work repo and, in a dual workspace, the agent repo that `-R`
@@ -109,35 +157,47 @@ fn resolve_repos(repo: Option<&std::path::Path>) -> Result<(PathBuf, Option<Path
     }
 }
 
-impl TryFrom<&CycleArgs> for CycleParams {
-    type Error = String;
+/// The agent repo a commit is made beside, and whether its commit is
+/// made now, by `-s`: both in a dual workspace and the plain repo's
+/// commit in a plain one when it is left out, and refused when it
+/// asks for a pair where there is none or a plain commit where there
+/// is one.
+fn commit_scope(
+    scope: Option<&RepoScope>,
+    agent: Option<PathBuf>,
+    stage: &str,
+) -> Result<Option<(PathBuf, bool)>, String> {
+    match (scope, agent) {
+        (None, agent) => Ok(agent.map(|a| (a, true))),
+        (Some(RepoScope::Por), None) => Ok(None),
+        (Some(RepoScope::Por), Some(_)) => Err(format!(
+            "cycle {stage} -s p: this is a dual workspace, whose rung is a pair: -s b or -s w"
+        )),
+        (Some(RepoScope::Sides(_)), None) => Err(format!(
+            "cycle {stage}: this is a plain repo, with no agent repo to pair with: -s p"
+        )),
+        (Some(RepoScope::Sides(sides)), Some(agent)) => Ok(Some((agent, sides.is_both()))),
+    }
+}
 
-    /// Resolve the workspace and the stage asked for.
-    fn try_from(a: &CycleArgs) -> Result<Self, String> {
-        let (work, agent) = resolve_repos(a.repo.as_deref())?;
-        if a.ladder {
-            if a.open {
-                return Err("cycle: --open makes the first ladder, so it takes no --ladder".into());
-            }
-            if a.title.is_some() {
-                return Err(
-                    "cycle --ladder: the cycle is the one in progress in TODO.md, so it takes \
-                     no --title"
-                        .into(),
-                );
-            }
-            return Ok(CycleParams::Ladder(Running {
-                work,
-                bookmark: a.bookmark.clone(),
-                dry_run: a.dry_run.value,
-            }));
+impl CycleArgs {
+    /// The cycle a stage after `--open` works on.
+    fn running(&self, work: PathBuf) -> Running {
+        Running {
+            work,
+            bookmark: self.bookmark.clone(),
+            dry_run: self.dry_run.value,
         }
-        if a.title.is_none() && a.bookmark.is_none() {
+    }
+
+    /// `--open`'s params.
+    fn open_params(&self, work: PathBuf, agent: Option<PathBuf>) -> Result<CycleParams, String> {
+        if self.title.is_none() && self.bookmark.is_none() {
             return Err("cycle --open: --title or --bookmark names the bookmark".into());
         }
-        let bookmark = crate::open::bookmark_name(a.bookmark.as_deref(), a.title.as_deref())
+        let bookmark = crate::open::bookmark_name(self.bookmark.as_deref(), self.title.as_deref())
             .map_err(|e| e.replacen("open", "cycle --open", 1))?;
-        if let Some(t) = &a.title {
+        if let Some(t) = &self.title {
             crate::commit::refuse_suffixed(t, "cycle --open --title")
                 .map_err(|e| e.replacen("commit ", "", 1))?;
         }
@@ -146,13 +206,49 @@ impl TryFrom<&CycleArgs> for CycleParams {
                 work,
                 agent,
                 bookmark,
-                dry_run: a.dry_run.value,
+                dry_run: self.dry_run.value,
             },
-            record: match (&a.title, a.no_record) {
+            record: match (&self.title, self.no_record) {
                 (Some(t), false) => Some(t.trim().to_string()),
                 _ => None,
             },
         }))
+    }
+
+    /// `--commit`'s params.
+    fn commit_params(&self, work: PathBuf, agent: Option<PathBuf>) -> Result<CycleParams, String> {
+        let body = match &self.body {
+            Some(b) => Some(crate::desc_helpers::read_body(b, "cycle --commit")?),
+            None => None,
+        };
+        if self.title.as_deref().is_some_and(|t| t.trim().is_empty())
+            || body.as_deref().is_some_and(|b| b.trim().is_empty())
+        {
+            return Err("cycle --commit: a --title or --body given is not blank".into());
+        }
+        Ok(CycleParams::Commit(CommitRung {
+            agent: commit_scope(self.scope.as_ref(), agent, "--commit")?,
+            running: self.running(work),
+            title: self.title.as_ref().map(|t| t.trim().to_string()),
+            body,
+            push: self.push,
+        }))
+    }
+}
+
+impl TryFrom<&CycleArgs> for CycleParams {
+    type Error = String;
+
+    /// Resolve the workspace and the stage asked for.
+    fn try_from(a: &CycleArgs) -> Result<Self, String> {
+        let (work, agent) = resolve_repos(a.repo.as_deref())?;
+        if a.open {
+            a.open_params(work, agent)
+        } else if a.ladder {
+            Ok(CycleParams::Ladder(a.running(work)))
+        } else {
+            a.commit_params(work, agent)
+        }
     }
 }
 
@@ -176,7 +272,162 @@ pub fn cycle(ctx: &mut Context, params: &CycleParams) -> Result<(), Box<dyn std:
     match params {
         CycleParams::Open(o) => open(ctx, o),
         CycleParams::Ladder(r) => ladder(r),
+        CycleParams::Commit(c) => commit_rung(ctx, c),
     }
+}
+
+/// The opening's body when none is given: `[opening] body` in the
+/// config, its `{title}` the cycle title, else a body naming the
+/// cycle and pointing at its record.
+fn opening_body(repo: &std::path::Path, cycle: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let configured = crate::config_md::load(repo)?
+        .and_then(|cfg| crate::toml_simple::toml_get(&cfg.map, "opening.body").cloned());
+    let body = match configured {
+        Some(body) => body,
+        None => format!(
+            "Opens the cycle \"{{title}}\". See details in {}.",
+            crate::commit::RECORD
+        ),
+    };
+    Ok(body.replace("{title}", cycle))
+}
+
+/// `--commit`: commit the working copies as a rung of the cycle in
+/// progress. The cycle's first commit is its opening, titled and
+/// bodied by default, and any other is a work rung, whose title is a
+/// rung heading not yet committed. The ladder is rewritten first, the
+/// rung done, so the commit carries it, and the cycle's bookmark is
+/// the one advanced. Every check is made before the ladder is written.
+fn commit_rung(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::error::Error>> {
+    let stage = "--commit";
+    let r = &c.running;
+    let work = r.work.as_path();
+    let bookmark = cycle_bookmark(r, stage)?;
+    let commits = branch_titles(work, &bookmark)?;
+    let path = work.join(crate::commit::RECORD);
+    let todo = std::fs::read_to_string(&path)
+        .map_err(|e| format!("cycle {stage}: {}: {e}", path.display()))?;
+    let cycle = record::cycle_title(&todo).map_err(|e| format!("cycle {stage}: {e}"))?;
+    let rungs = record::rung_titles(&todo).map_err(|e| format!("cycle {stage}: {e}"))?;
+    let (opening, closing) = (format!("{cycle} opening"), format!("{cycle} closing"));
+    let first = commits.is_empty();
+    let title = match (&c.title, first) {
+        (None, true) => opening.clone(),
+        (Some(t), true) if *t == opening => opening.clone(),
+        (Some(t), true) => {
+            return Err(format!(
+                "cycle {stage}: the cycle has no commit yet, so this one is its opening, \
+                 '{opening}', and not '{t}': leave --title out"
+            )
+            .into());
+        }
+        (None, false) => {
+            return Err(format!(
+                "cycle {stage}: the opening is committed, so this is a work rung, which gives \
+                 --title, a heading under `#### Rungs`, and --body"
+            )
+            .into());
+        }
+        (Some(t), false) => t.clone(),
+    };
+    if title == closing {
+        return Err(format!(
+            "cycle {stage}: '{title}' is the cycle's closing, which `cycle --close` makes"
+        )
+        .into());
+    }
+    if commits.contains(&title) {
+        return Err(format!(
+            "cycle {stage}: the rung '{title}' is committed already: `vc-x1 squash` continues it"
+        )
+        .into());
+    }
+    if !rungs.contains(&title) {
+        return Err(format!(
+            "cycle {stage}: '{title}' is no rung of the cycle, a `##### ` heading under `#### \
+             Rungs` in {}: write its heading first",
+            crate::commit::RECORD
+        )
+        .into());
+    }
+    let body = match (&c.body, first) {
+        (Some(b), _) => b.clone(),
+        (None, true) => opening_body(work, &cycle)?,
+        (None, false) => {
+            return Err(format!(
+                "cycle {stage}: a work rung gives --body, its problem and solution"
+            )
+            .into());
+        }
+    };
+    crate::pair::refuse_conflicts(work, "cycle --commit", "work")?;
+    if jj::is_empty(work, "@")? {
+        return Err(format!(
+            "cycle {stage}: nothing to commit, the work repo's @ is empty ('{}')",
+            work.display()
+        )
+        .into());
+    }
+    let mut with = commits.clone();
+    with.push(title.clone());
+    let plan = record::plan_ladder(work, &with).map_err(|e| format!("cycle {stage}: {e}"))?;
+    for finding in &plan.ladder.findings {
+        warn!("cycle {stage}: {finding}");
+    }
+    info!(
+        "cycle {stage}: {} '{title}' on '{bookmark}'",
+        if first { "the opening" } else { "the rung" }
+    );
+    let target = match &c.agent {
+        Some((agent, agent_now)) => crate::commit::Target::Pair {
+            pair: crate::pair::Pair {
+                work: r.work.clone(),
+                agent: agent.clone(),
+            },
+            agent_now: *agent_now,
+        },
+        None => crate::commit::Target::Por(r.work.clone()),
+    };
+    let params = crate::commit::CommitParams {
+        target,
+        title: Some(title),
+        body: Some(body),
+        closing: None,
+        opening: None,
+        advance: crate::commit::Advance::Named(bookmark),
+        push: c.push,
+        land: false,
+        skip: None,
+        no_url_trailer: false,
+        dry_run: r.dry_run,
+        rev: None,
+        covers: None,
+    };
+    let Some(edit) = plan.edit.as_ref().filter(|_| !r.dry_run) else {
+        if plan.edit.is_some() {
+            info!(
+                "cycle {stage}: [dry-run] rewrite the ladder in {}, the rung done",
+                record::LADDER_FILE
+            );
+        }
+        return crate::commit::commit(ctx, &params);
+    };
+    // The ladder is written before the commit, which carries it, and
+    // put back as it was when the commit is not made.
+    let old = std::fs::read_to_string(&edit.path)?;
+    std::fs::write(&edit.path, &edit.text)?;
+    info!(
+        "cycle {stage}: the ladder in {} is rewritten, the rung done",
+        record::LADDER_FILE
+    );
+    crate::commit::commit(ctx, &params).inspect_err(|_| {
+        if let Err(e) = std::fs::write(&edit.path, &old) {
+            warn!(
+                "cycle {stage}: the ladder in {} was not put back: {e}",
+                edit.path.display()
+            );
+        }
+    })
 }
 
 /// The titles of the commits on the cycle's branch in `repo`, oldest
@@ -306,7 +557,7 @@ fn open(ctx: &mut Context, o: &OpenCycle) -> Result<(), Box<dyn std::error::Erro
 mod tests {
     use super::record::tests::{TODO, ZTOC};
     use super::*;
-    use crate::test_helpers::{Fixture, jj_ok, test_ctx};
+    use crate::test_helpers::{Fixture, description, jj_ok, test_ctx};
     use crate::{Cli, Commands};
     use clap::Parser;
     use std::fs;
@@ -506,7 +757,7 @@ mod tests {
         let fx = Fixture::new("cycle-ladder-needs");
         write_record(&fx);
         let err = params(&fx.work, &["--ladder", "--title", "feat: x"]).unwrap_err();
-        assert!(err.contains("no --title"), "{err}");
+        assert!(err.contains("cannot be used with"), "{err}");
         let err = run(&fx.work, &["--ladder"]).unwrap_err();
         assert!(err.contains("no cycle in progress"), "{err}");
 
@@ -518,5 +769,219 @@ mod tests {
             "{err}"
         );
         run(&fx.work, &["--ladder", "--bookmark", "mine"]).expect("made");
+    }
+
+    /// A file's text at a revision.
+    fn file_at(repo: &Path, rev: &str, file: &str) -> String {
+        jj_ok(
+            repo,
+            &["file", "show", "-r", rev, &format!("root:\"{file}\"")],
+        )
+    }
+
+    /// An opened cycle with one work rung planned, its edits in `@`.
+    fn planned(tag: &str) -> Fixture {
+        let fx = Fixture::new(tag);
+        write_record(&fx);
+        run(&fx.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
+        let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
+        let planned = todo.replace(
+            "##### feat: a cycle closing",
+            "##### feat: one rung\n\nIts intent.\n\n##### feat: a cycle closing",
+        );
+        fs::write(fx.work.join("TODO.md"), planned).expect("write");
+        fx
+    }
+
+    /// The cycle's first commit is its opening, titled and bodied by
+    /// default, the ladder in it showing it done and the next rung
+    /// current, the cycle's bookmark on it, and the pair stamped.
+    #[test]
+    fn the_first_commit_is_the_opening() {
+        let fx = planned("cycle-commit-opening");
+        run(&fx.work, &["--commit", "--dry-run"]).expect("a dry run");
+        assert_eq!(bookmarks_at(&fx.work), "feat-a-cycle", "nothing committed");
+        assert!(
+            fs::read_to_string(fx.work.join("zTOC.md"))
+                .unwrap()
+                .contains("- 0 (current)"),
+            "a dry run writes no ladder"
+        );
+
+        run(&fx.work, &["--commit"]).expect("the opening");
+        let desc = description(&fx.work, "@-");
+        assert!(
+            desc.starts_with(
+                "feat: a cycle opening\n\nOpens the cycle \"feat: a cycle\". See details in \
+                 TODO.md.\n"
+            ),
+            "{desc}"
+        );
+        assert!(desc.contains("ochid: "), "{desc}");
+        assert_eq!(
+            jj_ok(
+                &fx.work,
+                &["log", "-r", "@-", "--no-graph", "-T", "local_bookmarks"]
+            ),
+            "feat-a-cycle"
+        );
+        assert!(
+            file_at(&fx.work, "@-", "zTOC.md").contains(
+                "- 0 (done) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)\n\
+                 - 1 (current) [feat: one rung](TODO.md#feat-one-rung)\n\
+                 - [feat: a cycle closing](TODO.md#feat-a-cycle-closing)\n"
+            ),
+            "the commit carries the ladder"
+        );
+        assert!(
+            description(&fx.bot, "@-").starts_with("feat: a cycle opening\n"),
+            "the agent half is made too"
+        );
+    }
+
+    /// A work rung gives its title, a rung heading, and its body, and
+    /// the ladder in its commit shows it done.
+    #[test]
+    fn a_work_rung_is_committed_under_its_heading() {
+        let fx = planned("cycle-commit-rung");
+        run(&fx.work, &["--commit"]).expect("the opening");
+        fs::write(fx.work.join("work.txt"), "the rung's work\n").expect("write");
+        let rung = [
+            "--commit",
+            "--title",
+            "feat: one rung",
+            "--body",
+            "Why.\n\nSolution: how.",
+        ];
+        run(&fx.work, &rung).expect("the rung");
+        let desc = description(&fx.work, "@-");
+        assert!(
+            desc.starts_with("feat: one rung\n\nWhy.\n\nSolution: how.\n"),
+            "{desc}"
+        );
+        assert!(
+            file_at(&fx.work, "@-", "zTOC.md").contains(
+                "- 1 (done) [feat: one rung](TODO.md#feat-one-rung)\n\
+                 - 2 (current) [feat: a cycle closing](TODO.md#feat-a-cycle-closing)\n"
+            ),
+            "the commit carries the ladder"
+        );
+        assert_eq!(
+            jj_ok(
+                &fx.work,
+                &["log", "-r", "@-", "--no-graph", "-T", "local_bookmarks"]
+            ),
+            "feat-a-cycle",
+            "the cycle's bookmark is the one advanced"
+        );
+        assert_eq!(
+            jj_ok(
+                &fx.work,
+                &["log", "-r", "main", "--no-graph", "-T", "description"]
+            ),
+            jj_ok(
+                &fx.work,
+                &[
+                    "log",
+                    "-r",
+                    "main@origin",
+                    "--no-graph",
+                    "-T",
+                    "description"
+                ]
+            ),
+            "main is left where it was"
+        );
+    }
+
+    /// Refused before anything is made, the ladder as it was: a first
+    /// commit under another title, a work rung with no title or body, a
+    /// title that is no rung's, one committed already, the closing's,
+    /// and an empty working copy.
+    #[test]
+    fn a_commit_that_is_no_rungs_is_refused() {
+        let fx = planned("cycle-commit-refused");
+        let rung = ["--commit", "--title", "feat: one rung", "--body", "b"];
+        let err = run(&fx.work, &rung).unwrap_err();
+        assert!(err.contains("its opening"), "{err}");
+        run(&fx.work, &["--commit"]).expect("the opening");
+        let ladder = fs::read_to_string(fx.work.join("zTOC.md")).unwrap();
+
+        let err = run(&fx.work, &rung).unwrap_err();
+        assert!(err.contains("nothing to commit"), "{err}");
+        fs::write(fx.work.join("work.txt"), "work\n").expect("write");
+        let err = run(&fx.work, &["--commit"]).unwrap_err();
+        assert!(err.contains("a work rung"), "{err}");
+        let err = run(&fx.work, &["--commit", "--title", "feat: one rung"]).unwrap_err();
+        assert!(err.contains("--body"), "{err}");
+        let err = run(
+            &fx.work,
+            &["--commit", "--title", "feat: unplanned", "--body", "b"],
+        )
+        .unwrap_err();
+        assert!(err.contains("no rung of the cycle"), "{err}");
+        let err = run(
+            &fx.work,
+            &[
+                "--commit",
+                "--title",
+                "feat: a cycle closing",
+                "--body",
+                "b",
+            ],
+        )
+        .unwrap_err();
+        assert!(err.contains("cycle --close"), "{err}");
+        let err = run(
+            &fx.work,
+            &[
+                "--commit",
+                "--title",
+                "feat: a cycle opening",
+                "--body",
+                "b",
+            ],
+        )
+        .unwrap_err();
+        assert!(err.contains("committed already"), "{err}");
+        assert_eq!(fs::read_to_string(fx.work.join("zTOC.md")).unwrap(), ladder);
+        assert_eq!(
+            description(&fx.work, "@-").lines().next(),
+            Some("feat: a cycle opening")
+        );
+    }
+
+    /// `-s` is the pair in a dual workspace unless it says the work
+    /// half alone, and a plain repo's commit carries no trailer.
+    #[test]
+    fn the_scope_follows_the_workspace() {
+        let fx = planned("cycle-commit-scope");
+        let err = params(&fx.work, &["--commit", "-s", "p"]).unwrap_err();
+        assert!(err.contains("dual workspace"), "{err}");
+        let agent_at = jj_ok(
+            &fx.bot,
+            &["log", "-r", "@", "--no-graph", "-T", "change_id.short(12)"],
+        );
+        run(&fx.work, &["--commit", "-s", "w"]).expect("the work half");
+        assert!(description(&fx.work, "@-").contains(&format!("ochid: {agent_at}")));
+        assert_eq!(
+            jj_ok(
+                &fx.bot,
+                &["log", "-r", "@", "--no-graph", "-T", "change_id.short(12)"]
+            ),
+            agent_at,
+            "the agent @ is left for push"
+        );
+
+        let por = crate::test_helpers::FixturePor::new("cycle-commit-por");
+        fs::write(por.work.join("TODO.md"), TODO).expect("write");
+        fs::write(por.work.join("zTOC.md"), ZTOC).expect("write");
+        let err = params(&por.work, &["--commit", "-s", "b"]).unwrap_err();
+        assert!(err.contains("plain repo"), "{err}");
+        run(&por.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
+        run(&por.work, &["--commit"]).expect("the opening");
+        let desc = description(&por.work, "@-");
+        assert!(desc.starts_with("feat: a cycle opening\n"), "{desc}");
+        assert!(!desc.contains("ochid:"), "{desc}");
     }
 }

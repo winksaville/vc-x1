@@ -558,6 +558,22 @@ used-by = "vc-x1 build, vc-x1 run, and vc-x1 install, through their lists"
 example = "value"
 ```
 
+## opening.body
+
+The body `vc-x1 cycle --commit` writes on a cycle's opening commit, its first, when `--body` is
+left out, `{title}` filled with the cycle title read from `TODO.md`. Absent, the body names the
+cycle and points at its record. Owned by the work side because the cycle's commits are the work
+repo's.
+
+```toml
+[opening.body]
+homes = ["workspace-code"]
+kind = "str"
+doc = "The opening commit's default body, `{title}` the cycle title"
+used-by = "vc-x1 cycle --commit"
+example = "Opens the cycle {title}. See details in TODO.md."
+```
+
 ## closing.body
 
 The body `vc-x1 commit --closing` writes on a cycle's closing commit when `--body` is left out,

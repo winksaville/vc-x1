@@ -744,7 +744,7 @@ pub(crate) enum Commands {
         says where, a workspace or a plain repo. --dry-run prints the name.")]
     Open(open::OpenArgs),
 
-    /// Run a cycle's stages: --open, --ladder
+    /// Run a cycle's stages: --open, --ladder, --commit
     #[command(long_about = "\
         Run a cycle by its stages, each a flag, one command for the acts\n\
         the flow has.\n\n\
@@ -770,6 +770,18 @@ pub(crate) enum Commands {
         a line of the ladder there that is no rung by its grammar. The\n\
         branch is the commits the cycle's bookmark reaches that no other\n\
         local bookmark does, the bookmark the title's slug or --bookmark's.\n\n\
+        --commit commits the working copies as a rung of the cycle in\n\
+        progress, by the code `vc-x1 commit` runs, so a dual workspace gets\n\
+        the pair, each half stamped with the other's change id. A cycle's\n\
+        first commit is its opening: the title is the cycle title plus\n\
+        \" opening\" and the body `[opening] body`, a --body given taking\n\
+        its place. Any other is a work rung, which gives --title, a rung\n\
+        heading not yet committed, and --body, the text or @PATH. The ladder\n\
+        is rewritten first, the rung done, so the commit carries it, and the\n\
+        cycle's bookmark is the one advanced, no other. -s is `b` in a dual\n\
+        workspace and `p` in a plain repo unless given, `w` making the work\n\
+        half alone. --push publishes the rung on the cycle's bookmark, a\n\
+        draft. The closing is not a rung's commit, and is refused.\n\n\
         -R is optional and says where, a workspace or a plain repo.")]
     Cycle(cycle::CycleArgs),
 

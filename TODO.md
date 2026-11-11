@@ -533,6 +533,24 @@ the commit, and the cycle's own bookmark, the slug of the title in `## In Progre
 advanced. A commit whose title matches no rung heading is an error, a local ladder's intermediates
 being the case to settle.
 
+- The commit is `vc-x1 commit`'s own code, called with the title, the body, and the bookmark to
+  advance named, so the pair, the trailers, and the rollback are one implementation.
+- The opening is the commit made when the branch has none, and a `--title` given then is refused
+  unless it is the opening's, since a first commit under a work rung's title would leave the
+  opening never done.
+- The opening's body is a new config key, `[opening] body`, as the closing's is `[closing] body`,
+  and a workspace without it gets a built-in body, so a workspace needs no key to run a cycle.
+- `-s` is defaulted, the agent's choice: `b` in a dual workspace and `p` in a plain repo, since
+  the flow commits a pair by default and the workspace says which it is. For wink to keep or
+  make required, as it is on `commit`.
+- The ladder is written before the commit and put back when the commit is not made, and an
+  empty work `@` is refused first, since the ladder's own edit would otherwise make an empty rung
+  look like a change.
+- `--push` is the draft push of the rung, in the same invocation.
+- A local ladder's intermediates were settled in the last rung: they collapse before `cycle
+  --commit`, which refuses a branch holding a commit that is no rung's.
+- This rung's own commit was made by `cycle --commit`, from the dev build.
+
 ##### feat: cycle --close makes the closing
 
 The closing is `commit --closing <BM|REV> --onto <BOOKMARK>`, its parents and its shape implied.
