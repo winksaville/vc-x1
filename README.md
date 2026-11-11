@@ -2167,8 +2167,8 @@ is optional and says where, a workspace or a plain repo.
 ### cycle
 
 Run a cycle by its stages, each a flag, one command for the acts the flow has. The stages are
-being built, `--open`, `--ladder`, and `--commit` so far, and until the rest are,
-[`commit --closing`](#commit) and [`land`](#land) make the closing and the Land.
+being built, `--open`, `--ladder`, `--commit`, and `--close` so far, and until the last is,
+[`land`](#land) makes the Land.
 
 ```bash
 vc-x1 cycle --open --title "feat: a cycle"              # the bookmark, and the record
@@ -2177,6 +2177,9 @@ vc-x1 cycle --open --title "feat: a cycle" --dry-run    # say each edit, make no
 vc-x1 cycle --ladder                                    # the ladder, from the rung headings
 vc-x1 cycle --commit                                    # the opening, a cycle's first commit
 vc-x1 cycle --commit --title "feat: one rung" --body @body.txt  # a work rung
+vc-x1 cycle --close                                     # a ladder's closing, linear
+vc-x1 cycle --close --trapezoid main                    # a merge, main its first parent
+vc-x1 cycle --close --body @body.txt                    # a single-step cycle's one commit
 ```
 
 `--open` opens a cycle. It makes the bookmark on the work `@` first, as [`open`](#open) does, the
@@ -2240,6 +2243,32 @@ with the agent half left to `push`. `--push` publishes the rung on the cycle's b
 push. Refused before the ladder is written: a title that is no rung's, a rung committed already,
 which [`squash`](#squash) continues, the closing's title, an empty work `@`, and a work rung with
 no title or body. `--dry-run` prints the descriptions and commits nothing.
+
+`--close [REV,...]` closes the cycle in progress from the work `@`, which is on the cycle's tip,
+the bookmark on `@` or `@-`. The acceptance check is run first, by hand, and again after. The
+branch's commit count is the cycle's shape, read and never asked:
+
+- No commit, the work in `@`: a single-step cycle, its one commit made now from `@` under the bare
+  cycle title.
+- One commit, the opening: a single-step cycle too, the closing squashed into it. `@` is folded
+  in, the title loses " opening", and the commit keeps its change id and its trailer, so its
+  partner stands and the agent `@` is left for `push`.
+- More: a ladder, whose closing is its own commit, the cycle title plus " closing", with
+  `[closing] body` from the config, or a body naming the cycle and its record when the key is
+  absent. `--dead-end` always makes it, titled " dead-end closing".
+
+A single-step cycle's commit holds the work, so its `--body` is required, and `--default-body`
+is the waiver, the pointer at the record. A `--title` or `--body` given is used as written.
+
+A ladder's closing is linear by default, a plain commit on `@`'s own parents. `--trapezoid
+<BOOKMARK>` makes it a merge whose first parent is the destination, read where it is now, so a
+destination that moved is joined, and each `REV` listed is another head joined, a parent after
+`@`'s own, so a bushy tree closes in one merge. A single-step cycle joins nothing and takes
+neither.
+
+The closing carries the record: the ladder is rewritten, every rung done, one unlinked rung for a
+single-step cycle, and the `## In Progress` block moves to `## Closed`. Both files are put back
+and the repo restored when the commit is not made. `-s` and `--push` are `--commit`'s.
 
 ### land
 

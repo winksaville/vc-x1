@@ -30,39 +30,83 @@ use crate::subcommand::SubcommandRunner;
 
 /// Run a cycle's stages.
 #[derive(Args, Debug)]
-#[group(id = "stage", required = true, args = ["open", "ladder", "commit"])]
+#[group(id = "stage", required = true, args = ["open", "ladder", "commit", "close"])]
 pub struct CycleArgs {
     /// Open a cycle: make its bookmark on the work `@`, then write its
     /// record, `TODO.md`'s `## In Progress` scaffold and `zTOC.md`'s
     /// ladder
-    #[arg(long, help_heading = "Stages", conflicts_with_all = ["ladder", "commit"])]
+    #[arg(long, help_heading = "Stages", conflicts_with_all = ["ladder", "commit", "close"])]
     pub open: bool,
 
     /// Make `zTOC.md`'s ladder from the rung headings under `####
     /// Rungs` in `TODO.md`, each marker computed from the cycle's
     /// commits
-    #[arg(long, help_heading = "Stages", conflicts_with_all = ["commit", "title"])]
+    #[arg(long, help_heading = "Stages", conflicts_with_all = ["commit", "close", "title"])]
     pub ladder: bool,
 
     /// Commit the working copies as a rung of the cycle in progress,
     /// the ladder rewritten into it: the cycle's first commit is its
     /// opening, its title and body defaulted, and a work rung gives
     /// both
-    #[arg(long, help_heading = "Stages")]
+    #[arg(long, help_heading = "Stages", conflicts_with = "close")]
     pub commit: bool,
+
+    /// Close the cycle in progress from the work `@`, each REV listed
+    /// another head joined, a parent of the closing: a branch with no
+    /// commit or one is a single-step cycle, its closing squashed into
+    /// its one commit under the bare cycle title, and a longer one gets
+    /// the closing commit, titled and bodied by default. The record
+    /// moves to `## Closed` in it
+    #[arg(
+        long,
+        help_heading = "Stages",
+        value_name = "REV",
+        num_args = 0..,
+        value_delimiter = ','
+    )]
+    pub close: Option<Vec<String>>,
 
     /// With `--open`, the bare cycle title, a Conventional Commit: the
     /// bookmark is its slug, and the record is written under it. With
-    /// `--commit`, the rung's title, a heading under `#### Rungs`
-    /// [default: the opening's, for a cycle's first commit]
+    /// `--commit`, the rung's title, a heading under `#### Rungs`, and
+    /// with `--close` the closing's, as written [default: the opening's
+    /// for a cycle's first commit, and for a closing the cycle title,
+    /// plus " closing" on a ladder]
     #[arg(long, value_name = "STR")]
     pub title: Option<String>,
 
-    /// With `--commit`, the rung's body, the problem and its solution,
-    /// or @PATH to read it from a file [default: `[opening] body`, for
-    /// a cycle's first commit]
-    #[arg(long, value_name = "STR|@PATH", requires = "commit")]
+    /// The commit's body, the problem and its solution, or @PATH to
+    /// read it from a file [default: `[opening] body` for a cycle's
+    /// first commit, and `[closing] body` for a ladder's closing]
+    #[arg(long, value_name = "STR|@PATH")]
     pub body: Option<String>,
+
+    /// With `--close`, make the closing a trapezoid, a merge whose
+    /// first parent is BOOKMARK, the destination, read where it is now
+    /// [default: linear, the heads alone]
+    #[arg(
+        long,
+        value_name = "BOOKMARK",
+        requires = "close",
+        help_heading = "Close"
+    )]
+    pub trapezoid: Option<String>,
+
+    /// With `--close`, give a single-step cycle's one commit the
+    /// default body, `[closing] body`, a pointer at the record, in
+    /// place of the `--body` it otherwise requires
+    #[arg(
+        long,
+        requires = "close",
+        conflicts_with = "body",
+        help_heading = "Close"
+    )]
+    pub default_body: bool,
+
+    /// With `--close`, close the cycle as a dead end: always a closing
+    /// commit, its title ending " dead-end closing"
+    #[arg(long, requires = "close", help_heading = "Close")]
+    pub dead_end: bool,
 
     /// The cycle's bookmark, in place of the title's slug: the name
     /// `--open` makes, and the one another stage reads the cycle's
@@ -74,7 +118,7 @@ pub struct CycleArgs {
     #[arg(long, requires = "open", help_heading = "Open")]
     pub no_record: bool,
 
-    /// With `--commit`, which repos: `b|both` both commits now,
+    /// With `--commit` or `--close`, which repos: `b|both` both commits now,
     /// `w|work` the work half with the agent half left to push, and
     /// `p|por` a plain repo's commit [default: `b` in a dual
     /// workspace, `p` in a plain repo]
@@ -83,14 +127,13 @@ pub struct CycleArgs {
         long,
         value_name = "SCOPE",
         value_parser = repo_scope_parser(&["work", "both", "por"]),
-        requires = "commit",
         help_heading = "Commit"
     )]
     pub scope: Option<RepoScope>,
 
     /// With `--commit`, publish the rung on the cycle's bookmark, a
     /// draft push, a commit otherwise staying on the machine
-    #[arg(long, requires = "commit", help_heading = "Commit")]
+    #[arg(long, help_heading = "Commit")]
     pub push: bool,
 
     /// Where: a path in the workspace, its root or either repo, or a
@@ -133,12 +176,26 @@ pub struct CommitRung {
     pub push: bool,
 }
 
+/// `--close`'s inputs: the commit's, as a rung's, and the closing's
+/// shape.
+#[derive(Debug)]
+pub struct CloseCycle {
+    pub rung: CommitRung,
+    /// The other heads joined, each a revision of one commit.
+    pub heads: Vec<String>,
+    /// The destination, the closing's first parent, for a trapezoid.
+    pub trapezoid: Option<String>,
+    pub default_body: bool,
+    pub dead_end: bool,
+}
+
 /// Inputs to the cycle op, flat, owned, clap-free, a stage each.
 #[derive(Debug)]
 pub enum CycleParams {
     Open(OpenCycle),
     Ladder(Running),
     Commit(CommitRung),
+    Close(CloseCycle),
 }
 
 /// The work repo and, in a dual workspace, the agent repo that `-R`
@@ -215,24 +272,34 @@ impl CycleArgs {
         }))
     }
 
-    /// `--commit`'s params.
-    fn commit_params(&self, work: PathBuf, agent: Option<PathBuf>) -> Result<CycleParams, String> {
+    /// A commit's params, `--commit`'s and `--close`'s alike.
+    fn rung(
+        &self,
+        work: PathBuf,
+        agent: Option<PathBuf>,
+        stage: &str,
+    ) -> Result<CommitRung, String> {
         let body = match &self.body {
-            Some(b) => Some(crate::desc_helpers::read_body(b, "cycle --commit")?),
+            Some(b) => Some(crate::desc_helpers::read_body(
+                b,
+                &format!("cycle {stage}"),
+            )?),
             None => None,
         };
         if self.title.as_deref().is_some_and(|t| t.trim().is_empty())
             || body.as_deref().is_some_and(|b| b.trim().is_empty())
         {
-            return Err("cycle --commit: a --title or --body given is not blank".into());
+            return Err(format!(
+                "cycle {stage}: a --title or --body given is not blank"
+            ));
         }
-        Ok(CycleParams::Commit(CommitRung {
-            agent: commit_scope(self.scope.as_ref(), agent, "--commit")?,
+        Ok(CommitRung {
+            agent: commit_scope(self.scope.as_ref(), agent, stage)?,
             running: self.running(work),
             title: self.title.as_ref().map(|t| t.trim().to_string()),
             body,
             push: self.push,
-        }))
+        })
     }
 }
 
@@ -242,12 +309,31 @@ impl TryFrom<&CycleArgs> for CycleParams {
     /// Resolve the workspace and the stage asked for.
     fn try_from(a: &CycleArgs) -> Result<Self, String> {
         let (work, agent) = resolve_repos(a.repo.as_deref())?;
+        let only = |stage: &str, given: &[(&str, bool)]| match given.iter().find(|(_, g)| *g) {
+            Some((flag, _)) => Err(format!("cycle {stage}: it takes no {flag}")),
+            None => Ok(()),
+        };
+        let commits = [
+            ("-s", a.scope.is_some()),
+            ("--push", a.push),
+            ("--body", a.body.is_some()),
+        ];
         if a.open {
+            only("--open", &commits)?;
             a.open_params(work, agent)
         } else if a.ladder {
+            only("--ladder", &commits)?;
             Ok(CycleParams::Ladder(a.running(work)))
+        } else if let Some(heads) = &a.close {
+            Ok(CycleParams::Close(CloseCycle {
+                rung: a.rung(work, agent, "--close")?,
+                heads: heads.clone(),
+                trapezoid: a.trapezoid.clone(),
+                default_body: a.default_body,
+                dead_end: a.dead_end,
+            }))
         } else {
-            a.commit_params(work, agent)
+            Ok(CycleParams::Commit(a.rung(work, agent, "--commit")?))
         }
     }
 }
@@ -273,6 +359,7 @@ pub fn cycle(ctx: &mut Context, params: &CycleParams) -> Result<(), Box<dyn std:
         CycleParams::Open(o) => open(ctx, o),
         CycleParams::Ladder(r) => ladder(r),
         CycleParams::Commit(c) => commit_rung(ctx, c),
+        CycleParams::Close(c) => close(ctx, c),
     }
 }
 
@@ -290,6 +377,42 @@ fn opening_body(repo: &std::path::Path, cycle: &str) -> Result<String, Box<dyn s
         ),
     };
     Ok(body.replace("{title}", cycle))
+}
+
+/// The params of the commit a stage makes, `vc-x1 commit`'s: the pair
+/// or the plain repo, the description, and the cycle's bookmark the
+/// one advanced.
+fn commit_params(
+    c: &CommitRung,
+    title: String,
+    body: String,
+    bookmark: String,
+) -> crate::commit::CommitParams {
+    let target = match &c.agent {
+        Some((agent, agent_now)) => crate::commit::Target::Pair {
+            pair: crate::pair::Pair {
+                work: c.running.work.clone(),
+                agent: agent.clone(),
+            },
+            agent_now: *agent_now,
+        },
+        None => crate::commit::Target::Por(c.running.work.clone()),
+    };
+    crate::commit::CommitParams {
+        target,
+        title: Some(title),
+        body: Some(body),
+        closing: None,
+        opening: None,
+        advance: crate::commit::Advance::Named(bookmark),
+        push: c.push,
+        land: false,
+        skip: None,
+        no_url_trailer: false,
+        dry_run: c.running.dry_run,
+        rev: None,
+        covers: None,
+    }
 }
 
 /// `--commit`: commit the working copies as a rung of the cycle in
@@ -378,31 +501,7 @@ fn commit_rung(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::err
         "cycle {stage}: {} '{title}' on '{bookmark}'",
         if first { "the opening" } else { "the rung" }
     );
-    let target = match &c.agent {
-        Some((agent, agent_now)) => crate::commit::Target::Pair {
-            pair: crate::pair::Pair {
-                work: r.work.clone(),
-                agent: agent.clone(),
-            },
-            agent_now: *agent_now,
-        },
-        None => crate::commit::Target::Por(r.work.clone()),
-    };
-    let params = crate::commit::CommitParams {
-        target,
-        title: Some(title),
-        body: Some(body),
-        closing: None,
-        opening: None,
-        advance: crate::commit::Advance::Named(bookmark),
-        push: c.push,
-        land: false,
-        skip: None,
-        no_url_trailer: false,
-        dry_run: r.dry_run,
-        rev: None,
-        covers: None,
-    };
+    let params = commit_params(c, title, body, bookmark);
     let Some(edit) = plan.edit.as_ref().filter(|_| !r.dry_run) else {
         if plan.edit.is_some() {
             info!(
@@ -551,6 +650,222 @@ fn open(ctx: &mut Context, o: &OpenCycle) -> Result<(), Box<dyn std::error::Erro
         );
     }
     Ok(())
+}
+
+/// A closing's body when none is given: `[closing] body` in the
+/// config, its `{title}` the cycle title, else a body naming the
+/// cycle and pointing at its record.
+fn closing_body(repo: &std::path::Path, cycle: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let configured = crate::config_md::load(repo)?
+        .and_then(|cfg| crate::toml_simple::toml_get(&cfg.map, "closing.body").cloned());
+    let body = match configured {
+        Some(body) => body,
+        None => format!(
+            "Closes the cycle \"{{title}}\". See details in {}.",
+            crate::commit::RECORD
+        ),
+    };
+    Ok(body.replace("{title}", cycle))
+}
+
+/// The closing commit's parents when they are not the work `@`'s own:
+/// the destination first for a trapezoid, then the parents `@` has,
+/// then each other head listed, none twice. `None` for a linear
+/// closing of `@`'s line alone, which reparents nothing.
+fn closing_parents(
+    work: &std::path::Path,
+    c: &CloseCycle,
+) -> Result<Option<Vec<String>>, Box<dyn std::error::Error>> {
+    let label = "cycle --close";
+    let own = jj::parent_cids_of(work, "@")?;
+    let mut parents: Vec<String> = Vec::new();
+    if let Some(dest) = &c.trapezoid {
+        let cid = crate::land::resolve_tip(work, &format!("{label} --trapezoid"), dest)?;
+        info!(
+            "{label}: a trapezoid, '{dest}' at {} its first parent",
+            short(&cid)
+        );
+        parents.push(cid);
+    }
+    for cid in &own {
+        if !parents.contains(cid) {
+            parents.push(cid.clone());
+        }
+    }
+    for head in &c.heads {
+        if jj::matches(work, &format!("({head}) & @"))? {
+            continue;
+        }
+        let cid = crate::land::resolve_tip(work, label, head)?;
+        if !parents.contains(&cid) {
+            info!("{label}: '{head}' at {} is joined, a parent", short(&cid));
+            parents.push(cid);
+        }
+    }
+    Ok((parents != own).then_some(parents))
+}
+
+/// A commit id cut to the length the ids are shown at.
+fn short(id: &str) -> String {
+    id.chars()
+        .take(crate::desc_helpers::DEFAULT_ID_LEN)
+        .collect()
+}
+
+/// `--close`: close the cycle in progress from the work `@`. The
+/// branch's commit count is its shape: none or one is a single-step
+/// cycle, the closing squashed into its one commit, made now from `@`
+/// or the opening with `@` folded in, under the bare cycle title; more
+/// is a ladder, whose closing is its own commit, a merge when a
+/// destination or another head is joined. The ladder is rewritten,
+/// every rung done, and the record moved to `## Closed`, both in the
+/// commit. Every check is made before a file is written.
+fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Error>> {
+    let stage = "--close";
+    let r = &c.rung.running;
+    let work = r.work.as_path();
+    let bookmark = cycle_bookmark(r, stage)?;
+    let commits = branch_titles(work, &bookmark)?;
+    let path = work.join(crate::commit::RECORD);
+    let todo = std::fs::read_to_string(&path)
+        .map_err(|e| format!("cycle {stage}: {}: {e}", path.display()))?;
+    let cycle = record::cycle_title(&todo).map_err(|e| format!("cycle {stage}: {e}"))?;
+    if !jj::local_bookmarks_at(work, "@ | @-")?.contains(&bookmark) {
+        return Err(format!(
+            "cycle {stage}: the cycle's bookmark '{bookmark}' is not on the work @ or @-, and a \
+             closing is made from the cycle's tip: `jj new {bookmark}` moves @ onto it"
+        )
+        .into());
+    }
+    crate::pair::refuse_conflicts(work, "cycle --close", "work")?;
+    let single = commits.len() <= 1 && !c.dead_end;
+    if c.dead_end && commits.is_empty() {
+        return Err(format!(
+            "cycle {stage} --dead-end: the branch has no commit, and a dead end closes the \
+             commits a cycle made"
+        )
+        .into());
+    }
+    let closing = format!("{cycle} closing");
+    let title = match (&c.rung.title, single, c.dead_end) {
+        (Some(t), ..) => t.clone(),
+        (None, true, _) => cycle.clone(),
+        (None, false, true) => format!("{cycle} dead-end closing"),
+        (None, false, false) => closing.clone(),
+    };
+    let body = match (&c.rung.body, single && !c.default_body) {
+        (Some(b), _) => b.clone(),
+        (None, true) => {
+            return Err(format!(
+                "cycle {stage}: a single-step cycle's one commit holds the work, so it gives \
+                 --body, its problem and solution, or --default-body for the pointer at the record"
+            )
+            .into());
+        }
+        (None, false) => closing_body(work, &cycle)?,
+    };
+    let parents = match single {
+        true if c.trapezoid.is_some() || !c.heads.is_empty() => {
+            return Err(format!(
+                "cycle {stage}: the branch has {}, a single-step cycle, whose one commit joins \
+                 nothing: it takes no head and no --trapezoid",
+                if commits.is_empty() {
+                    "no commit"
+                } else {
+                    "one commit"
+                }
+            )
+            .into());
+        }
+        true => None,
+        false => closing_parents(work, c)?,
+    };
+    // The ladder as the closing leaves it: one unlinked rung for a
+    // single-step cycle, else every rung done, the closing among them.
+    let done = if single {
+        vec![cycle.clone()]
+    } else {
+        let mut done = commits.clone();
+        done.push(closing);
+        done
+    };
+    let ladder = record::plan_ladder(work, &done).map_err(|e| format!("cycle {stage}: {e}"))?;
+    let moved = crate::commit::RecordMove::plan(work)?;
+    let fold = single && commits.len() == 1;
+    info!(
+        "cycle {stage}: {} on '{bookmark}', '{title}'",
+        match (single, fold) {
+            (true, true) => "a single-step cycle, its closing squashed into its one commit",
+            (true, false) => "a single-step cycle, its one commit made now from the work @",
+            (false, _) => "a ladder, its closing commit made from the work @",
+        }
+    );
+    let pair = c.rung.agent.as_ref().map(|(agent, _)| crate::pair::Pair {
+        work: r.work.clone(),
+        agent: agent.clone(),
+    });
+    if r.dry_run {
+        if ladder.edit.is_some() {
+            info!(
+                "cycle {stage}: [dry-run] rewrite the ladder in {}, every rung done",
+                record::LADDER_FILE
+            );
+        }
+        if let Some(m) = &moved {
+            m.write(true)?;
+        }
+        if let Some(parents) = &parents {
+            info!(
+                "cycle {stage}: [dry-run] the closing's parents are {}",
+                parents
+                    .iter()
+                    .map(|p| short(p))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+        if fold {
+            return crate::commit::finalize(ctx, work, pair.as_ref(), &title, Some(&body), true);
+        }
+        return crate::commit::commit(ctx, &commit_params(&c.rung, title, body, bookmark));
+    }
+    // The files as they were, put back when the closing is not made.
+    let mut written: Vec<(PathBuf, String)> = Vec::new();
+    for file in [crate::commit::RECORD, record::LADDER_FILE] {
+        let path = work.join(file);
+        if path.is_file() {
+            written.push((path.clone(), std::fs::read_to_string(&path)?));
+        }
+    }
+    let snapshot = crate::pair::Snapshot::take(work)?;
+    let made = (|| -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(edit) = &ladder.edit {
+            std::fs::write(&edit.path, &edit.text)?;
+            info!(
+                "cycle {stage}: the ladder in {} is rewritten, every rung done",
+                record::LADDER_FILE
+            );
+        }
+        if let Some(m) = &moved {
+            m.write(false)?;
+        }
+        if fold {
+            return crate::commit::finalize(ctx, work, pair.as_ref(), &title, Some(&body), false);
+        }
+        if let Some(parents) = &parents {
+            crate::merge::set_parents(ctx, work, "@", parents, "cycle --close")?;
+        }
+        crate::commit::commit(ctx, &commit_params(&c.rung, title, body, bookmark))
+    })();
+    if let Err(e) = &made {
+        snapshot.restore("cycle --close", e.as_ref());
+        for (path, text) in &written {
+            if let Err(w) = std::fs::write(path, text) {
+                warn!("cycle {stage}: {} was not put back: {w}", path.display());
+            }
+        }
+    }
+    made
 }
 
 #[cfg(test)]
@@ -983,5 +1298,272 @@ mod tests {
         let desc = description(&por.work, "@-");
         assert!(desc.starts_with("feat: a cycle opening\n"), "{desc}");
         assert!(!desc.contains("ochid:"), "{desc}");
+    }
+
+    /// The commit ids of a revision's parents, in order.
+    fn parents(repo: &Path, rev: &str) -> Vec<String> {
+        jj_ok(
+            repo,
+            &[
+                "log",
+                "-r",
+                rev,
+                "--no-graph",
+                "-T",
+                "parents.map(|p| p.commit_id()).join(\" \")",
+            ],
+        )
+        .split_whitespace()
+        .map(str::to_string)
+        .collect()
+    }
+
+    fn title_of(repo: &Path, rev: &str) -> String {
+        description(repo, rev)
+            .lines()
+            .next()
+            .unwrap_or_default()
+            .to_string()
+    }
+
+    /// The titles of the commits above `main`, oldest first.
+    fn above_main(repo: &Path) -> Vec<String> {
+        jj_ok(
+            repo,
+            &[
+                "log",
+                "-r",
+                "main..@-",
+                "--no-graph",
+                "--reversed",
+                "-T",
+                "description.first_line() ++ \"\\n\"",
+            ],
+        )
+        .lines()
+        .map(str::to_string)
+        .collect()
+    }
+
+    /// The record is moved and the ladder is one unlinked rung, in the
+    /// commit `rev`.
+    fn assert_closed_single(repo: &Path, rev: &str) {
+        let todo = file_at(repo, rev, "TODO.md");
+        assert!(todo.contains("_No cycle currently in progress._"), "{todo}");
+        assert!(
+            todo.contains("## Closed\n\nThe last cycle's record.\n\n### feat: a cycle\n"),
+            "{todo}"
+        );
+        assert!(
+            file_at(repo, rev, "zTOC.md").contains("## Ladder\n\n- 0 (done) feat: a cycle\n\n")
+        );
+    }
+
+    /// A branch with nothing committed closes as one commit made from
+    /// the work `@`, under the bare cycle title, its body required.
+    #[test]
+    fn a_cycle_with_no_commit_closes_as_one_commit() {
+        let fx = Fixture::new("cycle-close-none");
+        write_record(&fx);
+        run(&fx.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
+        fs::write(fx.work.join("work.txt"), "the work\n").expect("write");
+        let err = run(&fx.work, &["--close"]).unwrap_err();
+        assert!(
+            err.contains("--body") && err.contains("--default-body"),
+            "{err}"
+        );
+        let err = run(&fx.work, &["--close", "--trapezoid", "main", "--body", "b"]).unwrap_err();
+        assert!(err.contains("single-step"), "{err}");
+        run(
+            &fx.work,
+            &["--close", "--body", "Why.\n\nSolution: how.", "--dry-run"],
+        )
+        .expect("a dry run");
+        assert!(above_main(&fx.work).is_empty(), "a dry run commits nothing");
+
+        run(&fx.work, &["--close", "--body", "Why.\n\nSolution: how."]).expect("closed");
+        assert_eq!(above_main(&fx.work), ["feat: a cycle"]);
+        assert!(
+            description(&fx.work, "@-").contains("Solution: how.\n\n"),
+            "the body, then trailers"
+        );
+        assert_closed_single(&fx.work, "@-");
+        assert_eq!(
+            jj_ok(
+                &fx.work,
+                &["log", "-r", "@-", "--no-graph", "-T", "local_bookmarks"]
+            ),
+            "feat-a-cycle"
+        );
+        assert!(
+            title_of(&fx.bot, "@-") == "feat: a cycle",
+            "the agent half is made"
+        );
+    }
+
+    /// A branch of one commit, the opening, closes into it: the work
+    /// `@` folded in, the title losing " opening", the trailer kept.
+    #[test]
+    fn a_cycle_of_one_commit_closes_into_it() {
+        let fx = Fixture::new("cycle-close-one");
+        write_record(&fx);
+        run(&fx.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
+        run(&fx.work, &["--commit"]).expect("the opening");
+        let opening = jj_ok(
+            &fx.work,
+            &["log", "-r", "@-", "--no-graph", "-T", "change_id.short(12)"],
+        );
+        let trailer = |d: String| {
+            d.lines()
+                .find(|l| l.starts_with("ochid:"))
+                .map(str::to_string)
+        };
+        let stamped = trailer(description(&fx.work, "@-"));
+        fs::write(fx.work.join("work.txt"), "the work\n").expect("write");
+
+        run(&fx.work, &["--close", "--default-body"]).expect("closed");
+        assert_eq!(above_main(&fx.work), ["feat: a cycle"]);
+        assert_eq!(
+            jj_ok(
+                &fx.work,
+                &["log", "-r", "@-", "--no-graph", "-T", "change_id.short(12)"]
+            ),
+            opening,
+            "the opening's change is the one kept"
+        );
+        let desc = description(&fx.work, "@-");
+        assert!(
+            desc.starts_with("feat: a cycle\n\nCloses the cycle \"feat: a cycle\"."),
+            "{desc}"
+        );
+        assert_eq!(trailer(desc), stamped, "its trailer is kept");
+        assert_eq!(
+            file_at(&fx.work, "@-", "work.txt"),
+            "the work",
+            "the work @ is folded in"
+        );
+        assert_closed_single(&fx.work, "@-");
+    }
+
+    /// A ladder closes with its own commit, linear by default, titled
+    /// and bodied by default, the record moved and every rung done.
+    #[test]
+    fn a_ladder_closes_with_a_closing_commit() {
+        let fx = planned("cycle-close-ladder");
+        run(&fx.work, &["--commit"]).expect("the opening");
+        fs::write(fx.work.join("work.txt"), "work\n").expect("write");
+        run(
+            &fx.work,
+            &["--commit", "--title", "feat: one rung", "--body", "b"],
+        )
+        .expect("the rung");
+        let tip = jj_ok(
+            &fx.work,
+            &["log", "-r", "@-", "--no-graph", "-T", "commit_id"],
+        );
+        jj_ok(&fx.work, &["new", "feat-a-cycle-"]);
+        let err = run(&fx.work, &["--close"]).unwrap_err();
+        assert!(err.contains("not on the work @ or @-"), "{err}");
+        jj_ok(&fx.work, &["new", "feat-a-cycle"]);
+
+        run(&fx.work, &["--close"]).expect("closed");
+        assert_eq!(
+            above_main(&fx.work),
+            [
+                "feat: a cycle opening",
+                "feat: one rung",
+                "feat: a cycle closing"
+            ]
+        );
+        assert_eq!(
+            parents(&fx.work, "@-"),
+            [tip],
+            "linear, the ladder's tip its one parent"
+        );
+        let desc = description(&fx.work, "@-");
+        assert!(
+            desc.contains("Closes the cycle \"feat: a cycle\". See details in TODO.md."),
+            "{desc}"
+        );
+        let todo = file_at(&fx.work, "@-", "TODO.md");
+        assert!(todo.contains("_No cycle currently in progress._"), "{todo}");
+        assert!(
+            todo.contains("## Closed\n\nThe last cycle's record.\n\n### feat: a cycle\n"),
+            "{todo}"
+        );
+        assert!(
+            file_at(&fx.work, "@-", "zTOC.md").contains(
+                "- 1 (done) [feat: one rung](TODO.md#feat-one-rung)\n\
+                 - 2 (done) [feat: a cycle closing](TODO.md#feat-a-cycle-closing)\n"
+            ),
+            "every rung is done"
+        );
+        assert_eq!(
+            jj_ok(
+                &fx.work,
+                &["log", "-r", "@-", "--no-graph", "-T", "local_bookmarks"]
+            ),
+            "feat-a-cycle"
+        );
+    }
+
+    /// `--trapezoid` makes the destination the closing's first parent,
+    /// and a head listed is another parent, after the ladder's tip.
+    #[test]
+    fn a_trapezoid_joins_the_destination_and_the_heads_listed() {
+        let fx = planned("cycle-close-trapezoid");
+        run(&fx.work, &["--commit"]).expect("the opening");
+        fs::write(fx.work.join("work.txt"), "work\n").expect("write");
+        run(
+            &fx.work,
+            &["--commit", "--title", "feat: one rung", "--body", "b"],
+        )
+        .expect("the rung");
+        let tip = jj_ok(
+            &fx.work,
+            &["log", "-r", "@-", "--no-graph", "-T", "commit_id"],
+        );
+        let main = jj_ok(
+            &fx.work,
+            &["log", "-r", "main", "--no-graph", "-T", "commit_id"],
+        );
+        // Another line off main, joined as a head.
+        jj_ok(&fx.work, &["new", "main", "-m", "feat: another line"]);
+        fs::write(fx.work.join("side.txt"), "side\n").expect("write");
+        let side = jj_ok(
+            &fx.work,
+            &["log", "-r", "@", "--no-graph", "-T", "commit_id"],
+        );
+        jj_ok(&fx.work, &["new", "feat-a-cycle"]);
+        let side = jj_ok(
+            &fx.work,
+            &["log", "-r", &side, "--no-graph", "-T", "commit_id"],
+        );
+
+        run(&fx.work, &["--close", &side, "--trapezoid", "main"]).expect("closed");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle closing");
+        assert_eq!(parents(&fx.work, "@-"), [main, tip, side]);
+        assert_eq!(
+            file_at(&fx.work, "@-", "side.txt"),
+            "side",
+            "the head's tree is merged"
+        );
+        assert_eq!(file_at(&fx.work, "@-", "work.txt"), "work");
+    }
+
+    /// A dead end is always a closing commit, titled so, and a branch
+    /// with no commit has none to close.
+    #[test]
+    fn a_dead_end_is_a_closing_commit() {
+        let fx = planned("cycle-close-dead-end");
+        let err = run(&fx.work, &["--close", "--dead-end"]).unwrap_err();
+        assert!(err.contains("no commit"), "{err}");
+        run(&fx.work, &["--commit"]).expect("the opening");
+        fs::write(fx.work.join("work.txt"), "kept\n").expect("write");
+        run(&fx.work, &["--close", "--dead-end"]).expect("closed");
+        assert_eq!(
+            above_main(&fx.work),
+            ["feat: a cycle opening", "feat: a cycle dead-end closing"]
+        );
     }
 }

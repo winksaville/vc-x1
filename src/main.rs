@@ -744,7 +744,7 @@ pub(crate) enum Commands {
         says where, a workspace or a plain repo. --dry-run prints the name.")]
     Open(open::OpenArgs),
 
-    /// Run a cycle's stages: --open, --ladder, --commit
+    /// Run a cycle's stages: --open, --ladder, --commit, --close
     #[command(long_about = "\
         Run a cycle by its stages, each a flag, one command for the acts\n\
         the flow has.\n\n\
@@ -782,6 +782,20 @@ pub(crate) enum Commands {
         workspace and `p` in a plain repo unless given, `w` making the work\n\
         half alone. --push publishes the rung on the cycle's bookmark, a\n\
         draft. The closing is not a rung's commit, and is refused.\n\n\
+        --close [REV,...] closes the cycle from the work @, which is on the\n\
+        cycle's tip. The branch's commit count is its shape. None or one is\n\
+        a single-step cycle, the closing squashed into its one commit: made\n\
+        now from @, or the opening with @ folded in, its title the bare\n\
+        cycle title and its trailer kept. Its --body is required, the commit\n\
+        holding the work, unless --default-body asks for the pointer. More\n\
+        is a ladder, whose closing is its own commit, the cycle title plus\n\
+        \" closing\" and `[closing] body` unless --title or --body is given.\n\
+        It is linear, on @'s own parents, unless --trapezoid <BOOKMARK> makes\n\
+        the destination its first parent or a REV listed joins another\n\
+        head, each a parent after @'s. --dead-end always makes a closing\n\
+        commit, titled \" dead-end closing\". The ladder is rewritten, every\n\
+        rung done, and the record moved to `## Closed`, both in the commit.\n\
+        The acceptance check comes first, by hand, and again after.\n\n\
         -R is optional and says where, a workspace or a plain repo.")]
     Cycle(cycle::CycleArgs),
 

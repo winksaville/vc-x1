@@ -560,6 +560,26 @@ opening, the title losing " opening" and the body required. A ladder's closing i
 its title and body defaulted. It moves the block to `## Closed`, and the acceptance check is the
 first thing in closing, by hand.
 
+- The closing is always made from the work `@`, which must be on the cycle's tip, so the detour
+  `commit --closing` made around a tip elsewhere is gone: `jj new <bookmark>` puts `@` there.
+- The count is of the cycle's branch, read as the ladder reads it, so the shape needs no
+  destination, and only a trapezoid names one.
+- A ladder's closing is linear unless `--trapezoid` or a head listed makes it a merge, which is
+  the linear shape built, where `commit --closing` always merged. The agent-files still say a
+  ladder lands as a trapezoid, so until **docs: the Cycle Protocol follows the cycle command**
+  decides the default in the rules, this repo's closings pass `--trapezoid`.
+  - The parents are the destination first, then `@`'s own, then each head listed, none twice.
+- The single-step waiver is `--default-body`, the agent's name for it: the body is `[closing]
+  body`, the pointer. `[closing] body` absent is no longer a refusal, a built-in body taking its
+  place, as the opening's does.
+- A `--title` given is the commit's title as written, not the bare cycle title, so no suffix is
+  appended to it and none is refused.
+- `--dead-end` is kept, always a closing commit.
+- The ladder and the record move are written before the commit and put back when it is not made.
+- After the closing `## In Progress` is empty, so `cycle --ladder` and `cycle --commit` have no
+  cycle to read, and the Land reads the branch and not the record.
+- Not done: the old closing's `--land` in the same invocation, which is the next rung's chain.
+
 ##### feat: cycle --land advances the destination
 
 The Land is `vc-x1 land -s b --onto <BOOKMARK>`, a fast-forward that refuses a destination that

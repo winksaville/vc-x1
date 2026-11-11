@@ -959,7 +959,7 @@ fn moved_record(text: &str) -> Result<Option<String>, String> {
 /// the landmark, keeps the cycle's final ladder, and the next opening
 /// replaces it.
 #[derive(Debug)]
-struct RecordMove {
+pub(crate) struct RecordMove {
     record: PathBuf,
     new_record: String,
 }
@@ -971,7 +971,7 @@ impl RecordMove {
     /// Plan the move when the repo's `TODO.md` has a cycle in
     /// progress, reading and checking it, so a refusal comes before
     /// anything is written. Nothing to move is said and is no error.
-    fn plan(repo: &Path) -> Result<Option<Self>, Box<dyn std::error::Error>> {
+    pub(crate) fn plan(repo: &Path) -> Result<Option<Self>, Box<dyn std::error::Error>> {
         let record = repo.join(RECORD);
         if !record.is_file() {
             info!("commit --closing: no {RECORD}, so no cycle-record moves");
@@ -986,7 +986,7 @@ impl RecordMove {
 
     /// Write the move into the working copy, so the commit carries it,
     /// or with `dry_run` say what would move.
-    fn write(&self, dry_run: bool) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) fn write(&self, dry_run: bool) -> Result<(), Box<dyn std::error::Error>> {
         let record = self.record.display();
         let tag = if dry_run {
             "commit: [dry-run]"
@@ -1564,7 +1564,7 @@ fn opening_body(repo: &Path) -> Result<String, Box<dyn std::error::Error>> {
 /// given or else its own, its trailer kept, so its change id and its
 /// partner stand. The agent `@` is left for push, which commits or
 /// folds it as the partner. The line's bookmark follows the rewrite.
-fn finalize(
+pub(crate) fn finalize(
     ctx: &mut Context,
     repo: &Path,
     pair: Option<&Pair>,
