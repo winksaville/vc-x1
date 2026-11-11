@@ -744,7 +744,7 @@ pub(crate) enum Commands {
         says where, a workspace or a plain repo. --dry-run prints the name.")]
     Open(open::OpenArgs),
 
-    /// Run a cycle's stages: --open, --ladder, --commit, --close, --land
+    /// Run a cycle's stages: --open, --commit, --close, --land, and --status
     #[command(long_about = "\
         Run a cycle by its stages, each a flag, one command for the acts\n\
         the flow has.\n\n\
@@ -810,6 +810,11 @@ pub(crate) enum Commands {
         Land's checks made before the closing is. --push with --land\n\
         publishes the destination and deletes the cycle's bookmark on\n\
         origin, and without --land it is the draft push.\n\n\
+        --status says where the cycle stands and changes nothing: the\n\
+        title, the bookmark and whether it is on the work @, the commits on\n\
+        the branch and how many are not pushed, the ladder as the rungs and\n\
+        the commits make it, a note when zTOC.md's differs, and the stage\n\
+        that comes next. What another stage would refuse, it says.\n\n\
         -R is optional and says where, a workspace or a plain repo.")]
     Cycle(cycle::CycleArgs),
 

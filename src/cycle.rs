@@ -8,6 +8,9 @@
 //! - `--ladder` makes `zTOC.md`'s ladder from the rung headings in
 //!   `TODO.md`, each marker computed from the commits on the cycle's
 //!   branch, so a rung is written once and no marker is typed.
+//! - `--commit`, `--close`, and `--land` make a rung, the closing,
+//!   and the Land, by `commit`'s and `land`'s own code, and chain in
+//!   that order. `--status` reads where the cycle stands.
 //! - The record is the agent-files' shape and not the work's, so the
 //!   tool writes it without knowing the work. The version is the
 //!   project's, and no stage bumps it.
@@ -30,7 +33,7 @@ use crate::subcommand::SubcommandRunner;
 
 /// Run a cycle's stages.
 #[derive(Args, Debug)]
-#[group(id = "stage", required = true, multiple = true, args = ["open", "ladder", "commit", "close", "land"])]
+#[group(id = "stage", required = true, multiple = true, args = ["open", "ladder", "commit", "close", "land", "status"])]
 pub struct CycleArgs {
     /// Open a cycle: make its bookmark on the work `@`, then write its
     /// record, `TODO.md`'s `## In Progress` scaffold and `zTOC.md`'s
@@ -72,6 +75,16 @@ pub struct CycleArgs {
     /// bookmark. After `--close` it lands the closing just made
     #[arg(long, help_heading = "Stages", value_name = "BOOKMARK")]
     pub land: Option<String>,
+
+    /// Say where the cycle stands: its title, its bookmark, the ladder
+    /// with its markers, the commits not yet pushed, and the stages open
+    /// from here. It reads, and changes nothing
+    #[arg(
+        long,
+        help_heading = "Stages",
+        conflicts_with_all = ["open", "ladder", "commit", "close", "land", "title"]
+    )]
+    pub status: bool,
 
     /// With `--open`, the bare cycle title, a Conventional Commit: the
     /// bookmark is its slug, and the record is written under it. With
@@ -245,6 +258,7 @@ pub enum CycleParams {
     Commit(CommitRung),
     Close(CloseCycle),
     Land(LandCycle),
+    Status(Running),
 }
 
 /// The work repo and, in a dual workspace, the agent repo that `-R`
@@ -415,6 +429,9 @@ impl TryFrom<&CycleArgs> for CycleParams {
         } else if a.ladder {
             only("--ladder", &commits)?;
             Ok(CycleParams::Ladder(a.running(work)))
+        } else if a.status {
+            only("--status", &commits)?;
+            Ok(CycleParams::Status(a.running(work)))
         } else if let Some(heads) = &a.close {
             let land = a.land_params(work.clone(), agent.clone(), false)?;
             let mut rung = a.rung(work, agent, "--close")?;
@@ -459,6 +476,12 @@ pub fn cycle(ctx: &mut Context, params: &CycleParams) -> Result<(), Box<dyn std:
         CycleParams::Commit(c) => commit_rung(ctx, c),
         CycleParams::Close(c) => close(ctx, c),
         CycleParams::Land(l) => land(ctx, l),
+        CycleParams::Status(r) => {
+            for line in status(r)? {
+                info!("{line}");
+            }
+            Ok(())
+        }
     }
 }
 
@@ -629,6 +652,14 @@ fn commit_rung(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::err
     })
 }
 
+/// The revset of the cycle's branch: the commits `bookmark` reaches,
+/// and those above it up to the work `@-`, a commit made by hand not
+/// having advanced it, that no other local bookmark reaches.
+fn branch_revset(bookmark: &str) -> String {
+    let own = format!("bookmarks(exact:\"{bookmark}\")");
+    format!("((::({own}) | ({own})::@-) ~ ::(bookmarks() ~ {own}))")
+}
+
 /// The titles of the commits on the cycle's branch in `repo`, oldest
 /// first: the commits `bookmark` reaches, and those above it up to the
 /// work `@-`, that no other local bookmark reaches, so no destination
@@ -637,12 +668,8 @@ pub(crate) fn branch_titles(
     repo: &std::path::Path,
     bookmark: &str,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let own = format!("bookmarks(exact:\"{bookmark}\")");
-    // The commits above the bookmark up to the work `@-` are the
-    // branch's too, a commit made by hand not having advanced it.
-    let branch = format!("(::({own}) | ({own})::@-) ~ ::(bookmarks() ~ {own})");
     let mut titles = Vec::new();
-    for cid in jj::cids_of(repo, &branch)? {
+    for cid in jj::cids_of(repo, &branch_revset(bookmark))? {
         let desc = jj::desc_of(repo, &cid)?;
         let title = desc.lines().next().unwrap_or_default().trim_end();
         if !title.is_empty() {
@@ -1193,6 +1220,115 @@ fn land_merge(
         snapshot.restore(label, e.as_ref());
     }
     made
+}
+
+/// `--status`: where the cycle stands, a line each, read from the
+/// record, the ladder, and the branch, nothing changed. What another
+/// stage would refuse is said here and refuses nothing.
+fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let work = r.work.as_path();
+    let mut out = Vec::new();
+    let path = work.join(crate::commit::RECORD);
+    if !path.is_file() {
+        out.push(format!(
+            "no {} in {}, so there is no cycle-record to read",
+            crate::commit::RECORD,
+            work.display()
+        ));
+        return Ok(out);
+    }
+    let todo = std::fs::read_to_string(&path)?;
+    let Ok(cycle) = record::cycle_title(&todo) else {
+        out.push("cycle: none in progress".to_string());
+        let closed = record::closed_title(&todo);
+        let slug = closed.as_deref().map(crate::validate_anchors::anchor_slug);
+        match (closed, slug) {
+            (Some(c), Some(slug)) if jj::local_bookmark_exists(work, &slug)? => {
+                out.push(format!(
+                    "closed: '{c}', its bookmark '{slug}' not yet landed"
+                ));
+                out.push("next: `cycle --land <BOOKMARK>` lands it".to_string());
+            }
+            (Some(c), _) => {
+                out.push(format!("closed: '{c}', landed or its bookmark gone"));
+                out.push("next: `cycle --open --title \"<title>\"` opens one".to_string());
+            }
+            _ => out.push("next: `cycle --open --title \"<title>\"` opens one".to_string()),
+        }
+        return Ok(out);
+    };
+    out.push(format!("cycle: {cycle}"));
+    let bookmark = match cycle_bookmark(r, "--status") {
+        Ok(b) => b,
+        Err(e) => {
+            out.push(format!("bookmark: not found: {e}"));
+            return Ok(out);
+        }
+    };
+    let place = match jj::local_bookmarks_at(work, "@")?.contains(&bookmark) {
+        true => "on the work @, nothing committed",
+        false if jj::local_bookmarks_at(work, "@-")?.contains(&bookmark) => "on the work @-",
+        false => "not on the work @ or @-",
+    };
+    out.push(format!("bookmark: {bookmark}, {place}"));
+    let commits = branch_titles(work, &bookmark)?;
+    let branch = branch_revset(&bookmark);
+    let local = jj::cids_of(work, &format!("{branch} ~ ::remote_bookmarks()"))?
+        .iter()
+        .filter(|cid| jj::desc_of(work, cid).is_ok_and(|d| !d.trim().is_empty()))
+        .count();
+    out.push(format!(
+        "commits: {} on the branch, {local} not pushed",
+        commits.len()
+    ));
+    out.push(format!(
+        "work @: {}",
+        if jj::is_empty(work, "@")? {
+            "empty"
+        } else {
+            "holds changes"
+        }
+    ));
+    let rungs = record::rung_titles(&todo).and_then(|rungs| {
+        let ladder = record::ladder_of(&cycle, &rungs, &commits)?;
+        Ok((rungs, ladder))
+    });
+    let (rungs, ladder) = match rungs {
+        Ok(made) => made,
+        Err(e) => {
+            out.push(format!("ladder: not made: {e}"));
+            return Ok(out);
+        }
+    };
+    out.push("ladder:".to_string());
+    out.extend(ladder.lines.iter().map(|l| format!("  {l}")));
+    out.extend(ladder.findings.iter().map(|f| format!("note: {f}")));
+    let file = work.join(record::LADDER_FILE);
+    if file.is_file()
+        && record::written_ladder(&std::fs::read_to_string(&file)?, &ladder.lines)
+            .is_ok_and(|new| std::fs::read_to_string(&file).is_ok_and(|old| old != new))
+    {
+        out.push(format!(
+            "note: the ladder in {} differs, and `cycle --ladder` writes this one",
+            record::LADDER_FILE
+        ));
+    }
+    let closing = format!("{cycle} closing");
+    let current = rungs.iter().find(|r| !commits.contains(r));
+    out.push(match (commits.len(), current) {
+        (0, _) => "next: `cycle --commit` makes the opening, or `cycle --close --body` closes a \
+                   single-step cycle"
+            .to_string(),
+        (1, Some(c)) if *c == closing => "next: `cycle --close --body` squashes the closing \
+                                          into the opening, a single-step cycle"
+            .to_string(),
+        (_, Some(c)) if *c == closing => {
+            "next: `cycle --close` makes the closing, `--trapezoid <BOOKMARK>` a merge".to_string()
+        }
+        (_, Some(c)) => format!("next: `cycle --commit --title \"{c}\" --body ...`"),
+        (_, None) => "next: every rung is committed".to_string(),
+    });
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -2029,5 +2165,75 @@ mod tests {
             description(&fx.work, "main").contains("ochid: "),
             "a pair's commit"
         );
+    }
+
+    /// `--status` says where the cycle stands at each stage, and
+    /// changes nothing.
+    #[test]
+    fn status_says_where_the_cycle_stands() {
+        let fx = Fixture::new("cycle-status");
+        let status = |fx: &Fixture| match params(&fx.work, &["--status"]).expect("params") {
+            CycleParams::Status(r) => super::status(&r).expect("status").join("\n"),
+            _ => panic!("expected Status"),
+        };
+        assert!(status(&fx).contains("no TODO.md"), "{}", status(&fx));
+        write_record(&fx);
+        let s = status(&fx);
+        assert!(
+            s.contains("cycle: none in progress") && s.contains("cycle --open"),
+            "{s}"
+        );
+
+        let fx = planned("cycle-status-planned");
+        let s = status(&fx);
+        assert!(s.contains("cycle: feat: a cycle\n"), "{s}");
+        assert!(
+            s.contains("bookmark: feat-a-cycle, on the work @, nothing committed"),
+            "{s}"
+        );
+        assert!(s.contains("commits: 0 on the branch, 0 not pushed"), "{s}");
+        assert!(s.contains("note: the ladder in zTOC.md differs"), "{s}");
+        assert!(
+            s.contains("next: `cycle --commit` makes the opening"),
+            "{s}"
+        );
+
+        run(&fx.work, &["--commit"]).expect("the opening");
+        let s = status(&fx);
+        assert!(s.contains("commits: 1 on the branch, 1 not pushed"), "{s}");
+        assert!(
+            s.contains("  - 1 (current) [feat: one rung](TODO.md#feat-one-rung)"),
+            "{s}"
+        );
+        assert!(s.contains("work @: empty"), "{s}");
+        assert!(!s.contains("differs"), "{s}");
+        assert!(
+            s.contains("next: `cycle --commit --title \"feat: one rung\" --body ...`"),
+            "{s}"
+        );
+
+        fs::write(fx.work.join("work.txt"), "work\n").expect("write");
+        run(
+            &fx.work,
+            &["--commit", "--title", "feat: one rung", "--body", "b"],
+        )
+        .expect("the rung");
+        assert!(status(&fx).contains("next: `cycle --close` makes the closing"));
+        jj_ok(&fx.work, &["commit", "-m", "wip: by hand"]);
+        let s = status(&fx);
+        assert!(
+            s.contains("ladder: not made") && s.contains("'wip: by hand'"),
+            "{s}"
+        );
+        jj_ok(&fx.work, &["abandon", "@-"]);
+
+        run(&fx.work, &["--close"]).expect("closed");
+        let s = status(&fx);
+        assert!(
+            s.contains("closed: 'feat: a cycle'") && s.contains("cycle --land"),
+            "{s}"
+        );
+        run(&fx.work, &["--land", "main"]).expect("landed");
+        assert!(status(&fx).contains("landed or its bookmark gone"));
     }
 }

@@ -2167,8 +2167,9 @@ is optional and says where, a workspace or a plain repo.
 ### cycle
 
 Run a cycle by its stages, each a flag, one command for the acts the flow has: `--open`,
-`--ladder`, `--commit`, `--close`, and `--land`. The stages chain in their order, so `cycle
---close --land main --push` closes, lands, and publishes in one invocation.
+`--ladder`, `--commit`, `--close`, and `--land`, with `--status` to say where the cycle stands.
+The stages chain in their order, so `cycle --close --land main --push` closes, lands, and
+publishes in one invocation.
 
 ```bash
 vc-x1 cycle --open --title "feat: a cycle"              # the bookmark, and the record
@@ -2184,6 +2185,7 @@ vc-x1 cycle --land main                                 # land the closed cycle,
 vc-x1 cycle --land main --push                          # and publish it
 vc-x1 cycle --close --trapezoid main --land main --push # close, land, and publish
 vc-x1 cycle --land main --merge                         # join a main that moved, then land
+vc-x1 cycle --status                                    # where the cycle stands, and what is next
 ```
 
 `--open` opens a cycle. It makes the bookmark on the work `@` first, as [`open`](#open) does, the
@@ -2297,6 +2299,25 @@ before the closing is, so a destination that cannot be landed on closes nothing.
 publishes the destination, the work repo first, and deletes the cycle's bookmark on `origin`.
 Without `--land` it is the draft push of the cycle's bookmark. The install after a Land is the
 project's own.
+
+`--status` says where the cycle stands, and changes nothing:
+
+```
+cycle: feat: a cycle
+bookmark: feat-a-cycle, on the work @-
+commits: 2 on the branch, 1 not pushed
+work @: holds changes
+ladder:
+  - 0 (done) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)
+  - 1 (done) [feat: one rung](TODO.md#feat-one-rung)
+  - 2 (current) [feat: a cycle closing](TODO.md#feat-a-cycle-closing)
+next: `cycle --close` makes the closing, `--trapezoid <BOOKMARK>` a merge
+```
+
+The ladder is the one the rung headings and the commits make, with a note when `zTOC.md`'s
+differs, and `next` is the stage the cycle is at: the opening, the current rung by its title, the
+closing, or the Land of a cycle closed and not yet landed. What another stage would refuse, a
+commit that is no rung's among them, is said and refuses nothing here.
 
 `scripts/cycle-rehearsal.sh` runs the flow end to end: it makes a throwaway dual workspace with
 local remotes and no cargo project under `~/tmp/cycle-rehearsal`, runs two single-step cycles and

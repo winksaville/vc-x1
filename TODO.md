@@ -651,6 +651,19 @@ Nothing says where a cycle stands or what may come next. `cycle --status` prints
 title, its bookmark, the ladder with its markers, the commits not yet pushed, and the stages open
 from here.
 
+- It reads and changes nothing, so what another stage refuses, a commit that is no rung's or a
+  bookmark not found, is a line here and no failure.
+- The ladder shown is the one the rungs and the commits make, not `zTOC.md`'s, with a note when
+  the two differ, so `--status` is also the check that `--ladder` would change something.
+- `next` names one stage, the one the cycle is at, with the current rung's title filled in, the
+  agent's reading of "the stages open from here": a list of every stage allowed was longer and
+  said less.
+- Between cycles it says whether the cycle `## Closed` holds is landed, by whether its bookmark
+  is still in the repo.
+- `--ladder` stays its own stage, since `--status` writes nothing.
+- Not shown: the agent-repo's side, and the destination, which is named on a command and not
+  stored.
+
 ##### feat: commit refuses an unchanged version
 
 A rung committed without its version bump is found by reading, if at all. The config names a file
