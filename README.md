@@ -2319,6 +2319,21 @@ differs, and `next` is the stage the cycle is at: the opening, the current rung 
 closing, or the Land of a cycle closed and not yet landed. What another stage would refuse, a
 commit that is no rung's among them, is said and refuses nothing here.
 
+The version is the project's, and no stage writes it. A project that wants a rung's bump checked
+names the file that holds its version and what the version's line starts with:
+
+```toml
+[version]
+file = "Cargo.toml"
+pattern = 'version = '
+```
+
+`--commit` and `--close`, and [`commit`](#commit) for a work commit, then refuse a commit that
+changes no line of the file starting with the pattern, before anything is written, and
+`--same-version` commits it as it is. The line is matched at its left margin, so a dependency's
+`version = ` inside a table is not the version's. Without the keys nothing is checked, and a
+project with no manifest names a file of its own.
+
 `scripts/cycle-rehearsal.sh` runs the flow end to end: it makes a throwaway dual workspace with
 local remotes and no cargo project under `~/tmp/cycle-rehearsal`, runs two single-step cycles and
 a ladder through these flags, open to Land, checks what each command left, and tries each way

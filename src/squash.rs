@@ -561,6 +561,7 @@ mod tests {
             rev: None,
             covers: None,
             allow_empty: false,
+            same_version: false,
             no_url_trailer,
         };
         commit(&mut test_ctx(), &params).expect("the pair is made");

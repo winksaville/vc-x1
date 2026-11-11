@@ -671,6 +671,20 @@ and a pattern, ours `Cargo.toml` and its `version = ` line, and a work commit wh
 line the pattern matches is refused. A named flag commits anyway, and without the key nothing is
 checked. The tool reads the version's line and never writes it.
 
+- The keys are `[version] file` and `[version] pattern`, both or neither, in the work side's
+  config, and this workspace's config has them.
+- The pattern is what the line starts with, not a regular expression: a line is the version's
+  when it starts with the pattern at the left margin, so `clap = { version = "4" }` is not, and no
+  regex is added to the config's vocabulary.
+- The check is of the commit's own diff, the lines it removes and adds in the file, so a bump
+  made and then undone inside one working copy is no bump.
+- It is in `vc-x1 commit` for every work commit, a draft described by `-r` included, and so in
+  `cycle --commit` and `cycle --close`, which also check before the ladder or the record is
+  written. The flag is `--same-version` on both commands.
+- The agent-repo's commit is not checked, having no version, and a merge at the Land is not,
+  being no rung.
+- The closing is checked like a rung, since the closing bumps to the bare version.
+
 ##### feat: an xtask bumps the version
 
 The version is bumped by hand, in `Cargo.toml`, with `Cargo.lock` following at the next build. An

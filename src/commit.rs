@@ -238,6 +238,12 @@ pub struct CommitArgs {
     #[arg(long, value_name = "REVSET")]
     pub covers: Option<String>,
 
+    /// Commit although the version's line is unchanged: with `[version]
+    /// file` and `pattern` in the config, a work commit that changes no
+    /// line of the file starting with the pattern is otherwise refused
+    #[arg(long)]
+    pub same_version: bool,
+
     /// Print the descriptions it would write, trailers included, and
     /// commit nothing
     #[command(flatten)]
@@ -358,6 +364,9 @@ pub struct CommitParams {
     /// Commit a work `@` that holds no change, a merge whose parents
     /// are its content, which `cycle --land --merge` makes.
     pub allow_empty: bool,
+    /// Commit although the version's line is unchanged, the check
+    /// `[version]` in the config asks for.
+    pub same_version: bool,
 }
 
 /// What `-s` resolved to.
@@ -500,6 +509,7 @@ impl TryFrom<&CommitArgs> for CommitParams {
             rev: a.rev.clone(),
             covers: a.covers.clone(),
             allow_empty: false,
+            same_version: a.same_version,
         })
     }
 }
@@ -684,6 +694,51 @@ fn preflight(
     Ok(())
 }
 
+/// Refuse a work commit that leaves the version as it was, when the
+/// config asks: `[version] file` names the file that holds it and
+/// `[version] pattern` what its line starts with, and `rev`, the
+/// commit being made, must add or remove such a line. Without the keys
+/// nothing is checked, and `same_version` commits anyway, saying so.
+/// The tool reads the line and never writes it, the version being the
+/// project's.
+pub(crate) fn check_version(
+    repo: &Path,
+    rev: &str,
+    same_version: bool,
+    label: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let Some(cfg) = crate::config_md::load(repo)? else {
+        return Ok(());
+    };
+    let key = |k: &str| crate::toml_simple::toml_get(&cfg.map, k).cloned();
+    let (file, pattern) = match (key("version.file"), key("version.pattern")) {
+        (None, None) => return Ok(()),
+        (Some(file), Some(pattern)) => (file, pattern),
+        _ => {
+            return Err(format!(
+                "{label}: the config has one of `[version] file` and `pattern`, and the \
+                 version's check needs both"
+            )
+            .into());
+        }
+    };
+    if same_version {
+        info!("{label}: --same-version, so the version's line in {file} is not checked");
+        return Ok(());
+    }
+    let bumped = jj::changed_lines(repo, rev, Path::new(&file))?
+        .iter()
+        .any(|line| line.starts_with(&pattern));
+    if bumped {
+        return Ok(());
+    }
+    Err(format!(
+        "{label}: the commit changes no line of {file} starting `{pattern}`, the version's, and \
+         a commit bumps the version: bump it, or pass --same-version to commit it as it is"
+    )
+    .into())
+}
+
 /// Make the pair: both change ids read from the working copies
 /// first, then the work commit with the agent's id in its trailer
 /// and, with `agent_now`, the agent commit with the work's id in
@@ -716,6 +771,7 @@ fn commit_pair(
         if let Some(r) = &record {
             r.write(params.dry_run)?;
         }
+        check_version(work, "@", params.same_version, "commit")?;
         finalize(ctx, work, Some(pair), title, Some(&body), params.dry_run)?;
         return push_after(
             ctx,
@@ -733,6 +789,12 @@ fn commit_pair(
         Some(_) => crate::pair::refuse_conflicts(work, "commit", "work")?,
     }
     preflight(agent, "agent", false)?;
+    check_version(
+        work,
+        draft.as_ref().map_or("@", |d| d.rev.as_str()),
+        params.same_version,
+        "commit",
+    )?;
     warn_unflagged_closing(params);
     let (text, merge) = description(params, closing)?;
     let plan = plan_bookmarks(work, params, draft.as_ref(), closing_bm.as_deref())?;
@@ -1784,6 +1846,7 @@ fn commit_por(
         if let Some(r) = &record {
             r.write(params.dry_run)?;
         }
+        check_version(repo, "@", params.same_version, "commit")?;
         finalize(ctx, repo, None, title, Some(&body), params.dry_run)?;
         return push_after(
             ctx,
@@ -1800,6 +1863,12 @@ fn commit_por(
         None => preflight(repo, "plain", closing.is_none() && !params.allow_empty)?,
         Some(_) => crate::pair::refuse_conflicts(repo, "commit", "plain")?,
     }
+    check_version(
+        repo,
+        draft.as_ref().map_or("@", |d| d.rev.as_str()),
+        params.same_version,
+        "commit",
+    )?;
     warn_unflagged_closing(params);
     let (desc, merge) = description(params, closing)?;
     let plan = plan_bookmarks(repo, params, draft.as_ref(), closing_bm.as_deref())?;

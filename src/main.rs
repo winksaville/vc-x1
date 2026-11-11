@@ -661,6 +661,9 @@ pub(crate) enum Commands {
         the agent half left to push, `a` the agent repo alone, unpaired, with\n\
         no trailer, and `p` a plain repo with no trailer. -R is optional and\n\
         says where. --body is the text, or @PATH to read it from a file.\n\n\
+        With `[version] file` and `pattern` in the config, a work commit that\n\
+        changes no line of the file starting with the pattern is refused, a\n\
+        rung bumping the version, and --same-version commits it as it is.\n\n\
         -s a --covers REVSET makes the agent commit a cycle's rungs share:\n\
         one `ochid:` per work commit REVSET names, oldest first, the revset\n\
         taken as written, no base assumed, and each must name the agent @.")]
@@ -815,6 +818,10 @@ pub(crate) enum Commands {
         the branch and how many are not pushed, the ladder as the rungs and\n\
         the commits make it, a note when zTOC.md's differs, and the stage\n\
         that comes next. What another stage would refuse, it says.\n\n\
+        The version is the project's, and no stage writes it. With `[version]\n\
+        file` and `pattern` in the config, --commit and --close refuse a\n\
+        commit that changes no line of the file starting with the pattern,\n\
+        before anything is written, and --same-version commits it as it is.\n\n\
         -R is optional and says where, a workspace or a plain repo.")]
     Cycle(cycle::CycleArgs),
 

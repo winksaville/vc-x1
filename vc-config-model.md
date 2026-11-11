@@ -129,15 +129,24 @@ suffix = "-dev"
 <property> = "value"
 ```
 
+The `[version]` table
+- file: The file holding the version, whose change a work commit is checked for [[26]]
+- pattern: What the version's line starts with, in `version.file` [[27]]
+```toml
+[version]
+file = "Cargo.toml"
+pattern = "version = "
+```
+
 The `[opening]` table
-- body: The opening commit's default body, `{title}` the cycle title [[26]]
+- body: The opening commit's default body, `{title}` the cycle title [[28]]
 ```toml
 [opening]
 body = "Opens the cycle {title}. See details in TODO.md."
 ```
 
 The `[closing]` table
-- body: The closing commit's default body, `{title}` the cycle title [[27]]
+- body: The closing commit's default body, `{title}` the cycle title [[29]]
 ```toml
 [closing]
 body = "Closes the cycle {title}. See details in TODO.md."
@@ -145,7 +154,7 @@ body = "Closes the cycle {title}. See details in TODO.md."
 
 The `[test]` table
 - fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
-  test` [[28]]
+  test` [[30]]
 ```toml
 [test]
 fixtures = ".fixtures"
@@ -178,6 +187,8 @@ fixtures = ".fixtures"
 [23]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamebin
 [24]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamesuffix
 [25]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenameproperty
-[26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#openingbody
-[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
-[28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
+[26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#versionfile
+[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#versionpattern
+[28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#openingbody
+[29]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
+[30]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures

@@ -180,6 +180,13 @@ pub struct CycleArgs {
     #[arg(long, help_heading = "Commit")]
     pub push: bool,
 
+    /// With `--commit` or `--close`, commit although the version's line
+    /// is unchanged: with `[version] file` and `pattern` in the config,
+    /// a commit that changes no line of the file starting with the
+    /// pattern is otherwise refused
+    #[arg(long, help_heading = "Commit")]
+    pub same_version: bool,
+
     /// Where: a path in the workspace, its root or either repo, or a
     /// plain repo [default: the current directory]
     #[arg(short = 'R', long, value_name = "PATH")]
@@ -218,6 +225,7 @@ pub struct CommitRung {
     pub title: Option<String>,
     pub body: Option<String>,
     pub push: bool,
+    pub same_version: bool,
 }
 
 /// `--close`'s inputs: the commit's, as a rung's, and the closing's
@@ -354,6 +362,9 @@ impl CycleArgs {
                     .into(),
             );
         }
+        if alone && self.same_version {
+            return Err("cycle --land: it takes no --same-version, a Land bumping nothing".into());
+        }
         if alone && (self.title.is_some() || self.body.is_some()) && !self.merge {
             return Err(
                 "cycle --land: a Land makes no commit of its own, so --title and --body are \
@@ -404,6 +415,7 @@ impl CycleArgs {
             title: self.title.as_ref().map(|t| t.trim().to_string()),
             body,
             push: self.push,
+            same_version: self.same_version,
         })
     }
 }
@@ -419,6 +431,7 @@ impl TryFrom<&CycleArgs> for CycleParams {
             None => Ok(()),
         };
         let commits = [
+            ("--same-version", a.same_version),
             ("-s", a.scope.is_some()),
             ("--push", a.push),
             ("--body", a.body.is_some()),
@@ -535,6 +548,7 @@ fn commit_params(
         rev: None,
         covers: None,
         allow_empty: false,
+        same_version: c.same_version,
     }
 }
 
@@ -614,6 +628,7 @@ fn commit_rung(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::err
         )
         .into());
     }
+    crate::commit::check_version(work, "@", c.same_version, "cycle --commit")?;
     let mut with = commits.clone();
     with.push(title.clone());
     let plan = record::plan_ladder(work, &with).map_err(|e| format!("cycle {stage}: {e}"))?;
@@ -922,6 +937,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
         done.push(closing);
         done
     };
+    crate::commit::check_version(work, "@", c.rung.same_version, "cycle --close")?;
     let ladder = record::plan_ladder(work, &done).map_err(|e| format!("cycle {stage}: {e}"))?;
     let moved = crate::commit::RecordMove::plan(work)?;
     let bookmark_of_closing = bookmark.clone();
@@ -1200,6 +1216,8 @@ fn land_merge(
         title: None,
         body: None,
         push: false,
+        // A merge at the Land is no rung, and bumps nothing.
+        same_version: true,
     };
     let snapshot = crate::pair::Snapshot::take(work)?;
     let made = (|| -> Result<(), Box<dyn std::error::Error>> {
@@ -2235,5 +2253,68 @@ mod tests {
         );
         run(&fx.work, &["--land", "main"]).expect("landed");
         assert!(status(&fx).contains("landed or its bookmark gone"));
+    }
+
+    /// Set the work config's `[version]` check on `VERSION.md`.
+    fn set_version_check(fx: &Fixture) {
+        let path = fx.work.join(".vc-config.md");
+        let mut cfg = fs::read_to_string(&path).expect("read the config");
+        cfg.push_str("\n```toml\n[version]\nfile = \"VERSION.md\"\npattern = 'version = '\n```\n");
+        fs::write(&path, cfg).expect("write the config");
+    }
+
+    /// With `[version]` in the config a commit that changes no line of
+    /// the version's file starting with the pattern is refused before
+    /// anything is written, `--same-version` commits anyway, and the
+    /// tool never writes the line.
+    #[test]
+    fn a_commit_with_the_version_unchanged_is_refused() {
+        let fx = planned("cycle-version");
+        set_version_check(&fx);
+        fs::write(
+            fx.work.join("VERSION.md"),
+            "name = \"x\"\nversion = \"1.0.0-0\"\n",
+        )
+        .expect("write");
+        run(&fx.work, &["--commit"]).expect("the opening sets the version");
+        let ladder = fs::read_to_string(fx.work.join("zTOC.md")).unwrap();
+
+        fs::write(fx.work.join("work.txt"), "work\n").expect("write");
+        let rung = ["--commit", "--title", "feat: one rung", "--body", "b"];
+        let err = run(&fx.work, &rung).unwrap_err();
+        assert!(
+            err.contains("VERSION.md") && err.contains("--same-version"),
+            "{err}"
+        );
+        assert_eq!(fs::read_to_string(fx.work.join("zTOC.md")).unwrap(), ladder);
+        // A line that only holds the pattern is not the version's.
+        fs::write(
+            fx.work.join("VERSION.md"),
+            "name = \"y\"\nversion = \"1.0.0-0\"\ndep = { version = \"2\" }\n",
+        )
+        .expect("write");
+        assert!(
+            run(&fx.work, &rung).is_err(),
+            "the version's line is as it was"
+        );
+
+        fs::write(
+            fx.work.join("VERSION.md"),
+            "name = \"y\"\nversion = \"1.0.0-1\"\n",
+        )
+        .expect("write");
+        run(&fx.work, &rung).expect("the version is bumped");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: one rung");
+
+        let err = run(&fx.work, &["--close"]).unwrap_err();
+        assert!(err.contains("--same-version"), "{err}");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: one rung", "nothing closed");
+        run(&fx.work, &["--close", "--same-version"]).expect("closed as it is");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle closing");
+        assert_eq!(
+            file_at(&fx.work, "@-", "VERSION.md"),
+            "name = \"y\"\nversion = \"1.0.0-1\"",
+            "the tool never writes the version"
+        );
     }
 }

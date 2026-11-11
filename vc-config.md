@@ -558,6 +558,38 @@ used-by = "vc-x1 build, vc-x1 run, and vc-x1 install, through their lists"
 example = "value"
 ```
 
+## version.file
+
+The file that holds the project's version, relative to the config file's directory, for the check
+`vc-x1 commit` and `vc-x1 cycle` make of a work commit: one that changes no line of this file
+starting with `version.pattern` is refused, and `--same-version` commits it as it is. The tool
+reads the line and never writes it, the version and its bump being the project's. Both keys or
+neither: without them nothing is checked. Owned by the work side because the version is the
+artifact's.
+
+```toml
+[version.file]
+homes = ["workspace-code"]
+kind = "str"
+doc = "The file holding the version, whose change a work commit is checked for"
+used-by = "vc-x1 commit, vc-x1 cycle --commit and --close"
+example = "Cargo.toml"
+```
+
+## version.pattern
+
+What the version's line in `version.file` starts with, at its left margin, so a line that only
+holds the text, a dependency's own `version = ` inside a table, is not taken for it.
+
+```toml
+[version.pattern]
+homes = ["workspace-code"]
+kind = "str"
+doc = "What the version's line starts with, in `version.file`"
+used-by = "vc-x1 commit, vc-x1 cycle --commit and --close"
+example = "version = "
+```
+
 ## opening.body
 
 The body `vc-x1 cycle --commit` writes on a cycle's opening commit, its first, when `--body` is
