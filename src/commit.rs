@@ -355,6 +355,9 @@ pub struct CommitParams {
     /// With `-s a`, the work commits it covers, a revset in the work
     /// repo, each linked by an `ochid:`.
     pub covers: Option<String>,
+    /// Commit a work `@` that holds no change, a merge whose parents
+    /// are its content, which `cycle --land --merge` makes.
+    pub allow_empty: bool,
 }
 
 /// What `-s` resolved to.
@@ -496,6 +499,7 @@ impl TryFrom<&CommitArgs> for CommitParams {
             dry_run: a.dry_run.value,
             rev: a.rev.clone(),
             covers: a.covers.clone(),
+            allow_empty: false,
         })
     }
 }
@@ -725,7 +729,7 @@ fn commit_pair(
     }
     let draft = plan_draft(work, params)?;
     match &draft {
-        None => preflight(work, "work", closing.is_none())?,
+        None => preflight(work, "work", closing.is_none() && !params.allow_empty)?,
         Some(_) => crate::pair::refuse_conflicts(work, "commit", "work")?,
     }
     preflight(agent, "agent", false)?;
@@ -1793,7 +1797,7 @@ fn commit_por(
     }
     let draft = plan_draft(repo, params)?;
     match &draft {
-        None => preflight(repo, "plain", closing.is_none())?,
+        None => preflight(repo, "plain", closing.is_none() && !params.allow_empty)?,
         Some(_) => crate::pair::refuse_conflicts(repo, "commit", "plain")?,
     }
     warn_unflagged_closing(params);

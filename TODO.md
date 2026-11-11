@@ -588,6 +588,26 @@ the ways on: a merge at the Land, asked for by a flag, the closing made again, o
 `--push` publishes the destination and deletes the cycle's bookmark on `origin`, and the stages
 chain, `cycle --close --land --push`.
 
+- The Land is `vc-x1 land`'s own code, called with the source and the destination named, so the
+  agent commit, the trailers' update, and the bookmark's deletion are one implementation.
+- The cycle landed is found without a flag: the title `## Closed` holds names its bookmark, the
+  closing having moved the record there, then `--bookmark`, then the one local bookmark besides
+  the destination. A cycle in `## In Progress` is refused, a Land being of a cycle closed.
+- `--merge` is the flag. The merge is a pair's commit, made by the commit code from an empty
+  work `@`, titled the cycle title plus " merge", the agent's name for it, and the cycle's
+  bookmark is advanced to it, so the Land that follows is the ordinary fast-forward.
+  - A conflicted merge is undone and refused. With the record and the version in shared files,
+    **Two cycles in flight conflict in the record and the version** in `## Todo`, we think most
+    merges at a Land will be, so `--merge` is of use mainly once that is settled.
+  - `commit` gained an internal `allow_empty`, since a clean merge changes nothing its parents
+    do not hold, and the closing's dry run uses it too, writing no record.
+- In the chain the Land's checks of the destination are made before the closing, and the push
+  is the Land's, the closing making none.
+- `-s w` is refused with `--land`, as `land` refuses it.
+- Not done: `--delete-intermediate-bookmarks`, which `vc-x1 land` has for a stack of cycles
+  landing together, and a Land by a revision. Both are `vc-x1 land`'s until it is removed, and
+  the removal rung decides whether `cycle --land` takes them.
+
 ##### test: a rehearsal runs both cycle shapes
 
 The flow is tested by hand, in `~/tmp` workspaces wink builds. A script makes a dual workspace

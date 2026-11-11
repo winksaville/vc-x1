@@ -560,6 +560,7 @@ mod tests {
             dry_run: false,
             rev: None,
             covers: None,
+            allow_empty: false,
             no_url_trailer,
         };
         commit(&mut test_ctx(), &params).expect("the pair is made");

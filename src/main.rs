@@ -744,7 +744,7 @@ pub(crate) enum Commands {
         says where, a workspace or a plain repo. --dry-run prints the name.")]
     Open(open::OpenArgs),
 
-    /// Run a cycle's stages: --open, --ladder, --commit, --close
+    /// Run a cycle's stages: --open, --ladder, --commit, --close, --land
     #[command(long_about = "\
         Run a cycle by its stages, each a flag, one command for the acts\n\
         the flow has.\n\n\
@@ -796,6 +796,20 @@ pub(crate) enum Commands {
         commit, titled \" dead-end closing\". The ladder is rewritten, every\n\
         rung done, and the record moved to `## Closed`, both in the commit.\n\
         The acceptance check comes first, by hand, and again after.\n\n\
+        --land <BOOKMARK> lands a closed cycle on the destination, any\n\
+        bookmark, none assumed, by the code `vc-x1 land` runs: the agent @\n\
+        committed when the cycle's commits name it, the destination\n\
+        fast-forwarded to the cycle's last commit, and the cycle's bookmark\n\
+        deleted, --skip keeping a side. The cycle is the one `## Closed`\n\
+        holds, its bookmark the title's slug or --bookmark's, and a cycle\n\
+        still in progress is refused. A destination that moved is refused,\n\
+        naming the ways on, and --merge is one: a merge commit of the\n\
+        destination and the cycle's last commit, made from an empty @ and\n\
+        then landed, a conflicted one undone and left to you. The stages\n\
+        chain in their order, `cycle --close --land <BOOKMARK> --push`, the\n\
+        Land's checks made before the closing is. --push with --land\n\
+        publishes the destination and deletes the cycle's bookmark on\n\
+        origin, and without --land it is the draft push.\n\n\
         -R is optional and says where, a workspace or a plain repo.")]
     Cycle(cycle::CycleArgs),
 

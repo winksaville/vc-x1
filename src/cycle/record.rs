@@ -208,6 +208,15 @@ pub(crate) fn cycle_title(text: &str) -> Result<String, String> {
         .ok_or_else(|| format!("{RECORD} has no cycle in progress: `cycle --open` opens one"))
 }
 
+/// The title of the cycle `## Closed` holds in `TODO.md`'s `text`, the
+/// last one closed, `None` when it holds none.
+pub(crate) fn closed_title(text: &str) -> Option<String> {
+    let (start, end) = section(text, "## Closed")?;
+    prose_lines(&text[start..end])
+        .find_map(|(_, l)| l.strip_prefix("### "))
+        .map(|t| t.trim().to_string())
+}
+
 /// The rung titles of the cycle in progress, in their order: the
 /// `##### ` headings under its `#### Rungs`, to the next heading of
 /// that level or above. Refused when there is no `#### Rungs` or it

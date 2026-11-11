@@ -30,25 +30,25 @@ use crate::subcommand::SubcommandRunner;
 
 /// Run a cycle's stages.
 #[derive(Args, Debug)]
-#[group(id = "stage", required = true, args = ["open", "ladder", "commit", "close"])]
+#[group(id = "stage", required = true, multiple = true, args = ["open", "ladder", "commit", "close", "land"])]
 pub struct CycleArgs {
     /// Open a cycle: make its bookmark on the work `@`, then write its
     /// record, `TODO.md`'s `## In Progress` scaffold and `zTOC.md`'s
     /// ladder
-    #[arg(long, help_heading = "Stages", conflicts_with_all = ["ladder", "commit", "close"])]
+    #[arg(long, help_heading = "Stages", conflicts_with_all = ["ladder", "commit", "close", "land"])]
     pub open: bool,
 
     /// Make `zTOC.md`'s ladder from the rung headings under `####
     /// Rungs` in `TODO.md`, each marker computed from the cycle's
     /// commits
-    #[arg(long, help_heading = "Stages", conflicts_with_all = ["commit", "close", "title"])]
+    #[arg(long, help_heading = "Stages", conflicts_with_all = ["commit", "close", "land", "title"])]
     pub ladder: bool,
 
     /// Commit the working copies as a rung of the cycle in progress,
     /// the ladder rewritten into it: the cycle's first commit is its
     /// opening, its title and body defaulted, and a work rung gives
     /// both
-    #[arg(long, help_heading = "Stages", conflicts_with = "close")]
+    #[arg(long, help_heading = "Stages", conflicts_with_all = ["close", "land"])]
     pub commit: bool,
 
     /// Close the cycle in progress from the work `@`, each REV listed
@@ -65,6 +65,13 @@ pub struct CycleArgs {
         value_delimiter = ','
     )]
     pub close: Option<Vec<String>>,
+
+    /// Land the closed cycle on BOOKMARK, the destination: commit the
+    /// agent `@` when the cycle's commits name it, fast-forward the
+    /// destination to the cycle's last commit, and delete the cycle's
+    /// bookmark. After `--close` it lands the closing just made
+    #[arg(long, help_heading = "Stages", value_name = "BOOKMARK")]
+    pub land: Option<String>,
 
     /// With `--open`, the bare cycle title, a Conventional Commit: the
     /// bookmark is its slug, and the record is written under it. With
@@ -118,6 +125,29 @@ pub struct CycleArgs {
     #[arg(long, requires = "open", help_heading = "Open")]
     pub no_record: bool,
 
+    /// With `--land`, join a destination that moved by a merge commit,
+    /// the destination its first parent and the cycle's last commit its
+    /// second, made and then landed, a tree no rung validated [default:
+    /// a destination that moved is refused]
+    #[arg(
+        long,
+        requires = "land",
+        conflicts_with = "close",
+        help_heading = "Land"
+    )]
+    pub merge: bool,
+
+    /// With `--land`, which side of the cycle's bookmark is kept:
+    /// `local`, `remote`, or `both`, none deleted
+    #[arg(
+        long,
+        value_enum,
+        value_name = "SIDE",
+        requires = "land",
+        help_heading = "Land"
+    )]
+    pub skip: Option<crate::commit::Skip>,
+
     /// With `--commit` or `--close`, which repos: `b|both` both commits now,
     /// `w|work` the work half with the agent half left to push, and
     /// `p|por` a plain repo's commit [default: `b` in a dual
@@ -131,8 +161,9 @@ pub struct CycleArgs {
     )]
     pub scope: Option<RepoScope>,
 
-    /// With `--commit`, publish the rung on the cycle's bookmark, a
-    /// draft push, a commit otherwise staying on the machine
+    /// Publish: with `--commit` or `--close` the cycle's bookmark, a
+    /// draft push, and with `--land` the destination, the cycle's
+    /// bookmark deleted on `origin` too. Nothing is pushed without it
     #[arg(long, help_heading = "Commit")]
     pub push: bool,
 
@@ -187,6 +218,23 @@ pub struct CloseCycle {
     pub trapezoid: Option<String>,
     pub default_body: bool,
     pub dead_end: bool,
+    /// The Land that follows the closing, in the same invocation.
+    pub land: Option<LandCycle>,
+}
+
+/// `--land`'s inputs: the cycle's work repo, the agent repo of a dual
+/// workspace, and the destination.
+#[derive(Debug)]
+pub struct LandCycle {
+    pub running: Running,
+    pub agent: Option<PathBuf>,
+    pub dest: String,
+    pub merge: bool,
+    pub skip: Option<crate::commit::Skip>,
+    pub push: bool,
+    /// The merge commit's title and body, when given.
+    pub title: Option<String>,
+    pub body: Option<String>,
 }
 
 /// Inputs to the cycle op, flat, owned, clap-free, a stage each.
@@ -196,6 +244,7 @@ pub enum CycleParams {
     Ladder(Running),
     Commit(CommitRung),
     Close(CloseCycle),
+    Land(LandCycle),
 }
 
 /// The work repo and, in a dual workspace, the agent repo that `-R`
@@ -272,6 +321,48 @@ impl CycleArgs {
         }))
     }
 
+    /// `--land`'s params, `None` when it is not asked for. With `alone`
+    /// the title and body are the merge commit's, and after `--close`
+    /// they are the closing's.
+    fn land_params(
+        &self,
+        work: PathBuf,
+        agent: Option<PathBuf>,
+        alone: bool,
+    ) -> Result<Option<LandCycle>, String> {
+        let Some(dest) = &self.land else {
+            return Ok(None);
+        };
+        if matches!(&self.scope, Some(RepoScope::Sides(s)) if !s.is_both()) {
+            return Err(
+                "cycle --land -s w: a work-only Land would publish trailers naming agent commits \
+                 its agent half may not have published: -s b, or leave it out"
+                    .into(),
+            );
+        }
+        if alone && (self.title.is_some() || self.body.is_some()) && !self.merge {
+            return Err(
+                "cycle --land: a Land makes no commit of its own, so --title and --body are \
+                 --merge's, the merge commit's"
+                    .into(),
+            );
+        }
+        let body = match (&self.body, alone) {
+            (Some(b), true) => Some(crate::desc_helpers::read_body(b, "cycle --land")?),
+            _ => None,
+        };
+        Ok(Some(LandCycle {
+            running: self.running(work),
+            agent,
+            dest: dest.clone(),
+            merge: self.merge,
+            skip: self.skip,
+            push: self.push,
+            title: self.title.clone().filter(|_| alone),
+            body,
+        }))
+    }
+
     /// A commit's params, `--commit`'s and `--close`'s alike.
     fn rung(
         &self,
@@ -325,13 +416,20 @@ impl TryFrom<&CycleArgs> for CycleParams {
             only("--ladder", &commits)?;
             Ok(CycleParams::Ladder(a.running(work)))
         } else if let Some(heads) = &a.close {
+            let land = a.land_params(work.clone(), agent.clone(), false)?;
+            let mut rung = a.rung(work, agent, "--close")?;
+            // With a Land the push is the Land's, the destination's.
+            rung.push = rung.push && land.is_none();
             Ok(CycleParams::Close(CloseCycle {
-                rung: a.rung(work, agent, "--close")?,
+                rung,
                 heads: heads.clone(),
                 trapezoid: a.trapezoid.clone(),
                 default_body: a.default_body,
                 dead_end: a.dead_end,
+                land,
             }))
+        } else if let Some(land) = a.land_params(work.clone(), agent.clone(), true)? {
+            Ok(CycleParams::Land(land))
         } else {
             Ok(CycleParams::Commit(a.rung(work, agent, "--commit")?))
         }
@@ -360,6 +458,7 @@ pub fn cycle(ctx: &mut Context, params: &CycleParams) -> Result<(), Box<dyn std:
         CycleParams::Ladder(r) => ladder(r),
         CycleParams::Commit(c) => commit_rung(ctx, c),
         CycleParams::Close(c) => close(ctx, c),
+        CycleParams::Land(l) => land(ctx, l),
     }
 }
 
@@ -412,6 +511,7 @@ fn commit_params(
         dry_run: c.running.dry_run,
         rev: None,
         covers: None,
+        allow_empty: false,
     }
 }
 
@@ -738,6 +838,12 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
         .into());
     }
     crate::pair::refuse_conflicts(work, "cycle --close", "work")?;
+    if let Some(l) = &c.land {
+        // The Land's own checks, before the closing is made: a
+        // trapezoid onto the destination joins one that moved.
+        let joined = c.trapezoid.as_deref() == Some(l.dest.as_str());
+        land_checks(work, &l.dest, (!joined).then_some("@-"))?;
+    }
     let single = commits.len() <= 1 && !c.dead_end;
     if c.dead_end && commits.is_empty() {
         return Err(format!(
@@ -791,6 +897,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
     };
     let ladder = record::plan_ladder(work, &done).map_err(|e| format!("cycle {stage}: {e}"))?;
     let moved = crate::commit::RecordMove::plan(work)?;
+    let bookmark_of_closing = bookmark.clone();
     let fold = single && commits.len() == 1;
     info!(
         "cycle {stage}: {} on '{bookmark}', '{title}'",
@@ -825,9 +932,22 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
             );
         }
         if fold {
-            return crate::commit::finalize(ctx, work, pair.as_ref(), &title, Some(&body), true);
+            crate::commit::finalize(ctx, work, pair.as_ref(), &title, Some(&body), true)?;
+        } else {
+            // A dry run writes no record, so the work @ may hold nothing.
+            let mut params = commit_params(&c.rung, title, body, bookmark);
+            params.allow_empty = true;
+            crate::commit::commit(ctx, &params)?;
         }
-        return crate::commit::commit(ctx, &commit_params(&c.rung, title, body, bookmark));
+        if let Some(l) = &c.land {
+            info!(
+                "cycle --land: [dry-run] land the closing on '{}'{}, and delete the cycle's \
+                 bookmark",
+                l.dest,
+                if l.push { " and publish it" } else { "" }
+            );
+        }
+        return Ok(());
     }
     // The files as they were, put back when the closing is not made.
     let mut written: Vec<(PathBuf, String)> = Vec::new();
@@ -864,6 +984,213 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
                 warn!("cycle {stage}: {} was not put back: {w}", path.display());
             }
         }
+    }
+    made?;
+    match &c.land {
+        Some(l) => land_closed(ctx, l, Some(bookmark_of_closing)),
+        None => Ok(()),
+    }
+}
+
+/// The checks a Land makes of its destination, made before a closing
+/// that a Land follows: `dest` is a local bookmark where its `origin`
+/// is, and `tip`, when given, descends from it, each refusal naming
+/// the ways on.
+fn land_checks(
+    work: &std::path::Path,
+    dest: &str,
+    tip: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if !jj::local_bookmark_exists(work, dest)? {
+        return Err(format!(
+            "cycle --land: '{dest}' is not a local bookmark, and a Land moves one"
+        )
+        .into());
+    }
+    let at = jj::cid_of(work, dest)?;
+    let remote = jj::remote_bookmark_targets(work, "origin")?
+        .get(dest)
+        .cloned();
+    if remote.as_deref() != Some(at.as_str()) {
+        return Err(format!(
+            "cycle --land: '{dest}' is at {} locally and {} on origin, so it is not where a Land \
+             fast-forwards from: `vc-x1 sync` brings it up to date",
+            short(&at),
+            remote.as_deref().map_or("absent".to_string(), short)
+        )
+        .into());
+    }
+    if let Some(tip) = tip
+        && !jj::matches(work, &format!("{at} & ::({tip})"))?
+    {
+        return Err(moved(dest, &at).into());
+    }
+    Ok(())
+}
+
+/// The refusal of a destination that moved, naming the ways on.
+fn moved(dest: &str, at: &str) -> String {
+    format!(
+        "cycle --land: the cycle does not descend from '{dest}' at {}, which moved after the \
+         cycle forked, and a Land only fast-forwards. The ways on:\n\
+         \x20 - a merge at the Land, `cycle --land {dest} --merge`, a commit no rung validated\n\
+         \x20 - the closing made again as a trapezoid, `cycle --close --trapezoid {dest}`, \
+         after `jj abandon` of the one made\n\
+         \x20 - a rebase, `jj rebase -b <cycle's bookmark> -d {dest}`, every rung then validated \
+         again\n\
+         \x20 - or your own",
+        short(at)
+    )
+}
+
+/// `--land`: land the closed cycle on the destination.
+fn land(ctx: &mut Context, l: &LandCycle) -> Result<(), Box<dyn std::error::Error>> {
+    land_closed(ctx, l, None)
+}
+
+/// Land the cycle whose last commit is made, its bookmark the one
+/// given, else `--bookmark`'s, else the slug of the title `## Closed`
+/// holds, else the one local bookmark besides the destination. A cycle
+/// still in progress is refused, a destination that moved is refused
+/// naming the ways on, and `--merge` joins it by a merge commit first.
+/// The Land itself is `vc-x1 land`'s code.
+fn land_closed(
+    ctx: &mut Context,
+    l: &LandCycle,
+    closed: Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let work = l.running.work.as_path();
+    let path = work.join(crate::commit::RECORD);
+    let todo = match path.is_file() {
+        true => Some(std::fs::read_to_string(&path)?),
+        false => None,
+    };
+    if let Some(running) = todo.as_deref().and_then(|t| record::cycle_title(t).ok()) {
+        return Err(format!(
+            "cycle --land: the cycle '{running}' is in progress in {}, and a Land is of a cycle \
+             closed: `cycle --close` first, or `cycle --close --land {}`",
+            crate::commit::RECORD,
+            l.dest
+        )
+        .into());
+    }
+    let cycle = todo.as_deref().and_then(record::closed_title);
+    let source = match closed.or_else(|| l.running.bookmark.clone()) {
+        Some(named) => named,
+        None => {
+            let slug = cycle.as_deref().map(crate::validate_anchors::anchor_slug);
+            match slug {
+                Some(slug) if jj::local_bookmark_exists(work, &slug)? => slug,
+                _ => crate::land::default_source(work, &l.dest)?,
+            }
+        }
+    };
+    land_checks(work, &l.dest, None)?;
+    let dest_at = jj::cid_of(work, &l.dest)?;
+    let descends = jj::matches(work, &format!("{dest_at} & ::({source})"))?;
+    match (descends, l.merge) {
+        (true, true) => info!(
+            "cycle --land: '{}' has not moved, so the Land is a fast-forward and no merge is made",
+            l.dest
+        ),
+        (true, false) => {}
+        (false, false) => return Err(moved(&l.dest, &dest_at).into()),
+        (false, true) => land_merge(ctx, l, &source, &dest_at, cycle.as_deref())?,
+    }
+    let scope = match &l.agent {
+        Some(_) => RepoScope::Sides(crate::options_flags::scope::Scope(vec![
+            crate::options_flags::scope::Side::Work,
+            crate::options_flags::scope::Side::Bot,
+        ])),
+        None => RepoScope::Por,
+    };
+    crate::land::land(
+        ctx,
+        &crate::land::LandParams {
+            repo: l.running.work.clone(),
+            scope,
+            source: Some(source),
+            onto: l.dest.clone(),
+            skip: l.skip,
+            delete_intermediate: false,
+            push: l.push,
+            dry_run: l.running.dry_run,
+        },
+    )
+}
+
+/// `--merge`: join a destination that moved, the merge of it and the
+/// cycle's last commit committed from an empty work `@` on that commit,
+/// the cycle's bookmark advanced to it. A conflicted merge is undone
+/// and refused, the resolving being by hand.
+fn land_merge(
+    ctx: &mut Context,
+    l: &LandCycle,
+    source: &str,
+    dest_at: &str,
+    cycle: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let work = l.running.work.as_path();
+    let label = "cycle --land --merge";
+    let tip = crate::land::resolve_tip(work, label, source)?;
+    if !jj::matches(work, &format!("{tip} & @-"))? || !jj::is_empty(work, "@")? {
+        return Err(format!(
+            "{label}: the merge is made from an empty work @ on the cycle's last commit, \
+             '{source}': `jj new {source}` puts it there"
+        )
+        .into());
+    }
+    let named = cycle.map_or_else(|| format!("'{source}'"), |c| format!("the cycle \"{c}\""));
+    let title = match (&l.title, cycle) {
+        (Some(t), _) => t.clone(),
+        (None, Some(c)) => format!("{c} merge"),
+        (None, None) => format!("chore: merge {source} into {}", l.dest),
+    };
+    let body = match &l.body {
+        Some(b) => b.clone(),
+        None => format!(
+            "Merges {named} into '{}', which moved after the cycle forked. See details in {}.",
+            l.dest,
+            crate::commit::RECORD
+        ),
+    };
+    info!(
+        "{label}: '{}' moved, so '{title}' merges it at {} and '{source}' at {}",
+        l.dest,
+        short(dest_at),
+        short(&tip)
+    );
+    if l.running.dry_run {
+        return Ok(());
+    }
+    let rung = CommitRung {
+        running: Running {
+            work: l.running.work.clone(),
+            bookmark: Some(source.to_string()),
+            dry_run: false,
+        },
+        agent: l.agent.clone().map(|a| (a, true)),
+        title: None,
+        body: None,
+        push: false,
+    };
+    let snapshot = crate::pair::Snapshot::take(work)?;
+    let made = (|| -> Result<(), Box<dyn std::error::Error>> {
+        crate::merge::set_parents(ctx, work, "@", &[dest_at.to_string(), tip.clone()], label)?;
+        if jj::matches(work, "@ & conflicts()")? {
+            return Err(format!(
+                "{label}: the merge of '{}' and '{source}' is conflicted, so it is not made: \
+                 `jj new {} {source}` makes it for you to resolve, then `cycle --land {}`",
+                l.dest, l.dest, l.dest
+            )
+            .into());
+        }
+        let mut params = commit_params(&rung, title, body, source.to_string());
+        params.allow_empty = true;
+        crate::commit::commit(ctx, &params)
+    })();
+    if let Err(e) = &made {
+        snapshot.restore(label, e.as_ref());
     }
     made
 }
@@ -1564,6 +1891,143 @@ mod tests {
         assert_eq!(
             above_main(&fx.work),
             ["feat: a cycle opening", "feat: a cycle dead-end closing"]
+        );
+    }
+
+    fn cid(repo: &Path, rev: &str) -> String {
+        jj_ok(repo, &["log", "-r", rev, "--no-graph", "-T", "commit_id"])
+    }
+
+    /// A ladder of one work rung, its two commits made, `@` on its tip.
+    fn laddered(tag: &str) -> Fixture {
+        let fx = planned(tag);
+        run(&fx.work, &["--commit"]).expect("the opening");
+        fs::write(fx.work.join("work.txt"), "work\n").expect("write");
+        run(
+            &fx.work,
+            &["--commit", "--title", "feat: one rung", "--body", "b"],
+        )
+        .expect("the rung");
+        fx
+    }
+
+    /// `--close --land` lands the closing it makes: the destination is
+    /// fast-forwarded to it and the cycle's bookmark deleted, and a dry
+    /// run makes neither.
+    #[test]
+    fn close_and_land_chain() {
+        let fx = laddered("cycle-land-chain");
+        let main = cid(&fx.work, "main");
+        run(&fx.work, &["--close", "--land", "main", "--dry-run"]).expect("a dry run");
+        assert_eq!(cid(&fx.work, "main"), main, "a dry run lands nothing");
+        assert_eq!(
+            title_of(&fx.work, "@-"),
+            "feat: one rung",
+            "and closes nothing"
+        );
+
+        run(&fx.work, &["--close", "--land", "main"]).expect("closed and landed");
+        assert_eq!(title_of(&fx.work, "main"), "feat: a cycle closing");
+        assert_eq!(cid(&fx.work, "main"), cid(&fx.work, "@-"));
+        assert_eq!(
+            jj_ok(
+                &fx.work,
+                &[
+                    "log",
+                    "-r",
+                    "@-",
+                    "--no-graph",
+                    "-T",
+                    "local_bookmarks.map(|b| b.name())"
+                ]
+            ),
+            "main",
+            "the cycle's bookmark is deleted"
+        );
+        assert_ne!(
+            cid(&fx.work, "main@origin"),
+            cid(&fx.work, "main"),
+            "nothing is pushed"
+        );
+    }
+
+    /// A single-step cycle closes and lands in one invocation, and
+    /// `--push` publishes the destination.
+    #[test]
+    fn a_single_step_cycle_closes_lands_and_publishes() {
+        let fx = Fixture::new("cycle-land-single");
+        write_record(&fx);
+        run(&fx.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
+        fs::write(fx.work.join("work.txt"), "the work\n").expect("write");
+        run(
+            &fx.work,
+            &["--close", "--body", "Why.", "--land", "main", "--push"],
+        )
+        .expect("landed");
+        assert_eq!(title_of(&fx.work, "main"), "feat: a cycle");
+        assert_eq!(
+            cid(&fx.work, "main@origin"),
+            cid(&fx.work, "main"),
+            "published"
+        );
+        assert_eq!(
+            cid(&fx.bot, "main@origin"),
+            cid(&fx.bot, "main"),
+            "the agent repo too"
+        );
+    }
+
+    /// `--land` alone lands a cycle already closed, found by the title
+    /// `## Closed` holds, and a cycle in progress is refused.
+    #[test]
+    fn land_is_of_a_cycle_closed() {
+        let fx = laddered("cycle-land-closed");
+        let err = run(&fx.work, &["--land", "main"]).unwrap_err();
+        assert!(
+            err.contains("in progress") && err.contains("cycle --close"),
+            "{err}"
+        );
+        let err = params(&fx.work, &["--land", "main", "--title", "t"]).unwrap_err();
+        assert!(err.contains("--merge"), "{err}");
+        let err = params(&fx.work, &["--land", "main", "-s", "w"]).unwrap_err();
+        assert!(err.contains("work-only"), "{err}");
+        run(&fx.work, &["--close"]).expect("closed");
+        let err = run(&fx.work, &["--land", "trunk"]).unwrap_err();
+        assert!(err.contains("not a local bookmark"), "{err}");
+        run(&fx.work, &["--land", "main"]).expect("landed");
+        assert_eq!(title_of(&fx.work, "main"), "feat: a cycle closing");
+    }
+
+    /// A destination that moved is refused naming the ways on, and
+    /// `--merge` joins it by a merge commit, which is what lands.
+    #[test]
+    fn a_destination_that_moved_is_refused_or_merged() {
+        let fx = laddered("cycle-land-moved");
+        run(&fx.work, &["--close"]).expect("closed");
+        let closing = cid(&fx.work, "@-");
+        // The destination moves on origin, and is synced here.
+        jj_ok(&fx.work, &["new", "main", "-m", "feat: someone else's"]);
+        fs::write(fx.work.join("other.txt"), "theirs\n").expect("write");
+        jj_ok(&fx.work, &["bookmark", "set", "main", "-r", "@"]);
+        jj_ok(&fx.work, &["git", "push", "--bookmark", "main"]);
+        let main = cid(&fx.work, "main");
+        jj_ok(&fx.work, &["new", "feat-a-cycle"]);
+
+        let err = run(&fx.work, &["--land", "main"]).unwrap_err();
+        assert!(
+            err.contains("moved") && err.contains("--merge") && err.contains("jj rebase"),
+            "{err}"
+        );
+        assert_eq!(cid(&fx.work, "main"), main, "nothing moved");
+
+        run(&fx.work, &["--land", "main", "--merge"]).expect("merged and landed");
+        assert_eq!(title_of(&fx.work, "main"), "feat: a cycle merge");
+        assert_eq!(parents(&fx.work, "main"), [main, closing]);
+        assert_eq!(file_at(&fx.work, "main", "other.txt"), "theirs");
+        assert_eq!(file_at(&fx.work, "main", "work.txt"), "work");
+        assert!(
+            description(&fx.work, "main").contains("ochid: "),
+            "a pair's commit"
         );
     }
 }

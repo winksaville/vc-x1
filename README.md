@@ -2166,9 +2166,9 @@ is optional and says where, a workspace or a plain repo.
 
 ### cycle
 
-Run a cycle by its stages, each a flag, one command for the acts the flow has. The stages are
-being built, `--open`, `--ladder`, `--commit`, and `--close` so far, and until the last is,
-[`land`](#land) makes the Land.
+Run a cycle by its stages, each a flag, one command for the acts the flow has: `--open`,
+`--ladder`, `--commit`, `--close`, and `--land`. The stages chain in their order, so `cycle
+--close --land main --push` closes, lands, and publishes in one invocation.
 
 ```bash
 vc-x1 cycle --open --title "feat: a cycle"              # the bookmark, and the record
@@ -2180,6 +2180,10 @@ vc-x1 cycle --commit --title "feat: one rung" --body @body.txt  # a work rung
 vc-x1 cycle --close                                     # a ladder's closing, linear
 vc-x1 cycle --close --trapezoid main                    # a merge, main its first parent
 vc-x1 cycle --close --body @body.txt                    # a single-step cycle's one commit
+vc-x1 cycle --land main                                 # land the closed cycle, locally
+vc-x1 cycle --land main --push                          # and publish it
+vc-x1 cycle --close --trapezoid main --land main --push # close, land, and publish
+vc-x1 cycle --land main --merge                         # join a main that moved, then land
 ```
 
 `--open` opens a cycle. It makes the bookmark on the work `@` first, as [`open`](#open) does, the
@@ -2269,6 +2273,30 @@ neither.
 The closing carries the record: the ladder is rewritten, every rung done, one unlinked rung for a
 single-step cycle, and the `## In Progress` block moves to `## Closed`. Both files are put back
 and the repo restored when the commit is not made. `-s` and `--push` are `--commit`'s.
+
+`--land <BOOKMARK>` lands a closed cycle on the destination, by the code [`land`](#land) runs: the
+agent `@` is committed when the cycle's commits name it, the destination is fast-forwarded to the
+cycle's last commit, and the cycle's bookmark is deleted, `--skip` keeping a side. The
+destination is any local bookmark, named each time and never assumed. The cycle is the one `##
+Closed` holds, its bookmark the title's slug, or `--bookmark`'s, or the one local bookmark besides
+the destination, and a cycle still in progress is refused, naming `cycle --close`.
+
+A Land is a fast-forward by default, so what lands is the tree the closing was tested as. A
+destination not where its `origin` is, is refused naming `sync`, and one that moved after the
+cycle forked is refused naming the ways on:
+
+- `--merge`, a merge at the Land: a commit whose parents are the destination and the cycle's last
+  commit, made from an empty `@` on that commit, titled the cycle title plus " merge" unless
+  `--title` and `--body` say otherwise, and then landed. Its tree is one no rung validated, which
+  asking for it accepts. A conflicted merge is undone and refused, the resolving being by hand.
+- The closing made again as a trapezoid, `cycle --close --trapezoid <BOOKMARK>`.
+- A rebase, by `jj rebase`, every rung then validated again.
+
+After `--close` in the same invocation, `--land` lands the closing just made, its checks made
+before the closing is, so a destination that cannot be landed on closes nothing. `--push`
+publishes the destination, the work repo first, and deletes the cycle's bookmark on `origin`.
+Without `--land` it is the draft push of the cycle's bookmark. The install after a Land is the
+project's own.
 
 ### land
 
