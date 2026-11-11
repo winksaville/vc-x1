@@ -505,6 +505,25 @@ commit of that title is on the cycle's branch and `(current)` the first without 
 grammar is strict: a left-margin bullet that does not fit is reported and nothing is edited, and a
 done rung below the current one is reported.
 
+- `cycle --ladder` is a stage the deliberation did not name, the agent's addition: the planner
+  writes the rung headings and then needs the ladder made before any commit rewrites it. For wink
+  to keep or fold into `--status`.
+- The cycle's branch needs no destination: it is the commits the cycle's bookmark reaches, and
+  those above it up to the work `@-`, that no other local bookmark reaches.
+  - A second local bookmark at or above the cycle's first commit hides the commits below it, the
+    cost of naming no destination. `--bookmark` names the cycle's when it is not the title's slug.
+  - A working copy not yet described is not a commit of the cycle.
+- A rung not started has neither number nor marker, as the format had it, the number being the
+  position only once the rung is current.
+- Refused, nothing edited: a commit that is no rung's, a rung written twice, a ladder without its
+  bookends, and a line already in the ladder that the grammar does not fit, any line but a blank
+  one and the skeleton's `_None._`. So a note typed into the ladder is named and kept, where a
+  rewrite would have lost it.
+- The check that every commit is a rung's reads the branch up to `@-`, so a local ladder's
+  intermediates refuse `--ladder` until they collapse, which is when the rung commits. That
+  settles "To check" in the Flow above, by the agent: the collapse comes before `cycle --commit`.
+- Tried on this cycle's own ladder, which it made as it was by hand, one marker aside.
+
 ##### feat: cycle --commit makes a rung
 
 `commit` makes a rung, an opening, a closing, a Land, and a describe, and guesses the bookmark to

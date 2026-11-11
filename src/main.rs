@@ -744,7 +744,7 @@ pub(crate) enum Commands {
         says where, a workspace or a plain repo. --dry-run prints the name.")]
     Open(open::OpenArgs),
 
-    /// Run a cycle's stages: --open
+    /// Run a cycle's stages: --open, --ladder
     #[command(long_about = "\
         Run a cycle by its stages, each a flag, one command for the acts\n\
         the flow has.\n\n\
@@ -759,6 +759,17 @@ pub(crate) enum Commands {
         as does --bookmark without --title, and a workspace with no TODO.md.\n\
         --dry-run says each edit and makes none. Nothing is committed or\n\
         pushed, and the version is the project's to bump.\n\n\
+        --ladder makes the ladder in zTOC.md from the rung headings, the\n\
+        `##### ` headings under `#### Rungs` of the cycle in progress in\n\
+        TODO.md, in their order, so a rung is written once. Each line is\n\
+        numbered by its position and its marker computed: `(done)` when a\n\
+        commit of the rung's title is on the cycle's branch, `(current)` the\n\
+        first without one. Refused, with nothing edited: a commit on the\n\
+        branch that is no rung's, a rung written twice, a ladder not opened\n\
+        and closed by the cycle title plus \" opening\" and \" closing\", and\n\
+        a line of the ladder there that is no rung by its grammar. The\n\
+        branch is the commits the cycle's bookmark reaches that no other\n\
+        local bookmark does, the bookmark the title's slug or --bookmark's.\n\n\
         -R is optional and says where, a workspace or a plain repo.")]
     Cycle(cycle::CycleArgs),
 

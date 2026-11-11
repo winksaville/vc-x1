@@ -2167,13 +2167,14 @@ is optional and says where, a workspace or a plain repo.
 ### cycle
 
 Run a cycle by its stages, each a flag, one command for the acts the flow has. The stages are
-being built, `--open` the first, and until the rest are, [`commit`](#commit) and [`land`](#land)
-make the commits and the Land.
+being built, `--open` and `--ladder` so far, and until the rest are, [`commit`](#commit) and
+[`land`](#land) make the commits and the Land.
 
 ```bash
 vc-x1 cycle --open --title "feat: a cycle"              # the bookmark, and the record
 vc-x1 cycle --open --title "feat: a cycle" --no-record  # the bookmark alone
 vc-x1 cycle --open --title "feat: a cycle" --dry-run    # say each edit, make none
+vc-x1 cycle --ladder                                    # the ladder, from the rung headings
 ```
 
 `--open` opens a cycle. It makes the bookmark on the work `@` first, as [`open`](#open) does, the
@@ -2192,6 +2193,30 @@ Progress`, and a name in use are each refused with the workspace as it was. `--n
 is committed or pushed, and the version is the project's to bump: the tool never writes it. A
 reference definition only `## Closed` cited is left, for `validate-anchors` to name. `-R` is
 optional and says where, a workspace or a plain repo.
+
+`--ladder` makes the ladder in `zTOC.md` from the rung headings of the cycle in progress, the
+`##### ` headings under `#### Rungs` in `TODO.md`, in their order. A rung is written once, as its
+heading, and its line and its marker are made:
+
+```
+- 0 (done) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)
+- 1 (current) [feat: one rung](TODO.md#feat-one-rung)
+- [feat: a cycle closing](TODO.md#feat-a-cycle-closing)
+```
+
+A rung is `(done)` when a commit of its title is on the cycle's branch and `(current)` when it is
+the first without one, each numbered by its position, and a rung not started is its link alone. A
+single-step cycle, its one commit under the bare cycle title, is one unlinked rung. The branch is
+the commits the cycle's bookmark reaches, and those above it up to the work `@-`, that no other
+local bookmark reaches, so no destination is named. The bookmark is the slug of the title in `##
+In Progress`, or `--bookmark`'s.
+
+The grammar is strict, and each of these is refused with nothing edited: a commit on the branch
+whose title is no rung's, so an unplanned rung gets its heading before its commit, a rung written
+twice, a ladder whose first rung is not the cycle title plus " opening" or whose last is not it
+plus " closing", and a line of the ladder already there that is not a rung, a left-margin `- `
+with a number and marker or neither and a link whose slug is its title's. A done rung below the
+current one is a warning. `--dry-run` prints the ladder and writes none.
 
 ### land
 
