@@ -768,9 +768,9 @@ pub(crate) enum Commands {
         its place. Any other is a work rung, which gives --title, a rung\n\
         heading not yet committed, and --body, the text or @PATH. The ladder\n\
         is rewritten first, the rung done, so the commit carries it, and the\n\
-        cycle's bookmark is the one advanced, no other. -s is `b` in a dual\n\
-        workspace and `p` in a plain repo unless given, `w` making the work\n\
-        half alone. --push publishes the rung on the cycle's bookmark, a\n\
+        cycle's bookmark is the one advanced, no other. -s is required: `b`\n\
+        the pair, `w` the work half alone, `p` a plain repo's commit, each\n\
+        checked against the workspace. --push publishes the rung on the cycle's bookmark, a\n\
         draft. The closing is not a rung's commit, and is refused.\n\n\
         --close [REV,...] closes the cycle from the work @, which is on the\n\
         cycle's tip. The branch's commit count is its shape. None or one is\n\
@@ -796,7 +796,7 @@ pub(crate) enum Commands {
         naming the ways on, and --merge is one: a merge commit of the\n\
         destination and the cycle's last commit, made from an empty @ and\n\
         then landed, a conflicted one undone and left to you. The stages\n\
-        chain in their order, `cycle --close --land <BOOKMARK> --push`, the\n\
+        chain in their order, `cycle --close --land <BOOKMARK> -s b --push`, the\n\
         Land's checks made before the closing is. --push with --land\n\
         publishes the destination and deletes the cycle's bookmark on\n\
         origin, and without --land it is the draft push.\n\n\

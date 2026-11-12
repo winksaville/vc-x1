@@ -169,16 +169,19 @@ pub struct CycleArgs {
     #[arg(long, requires = "land", help_heading = "Land")]
     pub delete_intermediate_bookmarks: bool,
 
-    /// With `--commit` or `--close`, which repos: `b|both` both commits now,
-    /// `w|work` the work half with the agent half left to push, and
-    /// `p|por` a plain repo's commit [default: `b` in a dual
-    /// workspace, `p` in a plain repo]
+    /// Which repos, required with `--commit`, `--close`, and `--land`,
+    /// as on every command that writes: `b|both` a dual workspace's
+    /// pair, `w|work` the work half with the agent half left to push,
+    /// not with `--land`, and `p|por` a plain repo. The other stages
+    /// take none
     #[arg(
         short = 's',
         long,
         value_name = "SCOPE",
         value_parser = repo_scope_parser(&["work", "both", "por"]),
-        help_heading = "Commit"
+        required_unless_present_any = ["open", "ladder", "status"],
+        help = "Which repos, required with --commit, --close, and --land: `w|work`, `b|both`, \
+                or `p|por`"
     )]
     pub scope: Option<RepoScope>,
 
@@ -295,17 +298,18 @@ fn resolve_repos(repo: Option<&std::path::Path>) -> Result<(PathBuf, Option<Path
 }
 
 /// The agent repo a commit is made beside, and whether its commit is
-/// made now, by `-s`: both in a dual workspace and the plain repo's
-/// commit in a plain one when it is left out, and refused when it
-/// asks for a pair where there is none or a plain commit where there
-/// is one.
+/// made now, by `-s`, required: refused when it is left out, and when
+/// it asks for a pair where there is none or a plain commit where
+/// there is one.
 fn commit_scope(
     scope: Option<&RepoScope>,
     agent: Option<PathBuf>,
     stage: &str,
 ) -> Result<Option<(PathBuf, bool)>, String> {
     match (scope, agent) {
-        (None, agent) => Ok(agent.map(|a| (a, true))),
+        (None, _) => Err(format!(
+            "cycle {stage}: -s is required, which repos: `b|both`, `w|work`, or `p|por`"
+        )),
         (Some(RepoScope::Por), None) => Ok(None),
         (Some(RepoScope::Por), Some(_)) => Err(format!(
             "cycle {stage} -s p: this is a dual workspace, whose rung is a pair: -s b or -s w"
@@ -367,10 +371,11 @@ impl CycleArgs {
         if matches!(&self.scope, Some(RepoScope::Sides(s)) if !s.is_both()) {
             return Err(
                 "cycle --land -s w: a work-only Land would publish trailers naming agent commits \
-                 its agent half may not have published: -s b, or leave it out"
+                 its agent half may not have published: -s b"
                     .into(),
             );
         }
+        commit_scope(self.scope.as_ref(), agent.clone(), "--land")?;
         if alone && self.same_version {
             return Err("cycle --land: it takes no --same-version, a Land bumping nothing".into());
         }
@@ -1271,7 +1276,7 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
                 out.push(format!(
                     "closed: '{c}', its bookmark '{slug}' not yet landed"
                 ));
-                out.push("next: `cycle --land <BOOKMARK>` lands it".to_string());
+                out.push("next: `cycle --land <BOOKMARK> -s <SCOPE>` lands it".to_string());
             }
             (Some(c), _) => {
                 out.push(format!("closed: '{c}', landed or its bookmark gone"));
@@ -1340,16 +1345,19 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let closing = format!("{cycle} closing");
     let current = rungs.iter().find(|r| !commits.contains(r));
     out.push(match (commits.len(), current) {
-        (0, _) => "next: `cycle --commit` makes the opening, or `cycle --close --body` closes a \
-                   single-step cycle"
-            .to_string(),
-        (1, Some(c)) if *c == closing => "next: `cycle --close --body` squashes the closing \
-                                          into the opening, a single-step cycle"
+        (0, _) => {
+            "next: `cycle --commit -s <SCOPE>` makes the opening, or `cycle --close -s <SCOPE> \
+                   --body` closes a single-step cycle"
+                .to_string()
+        }
+        (1, Some(c)) if *c == closing => "next: `cycle --close -s <SCOPE> --body` squashes \
+                                          the closing into the opening, a single-step cycle"
             .to_string(),
         (_, Some(c)) if *c == closing => {
-            "next: `cycle --close` makes the closing, `--trapezoid <BOOKMARK>` a merge".to_string()
+            "next: `cycle --close -s <SCOPE>` makes the closing, `--trapezoid <BOOKMARK>` a merge"
+                .to_string()
         }
-        (_, Some(c)) => format!("next: `cycle --commit --title \"{c}\" --body ...`"),
+        (_, Some(c)) => format!("next: `cycle --commit -s <SCOPE> --title \"{c}\" --body ...`"),
         (_, None) => "next: every rung is committed".to_string(),
     });
     Ok(out)
@@ -1376,9 +1384,15 @@ mod tests {
         }
     }
 
+    /// The params of `vc-x1 cycle <args>` in `repo`, `-s b` added for a
+    /// stage that requires a scope when the test names none.
     fn params(repo: &Path, args: &[&str]) -> Result<CycleParams, String> {
         let mut all = vec!["vc-x1", "cycle"];
         all.extend_from_slice(args);
+        let scoped = ["--commit", "--close", "--land"];
+        if args.iter().any(|a| scoped.contains(a)) && !args.contains(&"-s") {
+            all.extend_from_slice(&["-s", "b"]);
+        }
         let mut a = parse(&all)?;
         a.repo = Some(repo.to_path_buf());
         CycleParams::try_from(&a)
@@ -1753,11 +1767,25 @@ mod tests {
         );
     }
 
-    /// `-s` is the pair in a dual workspace unless it says the work
-    /// half alone, and a plain repo's commit carries no trailer.
+    /// `-s` is required with the stages that write commits and refused
+    /// with the rest, it is checked against the workspace, `w` makes
+    /// the work half alone, and a plain repo's commit carries no trailer.
     #[test]
-    fn the_scope_follows_the_workspace() {
+    fn the_scope_is_required_and_fits_the_workspace() {
+        for stage in [vec!["--commit"], vec!["--close"], vec!["--land", "main"]] {
+            let mut argv = vec!["vc-x1", "cycle"];
+            argv.extend(&stage);
+            let err = parse(&argv).unwrap_err();
+            assert!(err.contains("--scope"), "{stage:?}: {err}");
+        }
+        for stage in ["--ladder", "--status"] {
+            parse(&["vc-x1", "cycle", stage]).expect("no scope needed");
+        }
         let fx = planned("cycle-commit-scope");
+        let err = params(&fx.work, &["--status", "-s", "b"]).unwrap_err();
+        assert!(err.contains("takes no -s"), "{err}");
+        let err = params(&fx.work, &["--land", "main", "-s", "p"]).unwrap_err();
+        assert!(err.contains("dual workspace"), "{err}");
         let err = params(&fx.work, &["--commit", "-s", "p"]).unwrap_err();
         assert!(err.contains("dual workspace"), "{err}");
         let agent_at = jj_ok(
@@ -1781,7 +1809,7 @@ mod tests {
         let err = params(&por.work, &["--commit", "-s", "b"]).unwrap_err();
         assert!(err.contains("plain repo"), "{err}");
         run(&por.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
-        run(&por.work, &["--commit"]).expect("the opening");
+        run(&por.work, &["--commit", "-s", "p"]).expect("the opening");
         let desc = description(&por.work, "@-");
         assert!(desc.starts_with("feat: a cycle opening\n"), "{desc}");
         assert!(!desc.contains("ochid:"), "{desc}");
@@ -2218,7 +2246,7 @@ mod tests {
         assert!(s.contains("commits: 0 on the branch, 0 not pushed"), "{s}");
         assert!(s.contains("note: the ladder in zTOC.md differs"), "{s}");
         assert!(
-            s.contains("next: `cycle --commit` makes the opening"),
+            s.contains("next: `cycle --commit -s <SCOPE>` makes the opening"),
             "{s}"
         );
 
@@ -2232,7 +2260,7 @@ mod tests {
         assert!(s.contains("work @: empty"), "{s}");
         assert!(!s.contains("differs"), "{s}");
         assert!(
-            s.contains("next: `cycle --commit --title \"feat: one rung\" --body ...`"),
+            s.contains("next: `cycle --commit -s <SCOPE> --title \"feat: one rung\" --body ...`"),
             "{s}"
         );
 
@@ -2242,7 +2270,7 @@ mod tests {
             &["--commit", "--title", "feat: one rung", "--body", "b"],
         )
         .expect("the rung");
-        assert!(status(&fx).contains("next: `cycle --close` makes the closing"));
+        assert!(status(&fx).contains("next: `cycle --close -s <SCOPE>` makes the closing"));
         jj_ok(&fx.work, &["commit", "-m", "wip: by hand"]);
         let s = status(&fx);
         assert!(

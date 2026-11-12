@@ -11,7 +11,7 @@ Where the agent was, for the agent that comes next. Ephemeral, never a record, r
 acquaint, acted on, and reset to `_None._` by the reader.
 
 - **feat: improve vc-x1 cycle flow** is open, its opening pushed as a draft on
-  `feat-improve-vc-x1-cycle-flow` (2026-11-11). wink then delegated the work rungs, and all eleven
+  `feat-improve-vc-x1-cycle-flow` (2026-11-11). wink then delegated the work rungs, and all twelve
   are committed locally as pairs, unreviewed and unpushed, so `zTOC.md`'s ladder reads `(done)`
   to the closing, which is `(current)`. `vc-x1-dev cycle --status` says the same.
   - Each rung's subsection under `#### Rungs` says what it did and what it left for wink, the
@@ -20,7 +20,7 @@ acquaint, acted on, and reset to `_None._` by the reader.
     `scripts/cycle-rehearsal.sh`, at both ends, the record's finalizing, a row in
     `notes/agent-files-size.md`, and `cargo xtask bump bare`.
   - The installed `vc-x1` is 0.85.21 and has the old commands. `vc-x1-dev` is this branch's, and
-    is the one that has `cycle`, so the closing is `vc-x1-dev cycle --close --trapezoid main`.
+    is the one that has `cycle`, so the closing is `vc-x1-dev cycle --close -s b --trapezoid main`.
 - `~/tmp` holds wink's test workspaces of the last cycle, `wt-21-6` and `remotes`, disposable now
   that `scripts/cycle-rehearsal.sh` makes its own under `~/tmp/cycle-rehearsal`.
 
@@ -790,6 +790,30 @@ and the version as the project's. The agent-files version moves with it.
 - Found: `vc-x1 validate-anchors` reports four problems, none of this cycle's making, one of
   them a citation it misses, filed as **validate-anchors misses a citation after a wrapped code
   span** in `## Todo`.
+
+##### feat: cycle requires -s on commit, close, land
+
+`-s` is required on every `vc-x1` command that writes, and `cycle` alone defaulted it, to `b` in a
+dual workspace and `p` in a plain repo. It is required with `--commit`, `--close`, and `--land`,
+and still refused with the stages that take none.
+
+- wink's call (2026-11-11), turning over the agent's default from **feat: cycle --commit makes a
+  rung**: every command that writes names its scope, `commit`, `push`, `squash`, `squash-push`,
+  `sync`, `merge`, `move-bookmark`, and `delete-bookmark` among them, so a rule with no exception
+  is worth more than the two characters saved, and the tool no longer reads the workspace to guess.
+- The parser requires it unless the stage is `--open`, `--ladder`, or `--status`, which refuse
+  it. A scope the workspace does not fit is refused, `p` in a dual workspace and `b` or `w` in a
+  plain repo, and now for `--land` too, which took the workspace's own before.
+- In a chain one `-s` serves the closing and the Land, and `-s w` is refused with `--land`.
+- `cycle --status`'s `next` line names the flag, `-s <SCOPE>`.
+- The agent-files' command lines gained `-s b`, so the set is `v0.3.1-10`, a second draft after
+  the opening where the last rung's subsection says the draft moved once.
+- The rung is appended after the docs rung, wink's call, so both repos stay in the order things
+  happened. Inserting it before the docs rung was talked through and not done, and what that
+  found is filed as three `## Todo` entries, **feat: add a capability in vc-x1 to insert rung
+  with -sw|a|b|p**, **A rung is removed from a local ladder**, and **A local ladder's rungs are
+  reordered**, to be tried in one exhaustive experiment.
+- The rehearsal passes with `-s b` on each of its commands, 48 checks.
 
 ##### feat: improve vc-x1 cycle flow closing
 
@@ -2171,6 +2195,69 @@ onto a destination that moved** both meet it. Found in **feat: improve vc-x1 cyc
 
 - We think the record wants a file per cycle, or a home outside the shared files, and the version
   a scheme two cycles can each advance.
+
+### feat: add a capability in vc-x1 to insert rung with -sw|a|b|p
+
+(wink + agent, 2026-11-11) A rung found to belong earlier in a local ladder can only be appended:
+`cycle --commit` commits the work `@` at the tip. An insert puts a rung between two that are made,
+in the work-repo, the agent-repo, or both, and it is the first of three ways to reshape a local
+ladder, with **A rung is removed from a local ladder** and **A local ladder's rungs are
+reordered**. None is built. They wait for one exhaustive experiment, run on a throwaway workspace
+as `scripts/cycle-rehearsal.sh` makes one, to find the gotchas before a flag is designed. Raised
+in **feat: improve vc-x1 cycle flow**, whose own late rung was appended and not inserted.
+
+What is known going in:
+
+- Work-repo: `jj new --insert-after <rung>` makes the node and rebases the commits above it,
+  which keep their change ids, so every `ochid:` naming them stays right.
+  - The commits above conflict in what every rung edits: the version's line, `Cargo.lock`,
+    `zTOC.md`, and `TODO.md`. It is **Two cycles in flight conflict in the record and the
+    version** met inside one cycle.
+  - `cycle --commit` cannot commit the inserted rung, since the cycle's bookmark is above it and
+    the bookmark advanced must be at or below the commit. `commit -r <rev> --no-advance` stamps a
+    commit made by hand, the way that works today.
+  - Each rung above is a tree no validation saw, so each is validated again.
+- Agent-repo: the node goes in first, so the session's record of the work accrues in it.
+  - The agent `@` is the live session. Moving it checks out an older tree, which rewrites the
+    transcript file on disk while the harness appends to it. Untried.
+  - One session is one transcript file, so a node inserted during a session appends to the file
+    the commits above also append to, and they conflict. We think one session per rung, the
+    node inserted and the agent restarted, makes it clean, a new session writing a new file.
+  - `jj commit` on an `@` that is not the head leaves the new `@` beside the commits above, so it
+    is put back on the tip after.
+  - The Land reads the agent `@-` in places, and has not been tried with an agent `@` mid-line.
+- The scopes: `w` and `p` insert a work rung, `b` the pair, and `a` an agent node alone, a side
+  conversation. It may be about an earlier rung, linked by `--covers`, or off topic, with no
+  `ochid:`. The link is by change id, so an agent commit appended at the tip is already tied to
+  its rung, and the experiment decides whether `a` needs an insert at all.
+- Not dangerous: while the commits above are local an insert only rebases them, and `jj undo`
+  takes it back. We think it follows `squash`, warning of a published draft and refusing one in
+  jj's `immutable()`, and takes no `--yes`, which is the approval of a forced push.
+
+### A rung is removed from a local ladder
+
+(wink + agent, 2026-11-11) A rung that should not have been made is removed by `jj abandon` by
+hand, with its heading and its ladder line. A remove does the three together. It is the
+dangerous one of the three reshapes, since it discards work where an insert and a reorder move
+it. Part of the experiment in **feat: add a capability in vc-x1 to insert rung with -sw|a|b|p**.
+
+- We think it is dry-run by default, as `fix-desc` and `fix-todo` are, showing what it would
+  drop and dropping it only when told, and that it takes no `--yes`.
+- The agent side: the journal is never deleted, so the rung's agent commit stays, its `ochid:`
+  naming a commit that is gone. What its trailer then says is to decide, `trailers` knowing a
+  `lost` state already.
+- A published rung's removal is a forced push, under the approval any push takes.
+
+### A local ladder's rungs are reordered
+
+(wink + agent, 2026-11-11) Two rungs committed in the wrong order are swapped by `jj rebase` by
+hand, and the ladder then disagrees with the record until the headings are moved too. A reorder
+moves the commits and the headings together and makes the ladder again. Part of the experiment
+in **feat: add a capability in vc-x1 to insert rung with -sw|a|b|p**.
+
+- It meets the insert's conflicts, in the version's line and the record, at every rung moved.
+- The agent-repo's order is the order things happened in, so we think a reorder is the
+  work-repo's alone, the pairs still linked by change id.
 
 ### vc-x2: cycle --rebase moves a cycle onto a destination that moved
 

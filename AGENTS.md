@@ -333,10 +333,11 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)). `v
    ([Commit description](#commit-description)). A local description can still be changed before
    the Land, so it has no review of its own.
 7. Commit: after approval, the work and agent repos are committed locally by `vc-x1 cycle --commit
-   --title "..." --body "..."`, a pair ([Committing vs pushing](#committing-vs-pushing)). The
-   cycle's first commit is its opening and needs neither. The ladder is rewritten into the commit,
-   the rung `(done)` and the next `(current)`, so no marker is typed or flipped. The closing is
-   `vc-x1 cycle --close` ([Cycle shape](#cycle-shape), [Close-out](#close-out)). A rung that
+   -s b --title "..." --body "..."`, a pair ([Committing vs pushing](#committing-vs-pushing)). The
+   cycle's first commit is its opening and needs neither title nor body. The ladder is rewritten
+   into the commit, the rung `(done)` and the next `(current)`, so no marker is typed or flipped.
+   The closing is `vc-x1 cycle --close -s b` ([Cycle shape](#cycle-shape),
+   [Close-out](#close-out)). A rung that
    changes the artifact then installs its dev build again, so the next rung runs the committed
    code, not the working copy's ([Dev artifact name](agent-data/versioning.md#dev-artifact-name)).
 
@@ -346,7 +347,9 @@ A cycle's commits are made *by* `vc-x1 cycle`, a rung by `--commit` and the clos
 never by `jj commit`, and published only by a push
 ([why](agent-data/rationale.md#committing-vs-pushing)).
 
-- `cycle --commit`, `--close`, and `--land` stay on this machine and need no approval.
+- `cycle --commit`, `--close`, and `--land` stay on this machine and need no approval. Each names
+  its scope, `-s`, as every command that writes does: `b` the pair, `w` the work half, and `p` a
+  plain repo.
 - `--push` on any of them publishes, exactly like `vc-x1 push`, as does `squash-push`. With
   `--commit` or `--close` it is a draft push, of the cycle's bookmark, and with `--land` it is the
   publish, of the target.
@@ -363,12 +366,13 @@ A cycle's commits stay on this machine until its Land, and the user decides when
 committed and when either is published, at any rung, every push still taking its own approval
 ([why](agent-data/rationale.md#a-cycle-is-local-by-default)).
 
-- The default: every commit is `vc-x1 cycle --commit`, a pair, the agent commit holding the session
-  to that moment, and the opening's bookmark created and not pushed.
-- Any mix of work and agent commits is valid. `cycle --commit` makes a 1:1 pair, `cycle --commit -s
-  w` rungs then `commit -s a --covers <REVSET>` or the Land make N:1, and several agent commits
-  naming one work commit make 1:M. The rule is the links: a work commit's `ochid:` names each agent
-  change it pairs with, an agent commit's names each work commit it covers, each below an `orepo:`
+- The default: every commit is `vc-x1 cycle --commit -s b`, a pair, the agent commit holding the
+  session to that moment, and the opening's bookmark created and not pushed.
+- Any mix of work and agent commits is valid. `cycle --commit -s b` makes a 1:1 pair, `cycle
+  --commit -s w` rungs then `commit -s a --covers <REVSET>` or the Land make N:1, and several agent
+  commits naming one work commit make 1:M. The rule is the links: a work commit's `ochid:` names
+  each agent change it pairs with, an agent commit's names each work commit it covers, each below
+  an `orepo:`
   naming the other repo, and a squash folds into a commit an `ochid:` names, never that commit
   away, since jj keeps the change id of the commit squashed into ([Cross-repo
   linking](agent-data/jj.md#cross-repo-linking-ochid-trailers)).
@@ -447,7 +451,7 @@ does all of it in its one commit, step 5 aside ([Cycle shape](#cycle-shape)):
 4. Size: when an agent-file changed, record the line count in `notes/agent-files-size.md`,
    smaller being the quasi-goal. A cycle that touched none adds no row.
 5. Close-out shape ([Close-out shapes](agent-data/jj.md#close-out-shapes)): a ladder closes as a
-   trapezoid, `cycle --close --trapezoid <target>`, the closing commit carrying the shape, so
+   trapezoid, `cycle --close -s b --trapezoid <target>`, the closing commit carrying the shape, so
    nothing is reshaped at Land.
 6. Continuation notes: anything the next agent needs is written into `TODO.md > ## Continuation
    notes`, the first section, before the closing commit, which carries them, so the work-repo is
@@ -462,8 +466,8 @@ does all of it in its one commit, step 5 aside ([Cycle shape](#cycle-shape)):
    closing, fix on top, or their own, the test itself being what may be wrong.
 8. Land: on the user's go, the sequence in [Land](agent-data/jj.md#cycle-bookmarks-create-and-land).
    A Land is a fast-forward, and a target that moved is refused naming the ways on: a merge at the
-   Land, `cycle --land <target> --merge`, which the user asks for and which lands a tree no rung
-   validated, the closing made again, or a rebase.
+   Land, `cycle --land <target> -s b --merge`, which the user asks for and which lands a tree no
+   rung validated, the closing made again, or a rebase.
 9. Restart: the user restarts the agent.
 
 ### Local ladders

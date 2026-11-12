@@ -103,14 +103,14 @@ into a commit body or `--title`/`--body`.
 
 ## vc-x1 commit and push: what they do and do not do
 
-`vc-x1 cycle --commit --title "..." --body "..."` commits both repos with the title and body, the
-pair, stamps their trailers ([above](#cross-repo-linking-ochid-trailers)), rewrites the ladder
-into the commit, and stays on this machine. `-s w` commits the work repo alone, its trailer naming
-the agent `@`. `--push` publishes what was committed, as `vc-x1 push` does, a draft push, and
-`vc-x1 show -s work -r @-` is the look at it before then. `vc-x1 commit -s b --title "..." --body
-"..."` is the same pair for work outside a cycle, where `-r` names a commit below `@`, described
-in place with its trailer stamped, and `--bookmark` the bookmark to advance. Every argument is a
-flag. What to keep in mind:
+`vc-x1 cycle --commit -s b --title "..." --body "..."` commits both repos with the title and body,
+the pair, stamps their trailers ([above](#cross-repo-linking-ochid-trailers)), rewrites the ladder
+into the commit, and stays on this machine. `-s` is required, and `-s w` commits the work repo
+alone, its trailer naming the agent `@`. `--push` publishes what was committed, as `vc-x1 push`
+does, a draft push, and `vc-x1 show -s work -r @-` is the look at it before then. `vc-x1 commit -s
+b --title "..." --body "..."` is the same pair for work outside a cycle, where `-r` names a commit
+below `@`, described in place with its trailer stamped, and `--bookmark` the bookmark to advance.
+Every argument is a flag. What to keep in mind:
 
 - **No checks of the project's own.** vc-x1 runs no build or tests. Validation is the per-rung
   flow's job, run *before* the commit.
@@ -150,7 +150,7 @@ cycle's record. It refuses a name in use, locally or on `origin`, and a cycle al
 `@` holding edits or not. The bookmark follows the change, so `vc-x1 cycle --commit` commits the
 opening on it, and every later rung advances it and no other.
 
-**Close**: `vc-x1 cycle --close`, from the work `@` on the cycle's tip, makes the closing: a
+**Close**: `vc-x1 cycle --close -s b`, from the work `@` on the cycle's tip, makes the closing: a
 ladder's closing commit, a merge of the target and the tip with `--trapezoid <target>`, or for a
 single-step cycle the one commit, made from `@` or squashed into the opening, its `--body` given.
 The target is read where it is now, so one that moved is joined. The record moves to `## Closed`
@@ -161,13 +161,13 @@ push` is the push under [Approval per push](../AGENTS.md#before-any-push), with 
 before it and silence after ([At rest](../AGENTS.md#at-rest)):
 
 1. Sync: `vc-x1 sync -s b`, and a `main` it moved stops the Land ([Sync](../AGENTS.md#sync)).
-2. Integrate: `vc-x1 cycle --land <target>`, local: it commits the agent `@` as the partner of the
-   work commits that name it, none when every rung is a pair, fast-forwards the target, and deletes
-   the cycle's local bookmark, every check made first. `--dry-run` says each step. The user may
-   test here, before anything is published.
+2. Integrate: `vc-x1 cycle --land <target> -s b`, local: it commits the agent `@` as the partner of
+   the work commits that name it, none when every rung is a pair, fast-forwards the target, and
+   deletes the cycle's local bookmark, every check made first. `--dry-run` says each step. The
+   user may test here, before anything is published.
 3. Publish: `vc-x1 push -s b --bookmark <target>`, the work repo first, the journal folded into the
-   last agent commit while that is unpublished. `cycle --land <target> --push` does steps 2 and 3
-   as one, and `cycle --close --land <target> --push` the closing too.
+   last agent commit while that is unpublished. `cycle --land <target> -s b --push` does steps 2 and
+   3 as one, and `cycle --close --land <target> -s b --push` the closing too.
    The agent publishes only with the user's permission, and otherwise the user does after the
    session, by `vc-x1 squash-push -s b` ([At rest](../AGENTS.md#at-rest)).
 4. Remote bookmark: `vc-x1 delete-bookmark -s w --bookmark <bookmark> --skip local`, when the topic

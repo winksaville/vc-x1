@@ -426,7 +426,7 @@ Scopes: `w`=work, `a`=agent, `b`=both, `p`=por.
 | `sync`, `squash`, `squash-push`, `push`, `status`, `move-bookmark`, `delete-bookmark` | `w a b p` | |
 | `validate-desc` | `w a b` | a plain repo has no other repo to check its descriptions against |
 | `commit` | `w a b p` | `a` refused with a REV, and on an agent `@` paired to a work commit |
-| `cycle` | `w b p` | optional, `b` in a dual workspace and `p` in a plain repo by default, and `w` refused with `--land`, which could publish trailers naming agent commits left unpublished |
+| `cycle` | `w b p` | required with `--commit`, `--close`, and `--land` and refused with the other stages, `w` refused with `--land`, which could publish trailers naming agent commits left unpublished |
 | `merge` | `w p` | the agent repo never holds a merge |
 
 The rule: a scope is valid when what it publishes names nothing it leaves unpublished. A commit made
@@ -2064,23 +2064,24 @@ stands. A failure after the first commit restores both repos from `jj op` snapsh
 
 Run a cycle by its stages, each a flag, one command for the acts the flow has: `--open`,
 `--ladder`, `--commit`, `--close`, and `--land`, with `--status` to say where the cycle stands.
-The stages chain in their order, so `cycle --close --land main --push` closes, lands, and
-publishes in one invocation.
+The stages chain in their order, so `cycle --close --land main -s b --push` closes, lands, and
+publishes in one invocation. `-s` is required with `--commit`, `--close`, and `--land`, as on every
+command that writes, and the other stages take none.
 
 ```bash
 vc-x1 cycle --open --title "feat: a cycle"              # the bookmark, and the record
 vc-x1 cycle --open --title "feat: a cycle" --no-record  # the bookmark alone
 vc-x1 cycle --open --title "feat: a cycle" --dry-run    # say each edit, make none
 vc-x1 cycle --ladder                                    # the ladder, from the rung headings
-vc-x1 cycle --commit                                    # the opening, a cycle's first commit
-vc-x1 cycle --commit --title "feat: one rung" --body @body.txt  # a work rung
-vc-x1 cycle --close                                     # a ladder's closing, linear
-vc-x1 cycle --close --trapezoid main                    # a merge, main its first parent
-vc-x1 cycle --close --body @body.txt                    # a single-step cycle's one commit
-vc-x1 cycle --land main                                 # land the closed cycle, locally
-vc-x1 cycle --land main --push                          # and publish it
-vc-x1 cycle --close --trapezoid main --land main --push # close, land, and publish
-vc-x1 cycle --land main --merge                         # join a main that moved, then land
+vc-x1 cycle --commit -s b                               # the opening, a cycle's first commit
+vc-x1 cycle --commit -s b --title "feat: one rung" --body @body.txt  # a work rung
+vc-x1 cycle --close -s b                                # a ladder's closing, linear
+vc-x1 cycle --close -s b --trapezoid main               # a merge, main its first parent
+vc-x1 cycle --close -s b --body @body.txt               # a single-step cycle's one commit
+vc-x1 cycle --land main -s b                            # land the closed cycle, locally
+vc-x1 cycle --land main -s b --push                     # and publish it
+vc-x1 cycle --close -s b --trapezoid main --land main --push  # close, land, and publish
+vc-x1 cycle --land main -s b --merge                    # join a main that moved, then land
 vc-x1 cycle --status                                    # where the cycle stands, and what is next
 ```
 
@@ -2145,8 +2146,9 @@ change id, and a plain repo one commit with no trailer.
 - The cycle's bookmark is the one advanced, the slug of the title in `## In Progress` or
   `--bookmark`'s, so no other bookmark on the line moves.
 
-`-s` is `b` in a dual workspace and `p` in a plain repo unless given, and `w` makes the work half
-with the agent half left to `push`. `--push` publishes the rung on the cycle's bookmark, a draft
+`-s` is required: `b` makes the pair, `w` the work half with the agent half left to `push`, and
+`p` a plain repo's commit. A scope the workspace does not fit, `p` in a dual workspace or `b` in a
+plain repo, is refused. `--push` publishes the rung on the cycle's bookmark, a draft
 push. Refused before the ladder is written: a title that is no rung's, a rung committed already,
 which [`squash`](#squash) continues, the closing's title, an empty work `@`, and a work rung with
 no title or body. `--dry-run` prints the descriptions and commits nothing.
@@ -2220,13 +2222,13 @@ the destination becomes the closing commit itself, its id and its tree, and the 
 the committed source, installed off the PATH by `install --dir`, is the binary that ships:
 
 ```bash
-vc-x1 cycle --close --trapezoid main       # the closing, on the cycle's bookmark, main unmoved
+vc-x1 cycle --close -s b --trapezoid main  # the closing, on the cycle's bookmark, main unmoved
 mkdir -p tmp/candidate                     # install --dir takes a directory that exists
 vc-x1 install --dir tmp/candidate          # its release build, the plain name, off the PATH
 tmp/candidate/vc-x1 -V                     # the closing's commit, clean
 # ... the final testing, with tmp/candidate/vc-x1 ...
-tmp/candidate/vc-x1 cycle --land main --dry-run   # the steps it would take
-tmp/candidate/vc-x1 cycle --land main --push      # the tree tested, landed and published
+tmp/candidate/vc-x1 cycle --land main -s b --dry-run   # the steps it would take
+tmp/candidate/vc-x1 cycle --land main -s b --push      # the tree tested, landed and published
 tmp/candidate/vc-x1 install                # now on main, it installs itself under the plain name
 cmp tmp/candidate/vc-x1 ~/.cargo/bin/vc-x1 # the binary tested is the one installed
 ```
@@ -2246,7 +2248,7 @@ ladder:
   - 0 (done) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)
   - 1 (done) [feat: one rung](TODO.md#feat-one-rung)
   - 2 (current) [feat: a cycle closing](TODO.md#feat-a-cycle-closing)
-next: `cycle --close` makes the closing, `--trapezoid <BOOKMARK>` a merge
+next: `cycle --close -s <SCOPE>` makes the closing, `--trapezoid <BOOKMARK>` a merge
 ```
 
 The ladder is the one the rung headings and the commits make, with a note when `zTOC.md`'s

@@ -164,7 +164,7 @@ check_has "open wrote the scaffold" "$(cat TODO.md)" "### feat: one commit"
 check "open wrote the ladder" "$(ladder | head -1)" \
     "- 0 (current) [feat: one commit opening](TODO.md#feat-one-commit-opening)"
 echo "one" >work.txt
-run "$VC" cycle --close --body "The problem.
+run "$VC" cycle --close -s b --body "The problem.
 
 Solution: the one commit." --land main --push
 check "one commit above the old main" "$(above_main 'main@origin-' main)" "feat: one commit"
@@ -175,17 +175,17 @@ check_landed "cycle 1" feat-one-commit
 step "Cycle 2: single-step, its opening committed first"
 base=$(cid main)
 run "$VC" cycle --open --title "fix: opened first"
-run "$VC" cycle --commit
+run "$VC" cycle --commit -s b
 check "the opening is committed" "$(title @-)" "fix: opened first opening"
 check_has "the opening has the default body" "$(jjw log -r @- --no-graph -T description)" \
     'Opens the cycle "fix: opened first".'
 opening=$(jjw log -r @- --no-graph -T 'change_id.short(12)')
 echo "two" >>work.txt
-run "$VC" cycle --close --default-body
+run "$VC" cycle --close -s b --default-body
 check "the closing is squashed into the opening" "$(above_main "$base" @-)" "fix: opened first"
 check "the opening's change is kept" "$(jjw log -r @- --no-graph -T 'change_id.short(12)')" \
     "$opening"
-run "$VC" cycle --land main --push
+run "$VC" cycle --land main -s b --push
 check "the one commit landed" "$(title main)" "fix: opened first"
 check_landed "cycle 2" fix-opened-first
 
@@ -198,9 +198,9 @@ check_has "open moved the Todo entry" "$(sed -n '/^## In Progress$/,/^## Todo$/p
 sed -i 's/^##### feat: a ladder cycle closing$/##### feat: the first rung\n\nIts intent.\n\n##### feat: the second rung\n\nIts intent.\n\n&/' TODO.md
 run "$VC" cycle --ladder
 check "the ladder has the rungs planned" "$(ladder | wc -l | tr -d ' ')" "4"
-run "$VC" cycle --commit
+run "$VC" cycle --commit -s b
 echo "first" >first.txt
-run "$VC" cycle --commit --title "feat: the first rung" --body "Why.
+run "$VC" cycle --commit -s b --title "feat: the first rung" --body "Why.
 
 Solution: how."
 check "the first rung is done and the second current" "$(ladder | sed -n 2,3p)" \
@@ -208,17 +208,17 @@ check "the first rung is done and the second current" "$(ladder | sed -n 2,3p)" 
 - 2 (current) [feat: the second rung](TODO.md#feat-the-second-rung)"
 echo "stray" >stray.txt
 tries "a commit whose title is no rung's" \
-    "$VC" cycle --commit --title "feat: unplanned" --body "b"
+    "$VC" cycle --commit -s b --title "feat: unplanned" --body "b"
 rm stray.txt
 echo "second" >second.txt
-run "$VC" cycle --commit --title "feat: the second rung" --body "Why.
+run "$VC" cycle --commit -s b --title "feat: the second rung" --body "Why.
 
 Solution: how."
 check "main has not moved" "$(cid main)" "$base"
 run "$VC" push -s b
 check "the draft push published the cycle's bookmark" "$(remote_bookmarks)" \
     "feat-a-ladder-cycle main "
-run "$VC" cycle --close --trapezoid main
+run "$VC" cycle --close -s b --trapezoid main
 check "the closing is titled" "$(title @-)" "feat: a ladder cycle closing"
 check "the closing is a merge of two" "$(nparents @-)" "2"
 check "every rung is done" "$(ladder | grep -c '(done)')" "4"
@@ -233,7 +233,7 @@ check "the closing is still a merge of two" "$(nparents @-)" "2"
 say "  fix on top: a rung above the closing"
 echo "on top" >ontop.txt
 tries "fix on top, by \`cycle --commit\`" \
-    "$VC" cycle --commit --title "fix: on top" --body "b"
+    "$VC" cycle --commit -s b --title "fix: on top" --body "b"
 rm -f ontop.txt
 
 say "  reopen: the closing dropped, a fix rung added, the cycle closed again"
@@ -248,15 +248,15 @@ check_has "the record is in progress again" "$(sed -n '/^## In Progress$/,/^## T
 sed -i 's/^##### feat: a ladder cycle closing$/##### fix: the fault\n\nIts intent.\n\n&/' TODO.md
 echo "fixed" >fix.txt
 tries "reopen, a fix rung by \`cycle --commit\`" \
-    "$VC" cycle --commit --title "fix: the fault" --body "Why.
+    "$VC" cycle --commit -s b --title "fix: the fault" --body "Why.
 
 Solution: how."
-tries "reopen, the closing made again" "$VC" cycle --close --trapezoid main
+tries "reopen, the closing made again" "$VC" cycle --close -s b --trapezoid main
 check "the cycle closed again" "$(title @-)" "feat: a ladder cycle closing"
 check "the fix is a rung of it" "$(above_main "$base" @- | grep -c '^fix: the fault$')" "1"
 
 step "Cycle 3: the Land"
-run "$VC" cycle --land main --push
+run "$VC" cycle --land main -s b --push
 check "the closing landed" "$(title main)" "feat: a ladder cycle closing"
 check "the ladder is under the closing" "$(above_main "$base" main | head -1)" \
     "feat: a ladder cycle opening"
