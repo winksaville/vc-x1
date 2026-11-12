@@ -9,6 +9,10 @@ publish = false
 # work: the version and its bump are the project's.
 
 [dependencies]
+# The argument parser and its completion engine, at the versions
+# `vc-x1` uses, so `cargo xtask <tab>` asks this binary for its tasks.
+clap = { version = "4.6", features = ["derive", "wrap_help"] }
+clap_complete = { version = "4.6", features = ["unstable-dynamic"] }
 # The crate cargo's own `cargo add` edits a manifest with: it keeps
 # the comments, the layout, and the key order, and changes the one
 # value. At the version jj-lib already brings into the lock file.

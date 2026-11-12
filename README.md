@@ -2274,7 +2274,26 @@ project with no manifest names a file of its own.
 This project's own bump is an xtask, outside `vc-x1`: `cargo xtask bump next` adds one to the
 version's suffix in `Cargo.toml`, `cargo xtask bump bare` drops the suffix for a close-out, and
 `cargo xtask bump <VERSION>` sets it as written, each keeping the manifest's comments and layout
-and refreshing `Cargo.lock`, the build being `--locked`. `cargo xtask version` prints it.
+and refreshing `Cargo.lock`, the build being `--locked`. `cargo xtask version` prints it, and
+`cargo xtask -h` lists the tasks.
+
+The xtask completes its own tasks. `cargo xtask completions [NAME...]` prints a bash function
+that holds no task names: on each tab it asks the xtask of the repo the shell is in, so one copy
+serves every repo whose xtask answers clap's completion requests, and a repo with none completes
+nothing.
+
+```bash
+cargo xtask completions cx > ~/.config/cargo-xtask-completion.bash  # once, cx a shell alias
+source ~/.config/cargo-xtask-completion.bash                        # in the shell's startup file
+cargo xtask b<TAB>      # bump
+cx bump <TAB>           # next bare
+```
+
+`cargo xtask <TAB>` reaches the function through cargo's own bash completion, which hands a
+subcommand it does not know to the completion registered for `cargo-<name>`, so it needs cargo's
+script completing `cargo`, not another completer's, and bash-completion 2.12 or later. A `NAME`,
+an alias for `cargo xtask`, is completed directly and needs neither. A request takes about 50
+ms once the xtask is built, and the first after its source changes waits for the build.
 
 `scripts/cycle-rehearsal.sh` runs the flow end to end: it makes a throwaway dual workspace with
 local remotes and no cargo project under `~/tmp/cycle-rehearsal`, runs two single-step cycles and

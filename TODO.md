@@ -11,9 +11,9 @@ Where the agent was, for the agent that comes next. Ephemeral, never a record, r
 acquaint, acted on, and reset to `_None._` by the reader.
 
 - **feat: improve vc-x1 cycle flow** is open, its opening pushed as a draft on
-  `feat-improve-vc-x1-cycle-flow` (2026-11-11). wink then delegated the work rungs, and all twelve
-  are committed locally as pairs, unreviewed and unpushed, so `zTOC.md`'s ladder reads `(done)`
-  to the closing, which is `(current)`. `vc-x1-dev cycle --status` says the same.
+  `feat-improve-vc-x1-cycle-flow` (2026-11-11). wink then delegated the work rungs, and all
+  thirteen are committed as pairs, unreviewed, twelve pushed as a draft and the last local, so
+  `zTOC.md`'s ladder reads `(done)` to the closing, which is `(current)`. `vc-x1-dev cycle --status` says the same.
   - Each rung's subsection under `#### Rungs` says what it did and what it left for wink, the
     lines starting "For wink" and "Not done" among them.
   - The closing, the Land, and every push wait for wink. The closing owes the acceptance check,
@@ -814,6 +814,43 @@ and still refused with the stages that take none.
   with -sw|a|b|p**, **A rung is removed from a local ladder**, and **A local ladder's rungs are
   reordered**, to be tried in one exhaustive experiment.
 - The rehearsal passes with `-s b` on each of its commands, 48 checks.
+
+##### feat: the xtask completes its tasks
+
+`cargo xtask <tab>` offers file names, and `cargo xtask -h` is a usage error. The xtask's
+arguments move to clap, so it has help, and it answers completion requests for its own tasks,
+through cargo's hand-off to `cargo-xtask` and for a shell alias such as `cx`.
+
+- wink's ask (2026-11-12), after finding that `cargo xtask` has no completion and that the
+  cargo team's own `xtask-*` crates have none either.
+- The xtask is on clap, at `vc-x1`'s versions, and calls clap's `CompleteEnv` first, so with
+  `COMPLETE` set it answers a request and exits. `bump` offers `next` and `bare`.
+- How `cargo xtask <tab>` gets there, found by reading cargo's script and tried here: since
+  cargo 1.87 its bash completion hands a subcommand it has no options for, an alias among them,
+  to the completion registered for `cargo-<name>`, and zsh has a like hook. No wrapper around
+  cargo's own function is needed.
+- `cargo xtask completions [NAME...]` prints the function to register. It is clap's own
+  registration script with one change: where that calls one binary by name, this runs `cargo
+  xtask`, since an xtask is a different program in every repo and all would register as
+  `cargo-xtask`. So one copy serves every repo, the answer coming from the repo the shell is in.
+  - A `NAME` is a shell alias, wink's `cx`, which bash completes by its own name and never by
+    what it expands to.
+  - Outside a repo, or where `cargo xtask` fails, it completes nothing.
+  - A request took 55 ms here with the xtask built.
+  - The candidates keep the order the xtask declares them in, `-o nosort` where bash has it,
+    4.4 and later, as clap's script does. Left off at first, they came out alphabetical.
+- Caveats, each in the README or to know:
+  - It needs cargo's script completing `cargo`. wink's shell had `carapace` registered for
+    `cargo`, with 797 other commands, which completes the alias's name and hands off nothing.
+  - An xtask in another repo that does not answer `COMPLETE` is run with the typed words as
+    its arguments on each tab. One that acts on arguments it does not know would act.
+  - bash alone. clap prints the other shells' scripts, and the change is the same one line.
+- `-h` and `--help` are help now, where both were the usage error with a failure status.
+- The two `## Todo` entries filed since the last rung, **The completion script calls the name
+  it was typed as** and **lookup takes seven seconds for one line**, are in this commit.
+- This is one project's xtask. Whether validate, build, and install move into an xtask or into
+  a runner with its own name, installed once and reading each repo's config, is vc-x2's to
+  decide, and this rung is a trial of the first.
 
 ##### feat: improve vc-x1 cycle flow closing
 
@@ -2167,6 +2204,56 @@ bookends. One `cycle` command holding open, close, and land gives the protocol o
   flag** prefers and the leaning against several positionals.
 - Decided with **vc-x1 do runs a recipe of vc-x1 commands** and **close, land, and push compose
   with testing, to re-deliberate**, which cover the same commands.
+
+### The completion script calls the name it was typed as
+
+(wink + agent, 2026-11-12) `vc-x1 cy<tab>` completed to `cycle` with the installed `vc-x1` at
+0.85.21, which has no such command. The bash scripts `COMPLETE=bash vc-x1` and `COMPLETE=bash
+vc-x1-dev` print define one function, `_clap_complete_vc_x1`, named for the package, and each
+hard-codes the binary it calls, `"vc-x1"` or `"vc-x1-dev"`. Sourced one after the other, the
+second replaces the first, so both names complete by whichever build was sourced last.
+
+- wink's `.bashrc` works around it with a `sed` on each script, the call rewritten to
+  `"${words[0]}"`, the name typed. The fix is that the script needs no `sed`.
+- We think either does it: the function named for the binary it was invoked as, as `main.rs`
+  already sets the bin name, so two builds define two functions, or the script calling
+  `"${words[0]}"` itself. The second also serves a copy under a third name.
+- `run_cmd::forward_completion` and `tests/cli_complete.rs` are where completion is handled and
+  tested. The other shells' scripts are to check for the same collision.
+- Found in **feat: improve vc-x1 cycle flow**, which is not its cause: any two builds whose
+  commands differ show it.
+
+### lookup takes seven seconds for one line
+
+(wink + agent, 2026-11-12) `vc-x1 lookup --line src/cycle.rs:1` takes 7.3 s in a release build
+and 1 m 11 s in the dev build, `vc-x1-dev`, which is unoptimized, the same code in both. Profiled
+in the release build, 2994 samples, the time is in three places, none of them the answer's own
+work:
+
+- About 45% is building a substring searcher, `memchr`'s `twoway::Finder::new` and
+  `build_forward_with_ranker`. It is blame's reach back, `reach_back` in `src/lookup/blame.rs`,
+  whose revset is `roots(diff_lines(substring:"<the line>") & ::<commit>)`: jj-lib diffs every
+  ancestor, 708 commits here, and its substring match builds the searcher again for every line
+  of every diff. Reading those commits is another 5%, in `zlib`'s inflate.
+  - We think a pattern compiled once, `regex:` with the line escaped, removes most of it, and a
+    file argument to `diff_lines` narrows the diffs read, at the cost of a line that moved
+    between files. The rebuild per line is jj-lib's, and worth reporting there.
+- About 20% is the timeline, `Timeline::load` in `src/lookup/window.rs`, which reads and parses
+  every `.jsonl` at the agent-repo's root on every run: 251 files, 610 MB, 252 thousand lines
+  here, each line a full `serde_json::Value`. It grows with every session.
+  - We think it loads only the sessions at or after the window's first, parses only the fields
+    it places an entry by, or keeps an index in `tmp-durable/`, which the scratch-file rule
+    already names as the place for one.
+- Under a second, as a trace timed it, is freeing the parsed timeline after the answer is
+  printed, which an exit without the drop saves.
+
+How it was measured, to measure again: `perf record -e cpu-clock:u --call-graph dwarf,16384
+--user-callchains -F 499 -o tmp/perf.data <binary> lookup --line src/cycle.rs:1`, then `perf
+report -i tmp/perf.data --no-children --sort symbol --stdio`. With `perf_event_paranoid` at 2 a
+plain `-g` is refused, since it asks for the kernel's call chains too, and `--user-callchains` is
+what it needs. The release binary carries no debug info, so the callers were read from the
+source and not from the chains. Found in **feat: improve vc-x1 cycle flow**, which did not
+change `lookup`.
 
 ### validate-anchors misses a citation after a wrapped code span
 
