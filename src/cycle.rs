@@ -1429,7 +1429,14 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
         }
     };
     out.push("ladder:".to_string());
-    out.extend(ladder.lines.iter().map(|l| format!("  {l}")));
+    // The titles alone: a link is for `zTOC.md`, where an editor follows
+    // it, and in a terminal only doubles the line.
+    out.extend(
+        ladder
+            .lines
+            .iter()
+            .map(|l| format!("  {}", record::unlinked(l))),
+    );
     out.extend(ladder.findings.iter().map(|f| format!("note: {f}")));
     let file = work.join(record::LADDER_FILE);
     if file.is_file()
@@ -2413,10 +2420,7 @@ mod tests {
         run(&fx.work, &["--commit"]).expect("the opening");
         let s = status(&fx);
         assert!(s.contains("commits: 1 on the branch, 1 not pushed"), "{s}");
-        assert!(
-            s.contains("  - 1 (current) [feat: one rung](TODO.md#feat-one-rung)"),
-            "{s}"
-        );
+        assert!(s.contains("  - 1 (current) feat: one rung\n"), "{s}");
         assert!(s.contains("work @: empty"), "{s}");
         assert!(!s.contains("differs"), "{s}");
         assert!(

@@ -956,6 +956,44 @@ said less than they should, none of them a refusal that broke anything.
     scaffold's `_To write._`, saying nothing. `--close` warns, naming each, and does not refuse,
     wink's call: a record that says nothing is easy to land by accident and hard to fix after.
 
+##### feat: errors and warnings wrap to the terminal
+
+An error is one line however long it is, so a terminal breaks it wherever it runs out, mid-word
+and mid-path: `cycle --open`'s refusal without the record is about 300 characters. The logger
+wraps an error or a warning to the terminal's width, between words, its later lines indented.
+
+- wink's call (2026-11-13), from **Error messages fit the terminal** in `## Todo`, its first
+  half: the logger's wrap fixes every message at once. The second half, each refusal shaped as
+  its fault on the first line and its remedies on the lines below, stays in that entry, for a
+  cycle of its own.
+- Only when stderr is a terminal. A log, a pipe, or a `grep` gets each message on one line, so
+  nothing that reads the output changes, and the `--log` file is never wrapped.
+- At the terminal's width, whatever it is. The rung first capped it at 100 columns, the prose
+  width, and wink's wide terminal then broke lines that would have fit, a path split from the
+  `-R` before it: the window's width is the user's choice, so it is the one used.
+  - Not fixed here: a command a message names without backticks, `push`'s "would run jj ..."
+    lines, can still be broken inside, which the shape half of **Error messages fit the
+    terminal** is for.
+- Later lines are indented two spaces, and a message's own lines, the ways on that a Land's
+  refusal lists, keep their indent beyond that.
+- A span in backticks is one word, so a command a message names is never broken across lines and
+  can be copied whole. A word wider than the line, a long path, gets a line of its own and is not
+  split.
+- The width is `terminal_size`'s, the crate clap's `wrap_help` already brings into the lock file,
+  so it adds no download.
+- Info lines wrap too, when stdout is a terminal, each of a message's own lines at its own
+  indent, since an info message of several lines is a listing, a description, or a ladder. The
+  rung first left them out, as progress mostly short and stdout a caller may parse, and wink's
+  narrow terminal showed `cycle --status` unwrapped, every line long. The parsing holds: a pipe
+  gets them whole.
+- Info is written to stdout without `println!`, which panicked "failed printing to stdout:
+  Broken pipe" when a reader closed early, `vc-x1-dev cycle --status | head`, found trying this
+  rung. A closed pipe now ends the output quietly.
+- `cycle --status` shows the ladder's titles, not its links, `- 3 (done) feat: x`, the link being
+  for `zTOC.md`, where an editor follows it, and in a terminal only doubling each line.
+- Tested by the wrap's own unit tests. What a terminal shows is wink's to look at, the tests
+  running with no terminal.
+
 ##### feat: improve vc-x1 cycle flow closing
 
 Closing out the cycle.
@@ -2309,6 +2347,22 @@ bookends. One `cycle` command holding open, close, and land gives the protocol o
 - Decided with **vc-x1 do runs a recipe of vc-x1 commands** and **close, land, and push compose
   with testing, to re-deliberate**, which cover the same commands.
 
+### cycle --open takes a Todo entry by number or name
+
+(wink, 2026-11-13) `cycle --open --title` moves the `## Todo` entry whose `###` heading is the
+title exactly, and with any other title writes an empty scaffold and leaves the entry where it is.
+Found testing in `~/tmp/t17`, where an entry was meant and its heading had to be retyped.
+
+- We think `--todo <N|TEXT>` picks it: a number is its position in `## Todo`, 1 the top, and text
+  matches a heading case-insensitively, by prefix and then anywhere, several matches refused with
+  their numbers.
+- The heading becomes the cycle title, so `--title` is then optional, and given with `--todo` it
+  renames, the entry's text moving under the new title. That serves a heading that is no
+  Conventional Commit or is over 50 characters, as this cycle's own entry was.
+- `--dry-run` names the entry found, and `cycle --open --todo <tab>` completes the headings, read
+  from `TODO.md` by the dynamic completion `vc-x1` has.
+- `--open` with neither `--todo` nor `--title` stays an error, no entry taken by default.
+
 ### The completion script calls the name it was typed as
 
 (wink + agent, 2026-11-12) `vc-x1 cy<tab>` completed to `cycle` with the installed `vc-x1` at
@@ -3003,6 +3057,8 @@ That line is 167 characters. It is a general problem: errors across the code are
   every message at once and changes none. The two compose.
 - The tests that match an error's text, `contains` on a phrase, keep passing under either, since
   neither changes the words.
+- The logger's wrap is done, in **feat: errors and warnings wrap to the terminal** of **feat:
+  improve vc-x1 cycle flow** (2026-11-13). The shape is what is left.
 
 ### Any config string references any key
 

@@ -410,6 +410,22 @@ pub(crate) fn ladder_of(
     Ok(Ladder { lines, findings })
 }
 
+/// A ladder line with its link reduced to the title it shows,
+/// `- 1 (current) [feat: x](TODO.md#feat-x)` to `- 1 (current) feat: x`,
+/// for a terminal, where the link cannot be followed.
+pub(crate) fn unlinked(line: &str) -> String {
+    let Some(open) = line.find('[') else {
+        return line.to_string();
+    };
+    let Some(close) = line[open..].find("](").map(|i| open + i) else {
+        return line.to_string();
+    };
+    if !line.ends_with(')') {
+        return line.to_string();
+    }
+    format!("{}{}", &line[..open], &line[open + 1..close])
+}
+
 /// Whether `line`, a left-margin bullet, is a rung by the ladder's
 /// grammar: `- `, then optionally a number and `(current)` or `(done)`,
 /// then the title, linked to its slug in the record or, for a
@@ -849,6 +865,17 @@ The last cycle's record.
         assert!(err.contains("opening"), "{err}");
         let err = ladder_of("feat: c", &rungs()[..3], &[]).unwrap_err();
         assert!(err.contains("closing"), "{err}");
+    }
+
+    /// A link is reduced to its title, and an unlinked line is as it was.
+    #[test]
+    fn a_ladder_line_unlinked() {
+        assert_eq!(
+            unlinked("- 1 (current) [feat: one](TODO.md#feat-one)"),
+            "- 1 (current) feat: one"
+        );
+        assert_eq!(unlinked("- [feat: two](TODO.md#feat-two)"), "- feat: two");
+        assert_eq!(unlinked("- 0 (done) feat: x"), "- 0 (done) feat: x");
     }
 
     /// The grammar: a rung is a left-margin bullet, numbered and
