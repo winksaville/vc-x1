@@ -870,6 +870,25 @@ flag of the retired `vc-x1 land` and none of `cycle`'s.
   retired and `cycle --land` is the only caller of its code. The one other bookmark found with
   no record is "the cycle's bookmark", and several ask for `--bookmark <NAME>`.
 
+##### fix: cycle --land and push name -r for a target
+
+The last rung's refusal of a target ahead of `origin` named `vc-x1 push -s b --bookmark <target>`,
+which `push` refuses when the target is not at the work `@-`, and `wt-21-6`'s `main` is not:
+`single-step-2` is above it. `push`'s own refusal then said "Name one of them" to a bookmark that
+was named. Both name `-r <target>` now, which publishes a bookmark where it is.
+
+- Found by wink (2026-11-13) running the last rung's advice in `~/tmp/wt-21-6`. `push --bookmark`
+  sets the bookmark at `@-` and publishes that, so naming one elsewhere would move it, and `push`
+  refused rightly. Only the wording and the advice were wrong.
+- `push`'s refusal now says the bookmark is not on the work `@-`, that pushing it there would move
+  it, and gives both ways on: `vc-x1 push -s <scope> -r <bookmark>` to publish it where it is, or
+  the line's own bookmark, or a new name, to publish `@-`.
+- The Land's refusal names `vc-x1 push -s b -r <target>`, right whether or not the target is at
+  `@-`. With `-r` the push sends the work bookmark alone, so a closing's agent commits wait for
+  the Land, which publishes the agent `main`.
+- The test now runs the command the refusal names, in a workspace whose `@-` is not the target,
+  and checks the target is then where `origin` is, so the advice is tried and not only matched.
+
 ##### feat: improve vc-x1 cycle flow closing
 
 Closing out the cycle.
@@ -2272,6 +2291,30 @@ plain `-g` is refused, since it asks for the kernel's call chains too, and `--us
 what it needs. The release binary carries no debug info, so the callers were read from the
 source and not from the chains. Found in **feat: improve vc-x1 cycle flow**, which did not
 change `lookup`.
+
+### vc-x1 list shows the graph as jj log does
+
+(wink, 2026-11-13) `vc-x1 list` prints one line per commit, its change id, its partner's change
+id from the `ochid:` trailer, and its title, newest first. Reading a workspace's state, as in the
+test of `~/tmp/wt-21-6` that day, took `jj log -r 'all()'` instead, since only it shows what
+`list` leaves out:
+
+- The graph: the lines, a merge's two parents, a trapezoid's figure, and which commits are
+  immutable.
+- The bookmarks with their remote state, `main*` for a local `main` ahead of `origin` and
+  `main@origin` where the remote is, which is what showed that `wt-21-6`'s `main` was unpublished.
+- Author, time, and commit id, and `(empty)`.
+
+`list` keeps what `jj log` lacks, the partner's change id, and should keep the two repos side by
+side under `-s both`.
+
+- We think the graph is jj-lib's: jj's own `jj log` draws it with the `renderdag` crate jj-cli
+  uses, so `list` would take the same, or a template, the partner column added to it.
+- `-r` takes a revision with its own `..` notation, and `-r '::@'` is an error, the `::` doubled
+  into `::::@`, so `-r 'all()'` may be refused the same way. Its revset handling is to check first.
+- Its default is `@` and the commits below it to `-n`. `all()`, or the cycle's branch with
+  `main`, may be the better default for reading a workspace's state.
+- Found in **feat: improve vc-x1 cycle flow**'s testing, not caused by it.
 
 ### validate-anchors misses a citation after a wrapped code span
 

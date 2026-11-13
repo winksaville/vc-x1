@@ -243,7 +243,9 @@ pub(crate) fn not_at_origin(
             .collect()
     };
     let scope = if plain { "p" } else { "b" };
-    let push = format!("`vc-x1 push -s {scope} --bookmark {onto}` publishes it first");
+    // `-r` publishes the bookmark where it is, which `--bookmark` does
+    // only when it sits at the work `@-`.
+    let push = format!("`vc-x1 push -s {scope} -r {onto}` publishes it first");
     let Some(remote) = remote else {
         return Ok(format!(
             "{label}: '{onto}' is at {} locally and is not on origin, so a Land has nothing \
@@ -1186,7 +1188,7 @@ mod tests {
         );
         let err = land(&mut test_ctx(), &p).expect_err("refused").to_string();
         assert!(
-            err.contains("ahead") && err.contains("vc-x1 push -s b --bookmark main"),
+            err.contains("ahead") && err.contains("vc-x1 push -s b -r main"),
             "{err}"
         );
         assert_eq!(commit_id(&fx.work, "main"), moved, "main stays");

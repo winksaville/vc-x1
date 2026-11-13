@@ -2367,14 +2367,36 @@ mod tests {
         fs::write(fx.work.join("ahead.txt"), "ahead\n").expect("write");
         jj_ok(&fx.work, &["commit", "-m", "ahead"]);
         jj_ok(&fx.work, &["bookmark", "set", "main", "-r", "@-"]);
+        // The work @- elsewhere, as in a workspace whose cycle is on top.
+        jj_ok(&fx.work, &["new", "main"]);
+        fs::write(fx.work.join("other.txt"), "other\n").expect("write");
+        jj_ok(&fx.work, &["commit", "-m", "other"]);
         let err = checks(&fx);
         assert!(
-            err.contains("ahead") && err.contains("vc-x1 push -s b --bookmark main"),
+            err.contains("ahead") && err.contains("vc-x1 push -s b -r main"),
             "{err}"
         );
         assert!(!err.contains("sync"), "{err}");
-        // Behind: published, then main set back to where it was.
-        jj_ok(&fx.work, &["git", "push", "--bookmark", "main"]);
+        // The command named works where @- is not the target.
+        crate::push::push(
+            &mut test_ctx(),
+            &crate::push::PushParams {
+                revision: Some("main".to_string()),
+                bookmark: None,
+                repo: Some(fx.work.clone()),
+                scope: RepoScope::Sides(crate::options_flags::scope::Scope(vec![
+                    crate::options_flags::scope::Side::Work,
+                    crate::options_flags::scope::Side::Bot,
+                ])),
+                step: false,
+                dry_run: false,
+                yes: true,
+                forced: crate::common::ForcedPush::Refuse,
+            },
+        )
+        .expect("the push named publishes main");
+        land_checks(&fx.work, "main", None, false).expect("main is where origin is");
+        // Behind: main set back to where it was.
         jj_ok(
             &fx.work,
             &["bookmark", "set", "main", "-r", &base, "--allow-backwards"],

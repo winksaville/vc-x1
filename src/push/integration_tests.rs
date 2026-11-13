@@ -475,7 +475,11 @@ fn push_needs_the_bookmark_named_when_the_line_is_ambiguous() {
     let err = push_in(&mut test_ctx(), &pair(&fx), &both(), &params)
         .expect_err("not on the line")
         .to_string();
-    assert!(err.contains("not the nearest bookmark"), "{err}");
+    assert!(
+        err.contains("'elsewhere' is not on the work @-") && err.contains("-r elsewhere"),
+        "{err}"
+    );
+    assert!(!err.contains("Name one of them"), "{err}");
 }
 
 /// Build a `Run` carrying the ids a completed push would have.
