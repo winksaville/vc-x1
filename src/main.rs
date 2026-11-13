@@ -745,8 +745,10 @@ pub(crate) enum Commands {
         `## In Progress` scaffold, an empty one when no entry matches, and\n\
         in zTOC.md the ladder is replaced with the opening and the closing.\n\
         Every check is made before anything changes: a cycle in progress is\n\
-        refused, as is a name in use. --no-record makes the bookmark alone,\n\
-        as does --bookmark without --title, and a workspace with no TODO.md.\n\
+        refused, as is a name in use, and a workspace with no TODO.md or\n\
+        zTOC.md, a cycle running on its record. --no-record makes the\n\
+        bookmark alone, a branch the later stages will not take, as does\n\
+        --bookmark without --title.\n\
         --dry-run says each edit and makes none. Nothing is committed or\n\
         pushed, and the version is the project's to bump.\n\n\
         --ladder makes the ladder in zTOC.md from the rung headings, the\n\

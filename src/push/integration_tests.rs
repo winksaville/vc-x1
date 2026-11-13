@@ -94,6 +94,7 @@ fn make_pair_with(
         covers: None,
         allow_empty: false,
         same_version: false,
+        land_follows: false,
         no_url_trailer,
     };
     commit(&mut test_ctx(), &params).expect("the pair is made");
@@ -742,6 +743,7 @@ fn push_por_publishes_the_commit_on_its_bookmark() {
         covers: None,
         allow_empty: false,
         same_version: false,
+        land_follows: false,
         no_url_trailer: false,
     };
     commit(&mut test_ctx(), &params).expect("plain commit");

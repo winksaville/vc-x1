@@ -355,8 +355,7 @@ impl CycleArgs {
         if self.title.is_none() && self.bookmark.is_none() {
             return Err("cycle --open: --title or --bookmark names the bookmark".into());
         }
-        let bookmark = crate::open::bookmark_name(self.bookmark.as_deref(), self.title.as_deref())
-            .map_err(|e| e.replacen("open", "cycle --open", 1))?;
+        let bookmark = crate::open::bookmark_name(self.bookmark.as_deref(), self.title.as_deref())?;
         if let Some(t) = &self.title {
             crate::commit::refuse_suffixed(t, "cycle --open --title")
                 .map_err(|e| e.replacen("commit ", "", 1))?;
@@ -595,6 +594,7 @@ fn commit_params(
         covers: None,
         allow_empty: false,
         same_version: c.same_version,
+        land_follows: false,
     }
 }
 
@@ -918,6 +918,14 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
     let todo = std::fs::read_to_string(&path)
         .map_err(|e| format!("cycle {stage}: {}: {e}", path.display()))?;
     let cycle = record::cycle_title(&todo).map_err(|e| format!("cycle {stage}: {e}"))?;
+    let unwritten = record::unwritten_items(&todo);
+    if !unwritten.is_empty() {
+        warn!(
+            "cycle {stage}: the record's {} still read `_To write._`, and the closing moves it to \
+             `## Closed` as it is",
+            unwritten.join(", ")
+        );
+    }
     if !jj::local_bookmarks_at(work, "@ | @-")?.contains(&bookmark) {
         return Err(format!(
             "cycle {stage}: the cycle's bookmark '{bookmark}' is not on the work @ or @-, and a \
@@ -993,7 +1001,12 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
     };
     crate::commit::check_version(work, "@", c.rung.same_version, "cycle --close")?;
     let ladder = record::plan_ladder(work, &done).map_err(|e| format!("cycle {stage}: {e}"))?;
-    let moved = crate::commit::RecordMove::plan(work)?;
+    let mut moved = crate::commit::RecordMove::plan(work)?;
+    // A single-step cycle's one commit has no rungs, so the block goes to
+    // `## Closed` without its `#### Rungs`, which the ladder read above.
+    if single && let Some(m) = moved.as_mut() {
+        m.new_record = record::without_closed_rungs(&m.new_record);
+    }
     let bookmark_of_closing = bookmark.clone();
     let fold = single && commits.len() == 1;
     info!(
@@ -1034,6 +1047,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
             // A dry run writes no record, so the work @ may hold nothing.
             let mut params = commit_params(&c.rung, title, body, bookmark);
             params.allow_empty = true;
+            params.land_follows = c.land.is_some();
             crate::commit::commit(ctx, &params)?;
         }
         if let Some(l) = &c.land {
@@ -1072,7 +1086,9 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
         if let Some(parents) = &parents {
             crate::merge::set_parents(ctx, work, "@", parents, "cycle --close")?;
         }
-        crate::commit::commit(ctx, &commit_params(&c.rung, title, body, bookmark))
+        let mut params = commit_params(&c.rung, title, body, bookmark);
+        params.land_follows = c.land.is_some();
+        crate::commit::commit(ctx, &params)
     })();
     if let Err(e) = &made {
         snapshot.restore("cycle --close", e.as_ref());
@@ -1291,6 +1307,44 @@ fn land_merge(
     made
 }
 
+/// The bookmarks a closed cycle landed on, named and quoted: those at
+/// or after its landmark, the commit titled with the bare cycle title
+/// or its closing's. `None` when no bookmark holds it.
+fn landed_on(
+    work: &std::path::Path,
+    cycle: &str,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let escaped = cycle.replace('\\', "\\\\").replace('"', "\\\"");
+    let candidates = jj::cids_of(
+        work,
+        &format!("::bookmarks() & description(substring:\"{escaped}\")"),
+    )?;
+    let titles = [
+        cycle.to_string(),
+        format!("{cycle} closing"),
+        format!("{cycle} dead-end closing"),
+    ];
+    for cid in candidates.iter().rev() {
+        let desc = jj::desc_of(work, cid)?;
+        if !titles
+            .iter()
+            .any(|t| desc.lines().next() == Some(t.as_str()))
+        {
+            continue;
+        }
+        let on = jj::local_bookmarks_at(work, &format!("bookmarks() & {cid}::"))?;
+        if !on.is_empty() {
+            return Ok(Some(
+                on.iter()
+                    .map(|b| format!("'{b}'"))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ));
+        }
+    }
+    Ok(None)
+}
+
 /// `--status`: where the cycle stands, a line each, read from the
 /// record, the ladder, and the branch, nothing changed. What another
 /// stage would refuse is said here and refuses nothing.
@@ -1319,7 +1373,12 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
                 out.push("next: `cycle --land <BOOKMARK> -s <SCOPE>` lands it".to_string());
             }
             (Some(c), _) => {
-                out.push(format!("closed: '{c}', landed or its bookmark gone"));
+                out.push(match landed_on(work, &c)? {
+                    Some(on) => format!("closed: '{c}', landed on {on}"),
+                    None => {
+                        format!("closed: '{c}', its bookmark gone and its commits on no bookmark")
+                    }
+                });
                 out.push("next: `cycle --open --title \"<title>\"` opens one".to_string());
             }
             _ => out.push("next: `cycle --open --title \"<title>\"` opens one".to_string()),
@@ -1532,14 +1591,26 @@ mod tests {
         assert_eq!(fs::read_to_string(fx.work.join("TODO.md")).unwrap(), TODO);
     }
 
-    /// `--no-record`, a bookmark with no title, and a workspace with no
-    /// `TODO.md` each get the bookmark alone.
+    /// A workspace without its record is refused, nothing made, and
+    /// `--no-record` and a bookmark with no title get the bookmark alone.
     #[test]
     fn open_makes_the_bookmark_alone() {
         let fx = Fixture::new("cycle-open-alone");
-        run(&fx.work, &["--open", "--title", "feat: a cycle"]).expect("no TODO.md");
+        let err = run(&fx.work, &["--open", "--title", "feat: a cycle"]).unwrap_err();
+        assert!(
+            err.contains("no TODO.md or zTOC.md") && err.contains("--no-record"),
+            "{err}"
+        );
+        assert_eq!(bookmarks_at(&fx.work), "", "nothing made");
+        fs::write(fx.work.join("TODO.md"), TODO).expect("write");
+        let err = run(&fx.work, &["--open", "--title", "feat: a cycle"]).unwrap_err();
+        assert!(err.contains("no zTOC.md,"), "{err}");
+        run(
+            &fx.work,
+            &["--open", "--title", "feat: a cycle", "--no-record"],
+        )
+        .expect("alone");
         assert_eq!(bookmarks_at(&fx.work), "feat-a-cycle");
-        assert!(!fx.work.join("TODO.md").exists());
 
         let fx = Fixture::new("cycle-open-no-record");
         write_record(&fx);
@@ -1906,6 +1977,11 @@ mod tests {
     /// commit `rev`.
     fn assert_closed_single(repo: &Path, rev: &str) {
         let todo = file_at(repo, rev, "TODO.md");
+        let closed = &todo[todo.find("## Closed").expect("closed")..];
+        assert!(
+            !closed.contains("#### Rungs"),
+            "a single step has no rungs: {closed}"
+        );
         assert!(todo.contains("_No cycle currently in progress._"), "{todo}");
         assert!(
             todo.contains("## Closed\n\nThe last cycle's record.\n\n### feat: a cycle\n"),
@@ -2372,7 +2448,11 @@ mod tests {
             "{s}"
         );
         run(&fx.work, &["--land", "main"]).expect("landed");
-        assert!(status(&fx).contains("landed or its bookmark gone"));
+        assert!(
+            status(&fx).contains("closed: 'feat: a cycle', landed on 'main'"),
+            "{}",
+            status(&fx)
+        );
     }
 
     /// Set the work config's `[version]` check on `VERSION.md`.

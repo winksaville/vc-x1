@@ -44,12 +44,13 @@ pub(crate) fn bookmark_name(named: Option<&str>, title: Option<&str>) -> Result<
     if let Some(name) = named {
         return Ok(name.to_string());
     }
-    let title = title.ok_or("open: --title or --bookmark names the bookmark")?;
-    crate::commit::refuse_suffixed(title, "open --title")?;
+    let title = title.ok_or("cycle --open: --title or --bookmark names the bookmark")?;
+    crate::commit::refuse_suffixed(title, "cycle --open --title")
+        .map_err(|e| e.replacen("commit ", "", 1))?;
     let slug = crate::validate_anchors::anchor_slug(title.trim_end());
     if slug.trim_matches(['-', '_']).is_empty() {
         return Err(format!(
-            "open: the title '{title}' has no letters or digits to name the bookmark: name it, \
+            "cycle --open: the title '{title}' has no letters or digits to name the bookmark: name it, \
              --bookmark <NAME>"
         ));
     }
@@ -60,12 +61,12 @@ pub(crate) fn bookmark_name(named: Option<&str>, title: Option<&str>) -> Result<
 /// where its `origin` was last fetched, and make the bookmark on the
 /// work `@`.
 pub fn open(ctx: &mut Context, params: &OpenParams) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("open: enter {params:?}");
+    debug!("cycle --open: enter {params:?}");
     let work = params.work.as_path();
     let name = &params.bookmark;
     if jj::local_bookmark_exists(work, name)? {
         return Err(format!(
-            "open: the bookmark '{name}' exists in {} already, and open moves none: name another, \
+            "cycle --open: the bookmark '{name}' exists in {} already, and open moves none: name another, \
              --bookmark <NAME>",
             work.display()
         )
@@ -73,7 +74,7 @@ pub fn open(ctx: &mut Context, params: &OpenParams) -> Result<(), Box<dyn std::e
     }
     if let Some(at) = jj::remote_bookmark_targets(work, "origin")?.get(name.as_str()) {
         return Err(format!(
-            "open: the bookmark '{name}' is on origin at {at} already, so a new one would shadow \
+            "cycle --open: the bookmark '{name}' is on origin at {at} already, so a new one would shadow \
              it: name another, --bookmark <NAME>"
         )
         .into());
@@ -83,10 +84,10 @@ pub fn open(ctx: &mut Context, params: &OpenParams) -> Result<(), Box<dyn std::e
     }
     let at = jj::chid_of(work, "@")?;
     if params.dry_run {
-        info!("open: [dry-run] create '{name}' on the work @ {at}, locally");
+        info!("cycle --open: [dry-run] create '{name}' on the work @ {at}, locally");
         return Ok(());
     }
-    info!("open: create '{name}' on the work @ {at}, locally");
+    info!("cycle --open: create '{name}' on the work @ {at}, locally");
     ctx.session(work)?.bookmark_set(name, "@")?;
     Ok(())
 }
@@ -102,7 +103,7 @@ fn warn_if_behind(repo: &Path) -> Result<(), Box<dyn std::error::Error>> {
         crate::common::bookmark_publish_state(repo, "main")?
     {
         warn!(
-            "open: 'main' in {} is at {} and origin's at {} as last fetched: `vc-x1 sync -s b` \
+            "cycle --open: 'main' in {} is at {} and origin's at {} as last fetched: `vc-x1 sync -s b` \
              brings it up to date",
             repo.display(),
             short(&local),

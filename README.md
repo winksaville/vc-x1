@@ -2101,9 +2101,11 @@ no bookmark, being on `main` alone, and nothing is pushed. The record:
   is an empty scaffold, and says so.
 - In `zTOC.md`, the ladder is replaced with the opening, current, and the closing.
 
-Everything is planned before anything is made, so a cycle in progress, a `TODO.md` with no `## In
-Progress`, and a name in use are each refused with the workspace as it was. `--no-record`,
-`--bookmark` without `--title`, and a workspace with no `TODO.md` get the bookmark alone. Nothing
+Everything is planned before anything is made, so a cycle in progress, a workspace with no
+`TODO.md` or `zTOC.md`, a `TODO.md` with no `## In Progress`, and a name in use are each refused
+with the workspace as it was, the first naming the two files a cycle needs. `--no-record` and
+`--bookmark` without `--title` get the bookmark alone, a branch that `--commit` and `--close`
+will not take, since they read the cycle from its record. Nothing
 is committed or pushed, and the version is the project's to bump: the tool never writes it. A
 reference definition only `## Closed` cited is left, for `validate-anchors` to name. `-R` is
 optional and says where, a workspace or a plain repo.
@@ -2184,7 +2186,8 @@ destination that moved is joined, and each `REV` listed is another head joined, 
 neither.
 
 The closing carries the record: the ladder is rewritten, every rung done, one unlinked rung for a
-single-step cycle, and the `## In Progress` block moves to `## Closed`. Both files are put back
+single-step cycle, and the `## In Progress` block moves to `## Closed`, a single-step cycle's
+without its `#### Rungs`, since its one commit has none. Both files are put back
 and the repo restored when the commit is not made. `-s` and `--push` are `--commit`'s.
 
 `--land <BOOKMARK>` lands a closed cycle on the destination: the agent `@` is committed when the

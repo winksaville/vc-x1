@@ -225,6 +225,31 @@ pub(crate) fn cycle_bookmark(
     }
 }
 
+/// A commit id cut to the length the ids are shown at.
+fn short(id: &str) -> String {
+    id.chars()
+        .take(crate::desc_helpers::DEFAULT_ID_LEN)
+        .collect()
+}
+
+/// The install the Land's last line names, when the workspace's config
+/// has one: the artifact is the project's, so a workspace with no
+/// `[install]` is told nothing.
+fn install_hint(repo: &Path) -> String {
+    let configured = crate::config_md::load(repo)
+        .ok()
+        .flatten()
+        .is_some_and(|cfg| {
+            cfg.map
+                .keys()
+                .any(|k| k.starts_with("install.") || k.starts_with("build."))
+        });
+    match configured {
+        true => " `vc-x1 install` installs the artifact".to_string(),
+        false => String::new(),
+    }
+}
+
 /// The refusal of a target that is not where its `origin` is, naming
 /// the way on by how the two stand: one only behind is brought up by
 /// a sync, one only ahead, or absent there, is published by a push,
@@ -341,7 +366,8 @@ pub(crate) fn plan(
         Vec::new()
     };
     info!(
-        "{LABEL}: land onto '{onto}' at {onto_cid}, the cycle's bookmark {}",
+        "{LABEL}: land onto '{onto}' at {}, the cycle's bookmark {}",
+        short(&onto_cid),
         topic
             .as_deref()
             .map(|t| format!("'{t}'"))
@@ -487,7 +513,10 @@ pub(crate) fn run(
             },
         )?;
     }
-    info!("{label}:{tag} fast-forward '{onto}' from {onto_cid} to {what}");
+    info!(
+        "{label}:{tag} fast-forward '{onto}' from {} to {what}",
+        short(onto_cid)
+    );
     if !dry {
         ctx.session(repo)?.bookmark_set(onto, &target_chid)?;
     }
@@ -564,7 +593,9 @@ pub(crate) fn run(
     if !dry && push {
         info!(
             "{label}: landed on '{onto}', the undo being a revert, '{onto}' having moved \
-             from {onto_cid}. `vc-x1 install` installs the artifact"
+             from {}.{}",
+            short(onto_cid),
+            install_hint(repo)
         );
     } else if !dry {
         let flag = if pair.is_some() { "b" } else { "p" };
@@ -577,7 +608,9 @@ pub(crate) fn run(
         };
         info!(
             "{label}: landed on '{onto}' on this machine, '{onto}' having moved from \
-             {onto_cid}, and {publish} publishes it. `vc-x1 install` installs the artifact"
+             {}, and {publish} publishes it.{}",
+            short(onto_cid),
+            install_hint(repo)
         );
         for t in topic.iter().chain(intermediate) {
             if jj::remote_bookmark_targets(repo, "origin")?.contains_key(t) && keep.is_some() {
@@ -1192,6 +1225,19 @@ mod tests {
             "{err}"
         );
         assert_eq!(commit_id(&fx.work, "main"), moved, "main stays");
+    }
+
+    /// The Land names `vc-x1 install` only where the workspace's config
+    /// has an install or a build, the artifact being the project's.
+    #[test]
+    fn the_install_is_named_only_when_configured() {
+        let fx = Fixture::new("land-install-hint");
+        assert_eq!(install_hint(&fx.work), "", "a fresh workspace has none");
+        let path = fx.work.join(".vc-config.md");
+        let mut cfg = fs::read_to_string(&path).expect("read the config");
+        cfg.push_str("\n```toml\n[install]\ndir = \"~/.cargo/bin\"\n```\n");
+        fs::write(&path, cfg).expect("write the config");
+        assert!(install_hint(&fx.work).contains("`vc-x1 install`"));
     }
 
     /// A fixture whose `@-` is a conflicted merge, the plan of a Land

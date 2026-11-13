@@ -237,6 +237,9 @@ pub struct CommitParams {
     /// Commit although the version's line is unchanged, the check
     /// `[version]` in the config asks for.
     pub same_version: bool,
+    /// A Land follows in the same invocation and publishes what is
+    /// committed, so the commit does not say it is kept local.
+    pub land_follows: bool,
 }
 
 /// What `-s` resolved to.
@@ -344,6 +347,7 @@ impl TryFrom<&CommitArgs> for CommitParams {
             covers: a.covers.clone(),
             allow_empty: false,
             same_version: a.same_version,
+            land_follows: false,
         })
     }
 }
@@ -677,13 +681,18 @@ fn replace_content(
     content: &str,
 ) -> String {
     let from = start + content_start(&text[start..end], starts);
+    let head = &text[..from];
+    // A blank line before the content, whether the section has an intro
+    // or the content follows its heading directly.
+    let gap = if head.ends_with("\n\n") {
+        ""
+    } else if head.ends_with('\n') {
+        "\n"
+    } else {
+        "\n\n"
+    };
     let tail = if end == text.len() { "\n" } else { "\n\n" };
-    format!(
-        "{}{}{tail}{}",
-        &text[..from],
-        content.trim_end(),
-        &text[end..]
-    )
+    format!("{head}{gap}{}{tail}{}", content.trim_end(), &text[end..])
 }
 
 /// The record moved within `TODO.md`, as text: the `## In Progress`
@@ -724,7 +733,9 @@ fn moved_record(text: &str) -> Result<Option<String>, String> {
 #[derive(Debug)]
 pub(crate) struct RecordMove {
     record: PathBuf,
-    new_record: String,
+    /// `TODO.md`'s text after the move, which `cycle --close` trims for
+    /// a single-step cycle.
+    pub(crate) new_record: String,
 }
 
 impl RecordMove {
@@ -804,7 +815,11 @@ fn push_after(
         return Ok(());
     }
     if !params.push {
-        info!("commit: kept local, `vc-x1 push` publishes it");
+        if params.land_follows {
+            info!("commit: kept local until the Land that follows publishes it");
+        } else {
+            info!("commit: kept local, `vc-x1 push` publishes it");
+        }
         return Ok(());
     }
     let scope = publish.scope();
@@ -1758,6 +1773,14 @@ mod tests {
         );
         let err = moved_record("## In Progress\n\n### feat: a cycle\n").unwrap_err();
         assert!(err.contains("no `## Closed`"), "{err}");
+        // A `## Closed` with no intro, the file's last line, still gets a
+        // blank line between its heading and the block.
+        let bare = "## In Progress\n\n### feat: a cycle\n\nThe record.\n\n## Closed\n";
+        assert_eq!(
+            moved_record(bare).expect("moved").expect("a cycle"),
+            "## In Progress\n\n_No cycle currently in progress._\n\n## Closed\n\n\
+             ### feat: a cycle\n\nThe record.\n"
+        );
     }
 
     /// `-s p` commits a plain repo with the description and no

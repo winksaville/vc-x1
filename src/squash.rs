@@ -558,6 +558,7 @@ mod tests {
             covers: None,
             allow_empty: false,
             same_version: false,
+            land_follows: false,
             no_url_trailer,
         };
         commit(&mut test_ctx(), &params).expect("the pair is made");

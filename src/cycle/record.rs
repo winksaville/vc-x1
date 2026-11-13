@@ -107,8 +107,8 @@ fn scaffold(title: &str, problem: &str) -> String {
          The rung subsections, in the ladder's order. The ladder itself is in `{LADDER_FILE} > \
          {LADDER}`.\n\n\
          ##### {title} opening\n\n\
-         The cycle's setup commit: create the bookmark, delete `## Closed`'s contents, move the \
-         Todo entry\ninto this block, and bump the version-of-record.\n\n\
+         The cycle's first commit, carrying its plan: the bookmark, the last cycle's record \
+         deleted, and the\nTodo entry moved into this block.\n\n\
          ##### {title} closing\n\n\
          Closing out the cycle.\n"
     )
@@ -175,6 +175,65 @@ pub(crate) fn opened_record(text: &str, title: &str) -> Result<(String, Vec<Stri
         new.replace_range(start..end, &with);
     }
     Ok((new, did))
+}
+
+/// The items of the cycle in progress in `TODO.md`'s `text` still
+/// reading the scaffold's placeholder: Problem, Solution, and
+/// Acceptance check, in that order.
+pub(crate) fn unwritten_items(text: &str) -> Vec<&'static str> {
+    let Some((start, end)) = section(text, "## In Progress") else {
+        return Vec::new();
+    };
+    let body = &text[start..end];
+    let lines: Vec<(usize, &str)> = prose_lines(body).collect();
+    ["Problem", "Solution", "Acceptance check"]
+        .into_iter()
+        .filter(|item| {
+            let heading = format!("#### {item}");
+            let Some(i) = lines.iter().position(|(_, l)| l.trim_end() == heading) else {
+                return false;
+            };
+            let text: Vec<&str> = lines[i + 1..]
+                .iter()
+                .take_while(|(_, l)| !l.starts_with('#'))
+                .map(|(_, l)| l.trim())
+                .filter(|l| !l.is_empty())
+                .collect();
+            text == [TO_WRITE]
+        })
+        .collect()
+}
+
+/// `TODO.md`'s text with the `#### Rungs` item of the cycle `## Closed`
+/// holds removed, its heading to the next heading of its level or
+/// above, for a single-step cycle, whose one commit has no rungs.
+pub(crate) fn without_closed_rungs(text: &str) -> String {
+    let Some((start, end)) = section(text, "## Closed") else {
+        return text.to_string();
+    };
+    let body = &text[start..end];
+    let mut lines = prose_lines(body).skip_while(|(_, l)| l.trim_end() != "#### Rungs");
+    let Some((from, _)) = lines.next() else {
+        return text.to_string();
+    };
+    let above = |l: &str| {
+        ["# ", "## ", "### ", "#### "]
+            .iter()
+            .any(|h| l.starts_with(h))
+    };
+    let to = lines
+        .find(|(_, l)| above(l))
+        .map_or(body.len(), |(at, _)| at);
+    let kept = format!("{}{}", body[..from].trim_end(), "\n\n");
+    let tail = &body[to..];
+    let new_body = if tail.is_empty() && end == text.len() {
+        format!("{}\n", kept.trim_end())
+    } else if tail.is_empty() {
+        kept
+    } else {
+        format!("{kept}{tail}")
+    };
+    format!("{}{new_body}{}", &text[..start], &text[end..])
 }
 
 /// A ladder's line for a rung not yet started: the title linked to
@@ -455,31 +514,36 @@ pub(crate) struct OpenRecord {
 
 /// Plan the record of the cycle `title` in the workspace at `root`,
 /// reading and checking both files, so a refusal comes before the
-/// bookmark is made. A workspace with no `TODO.md` gets none, said, and
-/// one with no `zTOC.md` gets the record alone.
+/// bookmark is made. A workspace missing either file is refused, naming
+/// what a cycle needs, since without its record the later stages
+/// refuse and the bookmark would be a branch and not a cycle.
 pub(crate) fn plan_open(root: &Path, title: &str) -> Result<OpenRecord, String> {
     let mut plan = OpenRecord::default();
     let record = root.join(RECORD);
-    if !record.is_file() {
-        plan.did
-            .push(format!("no {RECORD}, so the bookmark is made alone"));
-        return Ok(plan);
+    let ladder = root.join(LADDER_FILE);
+    let missing: Vec<&str> = [(RECORD, &record), (LADDER_FILE, &ladder)]
+        .into_iter()
+        .filter(|(_, p)| !p.is_file())
+        .map(|(name, _)| name)
+        .collect();
+    if !missing.is_empty() {
+        return Err(format!(
+            "{} has no {}, and a cycle runs on its record: {RECORD} with `## In Progress` and \
+             `## Closed`, and {LADDER_FILE} with `{LADDER}`. Add them, or --no-record makes the \
+             bookmark alone, a branch that `cycle --commit` and `--close` will not take",
+            root.display(),
+            missing.join(" or ")
+        ));
     }
     let read = |p: &Path| std::fs::read_to_string(p).map_err(|e| format!("{}: {e}", p.display()));
     let (text, did) = opened_record(&read(&record)?, title)?;
     plan.did = did;
     plan.edits.push(FileEdit { path: record, text });
-    let ladder = root.join(LADDER_FILE);
-    if ladder.is_file() {
-        let text = opened_ladder(&read(&ladder)?, title)?;
-        plan.did.push(format!(
-            "replace the ladder in {LADDER_FILE} with the opening and the closing"
-        ));
-        plan.edits.push(FileEdit { path: ladder, text });
-    } else {
-        plan.did
-            .push(format!("no {LADDER_FILE}, so no ladder is written"));
-    }
+    let text = opened_ladder(&read(&ladder)?, title)?;
+    plan.did.push(format!(
+        "replace the ladder in {LADDER_FILE} with the opening and the closing"
+    ));
+    plan.edits.push(FileEdit { path: ladder, text });
     Ok(plan)
 }
 
@@ -586,8 +650,8 @@ The rung subsections, in the ladder's order. The ladder itself is in `zTOC.md > 
 
 ##### feat: a cycle opening
 
-The cycle's setup commit: create the bookmark, delete `## Closed`'s contents, move the Todo entry
-into this block, and bump the version-of-record.
+The cycle's first commit, carrying its plan: the bookmark, the last cycle's record deleted, and the
+Todo entry moved into this block.
 
 ##### feat: a cycle closing
 
@@ -812,6 +876,89 @@ The last cycle's record.
         ] {
             assert!(!is_rung(misfit), "{misfit}");
         }
+    }
+
+    /// The items still reading the scaffold's placeholder are named, and
+    /// written ones are not.
+    #[test]
+    fn the_unwritten_items_are_named() {
+        let (opened, _) = opened_record(TODO, "feat: a cycle").expect("opened");
+        assert_eq!(unwritten_items(&opened), ["Solution", "Acceptance check"]);
+        let (empty, _) = opened_record(TODO, "feat: unplanned").expect("opened");
+        assert_eq!(
+            unwritten_items(&empty),
+            ["Problem", "Solution", "Acceptance check"]
+        );
+        let written = empty.replace("#### Solution\n\n_To write._", "#### Solution\n\nDo it.");
+        assert_eq!(unwritten_items(&written), ["Problem", "Acceptance check"]);
+        assert!(unwritten_items(TODO).is_empty(), "no cycle in progress");
+    }
+
+    /// A single-step cycle's closed block loses its `#### Rungs`, and
+    /// the rest of the file is as it was.
+    #[test]
+    fn a_single_step_closed_block_has_no_rungs() {
+        let moved = "\
+## In Progress
+
+_No cycle currently in progress._
+
+## Closed
+
+The last cycle's record.
+
+### feat: a cycle
+
+#### Deliberation
+
+_None._
+
+#### Rungs
+
+The rung subsections.
+
+##### feat: a cycle opening
+
+Its intent.
+
+##### feat: a cycle closing
+
+Closing out the cycle.
+
+# References
+
+[1]: x.md
+";
+        let stripped = without_closed_rungs(moved);
+        assert_eq!(
+            stripped,
+            "\
+## In Progress
+
+_No cycle currently in progress._
+
+## Closed
+
+The last cycle's record.
+
+### feat: a cycle
+
+#### Deliberation
+
+_None._
+
+# References
+
+[1]: x.md
+"
+        );
+        assert_eq!(without_closed_rungs(TODO), TODO, "nothing to strip");
+        let at_end = moved.replace("# References\n\n[1]: x.md\n", "");
+        let stripped = without_closed_rungs(&at_end);
+        assert!(
+            stripped.ends_with("#### Deliberation\n\n_None._\n"),
+            "{stripped}"
+        );
     }
 
     /// A ladder is written over one whose lines fit, and a line that

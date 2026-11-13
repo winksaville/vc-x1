@@ -912,6 +912,50 @@ closing names the shape, `--single-step` or `--multi-step`, one required, and th
   it, the set now `v0.3.1-11`, and `rationale.md` says why, `cycle --status`'s next names the flag.
 - Every test that closes names its shape, and the rehearsal's three closings do.
 
+##### fix: the cycle's messages say what happens
+
+Testing `~/tmp/wt-21-6` (wink, 2026-11-13) turned up seven messages or records that were wrong or
+said less than they should, none of them a refusal that broke anything.
+
+- `cycle --open`'s first lines said `open:`, the retired command's label, which the open code
+  still carried. They say `cycle --open`.
+- `cycle --open` in a workspace with no `TODO.md` or `zTOC.md` made the bookmark alone and said
+  only that, leaving a branch that `--commit` and `--close` would refuse. It is refused now,
+  naming the two files and what each needs, and `--no-record` makes the bookmark alone, said to
+  be a branch the later stages will not take. The agent's call, from wink's "refuse without
+  `--no-record`" left open: the deliberation had said a workspace without the files gets the
+  bookmark alone.
+- The Land's lines showed full 40-character commit ids, every other line the 12-character
+  short form. They show the short form.
+- `--close` with `--land` printed the commit's "kept local, `vc-x1 push` publishes it" just
+  before the Land published it. The commit now knows a Land follows, `land_follows` in its
+  params, and says it is kept local until that Land.
+- The Land's last line named `vc-x1 install` in every workspace. It names it only where the
+  config has `[install]` or `[build]`, the artifact being the project's.
+  - A unit test covers both branches, since no workspace the rehearsal or `init` makes has
+    either table, and this repo cannot Land itself mid-cycle.
+- A single-step cycle's block reached `## Closed` with the scaffold's opening and closing rung
+  subsections, for commits it never had. The closing drops its `#### Rungs` item, the ladder
+  having been read from it first. The opening's scaffold text no longer says "bump the
+  version-of-record", which assumed a version the workspace may not have.
+- `cycle --status` said a closed cycle was "landed or its bookmark gone". It finds the landmark,
+  the commit of the bare title or its closing's, among the commits a bookmark reaches, and says
+  "landed on 'main'", or that no bookmark holds it.
+- Not changed: `delete-bookmark`'s own lines, which show full ids, and its undo hint needs one.
+  wink (2026-11-13): as it is, the command possibly to be dropped.
+- `agent-data/cycle-model.md` is rewritten whole, wink's ask: who writes what, the tool or the
+  planner, the scaffold's wording, the ladder made from the headings, a multi-step specimen with
+  its rung's intent and then its delta, and a single-step specimen as `## Closed` holds it, with
+  no rung subsections. Its acceptance check named `config --validate`, retired, now
+  `validate-config`. The set is `v0.3.1-12`.
+- Item 2's reversal of the deliberation stands, wink's call, for now.
+- Found running these fixes in a throwaway `~/tmp/t17` (wink, 2026-11-13), and fixed here:
+  - A `## Closed` with no intro text got the moved block right under its heading, no blank line
+    between. The move now puts one there whatever precedes the block.
+  - A closing moved Problem, Solution, and Acceptance check to `## Closed` still reading the
+    scaffold's `_To write._`, saying nothing. `--close` warns, naming each, and does not refuse,
+    wink's call: a record that says nothing is easy to land by accident and hard to fix after.
+
 ##### feat: improve vc-x1 cycle flow closing
 
 Closing out the cycle.
