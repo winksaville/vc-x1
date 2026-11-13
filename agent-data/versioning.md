@@ -167,7 +167,9 @@ Disambiguation:
 
 Bump the version-of-record at the start of every step (the per-commit checklist carries the step),
 so the manifest always records the commit it will be part of and, per the preference above, every
-commit carries a distinct version.
+commit carries a distinct version. The bump is the project's, by its own tool, and `vc-x1` never
+writes a version: with `[version] file` and `pattern` in the config it refuses a commit that
+leaves the version's line unchanged, and `--same-version` commits it as it is.
 
 ## Agent-files version
 

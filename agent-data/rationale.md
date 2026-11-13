@@ -49,15 +49,20 @@ differently next time.
 files", an earlier name for the agent-files. "Ladder (sub-cycle)" for a local ladder, under [Local
 ladders](#local-ladders). "Project layer" (2026-10-18), the project's own agent-files, retired when
 the one file it named became local ([custom.md](#custommd)). "Trunk" (2026-11-10), the one bookmark
-every cycle was assumed to land on, `[cycle] trunk` else `main`, retired for the target, named by
-`--onto` at each closing.
+every cycle was assumed to land on, `[cycle] trunk` else `main`, retired for the target, named on
+the command each time. "`--onto`" (2026-11-11), the closing's flag for the target, retired with
+`commit --closing` for `cycle --close --trapezoid <target>` and `cycle --land <target>`.
 
 **No target is assumed** (wink, 2026-11-10) because a bookmark made is likely, not certainly, the
 one a cycle lands on, and a release branch is a target as much as `main` is. A default would guess,
-and a required `--onto` costs one flag per closing. What is history, which `squash` and `trailers`
-refuse to rewrite without `--ignore-immutable`, is jj's `immutable()`, configured in jj, so vc-x1
-keeps no list of shared lines, and pushing a cycle's bookmark for a backup does not make its rungs
-history: pushing is not dangerous in itself.
+and naming it costs one word per Land. It is stored nowhere, the cycle's bookmark being its
+title's slug and its branch the commits no other bookmark reaches (wink + agent, 2026-11-11). What
+is history, which `squash` and `trailers` refuse to rewrite without `--ignore-immutable`, is jj's
+`immutable()`, configured in jj, so vc-x1 keeps no list of shared lines, and pushing a cycle's
+bookmark for a backup does not make its rungs history: pushing is not dangerous in itself.
+
+**Two kinds of push are named** (wink + agent, 2026-11-11) because "push" meant both a backup of a
+draft and the act that makes a cycle permanent, and only the second ends a cycle.
 
 ## The dual-repo model
 
@@ -167,6 +172,27 @@ The tool tells the shapes apart by counting, with no title to read, and a cycle 
 shape before its first commit: it is single-step until a second commit makes it a ladder. A dead end
 lands because its commits are named by agent-repo trailers, and landing keeps every rung reachable.
 
+**One command, its stages flags** (wink, 2026-11-11): `commit` made a rung, an opening, a closing
+that was a merge or a rewrite in place, moved the record, landed, pushed, and described an older
+commit, and most of the flow's surprises were in how those flags combined. `cycle --open`,
+`--commit`, `--close`, and `--land` take the cycle's acts out of it, flags and not subcommands
+because every `vc-x1` command is `command --options`, and the opening is the first commit, seen
+and not flagged, since `--open` and `--opening` differed by three letters and meant two things.
+
+**Every cycle has an opening and a closing** (wink, 2026-11-11), and in a single-step cycle the
+closing is squashed into the opening, so there is one flow and the shape picks the commits.
+
+**The shape is named, the count checks it** (wink, 2026-11-13), where the count alone had decided
+it since 2026-11-11. The count is unambiguous over no commit and over two or more, and over one it
+guessed: a single-step cycle whose opening was committed early and a ladder with only its opening
+made are the same branch, and the guess squashed the second's closing into its opening, retitling
+it. Named at the closing, the shape is still decided only when it is known, and the count turns a
+wrong name into a refusal. Found testing in `~/tmp/wt-21-6`.
+
+**Linear is the user's to ask for**: a trapezoid joins a target that moved and keeps one commit per
+cycle on the first-parent line, so the rules close with `--trapezoid`, and the flag being the
+trapezoid's is wink's design (2026-11-10), a closing without it being a plain commit.
+
 ### Unplanned work
 
 The docs interlude, a commit landed on `main`'s line between cycles, is retired (2026-08-27). A
@@ -205,13 +231,22 @@ in the index, were kept in step by hand at every rung, and zed's markdown previe
 another file but not one within the same file, so only the index's ladder could be clicked through.
 The closing keeps it because the landmark should hold the finished ladder beside the finished block,
 as `## Closed` is deleted by the next opening rather than by the closing.
+
+**The ladder is made, not typed** (wink + agent, 2026-11-11): a rung was written twice, a line in
+`zTOC.md` and a heading in `TODO.md`, and its markers flipped by hand, so the two could differ and
+a marker be wrong. The heading is the one place, and the markers are computed from the commits.
+The ladder stays markdown because `zTOC.md`'s purpose is that it is clickable, so its grammar is
+strict and the tool enforces it, a coding requirement being a higher bar than a naming protocol:
+every commit of a cycle matches a rung, or the tool errors.
+
 ### Opening
 
 `## Waiting` is checked at the opening because that is the moment a choice is being made, and a
 blocked entry cannot hold a place in the order: the first entry means "next", and a blocked entry
 there would say "do this" to every reader when the answer is "cannot" (wink, 2026-08-27).
 
-**The bookmark is made first, by `vc-x1 open`** (wink, 2026-11-10), because the record, the
+**The bookmark is made first, by `vc-x1 cycle --open`** (wink, 2026-11-10, `vc-x1 open` until
+2026-11-11), because the record, the
 ladder, and the bump are a cycle's first edits, and made before its bookmark they sit on no branch,
 a single-step cycle's included. It goes on `@`, so it follows the change into the opening, and a
 command makes it rather than `jj bookmark create` for the name, the title's slug by the anchor
@@ -229,6 +264,12 @@ spawns](https://github.com/winksaville/vc-x1/blob/2dc8d969c3f3/notes/chores/chor
 Being provisional,
 the check can also be revised *toward* what was achieved, which is the same failure by a slower
 route, so a changed check is one of the things the deliberation exists to justify.
+
+**Deliberation comes before the opening commit** (wink, 2026-11-11), so the opening carries the
+plan and its review is of the plan, before any work. The cost is a working copy uncommitted while
+the plan is talked through, so the user is free to commit the setup first. `cycle --open` writes
+the record's mechanical parts, whose shape the agent-files define, so the tool knows them without
+knowing the work.
 
 ### The per-rung flow
 
@@ -258,6 +299,13 @@ collapses two stops into one and describes work the review may still change.
 reshape the work the marker would claim.
 
 **Never `jj edit -r @-` to view a past commit**: it marks the commit mutable and shifts `@`.
+
+**The version is the project's** (wink, 2026-11-11): `vc-x1` manages cycles and not the work, and
+a version's file and form are the work's, so it never bumps one, now or later. It can still notice
+a rung committed without its bump, by a file and a pattern the config names, which needs no
+knowledge of the manifest. The flag that commits anyway is named, `--same-version`, and not
+`--yes`, which is the user's approval of a forced push and would become a switch for any question.
+The marker steps left the flow with the ladder becoming the tool's.
 
 ### Committing vs pushing
 
@@ -328,7 +376,7 @@ none until it is published for merging, and even then a mistake found after the 
 amend, so a rewrite is the user's choice, made each time. Only the `--yes` flag answers in
 advance, since a configured default is set once and then protects nothing. The agent-repo is
 personal but public, observed rather than cloned, so its forced update moves no one's history.
-`push` asks as `squash-push` does, one rule for a forced push, and `land` and `commit` refuse one,
+`push` asks as `squash-push` does, one rule for a forced push, and `cycle` and `commit` refuse one,
 since theirs are fast-forwards and a forced one is a surprise (wink, 2026-11-09). jj-lib forces
 every push, with a lease, so the bookmark push under them all refuses a forced push its caller did
 not ask about, and none is made silently.
@@ -386,6 +434,19 @@ Each close-out step exists because a close-out once went wrong without it.
   a row found bullets whose facts had no other home, a host's clock episode among them, and the
   rule as written told the reader to destroy the only copy.
 
+**The acceptance check runs at both ends of the closing** (wink, 2026-11-11): first, so the closing
+commit has a result to record, and last, on the closed tree, which is the tree that lands when the
+Land is a fast-forward. Every work rung then has its own test and no more, where the last work
+rung carrying the check made one rung unlike the others.
+
+**The way back from a fault is the user's choice** (wink, 2026-11-11): reopen, fix inside, fix on
+top, or their own, since the test itself may be what is wrong. So the rule is to stop and ask, and
+the tool's part is to refuse none of them.
+
+**A Land fast-forwards by default and may merge** (wink, 2026-11-11): the fast-forward lands the
+tree that was tested, and a merge at the Land makes a commit no rung validated, which the user
+accepts by asking for it.
+
 ### Local ladders
 
 Retired name: "Ladder (sub-cycle)", which collided with the working record's `#### Ladder`. That
@@ -416,6 +477,15 @@ agent's commands carry heredocs and quoted programs whose `;` only a shell parse
 a guard that stops legitimate scripts gets removed. Matching hooks run in parallel and `deny` wins
 over `bash-allow.sh`'s `allow` (https://code.claude.com/docs/en/hooks, PreToolUse decision
 control). The hooks are in the set so they travel with the rules they serve.
+
+**Long output keeps a file and shows a tail** (wink + agent, 2026-11-11): a validation printed
+every compile line and 869 test lines, the Bash tool returned its first part, and the agent, not
+seeing the line that said it passed, ran the whole validation again, a minute spent on a result the
+exit status had already given. The named commands are the rule and "in doubt" only its fallback,
+since a judgment is skipped exactly when the agent is confident and wrong, and the names a project
+adds are in its `custom.md` because the set names no project. The file is what makes one run
+enough: a tail alone shows the verdict and loses the failing test above it, so a failure would
+still be run twice.
 
 **Use https remotes, not ssh.** Unconditional rather than "when the agent is sandboxed" because the
 remote is chosen at clone time and whether a sandboxed agent will ever touch the repo is not

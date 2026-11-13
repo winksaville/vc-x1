@@ -45,75 +45,30 @@
 
 use std::path::{Path, PathBuf};
 
-use clap::Args;
 use log::{debug, info};
 
-use crate::commit::Skip;
 use crate::context::Context;
 use crate::desc_helpers::{
     extract_bare_id, extract_ochid_from_desc, repo_url_for, with_ochids, without_trailer_lines,
 };
 use crate::jj;
-use crate::options_flags::dry_run::DryRunFlag;
-use crate::options_flags::scope::{RepoScope, repo_scope_parser};
+use crate::options_flags::scope::RepoScope;
 use crate::options_flags::squash::SquashSpec;
-use crate::subcommand::SubcommandRunner;
 
-/// Land a cycle whose last commit is made: `--onto` fast-forwarded to
-/// `--source` and the cycle's bookmark deleted, locally unless `--push`.
-#[derive(Args, Debug)]
-pub struct LandArgs {
-    /// The cycle's last commit: a bookmark, the cycle's, or a revision,
-    /// whose current bookmark, else its nearest parent's above `--onto`,
-    /// is the cycle's [default: the one local bookmark besides `--onto`]
-    #[arg(long, value_name = "BM|REV")]
-    pub source: Option<String>,
-
-    /// The bookmark landed on, fast-forwarded to `--source`: a local
-    /// bookmark at its `origin` position that `--source` descends from
-    #[arg(long, value_name = "BOOKMARK", required = true)]
-    pub onto: String,
-
-    /// Which side of the cycle's bookmark is kept: `local`, `remote`,
-    /// or `both`, none deleted
-    #[arg(long, value_enum, value_name = "SIDE", hide_possible_values = true)]
-    pub skip: Option<Skip>,
-
-    /// Also delete the bookmarks on the commits strictly between `--onto`
-    /// and `--source`, locally and on origin, as `--skip` allows: a stack
-    /// of cycles landing together [default: named as merged and kept]
-    #[arg(long)]
-    pub delete_intermediate_bookmarks: bool,
-
-    /// Publish the Land, the work repo first, and delete the cycle's
-    /// bookmark on `origin` as well, a Land otherwise staying on the
-    /// machine
-    #[arg(long)]
-    pub push: bool,
-
-    /// Where: a path in the workspace for `-s b`, or the repo itself for
-    /// `-s p` [default: the current directory]
-    #[arg(short = 'R', long, value_name = "PATH")]
-    pub repo: Option<PathBuf>,
-
-    /// Which repos, required: `b` a dual workspace's, `p` a plain repo
-    #[arg(
-        short = 's',
-        long,
-        value_name = "SCOPE",
-        value_parser = repo_scope_parser(&["both", "por"]),
-        required = true,
-        help = "Which repos, required: `b|both` or `p|por`",
-        long_help = "Which repos, required: `b|both` a dual workspace, or `p|por` a plain repo. \
-                     `w` alone is refused, since it could publish trailers naming agent commits \
-                     not yet published, and `a` alone, which has no cycle to land"
-    )]
-    pub scope: RepoScope,
-
-    /// Make every check and say each step, and change nothing
-    #[command(flatten)]
-    pub dry_run: DryRunFlag,
+/// Which side of the cycle's bookmark a Land keeps.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum Skip {
+    /// The local bookmark is kept, only `origin`'s deleted.
+    Local,
+    /// The remote bookmark is kept, only the local one deleted.
+    Remote,
+    /// Both are kept, none deleted.
+    Both,
 }
+
+/// How the Land's messages name the command: `vc-x1 land` is retired,
+/// and `cycle --land` runs this code.
+const LABEL: &str = "cycle --land";
 
 /// Inputs to the land op, flat, owned, clap-free.
 #[derive(Debug)]
@@ -130,71 +85,14 @@ pub struct LandParams {
     pub dry_run: bool,
 }
 
-impl TryFrom<&LandArgs> for LandParams {
-    type Error = String;
-
-    /// Resolve the scope to the repo the Land moves bookmarks in.
-    fn try_from(a: &LandArgs) -> Result<Self, String> {
-        let repo = match &a.scope {
-            RepoScope::Por => {
-                let repos = crate::common::resolve_scoped_repos(&a.scope, a.repo.as_deref())
-                    .map_err(|e| e.to_string())?;
-                match repos.as_slice() {
-                    [repo] => repo.clone(),
-                    other => {
-                        return Err(format!("land -s p: expected one repo, got {}", other.len()));
-                    }
-                }
-            }
-            RepoScope::Sides(sides) if sides.is_both() => {
-                crate::pair::resolve_pair(a.repo.as_deref())
-                    .map_err(|e| e.to_string())?
-                    .work
-            }
-            RepoScope::Sides(_) => {
-                return Err(
-                    "land: a work-only Land would publish trailers naming agent commits its \
-                     agent half may not have published, and the agent repo alone has no cycle to \
-                     land, so the scope is `-s b`, or `-s p` for a plain repo"
-                        .into(),
-                );
-            }
-        };
-        Ok(LandParams {
-            repo,
-            scope: a.scope.clone(),
-            source: a.source.clone(),
-            onto: a.onto.clone(),
-            skip: a.skip,
-            delete_intermediate: a.delete_intermediate_bookmarks,
-            push: a.push,
-            dry_run: a.dry_run.value,
-        })
-    }
-}
-
-impl SubcommandRunner for LandArgs {
-    type Params = LandParams;
-
-    /// Delegate to the `TryFrom<&LandArgs>` impl above.
-    fn to_params(&self) -> Result<Self::Params, String> {
-        LandParams::try_from(self)
-    }
-
-    /// Run the `land` op.
-    fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
-        land(ctx, params)
-    }
-}
-
 /// Entry point: resolve `--source` and the cycle's bookmark, plan the
 /// Land, refusing before anything moves, and run it.
 pub fn land(ctx: &mut Context, params: &LandParams) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("land: enter {params:?}");
+    debug!("{LABEL}: enter {params:?}");
     let repo = params.repo.as_path();
     if !jj::local_bookmark_exists(repo, &params.onto)? {
         return Err(format!(
-            "land: '{}' is not a local bookmark, and Land moves one",
+            "{LABEL}: '{}' is not a local bookmark, and Land moves one",
             params.onto
         )
         .into());
@@ -203,29 +101,29 @@ pub fn land(ctx: &mut Context, params: &LandParams) -> Result<(), Box<dyn std::e
         Some(s) => s.clone(),
         None => default_source(repo, &params.onto)?,
     };
-    let tip = resolve_tip(repo, "land", &source)?;
+    let tip = resolve_tip(repo, LABEL, &source)?;
     if jj::cid_of(repo, &params.onto)? == tip {
         return Err(format!(
-            "land: '{}' is at '{source}' already, so there is nothing to land",
+            "{LABEL}: '{}' is at '{source}' already, so there is nothing to land",
             params.onto
         )
         .into());
     }
-    let bookmark = cycle_bookmark(repo, "land", "--source", &source, &params.onto, &tip)?;
+    let bookmark = cycle_bookmark(repo, LABEL, "--bookmark", &source, &params.onto, &tip)?;
     if bookmark.is_none() {
         info!(
-            "land: no bookmark on the branch above '{}', so none is deleted",
+            "{LABEL}: no bookmark on the branch above '{}', so none is deleted",
             params.onto
         );
     }
     let plan = plan(
         repo,
-        "land",
         params.onto.clone(),
         &tip,
         bookmark.as_deref(),
         params.skip,
         params.delete_intermediate,
+        matches!(params.scope, RepoScope::Por),
     )?;
     run(
         ctx,
@@ -241,8 +139,9 @@ pub fn land(ctx: &mut Context, params: &LandParams) -> Result<(), Box<dyn std::e
     )
 }
 
-/// `--source` left out: the one local bookmark besides `onto`, refused
-/// with the list when there are several, since naming one settles it.
+/// The cycle's bookmark left unnamed: the one local bookmark besides
+/// `onto`, refused with the list when there are several, since naming
+/// one, `--bookmark`, settles it.
 pub(crate) fn default_source(
     repo: &Path,
     onto: &str,
@@ -251,16 +150,18 @@ pub(crate) fn default_source(
     found.retain(|b| b != onto);
     match found.as_slice() {
         [one] => {
-            info!("land: --source is '{one}', the one local bookmark besides '{onto}'");
+            info!(
+                "{LABEL}: the cycle's bookmark is '{one}', the one local bookmark besides '{onto}'"
+            );
             Ok(one.clone())
         }
         [] => Err(format!(
-            "land: there is no local bookmark besides '{onto}', so there is nothing to land"
+            "{LABEL}: there is no local bookmark besides '{onto}', so there is nothing to land"
         )
         .into()),
         several => Err(format!(
-            "land: there are several local bookmarks besides '{onto}', {}, so which is the \
-             source is not known: name it, --source <BM|REV>",
+            "{LABEL}: there are several local bookmarks besides '{onto}', {}, so which is the \
+             cycle's is not known: name it, --bookmark <NAME>",
             several.join(", ")
         )
         .into()),
@@ -324,6 +225,79 @@ pub(crate) fn cycle_bookmark(
     }
 }
 
+/// A commit id cut to the length the ids are shown at.
+fn short(id: &str) -> String {
+    id.chars()
+        .take(crate::desc_helpers::DEFAULT_ID_LEN)
+        .collect()
+}
+
+/// The install the Land's last line names, when the workspace's config
+/// has one: the artifact is the project's, so a workspace with no
+/// `[install]` is told nothing.
+fn install_hint(repo: &Path) -> String {
+    let configured = crate::config_md::load(repo)
+        .ok()
+        .flatten()
+        .is_some_and(|cfg| {
+            cfg.map
+                .keys()
+                .any(|k| k.starts_with("install.") || k.starts_with("build."))
+        });
+    match configured {
+        true => " `vc-x1 install` installs the artifact".to_string(),
+        false => String::new(),
+    }
+}
+
+/// The refusal of a target that is not where its `origin` is, naming
+/// the way on by how the two stand: one only behind is brought up by
+/// a sync, one only ahead, or absent there, is published by a push,
+/// and two that diverged are the user's to reconcile first.
+pub(crate) fn not_at_origin(
+    repo: &Path,
+    label: &str,
+    onto: &str,
+    local: &str,
+    remote: Option<&str>,
+    plain: bool,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let short = |id: &str| -> String {
+        id.chars()
+            .take(crate::desc_helpers::DEFAULT_ID_LEN)
+            .collect()
+    };
+    let scope = if plain { "p" } else { "b" };
+    // `-r` publishes the bookmark where it is, which `--bookmark` does
+    // only when it sits at the work `@-`.
+    let push = format!("`vc-x1 push -s {scope} -r {onto}` publishes it first");
+    let Some(remote) = remote else {
+        return Ok(format!(
+            "{label}: '{onto}' is at {} locally and is not on origin, so a Land has nothing \
+             published to fast-forward from: {push}",
+            short(local)
+        ));
+    };
+    let at = format!(
+        "'{onto}' is at {} locally and {} on origin",
+        short(local),
+        short(remote)
+    );
+    Ok(if jj::matches(repo, &format!("{remote} & ::{local}"))? {
+        format!("{label}: {at}, ahead with commits not yet published: {push}")
+    } else if jj::matches(repo, &format!("{local} & ::{remote}"))? {
+        format!(
+            "{label}: {at}, behind with commits not yet fetched: `vc-x1 sync -s {scope}` brings it \
+             up to date"
+        )
+    } else {
+        format!(
+            "{label}: {at}, and the two have diverged, each with commits the other lacks: \
+             reconcile them first, a sync refusing until then"
+        )
+    })
+}
+
 /// A Land planned before anything is made: the `--onto` bookmark and where it is,
 /// and the cycle's own bookmark, deleted after, `skip` keeping a side.
 #[derive(Debug)]
@@ -350,16 +324,16 @@ pub(crate) struct LandPlan {
 /// and with `delete_intermediate` the bookmarks strictly between too.
 pub(crate) fn plan(
     repo: &Path,
-    label: &'static str,
     onto: String,
     tip: &str,
     bookmark: Option<&str>,
     skip: Option<Skip>,
     delete_intermediate: bool,
+    plain: bool,
 ) -> Result<LandPlan, Box<dyn std::error::Error>> {
     if !jj::local_bookmark_exists(repo, &onto)? {
         return Err(
-            format!("{label}: '{onto}' is not a local bookmark, and Land moves one").into(),
+            format!("{LABEL}: '{onto}' is not a local bookmark, and Land moves one").into(),
         );
     }
     let onto_cid = jj::cid_of(repo, &onto)?;
@@ -367,16 +341,11 @@ pub(crate) fn plan(
         .get(&onto)
         .cloned();
     if remote.as_deref() != Some(onto_cid.as_str()) {
-        return Err(format!(
-            "{label}: '{onto}' is at {onto_cid} locally and {} on origin: sync first, \
-             since a bookmark that moved stops a Land",
-            remote.as_deref().unwrap_or("absent")
-        )
-        .into());
+        return Err(not_at_origin(repo, LABEL, &onto, &onto_cid, remote.as_deref(), plain)?.into());
     }
     if !jj::matches(repo, &format!("{onto_cid} & ::({tip})"))? {
         return Err(format!(
-            "{label}: the branch does not descend from '{onto}' at {onto_cid}, so \
+            "{LABEL}: the branch does not descend from '{onto}' at {onto_cid}, so \
              '{onto}' moved since the fork and the Land would carry a tree no validation saw: rebase \
              the branch onto it first"
         )
@@ -397,14 +366,15 @@ pub(crate) fn plan(
         Vec::new()
     };
     info!(
-        "{label}: land onto '{onto}' at {onto_cid}, the cycle's bookmark {}",
+        "{LABEL}: land onto '{onto}' at {}, the cycle's bookmark {}",
+        short(&onto_cid),
         topic
             .as_deref()
             .map(|t| format!("'{t}'"))
             .unwrap_or_else(|| "none".into())
     );
     Ok(LandPlan {
-        label,
+        label: LABEL,
         onto,
         onto_cid,
         topic,
@@ -543,7 +513,10 @@ pub(crate) fn run(
             },
         )?;
     }
-    info!("{label}:{tag} fast-forward '{onto}' from {onto_cid} to {what}");
+    info!(
+        "{label}:{tag} fast-forward '{onto}' from {} to {what}",
+        short(onto_cid)
+    );
     if !dry {
         ctx.session(repo)?.bookmark_set(onto, &target_chid)?;
     }
@@ -620,20 +593,20 @@ pub(crate) fn run(
     if !dry && push {
         info!(
             "{label}: landed on '{onto}', the undo being a revert, '{onto}' having moved \
-             from {onto_cid}. `vc-x1 install` installs the artifact"
+             from {}.{}",
+            short(onto_cid),
+            install_hint(repo)
         );
     } else if !dry {
         let flag = if pair.is_some() { "b" } else { "p" };
-        let publish = if at_work_head {
-            format!("`vc-x1 push -s {flag} --bookmark {onto}`")
-        } else if pair.is_some() {
-            format!("`vc-x1 push -s w -r {onto}` and `vc-x1 push -s a`")
-        } else {
-            format!("`vc-x1 push -s p -r {onto}`")
-        };
+        // `cycle --push` reads what the Land left and publishes it, the
+        // target and the cycle's bookmark on origin, wherever @- is.
+        let publish = format!("`vc-x1 cycle --push -s {flag}`");
         info!(
             "{label}: landed on '{onto}' on this machine, '{onto}' having moved from \
-             {onto_cid}, and {publish} publishes it. `vc-x1 install` installs the artifact"
+             {}, and {publish} publishes it.{}",
+            short(onto_cid),
+            install_hint(repo)
         );
         for t in topic.iter().chain(intermediate) {
             if jj::remote_bookmark_targets(repo, "origin")?.contains_key(t) && keep.is_some() {
@@ -691,19 +664,44 @@ mod tests {
         local_land_params(fx, &args)
     }
 
-    /// `vc-x1 land <args>` in the fixture's work repo, parsed.
+    /// The params of a Land in the fixture's work repo, from the flags
+    /// `cycle --land` passes on, written as `vc-x1 land`'s were.
     fn local_land_params(fx: &Fixture, args: &[&str]) -> LandParams {
-        let mut argv = vec!["vc-x1", "land"];
-        argv.extend_from_slice(args);
-        let Ok(Cli {
-            command: Some(Commands::Land(mut a)),
-            ..
-        }) = Cli::try_parse_from(&argv)
-        else {
-            panic!("expected Land: {argv:?}");
+        let mut p = LandParams {
+            repo: fx.work.clone(),
+            scope: RepoScope::Sides(Scope(vec![Side::Work, Side::Bot])),
+            source: None,
+            onto: String::new(),
+            skip: None,
+            delete_intermediate: false,
+            push: false,
+            dry_run: false,
         };
-        a.repo = Some(fx.work.clone());
-        LandParams::try_from(&a).expect("land params")
+        let mut args = args.iter();
+        while let Some(flag) = args.next() {
+            let mut value = || args.next().expect("a value").to_string();
+            match *flag {
+                "-s" => {
+                    if value() == "p" {
+                        p.scope = RepoScope::Por;
+                    }
+                }
+                "--source" => p.source = Some(value()),
+                "--onto" => p.onto = value(),
+                "--skip" => {
+                    p.skip = Some(match value().as_str() {
+                        "local" => Skip::Local,
+                        "remote" => Skip::Remote,
+                        _ => Skip::Both,
+                    })
+                }
+                "--delete-intermediate-bookmarks" => p.delete_intermediate = true,
+                "--push" => p.push = true,
+                "--dry-run" => p.dry_run = true,
+                other => panic!("unknown flag {other}"),
+            }
+        }
+        p
     }
 
     /// A cycle pushed on `feat-a-cycle`: its opening and one rung.
@@ -718,9 +716,8 @@ mod tests {
                 "-s",
                 "b",
                 "--push",
-                "--opening",
                 "--title",
-                "feat: a cycle",
+                "feat: a cycle opening",
                 "--body",
                 "Why.",
             ],
@@ -753,9 +750,8 @@ mod tests {
             &[
                 "-s",
                 "w",
-                "--opening",
                 "--title",
-                "feat: a cycle",
+                "feat: a cycle opening",
                 "--body",
                 "Why.",
             ],
@@ -1021,52 +1017,20 @@ mod tests {
         jj_ok(&fx.work, &["commit", "-m", "feat: a rung"]);
         jj_ok(&fx.work, &["git", "push", "--named", "feat-a-cycle=@-"]);
         let tip = commit_id(&fx.work, "feat-a-cycle");
-        let argv = [
-            "vc-x1",
-            "land",
-            "-s",
-            "p",
-            "--source",
-            "feat-a-cycle",
-            "--onto",
-            "main",
-            "--push",
-        ];
-        let Ok(Cli {
-            command: Some(Commands::Land(mut a)),
-            ..
-        }) = Cli::try_parse_from(argv)
-        else {
-            panic!("expected Land");
+        let p = LandParams {
+            repo: fx.work.clone(),
+            scope: RepoScope::Por,
+            source: Some("feat-a-cycle".to_string()),
+            onto: "main".to_string(),
+            skip: None,
+            delete_intermediate: false,
+            push: true,
+            dry_run: false,
         };
-        a.repo = Some(fx.work.clone());
-        let p = LandParams::try_from(&a).expect("land params");
         land(&mut test_ctx(), &p).expect("landed");
         assert_eq!(commit_id(&fx.work, "main"), tip);
         assert_eq!(commit_id(&fx.work, "main@origin"), tip);
         assert!(!on_origin(&fx.work, "feat-a-cycle"), "deleted on origin");
-    }
-
-    /// `-s w` and `-s a` are refused before anything is read: a dual
-    /// workspace lands both repos together.
-    #[test]
-    fn one_side_alone_is_refused() {
-        let fx = Fixture::new("land-one-side");
-        for scope in ["w", "a"] {
-            let argv = [
-                "vc-x1", "land", "-s", scope, "--source", "main", "--onto", "main",
-            ];
-            let Ok(Cli {
-                command: Some(Commands::Land(mut a)),
-                ..
-            }) = Cli::try_parse_from(argv)
-            else {
-                panic!("expected Land");
-            };
-            a.repo = Some(fx.work.clone());
-            let err = LandParams::try_from(&a).expect_err("refused");
-            assert!(err.contains("the scope is `-s b`"), "{scope}: {err}");
-        }
     }
 
     /// A stack: `earlier` on the opening, between `main` and the tip,
@@ -1252,8 +1216,24 @@ mod tests {
             &["-s", "b", "--source", "feat-a-cycle", "--onto", "main"],
         );
         let err = land(&mut test_ctx(), &p).expect_err("refused").to_string();
-        assert!(err.contains("sync first"), "{err}");
+        assert!(
+            err.contains("ahead") && err.contains("vc-x1 push -s b -r main"),
+            "{err}"
+        );
         assert_eq!(commit_id(&fx.work, "main"), moved, "main stays");
+    }
+
+    /// The Land names `vc-x1 install` only where the workspace's config
+    /// has an install or a build, the artifact being the project's.
+    #[test]
+    fn the_install_is_named_only_when_configured() {
+        let fx = Fixture::new("land-install-hint");
+        assert_eq!(install_hint(&fx.work), "", "a fresh workspace has none");
+        let path = fx.work.join(".vc-config.md");
+        let mut cfg = fs::read_to_string(&path).expect("read the config");
+        cfg.push_str("\n```toml\n[install]\ndir = \"~/.cargo/bin\"\n```\n");
+        fs::write(&path, cfg).expect("write the config");
+        assert!(install_hint(&fx.work).contains("`vc-x1 install`"));
     }
 
     /// A fixture whose `@-` is a conflicted merge, the plan of a Land

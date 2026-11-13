@@ -10,12 +10,22 @@ The other files are listed in [zTOC.md](zTOC.md).
 Where the agent was, for the agent that comes next. Ephemeral, never a record, read first at
 acquaint, acted on, and reset to `_None._` by the reader.
 
-- **chore: complete vc-x1, ready for vc-x2** closed with vc-x2 postponed, and the next cycle is the
-  top of `## Todo`, **vc-x1's cycle flow is in good shape**. Check at acquaint that each repo's
-  `main` is at the closing, the bookmark `chore-complete-vc-x1-ready-for-vc-x2` is gone locally and
-  on `origin`, and the installed `vc-x1` is 0.85.21 built from the closing's commit.
-- `~/tmp` holds wink's test workspaces of this cycle, `wt-21-3-1`, `wt-21-6`, and `remotes`,
-  disposable once the next cycle's rehearsal replaces them.
+- **feat: improve vc-x1 cycle flow** closed (2026-11-13), its record in `## Closed`. The next
+  session checks, at acquaint:
+  - `main` at the closing, the trapezoid titled "feat: improve vc-x1 cycle flow closing", in both
+    repos and on `origin`, and the bookmark `feat-improve-vc-x1-cycle-flow` gone on both sides.
+  - The plain `vc-x1` installed from `main` after the Land, so `vc-x1 -V` reads `0.85.22` and has
+    `cycle`. Before that install only `vc-x1-dev` had it.
+- wink's testing of the cycle in `~/tmp` is part done, its plan in `~/tmp/test-plan.txt`. Steps 0
+  to 3 ran in `wt-21-6`, its record skeleton landed as a single-step cycle. Step 4, a multi-step
+  cycle counting from 0 to N, is next, and then the agent-files applied there and a session
+  started in it. `~/tmp/t17` was a throwaway for rung 17's fixes, its symlink in
+  `~/.claude/projects/-home-wink-tmp-t17` to remove with it.
+- Todo entries filed by this cycle's testing, to rank at the next opening: **vc-x1 list shows the
+  graph as jj log does**, **lookup takes seven seconds for one line**, **The completion script
+  calls the name it was typed as**, **cycle --open takes a Todo entry by number or name**, and the
+  three reshapes of a ladder, **feat: add a capability in vc-x1 to insert rung with -sw|a|b|p**,
+  **A rung is removed from a local ladder**, and **A local ladder's rungs are reordered**.
 
 ## In Progress
 
@@ -76,9 +86,10 @@ and promotes what is met ([Opening](AGENTS.md#opening)).
   root of `winksaville/vc-x2`, with a fresh `vc-x2.agent-session`, both adopted, and a continuation
   note in vc-x2's `TODO.md` handing the work to vc-x2's own session. The decisions toward it are in
   **chore: complete vc-x1, ready for vc-x2**'s record, found by `git log --grep` on its title, its
-  landmark's `## Closed` holding them. **vc-x2: a cycle command, open, close, and land** and
-  **vc-x2: the agent-repo stays on main, agent branches set aside** are vc-x2's Todos.
-  - Waits on: **vc-x1's cycle flow is in good shape** closed, its rehearsal of a single-step and a
+  landmark's `## Closed` holding them. **vc-x2: the agent-repo stays on main, agent branches set
+  aside** is vc-x2's Todo, and the cycle command it had was done in vc-x1 by **feat: improve vc-x1
+  cycle flow**.
+  - Waits on: **feat: improve vc-x1 cycle flow** closed, its rehearsal of a single-step and a
     ladder cycle running clean.
   - Place when unblocked: first.
 
@@ -88,46 +99,6 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 `###` heading, so a citation is a link to its anchor. Long-tail entries live in
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
-
-### vc-x1's cycle flow is in good shape
-
-(wink + agent, 2026-11-10) wink, running the single-step flow by hand in `~/tmp/wt-21-6`, found
-three faults in a row, fixed in **feat: open makes the cycle's bookmark first**, and vc-x2 is
-postponed until vc-x1's flow behaves predictably. The acceptance check gives "good shape" a
-definition: a script runs a single-step and a ladder cycle end to end in a `~/tmp` workspace, open
-to Land, with no surprise.
-
-- The rehearsal script, first, since it turns the testing by hand into a repeatable run and shows
-  what else is broken.
-- commit moves only the bookmark it is asked to: it advances the line's nearest bookmark, a guess
-  that advanced `main` in `wt-21-6`. We think `vc-x1 open` records the cycle's bookmark, commit
-  advances that one alone, and with none recorded nothing moves and commit says so.
-- The closing says what it joins, its shape, and where it lands, wink's design (2026-11-10):
-  `commit -s <b|w|p> --closing [REV,...] [--trapezoid <T>] [--land <T>] [--push] [--title ..]
-  [--body ..]`.
-  - `--closing` lists the heads joined, `@` when none is listed. The closing is always made from
-    `@`, each head listed another parent, so a bushy tree closes in one merge. A tip elsewhere is
-    reached by moving `@` there first, and the detour goes.
-  - `--trapezoid <T>` makes it a trapezoid, `T` the first parent, and without it the closing is
-    linear, a plain commit or a merge of the heads alone, which builds the linear shape and retires
-    `--shape`. "Trapezoid" is Terminology's word, the flag naming what it makes.
-  - `--land <T>` lands on `T` once everything is made, taking a value again, since a linear closing
-    has no target of its own. `--trapezoid main --land main` repeats the name, explicit, and a
-    mismatch is the Land's fast-forward check's to refuse. `--onto` leaves `commit`, kept by `vc-x1
-    land --onto`, the destination, as `--land` is.
-  - `--push` publishes the target and deletes the cycle's bookmark on `origin` with `--land`, and
-    without it the closing on the cycle's bookmark, a draft. `-s`, `--title`, and `--body` are as
-    now, the title and body read from an opening when there is one.
-  - To decide: a single-step cycle whose opening is committed, finalized in place today, keeps that
-    or gets a closing commit above it, and a linear closing whose target moved is refused before
-    anything is made, naming `--trapezoid` as the way to join it.
-  - It replaces rung 5's required `--onto`, rung 6's refusal of `--land <value>`, and the
-    questions of a bare `--closing` and of keeping `commit --land`.
-- **push only publishes** and **validate-desc shows a note as part of its row**, below, as rungs
-  if they fit.
-- Found at the closing of **chore: complete vc-x1, ready for vc-x2**: `validate-desc -r` takes
-  `::main` and scans one commit without a word, and `clone` into a scratch directory leaves a
-  Claude Code symlink in `~/.claude/projects`.
 
 ### Work in progress is durable and continues on any machine
 
@@ -1396,23 +1367,200 @@ several agent commits needs a way to be written, for a rung that outlives an age
   the work commit, since that commit is no longer edited. The fallback for carrying the agent commit's
   SHA is then the next work commit.
 
-### vc-x2: a cycle command, open, close, and land
+### cycle --open takes a Todo entry by number or name
 
-(wink + agent, 2026-11-10) The cycle protocol's commands are spread over `open`, `commit
---opening`, `commit --closing`, and `land`, so `commit` does both committing and the cycle's
-bookends. One `cycle` command holding open, close, and land gives the protocol one home, and
-`commit` only commits. For vc-x2, a rename across the agent-files, README, the help, and the tests.
+(wink, 2026-11-13) `cycle --open --title` moves the `## Todo` entry whose `###` heading is the
+title exactly, and with any other title writes an empty scaffold and leaves the entry where it is.
+Found testing in `~/tmp/t17`, where an entry was meant and its heading had to be retyped.
 
-- `cycle open` is `open`, the bookmark made first. It cannot make the opening commit, which comes
-  after the record, the ladder, and the bump, so the opening keeps two moments, and `--opening`
-  shrinks to the bookend title and its check, or goes.
-- `cycle close` is `commit --closing`, still a pair commit with a title, a body, `-s`, and the
-  record move, so it calls `commit`'s machinery. `cycle land` is `land`.
-- The shape is open: verbs as subcommands, `cycle open`, as **bookmark takes create, delete, and
-  move** chose, or flags, `cycle --open`, as **A hyphenated subcommand becomes a command and a
-  flag** prefers and the leaning against several positionals.
-- Decided with **vc-x1 do runs a recipe of vc-x1 commands** and **close, land, and push compose
-  with testing, to re-deliberate**, which cover the same commands.
+- We think `--todo <N|TEXT>` picks it: a number is its position in `## Todo`, 1 the top, and text
+  matches a heading case-insensitively, by prefix and then anywhere, several matches refused with
+  their numbers.
+- The heading becomes the cycle title, so `--title` is then optional, and given with `--todo` it
+  renames, the entry's text moving under the new title. That serves a heading that is no
+  Conventional Commit or is over 50 characters, as this cycle's own entry was.
+- `--dry-run` names the entry found, and `cycle --open --todo <tab>` completes the headings, read
+  from `TODO.md` by the dynamic completion `vc-x1` has.
+- `--open` with neither `--todo` nor `--title` stays an error, no entry taken by default.
+
+### The completion script calls the name it was typed as
+
+(wink + agent, 2026-11-12) `vc-x1 cy<tab>` completed to `cycle` with the installed `vc-x1` at
+0.85.21, which has no such command. The bash scripts `COMPLETE=bash vc-x1` and `COMPLETE=bash
+vc-x1-dev` print define one function, `_clap_complete_vc_x1`, named for the package, and each
+hard-codes the binary it calls, `"vc-x1"` or `"vc-x1-dev"`. Sourced one after the other, the
+second replaces the first, so both names complete by whichever build was sourced last.
+
+- wink's `.bashrc` works around it with a `sed` on each script, the call rewritten to
+  `"${words[0]}"`, the name typed. The fix is that the script needs no `sed`.
+- We think either does it: the function named for the binary it was invoked as, as `main.rs`
+  already sets the bin name, so two builds define two functions, or the script calling
+  `"${words[0]}"` itself. The second also serves a copy under a third name.
+- `run_cmd::forward_completion` and `tests/cli_complete.rs` are where completion is handled and
+  tested. The other shells' scripts are to check for the same collision.
+- Found in **feat: improve vc-x1 cycle flow**, which is not its cause: any two builds whose
+  commands differ show it.
+
+### lookup takes seven seconds for one line
+
+(wink + agent, 2026-11-12) `vc-x1 lookup --line src/cycle.rs:1` takes 7.3 s in a release build
+and 1 m 11 s in the dev build, `vc-x1-dev`, which is unoptimized, the same code in both. Profiled
+in the release build, 2994 samples, the time is in three places, none of them the answer's own
+work:
+
+- About 45% is building a substring searcher, `memchr`'s `twoway::Finder::new` and
+  `build_forward_with_ranker`. It is blame's reach back, `reach_back` in `src/lookup/blame.rs`,
+  whose revset is `roots(diff_lines(substring:"<the line>") & ::<commit>)`: jj-lib diffs every
+  ancestor, 708 commits here, and its substring match builds the searcher again for every line
+  of every diff. Reading those commits is another 5%, in `zlib`'s inflate.
+  - We think a pattern compiled once, `regex:` with the line escaped, removes most of it, and a
+    file argument to `diff_lines` narrows the diffs read, at the cost of a line that moved
+    between files. The rebuild per line is jj-lib's, and worth reporting there.
+- About 20% is the timeline, `Timeline::load` in `src/lookup/window.rs`, which reads and parses
+  every `.jsonl` at the agent-repo's root on every run: 251 files, 610 MB, 252 thousand lines
+  here, each line a full `serde_json::Value`. It grows with every session.
+  - We think it loads only the sessions at or after the window's first, parses only the fields
+    it places an entry by, or keeps an index in `tmp-durable/`, which the scratch-file rule
+    already names as the place for one.
+- Under a second, as a trace timed it, is freeing the parsed timeline after the answer is
+  printed, which an exit without the drop saves.
+
+How it was measured, to measure again: `perf record -e cpu-clock:u --call-graph dwarf,16384
+--user-callchains -F 499 -o tmp/perf.data <binary> lookup --line src/cycle.rs:1`, then `perf
+report -i tmp/perf.data --no-children --sort symbol --stdio`. With `perf_event_paranoid` at 2 a
+plain `-g` is refused, since it asks for the kernel's call chains too, and `--user-callchains` is
+what it needs. The release binary carries no debug info, so the callers were read from the
+source and not from the chains. Found in **feat: improve vc-x1 cycle flow**, which did not
+change `lookup`.
+
+### vc-x1 list shows the graph as jj log does
+
+(wink, 2026-11-13) `vc-x1 list` prints one line per commit, its change id, its partner's change
+id from the `ochid:` trailer, and its title, newest first. Reading a workspace's state, as in the
+test of `~/tmp/wt-21-6` that day, took `jj log -r 'all()'` instead, since only it shows what
+`list` leaves out:
+
+- The graph: the lines, a merge's two parents, a trapezoid's figure, and which commits are
+  immutable.
+- The bookmarks with their remote state, `main*` for a local `main` ahead of `origin` and
+  `main@origin` where the remote is, which is what showed that `wt-21-6`'s `main` was unpublished.
+- Author, time, and commit id, and `(empty)`.
+
+`list` keeps what `jj log` lacks, the partner's change id, and should keep the two repos side by
+side under `-s both`.
+
+- We think the graph is jj-lib's: jj's own `jj log` draws it with the `renderdag` crate jj-cli
+  uses, so `list` would take the same, or a template, the partner column added to it.
+- `-r` takes a revision with its own `..` notation, and `-r '::@'` is an error, the `::` doubled
+  into `::::@`, so `-r 'all()'` may be refused the same way. Its revset handling is to check first.
+- Its default is `@` and the commits below it to `-n`. `all()`, or the cycle's branch with
+  `main`, may be the better default for reading a workspace's state.
+- Found in **feat: improve vc-x1 cycle flow**'s testing, not caused by it.
+
+### validate-anchors misses a citation after a wrapped code span
+
+`vc-config-model.md` cites `[[30]]` right after a code span that wraps across two lines, `cargo`
+and `test`, and `vc-x1 validate-anchors` reports `[30]` as defined and never cited, on `main` too
+(2026-11-11). We think the code spans are blanked a line at a time, so the span's second half
+opens one that swallows the citation. The model is generated, so either the check or the wrap
+changes. Found by **feat: improve vc-x1 cycle flow**.
+
+### validate-desc -r takes a revset without a word, and clone leaves a symlink
+
+(wink + agent, 2026-11-10) Found at the closing of **chore: complete vc-x1, ready for vc-x2**, and
+carried by **feat: improve vc-x1 cycle flow**, whose ladder left them out.
+
+- `validate-desc -r '::main'` scans one commit, `main`, without a word, a revset form the flag's
+  help does not promise. `-r main -n 5000` scans the history.
+- `clone` into a scratch directory leaves a Claude Code symlink for it in `~/.claude/projects`,
+  removed by hand.
+
+### Two cycles in flight conflict in the record and the version
+
+(wink + agent, 2026-11-11) Every cycle edits `TODO.md`, `zTOC.md`, and the version in `Cargo.toml`,
+so two cycles in flight conflict in all three at any merge or rebase, whatever the code did. One
+cycle at a time has hidden it, and **Parallel cycles** and **vc-x2: cycle --rebase moves a cycle
+onto a destination that moved** both meet it. Found in **feat: improve vc-x1 cycle flow**.
+
+- We think the record wants a file per cycle, or a home outside the shared files, and the version
+  a scheme two cycles can each advance.
+
+### feat: add a capability in vc-x1 to insert rung with -sw|a|b|p
+
+(wink + agent, 2026-11-11) A rung found to belong earlier in a local ladder can only be appended:
+`cycle --commit` commits the work `@` at the tip. An insert puts a rung between two that are made,
+in the work-repo, the agent-repo, or both, and it is the first of three ways to reshape a local
+ladder, with **A rung is removed from a local ladder** and **A local ladder's rungs are
+reordered**. None is built. They wait for one exhaustive experiment, run on a throwaway workspace
+as `scripts/cycle-rehearsal.sh` makes one, to find the gotchas before a flag is designed. Raised
+in **feat: improve vc-x1 cycle flow**, whose own late rung was appended and not inserted.
+
+What is known going in:
+
+- Work-repo: `jj new --insert-after <rung>` makes the node and rebases the commits above it,
+  which keep their change ids, so every `ochid:` naming them stays right.
+  - The commits above conflict in what every rung edits: the version's line, `Cargo.lock`,
+    `zTOC.md`, and `TODO.md`. It is **Two cycles in flight conflict in the record and the
+    version** met inside one cycle.
+  - `cycle --commit` cannot commit the inserted rung, since the cycle's bookmark is above it and
+    the bookmark advanced must be at or below the commit. `commit -r <rev> --no-advance` stamps a
+    commit made by hand, the way that works today.
+  - Each rung above is a tree no validation saw, so each is validated again.
+- Agent-repo: the node goes in first, so the session's record of the work accrues in it.
+  - The agent `@` is the live session. Moving it checks out an older tree, which rewrites the
+    transcript file on disk while the harness appends to it. Untried.
+  - One session is one transcript file, so a node inserted during a session appends to the file
+    the commits above also append to, and they conflict. We think one session per rung, the
+    node inserted and the agent restarted, makes it clean, a new session writing a new file.
+  - `jj commit` on an `@` that is not the head leaves the new `@` beside the commits above, so it
+    is put back on the tip after.
+  - The Land reads the agent `@-` in places, and has not been tried with an agent `@` mid-line.
+- The scopes: `w` and `p` insert a work rung, `b` the pair, and `a` an agent node alone, a side
+  conversation. It may be about an earlier rung, linked by `--covers`, or off topic, with no
+  `ochid:`. The link is by change id, so an agent commit appended at the tip is already tied to
+  its rung, and the experiment decides whether `a` needs an insert at all.
+- Not dangerous: while the commits above are local an insert only rebases them, and `jj undo`
+  takes it back. We think it follows `squash`, warning of a published draft and refusing one in
+  jj's `immutable()`, and takes no `--yes`, which is the approval of a forced push.
+
+### A rung is removed from a local ladder
+
+(wink + agent, 2026-11-11) A rung that should not have been made is removed by `jj abandon` by
+hand, with its heading and its ladder line. A remove does the three together. It is the
+dangerous one of the three reshapes, since it discards work where an insert and a reorder move
+it. Part of the experiment in **feat: add a capability in vc-x1 to insert rung with -sw|a|b|p**.
+
+- We think it is dry-run by default, as `fix-desc` and `fix-todo` are, showing what it would
+  drop and dropping it only when told, and that it takes no `--yes`.
+- The agent side: the journal is never deleted, so the rung's agent commit stays, its `ochid:`
+  naming a commit that is gone. What its trailer then says is to decide, `trailers` knowing a
+  `lost` state already.
+- A published rung's removal is a forced push, under the approval any push takes.
+
+### A local ladder's rungs are reordered
+
+(wink + agent, 2026-11-11) Two rungs committed in the wrong order are swapped by `jj rebase` by
+hand, and the ladder then disagrees with the record until the headings are moved too. A reorder
+moves the commits and the headings together and makes the ladder again. Part of the experiment
+in **feat: add a capability in vc-x1 to insert rung with -sw|a|b|p**.
+
+- It meets the insert's conflicts, in the version's line and the record, at every rung moved.
+- The agent-repo's order is the order things happened in, so we think a reorder is the
+  work-repo's alone, the pairs still linked by change id.
+
+### vc-x2: cycle --rebase moves a cycle onto a destination that moved
+
+(wink + agent, 2026-11-11) A cycle whose destination moved is joined by a merge, at the closing or
+at the Land, or rebased, and vc-x1 leaves the rebase to `jj rebase` by hand, decided in **feat:
+improve vc-x1 cycle flow**. We think it is one mode, `cycle --rebase <DEST>`, usable at any point
+before the Land, so it serves a cycle brought up to date mid-way and a linear close alike, the two
+chaining as `cycle --rebase <DEST> --close`.
+
+- It refuses a cycle whose bookmark was pushed unless the user asks, a forced push following.
+- It stops at a conflict and reports it, and says the rebased commits are new and not tested.
+- The `ochid:` trailers are change ids, which a rebase keeps, so the agent-repo needs no rewrite.
+- Every rung edits `TODO.md`, `zTOC.md`, and the version, so a rebase onto a destination where
+  another cycle landed may conflict at each rung, whatever the code did.
 
 ### vc-x2: the agent-repo stays on main, agent branches set aside
 
@@ -1929,6 +2077,8 @@ That line is 167 characters. It is a general problem: errors across the code are
   every message at once and changes none. The two compose.
 - The tests that match an error's text, `contains` on a phrase, keep passing under either, since
   neither changes the words.
+- The logger's wrap is done, in **feat: errors and warnings wrap to the terminal** of **feat:
+  improve vc-x1 cycle flow** (2026-11-13). The shape is what is left.
 
 ### Any config string references any key
 
@@ -4058,416 +4208,1044 @@ own directory) are separate traversals over the same three values today, and fou
 The last cycle's finished record, moved here whole by its closing commit and deleted by the next
 opening ([Cycle-record](AGENTS.md#cycle-record)).
 
-### chore: complete vc-x1, ready for vc-x2
+### feat: improve vc-x1 cycle flow
 
 #### Problem
 
-(wink + agent, 2026-11-06) vc-x1 is to be succeeded by vc-x2, seeded from vc-x1's tree without
-history, and before it is seeded vc-x1 must be complete as the archive vc-x2 refers back to. It is
-not:
+(wink, 2026-11-11) I want to improve the vc-x1 cycle flow so the user or agents can effectively and
+consistently follow the rules of [Agents.md Cycle Protocol](AGENTS.md#cycle-protocol). While doing
+this I expect us to modify the current Cycle Protocol so it will be as good as possible based on
+our current usage model.
 
-- 659 of its 686 work commits carry `ochid:` alone, so their agent partner is not linked by SHA
-  (`ocid:`) nor their parents (`pcid:`), and 2 carry no trailer. `trailers --update` stamps all
-  three, but only for a range above the trunk, and it has never been run over a whole history.
-- vc-x2, starting without history, reaches the why and how of its first tree only through vc-x1's
-  history, and whether `lookup` can follow it there is untested.
+(wink + agent, 2026-11-10) wink, running the single-step flow by hand in `~/tmp/wt-21-6`, found
+three faults in a row, fixed in **feat: open makes the cycle's bookmark first**, and vc-x2 is
+postponed until vc-x1's flow behaves predictably.
 
 #### Solution
 
-- `vc-x1 trailers --update --range ..@-` handles a whole history, rehearsed twice in a test repo
-  made by `init --test-repo`, the code changed for the cases vc-x1's own history holds and kept for
-  vc-x2 to inherit.
-- The trailers name the partner by `orepo:` and `ochid:` alone, `ocid:` and `pcid:` dropped, so no
-  trailer holds a SHA and a squash-push leaves both repos clean, agent-files v0.3.1-3.
-- No push is forced without asking: `push` and `squash-push` ask, `--yes` answering, and `land` and
-  `commit` refuse one, agent-files v0.3.1-4.
-- A rung commits as a pair, `commit -s b`, so each rung's transcript is its own agent commit,
-  agent-files v0.3.1-5.
-- No trunk: every target is named, `commit --closing` and `trailers` taking a required `--onto`,
-  and `[cycle] trunk` removed.
-- Branch first: `vc-x1 open` makes the cycle's bookmark on the work `@` before the opening's first
-  edit, and `commit --opening` creates nothing.
-- vc-x1's history is left as it is: `validate-desc` over it reports the known list,
-  [vc-x1-history.md](notes/vc-x1-history.md), and nothing else. A rewrite waits on the trailer
-  format vc-x2 decides, and may never be made.
-- vc-x2 is postponed: the test vc-x2 with `lookup` tried in it, and the seeding of vc-x2 after the
-  Land, are the `## Waiting` entry **vc-x2 is seeded from vc-x1**, which waits on vc-x1's cycle
-  flow running clean. The decisions toward it are this block's, in the deliberation.
+The cycle's acts moved out of `commit`, `open`, and `land` into one command, `cycle`, whose flags
+are the flow's stages: `--open`, `--ladder`, `--commit`, `--close`, `--land`, `--push`, and
+`--status`. The old spellings are retired, each refusing with the stage that replaced it, and
+`commit` is the plain commit of a pair.
+
+- The tool keeps the record's mechanical parts: `--open` writes the scaffold, the ladder is made
+  from the rung headings with its markers computed, every commit must be a rung's, and `--close`
+  moves the block, a single-step cycle's without its rungs.
+- The judgment stays the user's and the agent's, named on the command and checked by the tool:
+  the closing names its shape, `--single-step` or `--multi-step`, and every stage that writes
+  names its scope, `-s`.
+- The version is the project's. `vc-x1` never writes it and, with `[version]` in the config,
+  refuses a commit that leaves it unchanged. This repo bumps it with `cargo xtask bump`, whose
+  tasks complete in bash.
+- Pushing follows the state: a stage's `--push`, or `cycle --push` alone, publishes a draft or a
+  Land made here. A Land fast-forwards, and a target that moved is refused naming the ways on.
+- Messages say what happens and name the next command, and errors, warnings, and info wrap to the
+  terminal.
+- `scripts/cycle-rehearsal.sh` runs the flow end to end, and the agent-files describe it, the set
+  at `v0.3.1-13`.
 
 #### Acceptance check
 
-Run at the closing (2026-11-10), with the closing's build, `vc-x1-dev` 0.85.21-6, in a fresh clone
-of the real remotes:
+`scripts/cycle-rehearsal.sh` runs two single-step cycles and a ladder end to end by `cycle`'s
+flags, open to Land, in a `~/tmp` workspace that holds no cargo project, every command exiting
+zero and the script checking what each left: the bookmark, the record, the ladder's markers, the
+commits' titles and trailers, and the destination where the Land put it. It exits zero. It runs as
+the first thing in closing and again after it.
 
-- Pass: `vc-x1 validate-desc` over each side's `main` reports an `err` or a `miss` for the known
-  list's commits and for no others, 1 and 2 of 685 on the work side, 15 and 1 of 655 on the agent
-  side, the list's 19.
-- Pass: the dry run over `..@-` sorts every commit, 683 of 685 rewritten and 2 already current, and
-  each trailer left as it is has its reason, 8 markers naming no partner, 1 naming nothing, and 2
-  commits with no `ochid:`.
-- Not run, postponed with vc-x2: in the test vc-x2, `lookup` reaches vc-x1's history for a sample
-  of lines, by the hand-written link if need be, and what vc-x2 must build to do it properly is a
-  Todo entry.
+- First run, before the closing (2026-11-13, `vc-x1-dev` `0.85.22-19`): pass, 48 checks, 0
+  failed. The tool refused, as it should, a commit whose title is no rung's, and fix on top, a
+  rung above a closing, which has no cycle in progress to belong to.
+- Beside it, wink tested the commands by hand in `~/tmp/wt-21-6` and `~/tmp/t17`, a Land of a
+  branch the old commands made, two single-step cycles, and the refusals, which found the faults
+  rungs 14 to 19 fixed.
 
 #### Deliberation
 
-- Retitled, wink's (2026-11-06): the cycle opened as **make vc-x1 content agnostic**, from the Todo
-  **Build config moves to an xtask**, and the deliberation moved that subject to vc-x2, leaving
-  this cycle the completing of vc-x1. The Todo returned to `## Todo` unchanged.
-- vc-x2 is seeded from vc-x1, wink's (2026-11-06): content agnostic, and its design is vc-x2's, not
-  this cycle's. What was decided toward it, recorded so it is not lost:
-  - vc-x1 knows the two repos and their links and nothing of a project's content, so `validate`,
-    `build`, `install`, `run`, and the Land's install move to a `cargo xtask`, which runs vc-x1.
-  - Seeded first, then xtask, wink's: the repo becomes a cargo workspace for the xtask, and every
-    line of that work is vc-x2's, so vc-x1 stays the stable tool that manages it.
-  - Named vc-x2 from its start, the agent's, so `vc-x2` and `vc-x2-dev` install beside `vc-x1` and
-    never replace it.
-  - Made without history, wink's, its first commit naming vc-x1's final SHA, the agent's, so
-    provenance crosses the gap, and its agent-repo fresh.
-  - Seeded, not forked, the agent's word with wink's agreement (2026-11-07): a GitHub fork shares
-    its parent's whole history, and vc-x2 shares none, its first commit being a new root holding
-    vc-x1's tree, made by `git archive` of vc-x1's `main`. Not a shallow clone, whose root keeps
-    vc-x1's SHA with a missing parent, and which we think GitHub refuses as a push into an empty
-    repo.
-- `TODO.md` is left as it is, wink's (2026-11-06): its clean-up is vc-x2's, which inherits the file,
-  so this cycle does not go down that hole.
-- The whole history, wink's (2026-11-06): `trailers --update` over `..@-`, made fully automatic.
-  - Automatic for vc-x1's 686 work commits, not for any history, the agent's bound: the dry run
-    sorts every commit first, the code is changed only for the cases it shows, and a case that
-    needs real design is filed for vc-x2.
-  - The counts (2026-11-06): 659 `ochid:` alone, 25 current, 2 with no trailer, 46 merges.
-- Rehearsed, then redone, the agent's: a test repo's remotes are local, so its trailers link by
-  `file:///` URL and its history is never pushed. The real run was to repeat the rehearsal on the
-  real repos after the Land, and is not made, the history being left as it is (below).
-  - Every work SHA on `main` changes, and only the commit records: every tree is the same, the
-    second rehearsal's 686 rewritten commits naming exactly the original 686 trees, so the files and
-    the history's shape are unchanged. The rewrite of `main@origin` takes `--yes` and wink's
-    approval.
-  - No trailer names an old work SHA after the rewrite: an agent commit carries `ochid:` alone, a
-    change id the rewrite keeps, and every rewritten `pcid:` names its new parent, all 686 in the
-    second rehearsal. The old records are kept only for references from outside the trailers, the
-    landmarks and SHAs in `notes/` and `TODO.md`, the messages' sha-links, the transcripts, and
-    links posted elsewhere.
-  - We think jj writes each rewritten commit's change id into its git header, so the change ids an
-    agent commit's `ochid:` names survive a fresh clone. The rehearsal's fresh clone shows it.
-  - The first rehearsal (2026-11-06): 683 commits rewritten in 35m41s, a rerun finding nothing. In
-    its fresh clone `lookup` gave the same answer as the real repo for a sample of lines, since it
-    follows `ochid:` change ids and never a URL, so `file:///` and `https://` links read alike.
-  - Its errors, all older than the rewrite, wink's calls (2026-11-06): an older id form that
-    resolves is made the 12 by `trailers` and is a note in `validate-desc`, the agent-repo's
-    included, and what cannot resolve is a known list, its 3 unpushed drafts listed rather than
-    published. A SHA naming one agent commit is made a change id the same way, wink's call.
-  - The second rehearsal (2026-11-06), with the opening on its `main` and this rung's build: the
-    dry run sorted all 686 commits, the run changed 686 in 36m42s, and a rerun found 686 current.
-    In its fresh clone `validate-desc` reports an `err` or a `miss` for the known list's commits
-    and no others, 1 and 2 on the work side, 15 and 1 on the agent side.
-  - A tag on the old `main` makes every rewritten change divergent in a clone that fetches it,
-    the agent's test (2026-11-06): the tagged original and the rewrite share a change id, so an
-    `ochid:` naming it resolves to two commits. The old `main` is kept some other way, wink's to
-    decide before the real run.
-  - Kept by a GitHub fork, wink's (2026-11-07), tested on a throwaway pair: GitHub refuses a fork
-    into the account that owns its parent, so the fork is made in a second account, `inksaville`,
-    and renamed `vc-x1-original`. After a description rewrite and force-push of the parent:
-    - Each old SHA opens at the parent's `/commit/<sha>` URL, with a banner saying it belongs to no
-      branch, and at the fork's, and `git fetch origin <old-sha>` from the parent returns it.
-    - A fresh `git clone` or `jj git clone` of the parent holds the new history alone, with no
-      divergent change.
-    - We think GitHub collects garbage per fork network, so the fork's `main` keeps the old records
-      as long as the fork and the `inksaville` account exist, and a test minutes old cannot show
-      it. Branch protection on the fork's `main` and a backed-up mirror are wink's options.
-- vc-x1's history is left as it is, wink's (2026-11-09): its trailers are redesigned (below), and
-  a rewrite of vc-x1 into the new form is maybe someday, maybe never. The backfill, the fork, and
-  the rewrite's push are not made.
-  - Unrewritten, with this cycle's build, `validate-desc` reports 674 ok, 1 err, and 2 miss on the
-    work side, the known list, a missing `ocid:` or `pcid:` being no error, and 637 ok, 13 err,
-    and 1 miss on the agent side. A fresh clone adds the 3 drafts, which resolve in wink's
-    work-repo alone, giving the list's 15.
-  - One error is local, the agent's finding (2026-11-09): `qnrtkuzytysk`'s partner `vznzonllovrk`
-    is divergent in wink's work-repo, a leftover `2fbd6c40c172` on no bookmark beside `main`'s
-    `ecdaeafa6be8`, and single in a fresh clone. Abandoning the leftover is wink's call.
-- The trailers, wink's (2026-11-07, decided 2026-11-09):
-  - `ocid:` pins the agent commit's SHA, so an agent commit is never amended or squashed into, and
-    commit order is forced, the agent first or the `xxxx` placeholder. `pcid:` repeats git's
-    parents, and makes a describe rewrite every commit above it.
-  - Decided, an inserted rung: `orepo: <url-to-other-repo>` replaces `ocid:`, and with `ochid:`
-    names exactly where the partner is. `pcid:` is dropped too, the agent's case and wink's
-    agreement: git and GitHub already show the parents, `orepo:` names the repo, and a copied
-    commit's provenance is vc-x2's one `seeded-from:`. No trailer then holds a SHA, so a rebase,
-    a squash, or a squash-push leaves every link valid. Lost: GitHub's one click to the agent
-    commit, plain git resolving the link, and the transcript pinned by a hash.
-  - One `orepo:` covers the `ochid:` lines after it, so an agent commit naming partners in several
-    repos groups them, `orepo: A`, its `ochid:`s, then `orepo: B`, the agent's.
-  - `ocid:` and `pcid:` in history are an older form `validate-desc` does not check, the `ochid:`
-    being the link, since a squash-push may now change the SHA an old `ocid:` names.
-  - An agent working across several work-repos, each commit naming its work-repo, so the agent
-    cannot commit first and the agent-repo generalizes toward a work-repo, is vc-x2's.
-  - A malformed trailer is cheap to fix only at `@`, or at `@-` before it is pushed, so a check of
-    the commits being pushed, `validate-desc` over the range, catches it while it is cheap.
-- Clean by squash-push, wink's (2026-11-09): after a session, `vc-x1 squash-push -s b` publishes the
-  work trunk and folds the agent tail into the last agent commit, so both repos are clean, which the
-  archived vc-x1 needs. A squash folds into the commit an `ochid:` names, never that commit away,
-  since jj keeps the change id of the commit squashed into.
-  - A Land is published by the agent only with wink's permission, the rule as it stands. In a run
-    of delegated cycles the next step after `land --push` is `commit --opening`, which carries the
-    tail, and no squash-push follows. Without it the agent lands locally, and wink publishes after
-    the session, the work repo first. Either order is correct, since no trailer holds a SHA, and
-    the work-repo goes first as the shared one, whose push is the one likely refused, wink's
-    (2026-11-09).
-  - `squash-push` asks before a push that would be forced, its target already in
-    `::<bookmark>@origin`, and the `--yes` flag answers, wink's (2026-11-09). A topic bookmark has
-    few readers until it is published, a mistake after a push wants an amend, and the agent-repo
-    is personal but public, so a rewrite is a choice made each time rather than a refusal.
-- vc-x2 takes over by a continuation note, wink's (2026-11-09): after the plain copy, a note in
-  vc-x2's `TODO.md`, committed after the seed so the seed stays a copy of vc-x1's tree, and vc-x2's
-  own session does the work from there.
-  - The note points at vc-x2's `## Closed`, which holds this block, and at the filed Todo entries,
-    and says the installed `vc-x1` runs vc-x2's cycles until `vc-x2-dev` exists.
-  - The order, wink's, the bridge the agent's: renamed vc-x2 first, so nothing installs over
-    `vc-x1`; a cargo workspace with an xtask taking `validate`, `build`, `run`, and `install`;
-    `.vc-config.md`'s `[validate]` and `[install]` lists pointed at `cargo xtask`, which keeps the
-    managing tool working through the move; then those subcommands deleted from vc-x2.
-  - `custom.md` is not tracked, so the copy leaves it out, and vc-x2 gets its own if wanted.
-- `lookup`'s fixes lean vc-x2, wink's (2026-11-06), the agent's rule beside it: a fix that makes
-  vc-x1 readable on its own history is vc-x1's, completing it, and one that crosses from vc-x2 into
-  vc-x1 is vc-x2's, the only side with the gap.
-  - The test vc-x2's link is hand-written, since vc-x2 does not yet read one, and its form is fixed
-    before the real vc-x2 is made, a change after meaning a rewrite of vc-x2's first commit.
-- No trunk, wink's (2026-11-10): a bookmark made is likely, not certainly, the one a cycle lands
-  on, so nothing is assumed to be the trunk and every target is named. **feat: no trunk, every
-  target is named** replaces the planned **feat: commit refuses to advance the trunk**, and the
-  guard it planned is dropped, a required target and the per-push approval being guard enough.
-- Branch first, wink's (2026-11-10): the cycle's bookmark is made before the bump, the opening's
-  first edit, not by the opening's commit, so every edit of the cycle is on its branch.
-  - The bookmark goes on the empty `@`, since on `@-` it shares `main`'s commit and the nearest
-    bookmark is two. `open` takes `--bookmark <NAME>` or `--title`, the title made a name by the
-    anchor algorithm, wink's.
-- The `wip` pair removed, wink's (2026-11-10): a work and an agent commit titled `wip`, pushed
-  after rung 4 for durability, were abandoned with `--restore-descendants --retain-bookmarks`,
-  their content carried into each `@`, and both remotes moved back to rung 4 by `jj git push`.
-  The installed `vc-x1` 0.85.20, older than this cycle, would have folded the agent `@` into rung
-  4's agent commit, and `vc-x1-dev` would have published it without folding, it being published.
-  Mid-cycle the tool that counts is `vc-x1-dev`.
-- vc-x2 postponed, wink's (2026-11-10): the cycle closes after **feat: open makes the cycle's
-  bookmark first**, its test vc-x2 rung not run, so vc-x1's current functionality is put in good
-  shape first.
-  - wink's test workspace, `~/tmp/wt-21-6`, ran the single-step flow by hand and found three
-    faults in a row: `--land main` read as the retired positional, a branch with its work in `@`
-    refused as having nothing to close, and a plain commit advancing `main`. vc-x2 would inherit
-    each, and a redesign is judged against a baseline that moves until they are fixed.
-  - The bookend pair keeps its names, the opening being published, so the closing's title still
-    says "ready for vc-x2" and its body says vc-x2 is postponed.
-  - The unrun rung, **chore: a test vc-x2 reaches vc-x1's history**, leaves the ladder and its
-    subsection with it, wink's, its work the `## Waiting` entry **vc-x2 is seeded from vc-x1**.
+- The ladder was completed by the agent with wink away (wink, 2026-11-11): "go, commit the
+  opening, and then permission to complete the ladder pushing but leaving it on the branch".
+  - The agent read "complete the ladder" as planning it, the rungs written into this record and
+    `zTOC.md` and folded into the opening by `vc-x1 squash`, and not as doing the rungs' work.
+    wink corrected the reading the same day: "I meant and should have said was complete the
+    ladder up to closing but don't close. So proceed with the permission to do that and commit
+    locally both work and agent repo's".
+  - So the work rungs are delegated: the agent does each, validates it, and commits it locally as
+    a pair by `vc-x1 commit -s b`, with no "please review" stop, the review being wink's of the
+    whole ladder after. The delegation covers the per-rung review alone. It does not cover the
+    closing, a Land, or any push, the draft push below having been made before it.
+  - The waiver covers pushing the cycle's bookmark, a draft, in that session. It does not cover a
+    Land, or a push of any destination.
+  - The ladder is the agent's, unreviewed, for wink to change: its order, its split, and what it
+    leaves out.
+- What the ladder leaves out, each staying in `## Todo`: **push only publishes**, **validate-desc
+  shows a note as part of its row**, and the two faults found at the last closing, filed as
+  **validate-desc -r takes a revset without a word, and clone leaves a symlink**. None is in the
+  flow this cycle changes, and the ladder is long without them.
+- "commit moves only the bookmark it is asked to", a candidate below, is the rung **feat: cycle
+  --commit makes a rung**: the cycle's bookmark is the slug of the title in `## In Progress`, and
+  `cycle --commit` advances that one alone.
+- The rehearsal is not first, as the Todo entry had it, but after the four stages exist, so it is
+  written once against `cycle`'s flags and not rewritten when the old forms go.
+- The old forms are removed in one rung, after the rehearsal, and not as each replacement lands,
+  so the cycle's own commits are made by commands that work until the new ones are rehearsed.
+
+- Long output is a rule and a rung: the agent-files name the commands whose output the Bash tool
+  cuts off and the form they run in, and `validate` goes quiet as the first work rung (wink,
+  2026-11-11).
+  - The names are the rule and "in doubt" its fallback, since a judgment is skipped when the agent
+    is confident and wrong.
+  - A `bash-guard.sh` deny of a named command run bare was weighed and held until the rule has
+    been tried, a wrong deny list costing more than a wrong rule.
+  - The rung was to be first, since every later rung runs validation several times, and was
+    dropped later the same day, under Terms and scope below. The rule stands.
+- The agent-files change inside this cycle, as drafts of the open v0.3.1 proposal: the opening is
+  `v0.3.1-8` (wink, 2026-11-11), and each later rung that edits them moves the draft by one, `-13`
+  at the closing.
+- Rungs 12 to 19 were added after the ladder was done, each wink's call as testing in `~/tmp`
+  found what they fix, appended and never inserted, so both repos stay in the order things
+  happened (wink, 2026-11-12). The per-rung review stop was back from rung 14 on, the delegation
+  having covered the first eleven.
+- The closing is made by `vc-x1-dev cycle --close -s b --multi-step --trapezoid main`, dogfooding
+  the multi-step closing on this ladder of twenty, wink's call (2026-11-13).
+
+The candidates the Todo entry carried, each to be decided in the deliberation after the opening,
+kept, changed, laddered as a rung, or filed back into `## Todo`:
+
+- The rehearsal script, first, since it turns the testing by hand into a repeatable run and shows
+  what else is broken.
+- commit moves only the bookmark it is asked to: it advances the line's nearest bookmark, a guess
+  that advanced `main` in `wt-21-6`. We think `vc-x1 open` records the cycle's bookmark, commit
+  advances that one alone, and with none recorded nothing moves and commit says so.
+- The closing says what it joins, its shape, and where it lands, wink's design (2026-11-10):
+  `commit -s <b|w|p> --closing [REV,...] [--trapezoid <T>] [--land <T>] [--push] [--title ..]
+  [--body ..]`.
+  - `--closing` lists the heads joined, `@` when none is listed. The closing is always made from
+    `@`, each head listed another parent, so a bushy tree closes in one merge. A tip elsewhere is
+    reached by moving `@` there first, and the detour goes.
+  - `--trapezoid <T>` makes it a trapezoid, `T` the first parent, and without it the closing is
+    linear, a plain commit or a merge of the heads alone, which builds the linear shape and retires
+    `--shape`. "Trapezoid" is Terminology's word, the flag naming what it makes.
+  - `--land <T>` lands on `T` once everything is made, taking a value again, since a linear closing
+    has no target of its own. `--trapezoid main --land main` repeats the name, explicit, and a
+    mismatch is the Land's fast-forward check's to refuse. `--onto` leaves `commit`, kept by `vc-x1
+    land --onto`, the destination, as `--land` is.
+  - `--push` publishes the target and deletes the cycle's bookmark on `origin` with `--land`, and
+    without it the closing on the cycle's bookmark, a draft. `-s`, `--title`, and `--body` are as
+    now, the title and body read from an opening when there is one.
+  - Decided: a single-step cycle's closing is squashed into its committed opening, and since rung
+    16 the closing names its shape, so the same branch closes as a ladder under `--multi-step`. A
+    linear closing whose target moved is refused at the Land, naming the ways on.
+  - It replaces the last cycle's required `--onto`, its refusal of `--land <value>`, and the
+    questions of a bare `--closing` and of keeping `commit --land`.
+- **push only publishes** and **validate-desc shows a note as part of its row**, in `## Todo`, as
+  rungs if they fit.
+- Found at the closing of **chore: complete vc-x1, ready for vc-x2**: `validate-desc -r` takes
+  `::main` and scans one commit without a word, and `clone` into a scratch directory leaves a
+  Claude Code symlink in `~/.claude/projects`.
+
+#### Flow
+
+(wink + agent, 2026-11-11) The cycle as a list of operations, wink's, with every sub-step we could
+name, so each can be sorted into what `vc-x1` does and what is done by hand. The goal is simplicity
+for users and agents, with the steps still separable, so we or others can change the flow. A draft
+the deliberation revises, the questions it raises being in the list after it.
+
+The mark on a sub-step says who does it:
+
+- (tool): a `vc-x1` command does it today.
+- (tool?): mechanical and done by hand today, a candidate for `vc-x1`.
+- (hand): a judgment, the user's or the agent's, which stays by hand.
+
+1. Open:
+   - (tool) Sync both repos, `vc-x1 sync -s b`, and stop on a repo held back.
+   - (hand) Fetch and read the messages repo, where a workspace has one.
+   - (hand) Choose the `## Todo` entry and its cycle title, a Conventional Commit.
+   - (tool) Create the bookmark on the work `@`, `vc-x1 open --title`.
+   - (hand) Check each `## Waiting` condition and promote what is met.
+   - (tool?) Delete what `## Closed` holds, and the reference definitions only it used.
+   - (tool?) Move the `## Todo` entry into `## In Progress` as a scaffold: the title heading, the
+     item headings, the entry's text under Problem, and the opening and closing rung subsections.
+   - (tool?) Replace `zTOC.md`'s ladder with the opening, marked `(current)`, and the closing.
+   - (tool?) Bump the version-of-record to the opening's suffix, and the lock file with it.
+2. Deliberate and plan the cycle:
+   - (hand) Write the problem, the solution, the acceptance check, and the deliberation.
+   - (hand) Ladder the work rungs, each a title in `zTOC.md` and a subsection of intent.
+3. Commit the cycle opening:
+   - (tool) Validate, `vc-x1 validate`.
+   - (tool) Install the dev build when the artifact changed, `vc-x1 install --profile dev`.
+   - (hand) Review of the working-copy diff, "please review" and the user's go.
+   - (tool?) Flip the opening's marker to `(done)`.
+   - (tool?) Title and body: the cycle title plus " opening" and a pointer body, defaults the
+     tool could supply as the closing's are, an explicit `--title` or `--body` overriding.
+   - (tool) Commit the pair, `vc-x1 commit -s b --opening`, the trailers stamped.
+   - (tool) Install the dev build again, from the committed tree.
+4. Do the next work rung, the head of the loop:
+   - (tool) Sync, optional between the bookends.
+   - (tool?) Mark the rung `(current)` with its suffix, and bump the version-of-record to it.
+   - (hand) Do the work.
+   - (hand) Write the rung's subsection, what changed conceptually.
+5. Test and review the work rung:
+   - (tool) Validate, `--fast` while a review iterates and full before the commit.
+   - (tool) Install the dev build.
+   - (hand) Test, by the user, the agent, and others, each running the dev build.
+   - (hand) Review, and back to step 4 until the user's go.
+6. Commit the work rung:
+   - (tool?) Flip the marker to `(done)`.
+   - (hand) Title and body, the rung's own problem and solution.
+   - (tool) Commit the pair, `vc-x1 commit -s b`.
+   - (tool) Install the dev build again.
+7. Optionally push the rung, a draft on the cycle's bookmark:
+   - (hand) The user's approval of this push.
+   - (tool) `vc-x1 push -s b`.
+8. Loop to step 4 while a rung is left. Unplanned work enters here:
+   - (hand) The user picks a rung inserted into the ladder or a `## Todo` entry.
+   - (hand) Edits already in `@` are set aside as a jj commit with a local bookmark.
+9. Commit the cycle closing:
+   - (tool) Sync, and stop when a `main` moved.
+   - (hand) Run the acceptance check and record pass or fail.
+   - (hand) Finalize the record: the title, the solution as done, the design subsections, the
+     closing rung's subsection, and what must outlive the cycle written into `notes/`.
+   - (hand) Write the continuation notes.
+   - (hand) Update `notes/README.md` when functionality changed.
+   - (tool) Record the agent-files' size when one changed, `vc-x1 agent-files size`, its note by
+     hand.
+   - (hand) Decide the parents: the heads the closing joins, and the target as first parent when
+     it is a trapezoid, a linear closing having one parent.
+   - (tool?) Mark the closing `(current)` and bump the version-of-record to the bare version.
+   - (tool) Validate, full.
+   - (hand) Review.
+   - (tool?) Flip the marker to `(done)`.
+   - (tool) Title and body: read from the opening, " opening" changed to " closing", the body
+     from `[closing] body`, when `--title` and `--body` are not given.
+   - (tool) Move the block to `## Closed` and make the closing commit, `vc-x1 commit -s b
+     --closing <BM|REV> --onto <BOOKMARK>`.
+10. Test the cycle:
+    - (tool) Validate the closed tree, and install its dev build.
+    - (hand) Test, by the user, the agent, and others.
+    - (hand) A fault found here goes back to step 4, and the closing is made again.
+11. Optionally push the cycle, still a draft on its bookmark:
+    - (hand) The user's approval, then (tool) `vc-x1 push -s b`.
+12. Land on the target, `main` or another bookmark:
+    - (hand) The user's go.
+    - (tool) Sync, and stop when the target moved, the closing then made again and tested again.
+    - (tool) Commit the agent `@` as the partner of the work commits not yet covered.
+    - (tool) Fast-forward the target and delete the cycle's local bookmark, `vc-x1 land -s b
+      --onto <BOOKMARK>`.
+13. Optionally push the target, which publishes the cycle:
+    - (hand) The user's approval, the closing words said first.
+    - (tool) `vc-x1 push -s b --bookmark <BOOKMARK>`, or by the user after the session,
+      `vc-x1 squash-push -s b`.
+    - (tool) Delete the cycle's bookmark on `origin` when it was ever pushed, `vc-x1
+      delete-bookmark`.
+14. After the Land:
+    - (tool) Build, smoke check, and install the release build, `vc-x1 install`.
+    - (hand) Stop, and the user restarts the agent.
+
+A dead end leaves the loop at any rung for step 9, its closing `--dead-end`.
+
+What the list raises, each to be decided:
+
+- The way back from step 10: a fault found after the closing has nowhere to go in wink's list.
+  Decided (wink, 2026-11-11): the user chooses, at the fault, and the flow prescribes none.
+  - Reopen: the closing is dropped, a fix rung added, and the cycle closed and tested again.
+  - Fix on top: a rung above the closing, then a second closing.
+  - Fix inside: the fix folded into the closing commit.
+  - Something else, the user's: the test itself may be what is wrong.
+  - So the rule is to stop and ask, and the tool's part is to refuse none of them. The rehearsal
+    tries each, and a reopen by `vc-x1`, in place of `jj abandon` by hand, is a candidate.
+- Step 10 tests what lands only when the Land is a fast-forward. Decided (wink, 2026-11-11): a
+  fast-forward is the Land's default, and a merge at the Land is allowed when the user asks for it.
+  - By default a destination that moved is refused, the refusal naming the ways on: a merge at
+    the Land, the closing made again, a rebase, or the user's own.
+  - A merge at the Land makes a commit that step 10 did not test, which the user accepts by
+    asking for it. Whether to test again is theirs to decide.
+- The parents are one decision, settled by wink's N and M under Terms and scope below: "other
+  commits to incorporate" and "the list of parents" are both the parent list, each head joined a
+  parent, which is wink's `--closing [REV,...] --trapezoid <T>`.
+- The acceptance check and step 10 are one test at two moments. Decided (wink, 2026-11-11): the
+  acceptance check runs as the first thing in closing, and again as the last thing after it.
+  - Every work rung has its own test and no more, the acceptance check being the closing's. It
+    replaces the wording first decided, the last work rung's test including the check, since one
+    rung was then unlike the others.
+  - The first run gives the closing commit a result to record. A check that runs only mid-ladder
+    is still run by a rung and recorded by the closing.
+  - The second run is step 10, wink's "test cycle", on the closed tree: the first run on that
+    tree when a merge or a rebase brought the destination's changes in, and otherwise a
+    confirmation the user may skip.
+- How much of step 1 `vc-x1 open` does. Decided (wink, 2026-11-11): the three record steps, by
+  default, beside the bookmark it makes today.
+  - The three: what `## Closed` holds is deleted, the `## Todo` entry titled as `--title` is moved
+    into an `## In Progress` scaffold, an empty one when none matches, and `zTOC.md`'s ladder is
+    replaced with the opening and the closing.
+  - They are the cycle's record, whose shape the agent-files define, so the tool knows them
+    without knowing the work. We think a flag turns them off and a workspace without the files
+    gets the bookmark alone, and the dry run shows the edits, `open` editing files where it made
+    only a bookmark.
+- The version bump is never the tool's. Decided (wink, 2026-11-11): `vc-x1`, and `vc` after it,
+  does not bump the version, now or later, the version being the project's and out of our scope.
+  - It replaces the agent's split, the tool computing the version and a configured command
+    writing it, which had the tool doing the bump by another hand.
+  - The project automates its own. Ours is an xtask, a candidate rung: `toml_edit` keeps a
+    manifest's comments, layout, and key order and changes the one value, as cargo's own `cargo
+    add` does, where the usual `toml` crate loses them. It is in our build through jj-lib, so it
+    adds no download. The xtask refreshes `Cargo.lock` in the same step, the build being
+    `--locked`. **Build config moves to an xtask** in `## Todo` is the same crate.
+  - The tool notices: a rung committed with the version unchanged is refused unless the user says
+    so, wink's idea. Decided (wink, 2026-11-11): the config names a file and a pattern, ours
+    `Cargo.toml` and its `version = ` line, and `commit` refuses a work commit whose diff changes
+    no line the pattern matches.
+    - A `version.md` of its own, wink's first form, was set aside: cargo wants the version in
+      `Cargo.toml`, so the check would be on a copy something must keep equal. A project with no
+      manifest names its `version.md` as the file, the same key.
+    - A named flag commits anyway, `--same-version` or the like, and not `--yes`, which on `push`
+      is the user's approval of a forced push and would become a switch for any question.
+    - The check is the work commit's alone, the agent-repo having no version, and without the
+      key nothing is checked.
+- Deliberation comes before the opening commit. Decided (wink, 2026-11-11): by default, as in
+  this cycle, so the opening carries the plan, and the user is free to commit the setup first.
+  - The opening's review is then of the plan, before any work, where a wrong direction costs the
+    least. The plan stays provisional, later rungs revising it.
+  - The cost is a working copy uncommitted while the plan is talked through, the gap **Work in
+    progress is durable and continues on any machine** in `## Todo` names. The opening is
+    committed when the plan is good enough to start.
+  - A small cycle's Deliberation reads `_None._`, as the format allows.
+  - The Cycle Protocol's Opening gains the step between the scaffold and the commit, and stops
+    calling the opening setup.
+- One shape or two. Decided (wink, 2026-11-11): every cycle has an opening and a closing, and in a
+  single-step cycle the closing is squashed into the opening, the one commit's title losing its
+  trailing " opening" and gaining no " closing".
+  - The tool knows a single-step cycle from a multi-step one and does the right thing for each,
+    the user giving `--title`, `--body`, both, or neither.
+  - It keeps today's finalize in place, and sets aside the agent's proposal that a closing is
+    always a new commit. The agent had called the finalize in place the case that surprised wink
+    in `wt-21-6`, which nothing in the record says, the three faults there being fixed by **feat:
+    open makes the cycle's bookmark first**.
+  - The tool's test is the count, as Cycle shape has it: no commit or one above the destination
+    is single-step, the work in `@` folded in, and more is a ladder, whose closing is its own
+    commit titled " closing". Decided (wink, 2026-11-11), taken at the "go" for the opening.
+- Two kinds of push: steps 7 and 11 publish the cycle's bookmark, a draft, and step 13 publishes
+  the destination and removes the draft. The names "draft push" and "publish" are reasonable to
+  wink (2026-11-11), who was thinking of the naming the next bullet holds.
+- A `cycle` command, wink's (2026-11-11): `vc-x1 commit` is very overloaded, and `cycle --open`,
+  `cycle --opening`, `cycle --closing`, and `cycle --land` take the cycle's acts out of it. The
+  agent's thoughts, none decided:
+  - It is the right direction: `commit` makes a rung, an opening, a closing that is a merge or a
+    rewrite in place, moves the record, lands, pushes, and describes an older commit, and most of
+    the flow's surprises are in how those flags combine. `commit` goes back to committing the
+    pair with its trailers.
+  - Subcommands and not flags, `cycle open`, `cycle close`, `cycle land`: verbs that exclude each
+    other are subcommands, each with its own options and help, the closing's parents `close`'s
+    alone.
+  - Composition is "this stage and onward", the stages having one order: `cycle close --land
+    --push`.
+  - No "opening" verb: `--open` and `--opening` differ by three letters and mean two things. The
+    tool sees that a commit is the cycle's first, so `cycle commit` makes a rung and the first is
+    the opening, as it knows a single-step cycle.
+  - The verbs are then `open`, `commit`, `close`, `land`, and `status`, the last saying where the
+    cycle stands and what may come next.
+  - The two pushes are named by it: a push of the cycle's bookmark is the draft push, and the
+    Land's push is the publish.
+  - It is **vc-x2: a cycle command, open, close, and land** in `## Todo`. Two spellings of one act
+    being worse than either, it is done here whole, the old forms removed in this cycle, or left
+    to vc-x2. The agent leans to here: the rehearsal is written once, and the Cycle Protocol is
+    revised once.
+  - Decided (wink, 2026-11-11), the agent's recommendations taken with one change:
+    - No subcommands in vc-x1: every command is `command --options`, the form the commands were
+      brought to earlier for consistency, and vc-x2 reevaluates it. So the verbs are mode flags,
+      `cycle --open`, `--commit`, `--close`, `--land`, and `--status`.
+    - The opening is inferred, the first commit of a cycle, and there is no `--opening`.
+    - It is built in this cycle, and the old forms go in it: `open` and `land` are removed, and
+      `commit` loses `--opening`, `--closing`, and `--land`, staying the plain commit of the pair
+      for work outside a cycle.
+    - The parser declares which flags exclude each other and which option needs which flag, so
+      no refusal is written by hand. Consecutive stages chain in their order, `cycle --close
+      --land --push`, a stage's flag carrying its value, `--close` the heads joined and `--land`
+      the destination. The help is one text, its options grouped under a heading per stage.
+    - It ports to vc-x2 as it is, `cycle --close` becoming `cycle close` if subcommands return.
+    - Noticed: `vc-x1 agent-files copy`, `diff`, and `size` are subcommands today, an exception
+      to the form still standing, left as it is by this cycle.
+- The markers, at steps 3, 4, 6, and 9. Decided (wink, 2026-11-11): the tool manages `(done)` and
+  `(current)`, and nobody types or flips one. The bump beside them in the list is the project's,
+  decided above.
+  - The ladder stays markdown: `zTOC.md`'s purpose is that it is clickable, wink using it to jump
+    to a rung in `TODO.md`, so a `toml` block, the agent's proposal, is out.
+  - The line's grammar is strict and the tool enforces it: under `## Ladder`, to the next `## `
+    heading, each `- ` at the left margin is a rung, an optional number and `(current)` or
+    `(done)`, then the linked title, a single-step cycle's one rung unlinked. A line that does not
+    fit is reported and nothing is edited.
+  - A rung is written once, as its heading under `#### Rungs` in `TODO.md`, by the user or the
+    agent, the planning being theirs. The tool makes the ladder from the headings, in their
+    order, each link the title's slug, so the two places cannot differ. `open` writes the first
+    two, the opening and the closing.
+  - The markers are computed and written: a rung is `(done)` when a commit of its title is on the
+    cycle's branch, and `(current)` is the first without one. `(done)` stays written on the line,
+    so a finished ladder, the one the landmark keeps, says so, and a ladder not started does not
+    read the same. Position is a check and not the record: a done rung below the current one is
+    reported.
+  - The tool rewrites the ladder as part of each cycle commit, so `zTOC.md` at a commit shows the
+    cycle as of it.
+  - Every commit in the cycle matches a rung in `TODO.md`, or the tool errors (wink): a coding
+    requirement is a higher bar than a naming protocol, and the naming is now one. It replaces
+    the agent's "reported and committed anyway" for a title not in the ladder, so an unplanned
+    rung gets its heading before its commit. To check: a local ladder's intermediate commits,
+    which are on the branch until they collapse.
+  - The rung's number is its position, which needs no configuration and no version, and the
+    cycle's destination is named on the command each time, as today, and not stored, the bookmark
+    being the title's slug. Decided (wink, 2026-11-11), the agent's answers taken at the "go" for
+    the opening.
+- The opening's title and body default as the closing's do. Decided (wink, 2026-11-11), each
+  default giving way to a `--title` or `--body` given:
+  - The opening: the cycle title plus " opening", and a body from the config, as the closing's
+    `[closing] body` is.
+  - A ladder's closing: the cycle title plus " closing", and `[closing] body`, as today.
+  - A single-step cycle's one commit: the bare cycle title, and a body that is required, the
+    commit holding the work, which a pointer body says nothing about. A named waiver commits
+    without one.
+  - A work rung: both required.
+  - The cycle title is read from the `### ` heading under `## In Progress`, which `open` writes,
+    where the closing reads the opening commit's title today, so a single-step cycle with no
+    opening commit has one too.
+
+Terms and scope (wink + agent, 2026-11-11), raised before the questions above were gone through,
+each to be decided, and the list's marks are revised by what is:
+
+- Land is a fast-forward: `vc-x1 land` is jj and git's fast-forward merge, wink's point, and a
+  regular merge is the more common case where several commits join at once.
+  - A regular merge is made today, at the closing: a trapezoid closing is a merge commit of the
+    target and the ladder. Git's `merge` makes the merge commit and advances the branch in one act,
+    and we split them, the closing making the merge and the Land advancing the destination to it,
+    which is what lets the merged tree be tested before the destination moves.
+  - Every integration ends in a fast-forward of the destination, whether the commits were prepared
+    by a merge, a rebase, or nothing. "Fast-forward" names the bookmark's move, and merge or rebase
+    names how the commits were prepared.
+  - We think "Land" stays the name of the moment a cycle becomes permanent, its mechanism said
+    plainly to be a fast-forward, and the general case is "prepare, then advance".
+- The destination of a Land is any bookmark (wink): `main` is the usual one and never assumed, in
+  the commands, the rules, or this record. The agent's thoughts above read as if a trunk were the
+  destination, and are to be read with any bookmark in its place.
+- A closing merges a list of commits (wink): in the general case the merge has N direct parents,
+  the commits merged, and a set of M original parents, which defines the trapezoid.
+  - The N are the heads the closing joins, the cycle's tip and any other line taken in, and the M
+    are the commits those lines started from on the destination's side, one when every line
+    forked from the destination's tip, so the figure is the M below, the N lines between, and the
+    merge above. Confirmed by wink, and the closing's flags follow from it.
+- Rebase is supported (wink): unmet so far in our single-change, linear use. It has two places,
+  mid-cycle to bring a cycle up to a destination that moved, and at the closing as how a linear
+  shape takes one. Decided (wink, 2026-11-11): not in vc-x1, it is vc-x2's, filed as **vc-x2:
+  cycle --rebase moves a cycle onto a destination that moved** in `## Todo`. In vc-x1 a rebase
+  is `jj rebase` by hand.
+  - The three preparations: nothing, linear as committed and refused when the destination moved,
+    merge, the trapezoid, which joins a destination that moved, and rebase, linear, the ladder
+    replayed on the destination.
+  - A rebase rewrites every rung, so the cycle is tested again. The `ochid:` trailers survive,
+    being change ids.
+  - A draft that was pushed needs a forced push, under the approval any push takes.
+- The flow makes its own conflicts: every cycle edits `TODO.md`, `zTOC.md`, and the version in
+  `Cargo.toml`, so two cycles in flight conflict in all three at any merge or rebase, whatever the
+  code did. One cycle at a time has hidden it. We think the record and the version being in shared
+  files hurts before the choice of merge or rebase does. Decided (wink, 2026-11-11), taken at the
+  "go" for the opening: not this cycle's, vc-x1 running one cycle at a time, and filed as **Two
+  cycles in flight conflict in the record and the version** in `## Todo`.
+- The work is not ours (wink): validate, test, build, run, and install are specific to a language
+  or to the work, and we manage cycles, not the work. In vc-x2 they are not in `vc`, which knows
+  nothing about the work and helps get it done, organized, and its history kept.
+  - The Flow needs a fourth mark, (work), the project's: validation, the dev install, testing, and
+    the release install. The version bump is one too, since doing it in the tool puts Cargo
+    knowledge there. The ladder's markers are ours, and the version is the project's.
+  - We think the boundary is a hook: the tool knows that a gate is at a point in the cycle, not
+    what it runs, runs the command the project configured, and reads its exit status. `validate`
+    is nearly that, running lists from the config, and build, install, run, the profiles, and the
+    dev suffix are what is specific to the work.
+  - The rung **feat: validate prints only what failed** adds to a command that is to go. Decided
+    (wink, 2026-11-11): `validate` is kept as it is for now and removed in vc-x2, so the rung is
+    dropped. The Long output rule covers its output, and `[validate]` in the config is left as
+    it is, `-q` on its cargo lines not taken up.
+  - In this cycle nothing is removed from vc-x1: those commands gain nothing, and the flow is
+    designed so their steps plug in. A rehearsal workspace in `~/tmp` holding no cargo project
+    tests "knows nothing about the work" directly.
 
 #### Rungs
 
 The rung subsections, in the ladder's order. The ladder itself is in `zTOC.md > ## Ladder`.
 
-##### chore: complete vc-x1, ready for vc-x2 opening
+##### feat: improve vc-x1 cycle flow opening
 
-The cycle's setup commit: the bookmark, `## Closed`'s contents deleted, the record written, and the
-version bumped. It opened as **make vc-x1 content agnostic**, and the deliberation, held while the
-opening was local, retitled it and returned the Todo it was opened from.
+The cycle's setup commit: create the bookmark, delete `## Closed`'s contents, move the Todo entry
+into this block, and bump the version-of-record. The work rungs are laddered by the deliberation
+that follows it.
 
-##### feat: trailers --update rewrites a whole history
+- The opening's own validation was run twice, its output cut off before the line that said it
+  passed, so the opening carries the answer wink asked for, the agent-files at `v0.3.1-8`.
+  - Working practices gains Long output: a named command keeps its output in `tmp/last.log` and
+    shows its tail, a pass is the exit status, and a failure is read from the file.
+  - `custom.md` names this workspace's commands, the set naming no project.
+  - A first work rung, **feat: validate prints only what failed**, was laddered and then dropped
+    by the deliberation, `validate` being kept as it is until vc-x2 removes it.
 
-`trailers --update` has stamped ranges above the trunk, never a whole history with commits from
-before the agent-repo, older trailer forms, and merges. Run over `..@-` in a test repo of vc-x1,
-dry run first, and changed until every commit is rewritten, current, or left with its reason.
+##### feat: cycle --open makes the bookmark and record
 
-* An `ochid:` naming its partner in an older form was left as it is, with no `ocid:`.
-  - One naming exactly one agent commit by an 8 or 32 character change id, or by a SHA, becomes
-    its 12 character change id and gets its `ocid:`. The forms are told apart by jj's alphabets,
-    `k` to `z` for a change id and hex for a SHA, and are 8 characters at least, so a marker such
-    as `lost` is never read as one.
-* A commit with no `ochid:` was skipped.
-  - It gets its `pcid:` lines alone, so every commit links its parents. A Land, which stamps
-    only the links a commit has, still skips it.
-* A dry run over the trunk's remote was refused without `--yes`, and it ended in a count.
-  - It runs, saying the real run takes `--yes`, and the summary sorts every commit: how many
-    change, how many are current, each `ochid:` kept and why, and each commit with none.
-* `validate-desc` made an older id an error though it names its partner.
-  - An 8 or 32 character change id naming exactly one commit is a note, since the agent-repo is
-    never rewritten and keeps the forms its commits were made with.
-* What no change resolves is the known list, [vc-x1-history.md](notes/vc-x1-history.md): 16
-  commits whose partner is gone, a draft never pushed, or named in a SHA's form that names
-  nothing, and 3 with no trailer. The acceptance check reads "no error outside the list".
-* The rewrite is quadratic, each describe rebasing the commits above it, and a linear one is
-  filed in the backlog, a whole-history backfill being rare.
-* Keeping the old `main` through a rewrite was tried, a tag making every rewritten change divergent
-  and a GitHub fork in a second account working. Neither is used, vc-x1's history being left as it
-  is, and both are recorded in the deliberation.
+Opening a cycle is a bookmark by `vc-x1 open` and three edits by hand, two of them made this cycle
+by deleting line ranges by number. `cycle --open --title` makes the bookmark and, by default, the
+record: what `## Closed` holds is deleted, the `## Todo` entry of that title is moved into an `##
+In Progress` scaffold, an empty one when none matches, and the opening and closing rung headings
+are written. A flag turns the record steps off, a workspace without the files gets the bookmark
+alone, and the dry run shows the edits.
 
-##### feat: orepo replaces ocid and pcid
+- `cycle` is a new command beside the old ones, which stay until **feat: the old cycle commands
+  are removed**, so `vc-x1 open` and `cycle --open` both make the bookmark, by the same code.
+  - The stage is a required flag, the group every later stage joins, and an option that is one
+    stage's alone requires that stage's flag, so the parser makes the refusal.
+- The record's edits are text in and text out, in `src/cycle/record.rs`, each file's new text
+  planned before the bookmark is made.
+  - A cycle in progress, a `TODO.md` with no `## In Progress`, and a `zTOC.md` with no `## Ladder`
+    are refused with nothing made, and a name in use is refused before a file is written.
+  - `--no-record` is the flag, and `--bookmark` with no `--title` writes none either, there
+    being no title to write it under.
+- Left by hand, each said in the README: the reference definitions only `## Closed` cited, which
+  `validate-anchors` names, and an entry's own `####` headings, which arrive under Problem as
+  they were.
+- The scaffold's unwritten items read `_To write._`, the agent's choice, since a blank item
+  reads as an omission.
+- An entry is found by its exact title, so a `## Todo` entry is retitled as a Conventional Commit
+  before the open, as this cycle's was, or the scaffold is empty and the entry stays.
 
-`ocid:` names the agent commit by SHA and `pcid:` the parents by SHA, so a squash-push of the
-agent-repo, a rebase, or a describe makes them stale, and neither repo can be left clean. The
-trailers become `orepo:` and `ochid:`, the rules make squash-push the clean-up, and `squash-push`
-asks before a forced push. Agent-files v0.3.1-3.
+##### feat: the ladder is made from the rung headings
 
-* Each side named its partner by change id, and a work commit also by the agent commit's SHA and its
-  parents' SHAs, `xxxx` standing in until the agent commit was made.
-  - Both sides stamp `orepo:`, the other repo's URL, above their `ochid:`s, and nothing holds a SHA,
-    so `commit -s w`'s trailers are final when made, push sets no SHA, and a Land rewrites no rung.
-  - A restamp, by `trailers --update`, a Land, or a closing finalized, gives an older commit's
-    `ocid:` and `pcid:` way to `orepo:`, and `validate-desc` checks `orepo:` and not the older form.
-* The journal was never folded into a partner an `ocid:` named or a Land made.
-  - It folds into any partner not yet published, a Land's included, the change id the `ochid:`
-    names kept, and stays in `@` for the next agent commit when the partner is published.
-* `squash-push` force-updated a published commit, its first purpose.
-  - It asks before a push that would be forced, before changing anything, and only the `--yes`
-    flag answers in advance, a configured `squash-push.yes` never. Without a tty it is an error, and
-    as push's stage it never forces. The dr-1 fixture builder's `--yes` covers its amend, the case
-    it models.
-* The rules forbade a squash-push and pinned the agent commit's SHA.
-  - At rest makes the user's squash-push after a session the clean-up, and a delegated run's
-    published Land leaves the tail to the next opening. `jj.md`, `rationale.md`, and `README.md`
-    follow.
-* The dev build was installed only after a rung's commit, so a review ran the previous rung's,
-  wink's finding (2026-11-09), `vc-x1-dev` 0.85.21-1 during this rung's review.
-  - Step 5 installs the working copy's dev build before the review and after each review fix, and
-    step 8 installs it again after the commit, wink's call.
-* wink's test workspace, `~/tmp/wt-21-3-1`, ran v0.3.1-3 end to end and found two gaps, its
-  agent-files changes taken here whole.
-  - At rest and the Land named `squash-push -R .agent-session`, which fails, `--scope` being
-    required, and an agent-repo-first order that no SHA-free trailer needs. They name
-    `squash-push -s b`, the work repo first.
-  - The plain `vc-x1` 0.85.20 stamped `ocid:` and `pcid:` under a banner naming v0.3.1-3. Acquaint
-    reports `vc-x1 -V` and `vc-x1-dev -V` and a newer dev build is the user's to choose, one
-    **Which build runs** bullet for this project's artifact and another's tool.
-* `squash-push` warned that an earlier publish was likely lost whenever the bookmark was off its
-  origin, the normal state after a Land made locally.
-  - A forced push is asked about, so it reports the bookmark below the squash target as an info
-    line, and warns only of a forced push. `validate-agent`'s refusal of an
-    unpublished agent `main` drops the same claim.
-* `push -s b` and `land --push` published the agent repo first, and `squash-push -s b` the work
-  repo first.
-  - `push` makes every local step first, the agent partner committed and the work commit
-    restamped, then publishes the work repo and then the agent repo, so all three publish in one
-    order. A work push that fails leaves the agent repo unpublished, and a rerun completes both.
+A rung is typed twice, a line in `zTOC.md` and a heading in `TODO.md`, and its markers are flipped
+by hand. The tool makes `zTOC.md > ## Ladder` from the headings under `#### Rungs`, in their order,
+each link the title's slug, each number its position, and each marker computed, `(done)` when a
+commit of that title is on the cycle's branch and `(current)` the first without one. The line's
+grammar is strict: a left-margin bullet that does not fit is reported and nothing is edited, and a
+done rung below the current one is reported.
 
-##### feat: no push is forced without asking
+- `cycle --ladder` is a stage the deliberation did not name, the agent's addition: the planner
+  writes the rung headings and then needs the ladder made before any commit rewrites it. For wink
+  to keep or fold into `--status`.
+- The cycle's branch needs no destination: it is the commits the cycle's bookmark reaches, and
+  those above it up to the work `@-`, that no other local bookmark reaches.
+  - A second local bookmark at or above the cycle's first commit hides the commits below it, the
+    cost of naming no destination. `--bookmark` names the cycle's when it is not the title's slug.
+  - A working copy not yet described is not a commit of the cycle.
+- A rung not started has neither number nor marker, as the format had it, the number being the
+  position only once the rung is current.
+- Refused, nothing edited: a commit that is no rung's, a rung written twice, a ladder without its
+  bookends, and a line already in the ladder that the grammar does not fit, any line but a blank
+  one and the skeleton's `_None._`. So a note typed into the ladder is named and kept, where a
+  rewrite would have lost it.
+- The check that every commit is a rung's reads the branch up to `@-`, so a local ladder's
+  intermediates refuse `--ladder` until they collapse, which is when the rung commits. That
+  settles "To check" in the Flow above, by the agent: the collapse comes before `cycle --commit`.
+- Tried on this cycle's own ladder, which it made as it was by hand, one marker aside.
 
-jj-lib forces every push, with a lease, so `push`, `land --push`, and `commit --push` rewrote a
-published bookmark moved sideways or back without a word, and only `squash-push` asked. The bookmark
-push under them all refuses a forced push its caller did not ask about, `push` asks as
-`squash-push` does, and `land` and `commit` refuse one. Agent-files v0.3.1-4.
+##### feat: cycle --commit makes a rung
 
-* A forced push was asked about by `squash-push` alone, wink's finding (2026-11-09).
-  - The bookmark push refuses a push whose `<bookmark>@origin` is not an ancestor of what goes out,
-    and a forced variant pushes it for a caller whose user said yes.
-  - `push` checks each bookmark it will push before anything moves, the work bookmark and agent
-    `main`, `-s p` and `-r` included, warns of a forced one, and asks at a terminal. `--yes`
-    answers in advance, and without a terminal and `--yes` it is an error that changes nothing.
-  - `land --push` and `commit --push` refuse one, since theirs are fast-forwards and a forced one is
-    a surprise, naming `push` and `squash-push` as the commands that ask.
-  - `squash-push` uses the same check and question, and as a stage takes its caller's answer.
-* The rules named `squash-push` alone as asking.
-  - Before any push says which commands ask and which refuse, and that the agent passes `--yes`
-    only for a forced push the user approved, and `rationale.md` and `README.md` follow.
+`commit` makes a rung, an opening, a closing, a Land, and a describe, and guesses the bookmark to
+advance. `cycle --commit` makes a rung and nothing else: the first commit of a cycle is its
+opening, with the title and body defaulted, a work rung gives both, the ladder is rewritten into
+the commit, and the cycle's own bookmark, the slug of the title in `## In Progress`, is the one
+advanced. A commit whose title matches no rung heading is an error, a local ladder's intermediates
+being the case to settle.
 
-##### feat: a rung commits as a pair
+- The commit is `vc-x1 commit`'s own code, called with the title, the body, and the bookmark to
+  advance named, so the pair, the trailers, and the rollback are one implementation.
+- The opening is the commit made when the branch has none, and a `--title` given then is refused
+  unless it is the opening's, since a first commit under a work rung's title would leave the
+  opening never done.
+- The opening's body is a new config key, `[opening] body`, as the closing's is `[closing] body`,
+  and a workspace without it gets a built-in body, so a workspace needs no key to run a cycle.
+- `-s` is defaulted, the agent's choice: `b` in a dual workspace and `p` in a plain repo, since
+  the flow commits a pair by default and the workspace says which it is. For wink to keep or
+  make required, as it is on `commit`.
+- The ladder is written before the commit and put back when the commit is not made, and an
+  empty work `@` is refused first, since the ladder's own edit would otherwise make an empty rung
+  look like a change.
+- `--push` is the draft push of the rung, in the same invocation.
+- A local ladder's intermediates were settled in the last rung: they collapse before `cycle
+  --commit`, which refuses a branch holding a commit that is no rung's.
+- This rung's own commit was made by `cycle --commit`, from the dev build.
 
-A rung was committed by `commit -s w` and the agent side once a cycle, at the Land, a shape `ocid:`
-needed, since a work commit could name the agent commit's SHA only once it was final. With no SHA in
-a trailer, a rung commits as a pair, `commit -s b`, and each rung's transcript is its own agent
-commit. Agent-files v0.3.1-5.
+##### feat: cycle --close makes the closing
 
-* The per-rung flow committed by `commit -s w`, and the agent `@` held the session until the Land,
-  wink's call to pair 1:1 (2026-11-09).
-  - Step 8 commits by `commit -s b`, the opening and the closing included, and the default of A
-    cycle is local by default is a pair per commit, still local.
-  - A mid-cycle backup is `push -s b` alone, and `-s w` rungs first get their agent commit.
-  - The Land commits no agent `@` when every rung is a pair, and push folds the journal into the
-    last agent commit while it is unpublished. `jj.md`'s create, close, and Land follow.
-  - The "We think" note on a whole cycle's transcript nearing jj's new-file size limit comes out,
-    the transcript split rung by rung, and `rationale.md` says why the pair.
-* Step 6 said to iterate until approval without saying what an iteration is.
-  - A review iterates over steps 3 through 6 until the user approves, wink's wording
-    (2026-11-09).
-* This rung is the first committed with `-s b`.
+The closing is `commit --closing <BM|REV> --onto <BOOKMARK>`, its parents and its shape implied.
+`cycle --close [REV,...]` lists the heads joined, `@` when none is listed, and `--trapezoid <T>`
+makes the destination the first parent. A single-step cycle's closing is squashed into its
+opening, the title losing " opening" and the body required. A ladder's closing is its own commit,
+its title and body defaulted. It moves the block to `## Closed`, and the acceptance check is the
+first thing in closing, by hand.
 
-##### feat: no trunk, every target is named
+- The closing is always made from the work `@`, which must be on the cycle's tip, so the detour
+  `commit --closing` made around a tip elsewhere is gone: `jj new <bookmark>` puts `@` there.
+- The count is of the cycle's branch, read as the ladder reads it, so the shape needs no
+  destination, and only a trapezoid names one.
+- A ladder's closing is linear unless `--trapezoid` or a head listed makes it a merge, which is
+  the linear shape built, where `commit --closing` always merged. The agent-files still say a
+  ladder lands as a trapezoid, so until **docs: the Cycle Protocol follows the cycle command**
+  decides the default in the rules, this repo's closings pass `--trapezoid`.
+  - The parents are the destination first, then `@`'s own, then each head listed, none twice.
+- The single-step waiver is `--default-body`, the agent's name for it: the body is `[closing]
+  body`, the pointer. `[closing] body` absent is no longer a refusal, a built-in body taking its
+  place, as the opening's does.
+- A `--title` given is the commit's title as written, not the bare cycle title, so no suffix is
+  appended to it and none is refused.
+- `--dead-end` is kept, always a closing commit.
+- The ladder and the record move are written before the commit and put back when it is not made.
+- After the closing `## In Progress` is empty, so `cycle --ladder` and `cycle --commit` have no
+  cycle to read, and the Land reads the branch and not the record.
+- Not done: the old closing's `--land` in the same invocation, which is the next rung's chain.
 
-A trunk was assumed in several places, `[cycle] trunk` with `main` when absent in `commit` and
-`trailers`, and a hard-coded `main` in `squash` and `install`, though a bookmark made is only likely
-the one a cycle lands on, and a release branch is a target as much as `main` is. There is no trunk:
-the target is named by a required `--onto`, and what is history is jj's `immutable()`. Agent-files
-v0.3.1-6.
+##### feat: cycle --land advances the destination
 
-* `commit --closing` takes a required `--onto <BOOKMARK>`, the target, its shape counted above it
-  and the trapezoid's first parent it, and `--land`, now a flag, lands on it.
-  - A closing without `--onto` is refused naming the likely target, the nearest bookmark at or
-    below the opening's parent, the opening the nearest commit below the tip titled " opening".
-  - It subsumes the Todo rung **commit --closing merges onto the cycle's base when it was opened
-    above the trunk**, the base now named.
-* What is history had been `main@origin`, and without a trunk it is jj's `immutable()`, wink's call
-  (2026-11-10): pushing is not dangerous in itself, so a cycle's bookmark pushed for a backup stays
-  mutable and its rungs take a fix with a warning, whichever flow a cycle runs.
-  - `squash` refuses a commit in `immutable()`, `main@origin`, tags, and what the user's
-    `immutable_heads()` adds, without `--ignore-immutable`, the flag `merge` and jj use, which
-    replaces its `--yes`. The agent side, on `main` alone, has its published commits there.
-  - `trailers --update` requires `--range`, a revset taken as written, its bare form and default
-    gone, and refuses a range reaching `immutable()` without `--ignore-immutable`.
-  - Option a, a draft being a commit on its line's own bookmark alone, was weighed and set aside: on
-    `main`'s line the line's own bookmark is `main`, so it could not tell a draft from history.
-* `install`'s report names every bookmark at the binary's commit, local and remote, or says it is
-  at none or not in the work repo, where it compared with `main` and `main@origin`.
-* `[cycle] trunk` leaves the schema and the model, and `configured_trunk` with it.
-* The agent-files name the target where they named the trunk: Terminology gains Target, and Cycle
-  shape, the per-rung flow's commit, `jj.md`'s create, close, Land, and shapes, and
-  `versioning.md`'s promotion follow, `rationale.md` saying why and retiring "trunk". `README.md`
-  and the help follow.
-  `sync`'s default `main`, `clone`'s tracking check, the agent side's `main`, and jj's own `trunk()`
-  are the repo's line or jj's, not a target, and stay.
+The Land is `vc-x1 land -s b --onto <BOOKMARK>`, a fast-forward that refuses a destination that
+moved and says only that. `cycle --land <DEST>` fast-forwards by default, and its refusal names
+the ways on: a merge at the Land, asked for by a flag, the closing made again, or a rebase by `jj`.
+`--push` publishes the destination and deletes the cycle's bookmark on `origin`, and the stages
+chain, `cycle --close --land --push`.
 
-##### feat: open makes the cycle's bookmark first
+- The Land is `vc-x1 land`'s own code, called with the source and the destination named, so the
+  agent commit, the trailers' update, and the bookmark's deletion are one implementation.
+- The cycle landed is found without a flag: the title `## Closed` holds names its bookmark, the
+  closing having moved the record there, then `--bookmark`, then the one local bookmark besides
+  the destination. A cycle in `## In Progress` is refused, a Land being of a cycle closed.
+- `--merge` is the flag. The merge is a pair's commit, made by the commit code from an empty
+  work `@`, titled the cycle title plus " merge", the agent's name for it, and the cycle's
+  bookmark is advanced to it, so the Land that follows is the ordinary fast-forward.
+  - A conflicted merge is undone and refused. With the record and the version in shared files,
+    **Two cycles in flight conflict in the record and the version** in `## Todo`, we think most
+    merges at a Land will be, so `--merge` is of use mainly once that is settled.
+  - `commit` gained an internal `allow_empty`, since a clean merge changes nothing its parents
+    do not hold, and the closing's dry run uses it too, writing no record.
+- In the chain the Land's checks of the destination are made before the closing, and the push
+  is the Land's, the closing making none.
+- `-s w` is refused with `--land`, as `land` refuses it.
+- Not done: `--delete-intermediate-bookmarks`, which `vc-x1 land` has for a stack of cycles
+  landing together, and a Land by a revision. Both are `vc-x1 land`'s until it is removed, and
+  the removal rung decides whether `cycle --land` takes them.
 
-The cycle's bookmark is made by `commit --opening`, after the opening's record, ladder, and bump
-are already written on no branch. `vc-x1 open --title "<cycle title>"`, or `--bookmark <NAME>`,
-makes it first, on `@`, the title made a name by the anchor algorithm, which is the reason for a
-command over `jj bookmark create`. Agent-files v0.3.1-7.
+##### test: a rehearsal runs both cycle shapes
 
-* `open` refuses only what is dangerous, wink's: a name in use locally or on `origin`, which it
-  would move. `@` may hold edits, which become the opening's, and a repo not up to date with its
-  remote is a warning, a Land onto a target that moved being refused anyway. `--dry-run` prints
-  the name. The agent-repo gets no bookmark.
-* `open` only makes the bookmark, `@` undescribed: jj keeps an empty `@` that carries a bookmark
-  when it is left, described or not, and the bookmark stays with the change through a commit, a
-  test of 2026-11-10, so a description would protect nothing.
-* `commit --opening` creates nothing: it gives the bookend title and refuses an `@` without the
-  bookmark, the one named or the title's slug, naming `vc-x1 open --bookmark <NAME>`. Its `--skip`,
-  now `--land`'s alone, and the publishing of the name alone go, the bookmark never standing apart
-  from the opening, `--no-advance` with it is refused, having nothing to move, and `--opening
-  --push` is a rung's push. The tests open a cycle as `open` does, the bookmark on `@` first.
-* A branch with nothing committed above the target, its work in `@` on `open`'s bookmark, closes in
-  one commit made from `@`, wink's (2026-11-10): the single-step flow `open` makes, open, edit,
-  close, which had refused "nothing above 'main' to close". `--title` and `--body` are required,
-  there being no opening to read, the tip is `@-`, the bookmark, or `@`, and the closing's bookmark
-  and Land are planned from the state after the commit. An empty `@`, no bookmark on it, and
-  `--dead-end` are refused, and so is `@` as the tip of a branch with commits.
-* A plain commit on an opened branch advanced `main`, wink's finding (2026-11-11): the line's
-  bookmark was looked for from `@-` down, which missed `open`'s bookmark on `@`, so `main` on
-  `@-` was the nearest. The line now includes `@`, whose bookmark follows the change to `@-`.
-* `--land <value>`, the form before rung 5, was read as the retired positional and refused naming
-  `-r`, so it is refused naming `--onto <value> --land`, `--land` taking no value, the target
-  needing a flag of its own for a closing that does not land, wink's.
-* The Opening's step 2 runs `vc-x1 open`, before the In Progress block and the bump. It resolves
-  the Todo **Every cycle commits its opening first**, a cycle with no bookmark until its opening's
-  review, so that entry goes.
-* Named `open` as `land` is, a cycle's verbs needing no noun, wink's. A `cycle` command is
-  **vc-x2: a cycle command, open, close, and land**.
+The flow is tested by hand, in `~/tmp` workspaces wink builds. A script makes a dual workspace
+with local remotes and no cargo project, and runs a single-step and a ladder cycle through
+`cycle`'s flags, open to Land, checking what each command left. It tries each way back from a
+fault after the closing, reopen, fix on top, and fix inside, and reports the ones the tool
+refuses. It is the cycle's acceptance check.
 
-##### chore: complete vc-x1, ready for vc-x2 closing
+- `scripts/cycle-rehearsal.sh [DIR]`, `~/tmp/cycle-rehearsal` by default, the binary `VC`,
+  `vc-x1-dev` by default. The workspace is `vc-x1 init --test-repo`'s, so nothing leaves the
+  machine, and the script removes the Claude Code symlink `init` makes for it.
+- Three cycles, each landed and published to the local remotes:
+  - A single-step cycle with nothing committed, closed and landed in one invocation, `cycle
+    --close --body --land main --push`.
+  - A single-step cycle whose opening is committed first, its closing squashed into it by
+    `--default-body`, then landed.
+  - A ladder of two work rungs, its `## Todo` entry moved by the open, a draft push between,
+    closed as a trapezoid, and landed.
+- 48 checks, all passing on its first run (2026-11-11): the bookmarks on both sides, the scaffold
+  and the ladder's markers, each title, the closing's parents, the trailers, both `main`s
+  published, and the work `@` empty.
+- The ways back from a fault after the closing, as found:
+  - Fix inside: `vc-x1 squash -s b` folds the fix into the closing, which stays a merge of two.
+  - Reopen: by `jj`, the bookmark set back to the last rung, the closing abandoned, and `@` put
+    on the tip. The record is then in progress again, the abandoned commit having carried the
+    move, so a fix rung commits by `cycle --commit` and `cycle --close` closes again. It leaves
+    the abandoned closing's agent commit in the agent-repo, harmless and unreferenced. A `cycle
+    --reopen` in place of the three `jj` commands is a candidate, not built.
+  - Fix on top: refused. After the closing nothing is in progress, so `cycle --commit` has no
+    cycle to commit a rung of. A plain `vc-x1 commit` above the closing works, and a second
+    closing has no command. For wink: whether fix on top is a way the tool should serve.
+- Also refused, as it should be: a commit whose title is no rung's.
+- Found by it: `cycle --close` prints `commit`'s warning that a title ends " closing", meant for
+  the old flags, which goes with them in **feat: the old cycle commands are removed**.
+- Not in `vc-x1 validate`: it takes about ten seconds and writes under `~/tmp`, so it is run by
+  hand, at the closing's two ends.
 
-The cycle closes with vc-x2 postponed, its acceptance check run in a fresh clone of the real
-remotes, two items passing and the test vc-x2's not run.
+##### feat: cycle --status says where the cycle stands
 
-* `validate-desc -r '::main'` scanned one commit, `main`, without a word, a revset form the flag's
-  help does not promise and the check wanted. `-r main -n 5000` scanned the history. Filed under
-  **vc-x1's cycle flow is in good shape**.
-* `clone` into a scratch directory left a Claude Code symlink in `~/.claude/projects` for it,
-  removed by hand. Filed there too.
+Nothing says where a cycle stands or what may come next. `cycle --status` prints the cycle's
+title, its bookmark, the ladder with its markers, the commits not yet pushed, and the stages open
+from here.
+
+- It reads and changes nothing, so what another stage refuses, a commit that is no rung's or a
+  bookmark not found, is a line here and no failure.
+- The ladder shown is the one the rungs and the commits make, not `zTOC.md`'s, with a note when
+  the two differ, so `--status` is also the check that `--ladder` would change something.
+- `next` names one stage, the one the cycle is at, with the current rung's title filled in, the
+  agent's reading of "the stages open from here": a list of every stage allowed was longer and
+  said less.
+- Between cycles it says whether the cycle `## Closed` holds is landed, by whether its bookmark
+  is still in the repo.
+- `--ladder` stays its own stage, since `--status` writes nothing.
+- Not shown: the agent-repo's side, and the destination, which is named on a command and not
+  stored.
+
+##### feat: commit refuses an unchanged version
+
+A rung committed without its version bump is found by reading, if at all. The config names a file
+and a pattern, ours `Cargo.toml` and its `version = ` line, and a work commit whose diff changes no
+line the pattern matches is refused. A named flag commits anyway, and without the key nothing is
+checked. The tool reads the version's line and never writes it.
+
+- The keys are `[version] file` and `[version] pattern`, both or neither, in the work side's
+  config, and this workspace's config has them.
+- The pattern is what the line starts with, not a regular expression: a line is the version's
+  when it starts with the pattern at the left margin, so `clap = { version = "4" }` is not, and no
+  regex is added to the config's vocabulary.
+- The check is of the commit's own diff, the lines it removes and adds in the file, so a bump
+  made and then undone inside one working copy is no bump.
+- It is in `vc-x1 commit` for every work commit, a draft described by `-r` included, and so in
+  `cycle --commit` and `cycle --close`, which also check before the ladder or the record is
+  written. The flag is `--same-version` on both commands.
+- The agent-repo's commit is not checked, having no version, and a merge at the Land is not,
+  being no rung.
+- The closing is checked like a rung, since the closing bumps to the bare version.
+
+##### feat: an xtask bumps the version
+
+The version is bumped by hand, in `Cargo.toml`, with `Cargo.lock` following at the next build. An
+xtask sets it, `toml_edit` keeping the manifest's comments and layout, and refreshes `Cargo.lock`
+in the same step, the build being `--locked`. It is the project's own tool, outside `vc-x1`, and
+the repo becomes a cargo workspace for it.
+
+- `cargo xtask bump <next|bare|VERSION>` and `cargo xtask version`, the alias in
+  `.cargo/config.toml`, the package in `xtask/`.
+  - `next` adds one to the suffix's last number and gives a bare version `-0`, `bare` drops the
+    suffix, and a version named is taken as written when it has one `-` at most and no `+`, the
+    suffix scheme's shape.
+  - A sub-cycle's suffix, `-3.1`, bumps its last number, `-3.2`.
+- `Cargo.lock` is refreshed by `cargo update --workspace --offline`, which touches the
+  workspace's own packages alone, so no dependency moves. This rung's own first build failed on
+  the stale lock before the xtask existed, a `--locked` build after a bump by hand.
+- `toml_edit` is at the version jj-lib already brings into the lock file, so the bump added no
+  download.
+- The workspace's default members are both packages, so `vc-x1 validate` formats, lints, and
+  tests the xtask with the rest, and a release build compiles it too, a second or so.
+- The root's `clippy.toml` bans spawning a process, for `vc-x1`. The xtask's one spawn, of
+  cargo, carries an `allow` with its reason.
+- Not done: the bump as a step some stage runs. The tool never bumps, so the order is the
+  user's or the agent's: `cargo xtask bump next`, then the work, then `cargo xtask` is not asked
+  again until the next rung. We think a `[cycle]` hook, a command the project names for the
+  tool to run before a commit, is the vc-x2 form.
+- **Build config moves to an xtask** in `## Todo` now has its crate to move into.
+
+##### feat: the old cycle commands are removed
+
+Two spellings of one act are worse than either. `open` and `land` are removed, and `commit` loses
+`--opening`, `--closing`, and `--land`, staying the plain commit of the pair for work outside a
+cycle. The README and the tests follow, and **vc-x2: a cycle command, open, close, and land** in
+`## Todo` retires at the close-out.
+
+- `open` and `land` are no longer commands, and each still parses, hidden, so its refusal names
+  the stage that took its place, `cycle --open` and `cycle --land <BOOKMARK>`. `commit`'s three
+  flags are refused the same way. `--onto`, `--dead-end`, and `--skip` on `commit` are gone
+  outright, each having needed one of the three.
+- What was removed from `commit` is the closing's own code, which `cycle --close` replaced and
+  does not call: the detour around a tip that is not `@-`, the closing's plan and its three
+  shapes, the title read from the opening commit, and the Land run from inside a commit. The
+  file went from 3911 lines to 1933.
+  - Kept, as `cycle`'s: the pair's commit, the squash into an opening, the record's move, and the
+    version check. `title` and `body` are required again, no closing deriving them.
+- `src/open.rs` and `src/land.rs` stay as the code `cycle` calls, less their argument parsers.
+- `cycle --land` took `--delete-intermediate-bookmarks`, which the last rung left with `vc-x1
+  land`. A Land by a revision, `land --source @-`, has no flag: `--bookmark` names the cycle's
+  bookmark, and a cycle with none is found as the one local bookmark besides the destination.
+- Tests: 29 of `commit`'s tests of the old flags went with them, their behavior being `cycle`'s
+  tests' and the rehearsal's, and `land`'s and `open`'s build their params without a parser.
+  - Not carried over: the detour's tests, there being no detour, and
+    `the_fixture_lands_by_three_lines`, which ran the old three-command Land on the fixture.
+- `commit`'s warning of a title ending " closing", which `cycle --close` set off, went with the
+  flag it pointed at.
+- The agent-files and the skeleton `TODO.md` that `vc-dr-apply.sh` ships still name the old
+  commands, and are the next rung's.
+- The installed `vc-x1`, 0.85.21, still has the old commands until this cycle lands and its
+  release build is installed, so the rungs here are committed by `vc-x1-dev cycle --commit`.
+
+##### docs: the Cycle Protocol follows the cycle command
+
+The agent-files describe the flow the old commands made. The Cycle Protocol and `jj.md` are
+revised to `cycle`'s flags and to the deliberation's decisions: deliberation before the opening
+commit, the acceptance check at both ends of the closing, the ways back from a fault as the
+user's choice, the two kinds of push, the Land's default and its merge, the ladder as the tool's,
+and the version as the project's. The agent-files version moves with it.
+
+- The agent-files are `v0.3.1-9`, a draft of the open v0.3.1 proposal, adopted locally by
+  `custom.md`. Only this rung edited them after the opening, so the draft moved once, which
+  settles "To decide" in the Deliberation.
+- `AGENTS.md`, by section:
+  - Terminology: a cycle's commits are `vc-x1 cycle`'s, the target is named on the command each
+    time and stored nowhere, and "draft push" and "publish" are defined.
+  - Rules: two new, the ladder is the tool's and the version is the project's, and Commit by the
+    tool names `cycle --commit` and `--close`.
+  - Cycle shape: every cycle has an opening and a closing, the count saying whether they are one
+    commit, and the defaults of each title and body.
+  - Opening: `cycle --open` writes the record, and a step is added, deliberate and plan, before
+    the bump, the opening carrying the plan.
+  - The per-rung flow: Mark current and Flip are gone, the tool's, so the steps are sync, bump,
+    work, subsection, validate, review, describe, commit, and the review iterates over 2 to 5.
+  - Close-out: the acceptance check first, a new step, test the closed cycle, where a fault's
+    way back is the user's choice, and the Land's refusal of a target that moved with its ways on.
+- A ladder still closes as a trapezoid in the rules, by `cycle --close --trapezoid <target>`,
+  and linear is said to be the user's to ask for, the agent's reading of wink's flag: the tool's
+  default is linear, and the rules' default is the trapezoid. For wink to confirm or turn over.
+- `jj.md`: Create, Close, and Land name the stages, the Land's sequence keeps its five steps, and
+  the linear shape is described as built.
+- `notes.md`: a rung's number is its position, no longer its version suffix, the markers are
+  computed, and the ladder's grammar is said to be strict.
+- `rationale.md` gains the why of each change under the mirrored heading, dated 2026-11-11, and
+  retires `--onto` under Terminology.
+- The skeleton `TODO.md` that `vc-dr-apply.sh` ships no longer names `commit --closing`.
+- Not done, the closing's: the row in `notes/agent-files-size.md`. `AGENTS.md` grew, 526 lines
+  to 560, against the quasi-goal.
+- Found: `vc-x1 validate-anchors` reports four problems, none of this cycle's making, one of
+  them a citation it misses, filed as **validate-anchors misses a citation after a wrapped code
+  span** in `## Todo`.
+
+##### feat: cycle requires -s on commit, close, land
+
+`-s` is required on every `vc-x1` command that writes, and `cycle` alone defaulted it, to `b` in a
+dual workspace and `p` in a plain repo. It is required with `--commit`, `--close`, and `--land`,
+and still refused with the stages that take none.
+
+- wink's call (2026-11-11), turning over the agent's default from **feat: cycle --commit makes a
+  rung**: every command that writes names its scope, `commit`, `push`, `squash`, `squash-push`,
+  `sync`, `merge`, `move-bookmark`, and `delete-bookmark` among them, so a rule with no exception
+  is worth more than the two characters saved, and the tool no longer reads the workspace to guess.
+- The parser requires it unless the stage is `--open`, `--ladder`, or `--status`, which refuse
+  it. A scope the workspace does not fit is refused, `p` in a dual workspace and `b` or `w` in a
+  plain repo, and now for `--land` too, which took the workspace's own before.
+- In a chain one `-s` serves the closing and the Land, and `-s w` is refused with `--land`.
+- `cycle --status`'s `next` line names the flag, `-s <SCOPE>`.
+- The agent-files' command lines gained `-s b`, so the set is `v0.3.1-10`, a second draft after
+  the opening where the last rung's subsection says the draft moved once.
+- The rung is appended after the docs rung, wink's call, so both repos stay in the order things
+  happened. Inserting it before the docs rung was talked through and not done, and what that
+  found is filed as three `## Todo` entries, **feat: add a capability in vc-x1 to insert rung
+  with -sw|a|b|p**, **A rung is removed from a local ladder**, and **A local ladder's rungs are
+  reordered**, to be tried in one exhaustive experiment.
+- The rehearsal passes with `-s b` on each of its commands, 48 checks.
+
+##### feat: the xtask completes its tasks
+
+`cargo xtask <tab>` offers file names, and `cargo xtask -h` is a usage error. The xtask's
+arguments move to clap, so it has help, and it answers completion requests for its own tasks,
+through cargo's hand-off to `cargo-xtask` and for a shell alias such as `cx`.
+
+- wink's ask (2026-11-12), after finding that `cargo xtask` has no completion and that the
+  cargo team's own `xtask-*` crates have none either.
+- The xtask is on clap, at `vc-x1`'s versions, and calls clap's `CompleteEnv` first, so with
+  `COMPLETE` set it answers a request and exits. `bump` offers `next` and `bare`.
+- How `cargo xtask <tab>` gets there, found by reading cargo's script and tried here: since
+  cargo 1.87 its bash completion hands a subcommand it has no options for, an alias among them,
+  to the completion registered for `cargo-<name>`, and zsh has a like hook. No wrapper around
+  cargo's own function is needed.
+- `cargo xtask completions [NAME...]` prints the function to register. It is clap's own
+  registration script with one change: where that calls one binary by name, this runs `cargo
+  xtask`, since an xtask is a different program in every repo and all would register as
+  `cargo-xtask`. So one copy serves every repo, the answer coming from the repo the shell is in.
+  - A `NAME` is a shell alias, wink's `cx`, which bash completes by its own name and never by
+    what it expands to.
+  - Outside a repo, or where `cargo xtask` fails, it completes nothing.
+  - A request took 55 ms here with the xtask built.
+  - The candidates keep the order the xtask declares them in, `-o nosort` where bash has it,
+    4.4 and later, as clap's script does. Left off at first, they came out alphabetical.
+- Caveats, each in the README or to know:
+  - It needs cargo's script completing `cargo`. wink's shell had `carapace` registered for
+    `cargo`, with 797 other commands, which completes the alias's name and hands off nothing.
+  - An xtask in another repo that does not answer `COMPLETE` is run with the typed words as
+    its arguments on each tab. One that acts on arguments it does not know would act.
+  - bash alone. clap prints the other shells' scripts, and the change is the same one line.
+- `-h` and `--help` are help now, where both were the usage error with a failure status.
+- The two `## Todo` entries filed since the last rung, **The completion script calls the name
+  it was typed as** and **lookup takes seven seconds for one line**, are in this commit.
+- This is one project's xtask. Whether validate, build, and install move into an xtask or into
+  a runner with its own name, installed once and reading each repo's config, is vc-x2's to
+  decide, and this rung is a trial of the first.
+
+##### fix: cycle --land names push for a main ahead
+
+`cycle --land` refused a target whose local and `origin` positions differ with "`vc-x1 sync`
+brings it up to date" whichever way they differ, so a local `main` ahead of `origin` was told to
+sync, which changes nothing. And with no cycle-record the Land named its source by `--source`, a
+flag of the retired `vc-x1 land` and none of `cycle`'s.
+
+- Found by wink (2026-11-13) in `~/tmp/wt-21-6`, step 0 of the test plan: its local `main`
+  carries an unpublished closing, and the dry run said to sync.
+- The refusal now names the way on by how the two stand, read from the commits: ahead, a push,
+  `vc-x1 push -s b --bookmark <target>`, `-s p` in a plain repo; behind, a sync; absent on
+  `origin`, a push; diverged, neither, the two to be reconciled first.
+  - One function, `land::not_at_origin`, serves `cycle --land`'s own check and the Land's plan,
+    which said "sync first" the same way.
+- The Land's messages are labelled `cycle --land` and name `--bookmark`, since `vc-x1 land` is
+  retired and `cycle --land` is the only caller of its code. The one other bookmark found with
+  no record is "the cycle's bookmark", and several ask for `--bookmark <NAME>`.
+
+##### fix: cycle --land and push name -r for a target
+
+The last rung's refusal of a target ahead of `origin` named `vc-x1 push -s b --bookmark <target>`,
+which `push` refuses when the target is not at the work `@-`, and `wt-21-6`'s `main` is not:
+`single-step-2` is above it. `push`'s own refusal then said "Name one of them" to a bookmark that
+was named. Both name `-r <target>` now, which publishes a bookmark where it is.
+
+- Found by wink (2026-11-13) running the last rung's advice in `~/tmp/wt-21-6`. `push --bookmark`
+  sets the bookmark at `@-` and publishes that, so naming one elsewhere would move it, and `push`
+  refused rightly. Only the wording and the advice were wrong.
+- `push`'s refusal now says the bookmark is not on the work `@-`, that pushing it there would move
+  it, and gives both ways on: `vc-x1 push -s <scope> -r <bookmark>` to publish it where it is, or
+  the line's own bookmark, or a new name, to publish `@-`.
+- The Land's refusal names `vc-x1 push -s b -r <target>`, right whether or not the target is at
+  `@-`. With `-r` the push sends the work bookmark alone, so a closing's agent commits wait for
+  the Land, which publishes the agent `main`.
+- The test now runs the command the refusal names, in a workspace whose `@-` is not the target,
+  and checks the target is then where `origin` is, so the advice is tried and not only matched.
+
+##### feat: cycle --close names the cycle's shape
+
+`cycle --close` took the cycle's shape from its branch's commit count, which is a guess over one
+commit: a single-step cycle whose opening was committed early and a ladder with only its opening
+made are the same branch, and the guess squashed the second's closing into its opening. The
+closing names the shape, `--single-step` or `--multi-step`, one required, and the count checks it.
+
+- wink's call (2026-11-13), testing a single-step closing in `~/tmp/wt-21-6`, before the
+  multi-step cycle there, so each flag gets its first real use there in turn.
+- The table: no commit, single-step makes the one commit and multi-step is refused, there being
+  no opening. One commit, single-step squashes into the opening and multi-step makes a closing
+  commit above it. Two or more, single-step is refused, a ladder never squashed.
+  - Multi-step over the opening alone is new: a ladder of its bookends, which only `--dead-end`
+    could make before.
+- `--dead-end` takes `--multi-step` and is refused with `--single-step`, a dead end being a
+  closing commit of its own. The agent had said it would work with either, and chose the refusal
+  writing it, since a single-step dead end has no closing to title.
+- The flags exclude each other in the parser, and the one required is a refusal of the params,
+  clap having no "one of these, with that flag" of its own.
+- The rules' Cycle shape and its rule change from the count being the shape to the count checking
+  it, the set now `v0.3.1-11`, and `rationale.md` says why, `cycle --status`'s next names the flag.
+- Every test that closes names its shape, and the rehearsal's three closings do.
+
+##### fix: the cycle's messages say what happens
+
+Testing `~/tmp/wt-21-6` (wink, 2026-11-13) turned up seven messages or records that were wrong or
+said less than they should, none of them a refusal that broke anything.
+
+- `cycle --open`'s first lines said `open:`, the retired command's label, which the open code
+  still carried. They say `cycle --open`.
+- `cycle --open` in a workspace with no `TODO.md` or `zTOC.md` made the bookmark alone and said
+  only that, leaving a branch that `--commit` and `--close` would refuse. It is refused now,
+  naming the two files and what each needs, and `--no-record` makes the bookmark alone, said to
+  be a branch the later stages will not take. The agent's call, from wink's "refuse without
+  `--no-record`" left open: the deliberation had said a workspace without the files gets the
+  bookmark alone.
+- The Land's lines showed full 40-character commit ids, every other line the 12-character
+  short form. They show the short form.
+- `--close` with `--land` printed the commit's "kept local, `vc-x1 push` publishes it" just
+  before the Land published it. The commit now knows a Land follows, `land_follows` in its
+  params, and says it is kept local until that Land.
+- The Land's last line named `vc-x1 install` in every workspace. It names it only where the
+  config has `[install]` or `[build]`, the artifact being the project's.
+  - A unit test covers both branches, since no workspace the rehearsal or `init` makes has
+    either table, and this repo cannot Land itself mid-cycle.
+- A single-step cycle's block reached `## Closed` with the scaffold's opening and closing rung
+  subsections, for commits it never had. The closing drops its `#### Rungs` item, the ladder
+  having been read from it first. The opening's scaffold text no longer says "bump the
+  version-of-record", which assumed a version the workspace may not have.
+- `cycle --status` said a closed cycle was "landed or its bookmark gone". It finds the landmark,
+  the commit of the bare title or its closing's, among the commits a bookmark reaches, and says
+  "landed on 'main'", or that no bookmark holds it.
+- Not changed: `delete-bookmark`'s own lines, which show full ids, and its undo hint needs one.
+  wink (2026-11-13): as it is, the command possibly to be dropped.
+- `agent-data/cycle-model.md` is rewritten whole, wink's ask: who writes what, the tool or the
+  planner, the scaffold's wording, the ladder made from the headings, a multi-step specimen with
+  its rung's intent and then its delta, and a single-step specimen as `## Closed` holds it, with
+  no rung subsections. Its acceptance check named `config --validate`, retired, now
+  `validate-config`. The set is `v0.3.1-12`.
+- Item 2's reversal of the deliberation stands, wink's call, for now.
+- Found running these fixes in a throwaway `~/tmp/t17` (wink, 2026-11-13), and fixed here:
+  - A `## Closed` with no intro text got the moved block right under its heading, no blank line
+    between. The move now puts one there whatever precedes the block.
+  - A closing moved Problem, Solution, and Acceptance check to `## Closed` still reading the
+    scaffold's `_To write._`, saying nothing. `--close` warns, naming each, and does not refuse,
+    wink's call: a record that says nothing is easy to land by accident and hard to fix after.
+
+##### feat: errors and warnings wrap to the terminal
+
+An error is one line however long it is, so a terminal breaks it wherever it runs out, mid-word
+and mid-path: `cycle --open`'s refusal without the record is about 300 characters. The logger
+wraps an error or a warning to the terminal's width, between words, its later lines indented.
+
+- wink's call (2026-11-13), from **Error messages fit the terminal** in `## Todo`, its first
+  half: the logger's wrap fixes every message at once. The second half, each refusal shaped as
+  its fault on the first line and its remedies on the lines below, stays in that entry, for a
+  cycle of its own.
+- Only when stderr is a terminal. A log, a pipe, or a `grep` gets each message on one line, so
+  nothing that reads the output changes, and the `--log` file is never wrapped.
+- At the terminal's width, whatever it is. The rung first capped it at 100 columns, the prose
+  width, and wink's wide terminal then broke lines that would have fit, a path split from the
+  `-R` before it: the window's width is the user's choice, so it is the one used.
+  - Not fixed here: a command a message names without backticks, `push`'s "would run jj ..."
+    lines, can still be broken inside, which the shape half of **Error messages fit the
+    terminal** is for.
+- Later lines are indented two spaces, and a message's own lines, the ways on that a Land's
+  refusal lists, keep their indent beyond that.
+- A span in backticks is one word, so a command a message names is never broken across lines and
+  can be copied whole. A word wider than the line, a long path, gets a line of its own and is not
+  split.
+- The width is `terminal_size`'s, the crate clap's `wrap_help` already brings into the lock file,
+  so it adds no download.
+- Info lines wrap too, when stdout is a terminal, each of a message's own lines at its own
+  indent, since an info message of several lines is a listing, a description, or a ladder. The
+  rung first left them out, as progress mostly short and stdout a caller may parse, and wink's
+  narrow terminal showed `cycle --status` unwrapped, every line long. The parsing holds: a pipe
+  gets them whole.
+- Info is written to stdout without `println!`, which panicked "failed printing to stdout:
+  Broken pipe" when a reader closed early, `vc-x1-dev cycle --status | head`, found trying this
+  rung. A closed pipe now ends the output quietly.
+- `cycle --status` shows the ladder's titles, not its links, `- 3 (done) feat: x`, the link being
+  for `zTOC.md`, where an editor follows it, and in a terminal only doubling each line.
+- Tested by the wrap's own unit tests. What a terminal shows is wink's to look at, the tests
+  running with no terminal.
+
+##### feat: cycle --push publishes by the cycle's state
+
+A Land made locally left `cycle` with nothing to publish it, so the user dropped to `push` and had
+to know its flags, and testing `~/tmp/t17` (wink, 2026-11-13) found three messages that said too
+little or too soon. `--push` alone becomes a stage, and the three are fixed.
+
+- `cycle --push` alone publishes what the state calls for, read from the record and the
+  branch: a draft's bookmark, with its pair when it is at the work `@-` and alone where it is
+  otherwise, or for a cycle landed here the target its landmark is on, the one such bookmark not
+  where its `origin` is, and the cycle's bookmark deleted on `origin`. Nothing to publish is said
+  and exits 0. Several unpublished targets are refused, naming them.
+  - No target flag: the landmark names it, as `--status` already found it, so the user names
+    nothing. `-s w` is refused, as a Land refuses it.
+  - The Land's last line, when made here, names `vc-x1 cycle --push -s b`, right wherever `@-`
+    is, and `--status` after a local Land names it as next.
+  - Before it the Land's line named `push --bookmark` at the work `@-` and `push -s w -r` with
+    `push -s a` elsewhere, both right and both a thing to work out.
+- `--open` warns when the title is no Conventional Commit or is over 50 characters, since every
+  commit of the cycle carries it. Warned, not refused, as the unwritten items are. Found when a
+  `## Todo` heading, "Feat y to check TODO.md updating", became a cycle title as written.
+- `--close` names all it lacks in one refusal, the shape and, for a single step, the body, where
+  it said one and then the next. `--dead-end` with `--single-step` is still refused first, being
+  wrong whatever else is given.
+- The `_To write._` warning is said once every check has passed, so it never comes before a
+  refusal of the closing it warns about.
+- The agent-files' Pushing names `cycle --push`, the set at `v0.3.1-13`.
+
+##### feat: improve vc-x1 cycle flow closing
+
+Closing out the cycle.
+
+- The closing is the first multi-step closing of a real ladder by `cycle --close`, twenty rungs,
+  in a repo with a long `TODO.md` and the version check on, bumped to the bare `0.85.22` by `cargo
+  xtask bump bare`.
+- Testing by hand found more than the rehearsal did. The rehearsal checks what each command
+  leaves, and found no fault after its first run, while wink's runs in `~/tmp` found eight rungs'
+  worth: messages naming the wrong command, a retired label, a guessed shape, a record moved
+  unwritten. The rehearsal checks results and not wording, and the wording was where the faults
+  were. We think the next rehearsal checks the refusals' text too.
+- Retired from `## Todo`: **vc-x2: a cycle command, open, close, and land**, done here in vc-x1.
+  For wink to judge whether **close, land, and push compose with testing, to re-deliberate** and
+  **vc-x1 do runs a recipe of vc-x1 commands**, which it was to be decided with, are done too.
+- `notes/README.md` names no command this cycle changed, so it is as it was.
+- Agent-files size, in `notes/agent-files-size.md`'s new column: the total grew from 1877 lines to
+  2011, against the quasi-goal. `AGENTS.md` went 519 to 570, the protocol naming each stage and its
+  flags, and `cycle-model.md` 80 to 141, rewritten with a single-step specimen beside the ladder.
 
 # References
 

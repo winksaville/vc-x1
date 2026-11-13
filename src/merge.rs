@@ -19,7 +19,7 @@
 //!   first. Removing a parent is not a merge: `jj undo` takes back the
 //!   last one, and `jj rebase -r <target> -o ...` sets any parents.
 //! - A cycle's closing is `main` and the last rung as `@`'s parents,
-//!   in that order, which `commit --closing` sets before it commits.
+//!   in that order, which `cycle --close` sets before it commits.
 //! - Refused: a source that is the target or below it, a cycle, and
 //!   a target in jj's `immutable()`, as `jj` refuses it, unless
 //!   `--ignore-immutable`. A pushed rung is mutable to jj, and the

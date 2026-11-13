@@ -32,8 +32,9 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 
 ### Configure this workspace
 
-`vc-x1 init` writes a bare `.vc-config.md`, with no closing body, and with no `[validate]` unless
-`vc-dr-apply.sh --lang` added one, so a bare `commit --closing` refuses and `vc-x1 validate` may.
+`vc-x1 init` writes a bare `.vc-config.md`, with no `[validate]` unless `vc-dr-apply.sh --lang`
+added one, so `vc-x1 validate` may refuse, and with no `[version]`, so no commit is checked for
+its version bump.
 
 - `[validate]`: when `.vc-config.md` has none, ask the user for one: `Skip` leaves it for later,
   `None` is the doc checks alone, and `Rust`, `C/C++`, and `Python` are the language skeletons, each

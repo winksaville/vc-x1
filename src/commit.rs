@@ -31,8 +31,7 @@
 //!   as the partner and its bookmark published, a plain repo by
 //!   `push -s p`, and an agent commit by publishing the agent `main`.
 //!   Only with `--push`: a commit otherwise stays on the machine,
-//!   `--opening`'s bookmark included, which `--local`, or its alias
-//!   `--no-push`, says outright.
+//!   which `--local`, or its alias `--no-push`, says outright.
 //! - `-s p` commits a plain repo with the title and body and no
 //!   trailer, the same description discipline on a repo with no
 //!   partner.
@@ -42,54 +41,23 @@
 //! - The work side's `@` must hold a change, since a rung changes
 //!   the work repo. The agent side's `@` is the session's journal
 //!   and is committed as it stands.
-//! - `REV`, the positional, is the commit the description is for:
-//!   `@` by default, committed as above, else `@-` or any draft below
-//!   it, described in place with no new commit, its trailer stamped,
-//!   so a commit made by hand becomes a rung's. The draft must be
-//!   unpublished, no remote bookmark reaching it, carry no trailer
-//!   yet, and hold a change, so the describe is a draft's rewrite and
-//!   never a re-describe. `@` is left as it is, as `push` leaves new
-//!   work, and a draft below `@-` is committed and not pushed, since
-//!   push publishes `@-`. Not with `--opening` or `--closing`, whose
-//!   commits are made from `@`.
-//! - `--closing <BM|REV>` closes the cycle whose tip the argument
-//!   names, a bookmark or a revision as jj resolves them, required,
-//!   onto `--onto`'s bookmark, also required, since no target is
-//!   assumed. It is read where it is now, so a target that moved
-//!   during the cycle is joined by the merge, and left out it is
-//!   refused naming the likely one:
-//!   - One commit above the target, the opening: a single-step cycle,
-//!     finalized in place, no new commit. `@` folds into it when it
-//!     sits on it, it takes the bare cycle title, its body and
-//!     trailer kept, and the agent `@` is left for push, since the
-//!     commit's partner is the opening's.
-//!   - More: the closing commit, the target and the tip as its parents
-//!     in that order, by the primitive `vc-x1 merge` uses, carrying
-//!     the record move and, when the tip is `@-`, what `@` holds.
-//!     `--dead-end` always makes it.
-//!   - A tip that is not `@-`, any commit on any line: `@` moves
-//!     onto it first and returns after, to the same commit when it
-//!     held work and to a fresh empty one on its parent when it did
-//!     not, so the closing is made from the tip's working copy and
-//!     the user's line is as it was, the commits above the tip
-//!     included, their line unclosed.
-//!   - `--title` is the bare cycle title, read from the opening, the
-//!     first commit above the target, when left out, and " closing" is
-//!     appended, " dead-end closing" with `--dead-end`. `--body`
-//!     defaults to `[closing] body`, its `{title}` the cycle title,
-//!     and a finalized commit keeps the opening's.
-//! - `--opening <BOOKMARK>` makes the work commit the cycle's
-//!   opening: `--title` is the bare cycle title and " opening" is
-//!   appended. The bookmark, the one named or the title's slug, is
-//!   `vc-x1 open`'s, made first on the work `@`, so it follows the
-//!   change into the opening, and the opening creates none: one missing
-//!   is refused before the commit, naming `vc-x1 open`. It stays local
-//!   like the rest unless `--push` asks, a rung's push.
+//! - `-r REV` is the commit the description is for: `@` by default,
+//!   committed as above, else `@-` or any draft below it, described in
+//!   place with no new commit, its trailer stamped, so a commit made by
+//!   hand becomes a rung's. The draft must be unpublished, no remote
+//!   bookmark reaching it, carry no trailer yet, and hold a change, so
+//!   the describe is a draft's rewrite and never a re-describe. `@` is
+//!   left as it is, as `push` leaves new work, and a draft below `@-`
+//!   is committed and not pushed, since push publishes `@-`.
+//! - A cycle's acts are `vc-x1 cycle`'s: its opening, its rungs, its
+//!   closing, and its Land. `cycle --commit` and `cycle --close` make
+//!   their commits by [`commit`] here, and a single-step cycle's
+//!   closing by [`finalize`], and the record's move is [`RecordMove`].
 //! - The line's bookmark advances to the work commit, locally: the
 //!   nearest bookmark below the work `@-`, as `push` resolves it, or
 //!   the one `--bookmark` names, any on the line at or below the work
 //!   commit, so the cycle's bookmark follows a rung past a nearer one
-//!   of the user's, or `--opening`'s. jj moves a bookmark
+//!   of the user's. jj moves a bookmark
 //!   with its commit through a later squash or amend, so the advance
 //!   holds through the review's fixes, and the remote moves only at
 //!   `push`. `--no-advance` leaves it, and none or several candidates
@@ -107,10 +75,9 @@ use log::{debug, info, warn};
 use crate::context::Context;
 use crate::desc_helpers::{
     Trailers, extract_bare_id, extract_ochid_from_desc, orepo_for, repo_url_for, with_ochids,
-    with_trailer, with_trailers, without_trailer_lines,
+    with_trailer, with_trailers,
 };
 use crate::jj;
-use crate::land::LandPlan;
 use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, Scope, Side, repo_scope_parser};
 use crate::pair::{Pair, Snapshots, resolve_pair};
@@ -127,13 +94,8 @@ pub struct CommitArgs {
     /// The commit the description is for: `@` by default, committed as
     /// the working copy; `@-` or any draft below it is described in
     /// place with no new commit, its trailer stamped, so a commit made
-    /// by hand becomes a rung's. Not with `--opening` or `--closing`
-    #[arg(
-        short = 'r',
-        long = "revision",
-        value_name = "REV",
-        conflicts_with_all = ["opening", "closing"]
-    )]
+    /// by hand becomes a rung's
+    #[arg(short = 'r', long = "revision", value_name = "REV")]
     pub rev: Option<String>,
 
     /// Where: a path in the workspace for `-s b|w`, its root or
@@ -156,59 +118,30 @@ pub struct CommitArgs {
     )]
     pub scope: RepoScope,
 
-    /// Commit title, the Conventional Commit line; with `--opening`
-    /// or `--closing` the bare cycle title [default with `--closing`:
-    /// read from the opening]
-    #[arg(long, value_name = "STR", required_unless_present = "closing")]
+    /// Commit title, the Conventional Commit line
+    #[arg(long, value_name = "STR", required = true)]
     pub title: Option<String>,
 
     /// Commit body, the problem and its solutions, or @PATH to read
-    /// it from a file [default with `--closing`: `[closing] body`, or
-    /// the opening's for a single-step cycle]
-    #[arg(long, value_name = "STR|@PATH", required_unless_present = "closing")]
+    /// it from a file
+    #[arg(long, value_name = "STR|@PATH", required = true)]
     pub body: Option<String>,
 
-    /// Close the cycle whose tip this names, a bookmark or a
-    /// revision, onto `--onto`'s bookmark: one commit above it is
-    /// finalized in place, more get the closing commit, the merge of
-    /// the target and the tip
-    #[arg(long, value_name = "BM|REV", conflicts_with = "opening")]
-    pub closing: Option<String>,
+    /// Retired: the opening, now `cycle --commit`, refused naming it.
+    #[arg(long = "opening", value_name = "RETIRED", hide = true, num_args = 0..=1)]
+    pub retired_opening: Option<Option<String>>,
 
-    /// With `--closing`, the bookmark the cycle closes onto and
-    /// `--land` lands on, the closing commit's first parent, read where
-    /// it is now. Required: no target is assumed
-    #[arg(long, value_name = "BOOKMARK", requires = "closing")]
-    pub onto: Option<String>,
+    /// Retired: the closing, now `cycle --close`, refused naming it.
+    #[arg(long = "closing", value_name = "RETIRED", hide = true, num_args = 0..=1)]
+    pub retired_closing: Option<Option<String>>,
 
-    /// With `--closing`, close the cycle as a dead end: the title ends
-    /// " dead-end closing", always on a closing commit
-    #[arg(long, requires = "closing")]
-    pub dead_end: bool,
-
-    /// Make the work commit the cycle's opening: " opening" is
-    /// appended to the bare cycle title, and BOOKMARK, which `vc-x1
-    /// open` made, must be on the work `@` [default: the bare title's
-    /// slug]
-    #[arg(long, value_name = "BOOKMARK")]
-    pub opening: Option<Option<String>>,
-
-    /// With `--land`, which side of the cycle's bookmark is kept:
-    /// `local`, `remote`, or `both`, none deleted
-    #[arg(long, value_enum, value_name = "SIDE", requires = "land")]
-    pub skip: Option<Skip>,
-
-    /// With `--closing`, land the cycle on `--onto`'s bookmark, the
-    /// closing's first parent: commit the agent `@` when the cycle's
-    /// commits name it, fast-forward the bookmark to the closing, and
-    /// delete the cycle's bookmark, locally unless `--push`
-    #[arg(long, requires = "closing")]
-    pub land: bool,
+    /// Retired: the Land, now `cycle --land`, refused naming it.
+    #[arg(long = "land", value_name = "RETIRED", hide = true, num_args = 0..=1)]
+    pub retired_land: Option<Option<String>>,
 
     /// The bookmark to advance to the work commit, locally, any on the
-    /// work commit's line, at or below it [default: the line's nearest,
-    /// or `--opening`'s]
-    #[arg(long, value_name = "NAME", conflicts_with_all = ["opening", "no_advance"])]
+    /// work commit's line, at or below it [default: the line's nearest]
+    #[arg(long, value_name = "NAME", conflicts_with = "no_advance")]
     pub bookmark: Option<String>,
 
     /// Leave the line's bookmark where it is, rather than advancing it
@@ -222,7 +155,7 @@ pub struct CommitArgs {
     pub push: bool,
 
     /// Keep it on the machine, the default, saying so: nothing is
-    /// pushed, `--opening`'s bookmark included
+    /// pushed
     #[arg(long, visible_alias = "no-push")]
     pub local: bool,
 
@@ -238,27 +171,22 @@ pub struct CommitArgs {
     #[arg(long, value_name = "REVSET")]
     pub covers: Option<String>,
 
+    /// Commit although the version's line is unchanged: with `[version]
+    /// file` and `pattern` in the config, a work commit that changes no
+    /// line of the file starting with the pattern is otherwise refused
+    #[arg(long)]
+    pub same_version: bool,
+
     /// Print the descriptions it would write, trailers included, and
     /// commit nothing
     #[command(flatten)]
     pub dry_run: DryRunFlag,
 }
 
-/// Which side of the cycle's bookmark `--land` keeps.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
-pub enum Skip {
-    /// The local bookmark is kept, only `origin`'s deleted.
-    Local,
-    /// The remote bookmark is kept, only the local one deleted.
-    Remote,
-    /// Both are kept, none deleted.
-    Both,
-}
-
 /// Which local bookmark the commit advances to the work commit.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Advance {
-    /// The line's: `--opening`'s, else the nearest below the work `@-`.
+    /// The line's: the nearest below the work `@-`.
     Line,
     /// The one `--bookmark` names.
     Named(String),
@@ -266,50 +194,8 @@ pub enum Advance {
     Off,
 }
 
-/// `--opening`'s bookmark, which `vc-x1 open` made on the work `@`.
-#[derive(Debug)]
-pub struct Opening {
-    pub bookmark: String,
-}
-
-/// The opening's title: the bare cycle title with " opening"
-/// appended, refused when it carries the suffix already, so it is
-/// never doubled.
-fn opening_title(title: &str) -> Result<String, String> {
-    refuse_suffixed(title, "--opening")?;
-    Ok(format!("{} opening", title.trim_end()))
-}
-
-/// The opening's bookmark: the one named, else the bare cycle title's
-/// slug, the rules' name for a cycle's bookmark, the anchor algorithm
-/// a heading of the title gets, printed since it is a default.
-fn opening_bookmark(named: Option<&str>, title: &str) -> Result<String, String> {
-    if let Some(name) = named {
-        return Ok(name.to_string());
-    }
-    let slug = crate::validate_anchors::anchor_slug(title.trim_end());
-    if slug.trim_matches(['-', '_']).is_empty() {
-        return Err(format!(
-            "commit --opening: the title '{title}' has no letters or digits to name the \
-             bookmark: name it, --opening <BOOKMARK>"
-        ));
-    }
-    info!("commit --opening: the bookmark is '{slug}', the title's slug");
-    Ok(slug)
-}
-
-/// `--closing`'s argument, the tip's bookmark or revision, how the
-/// cycle closes, and the bookmark it closes onto, `--onto`'s, `None`
-/// when left out, which the plan refuses naming the likely one.
-#[derive(Debug)]
-pub struct Closing {
-    pub rev: String,
-    pub dead_end: bool,
-    pub onto: Option<String>,
-}
-
 /// Refuse a bare cycle title that carries a bookend's suffix, since
-/// `--opening` and `--closing` append it and it is never doubled.
+/// the opening and the closing append it and it is never doubled.
 pub(crate) fn refuse_suffixed(title: &str, flag: &str) -> Result<(), String> {
     for suffix in [" opening", " closing"] {
         if title.trim_end().ends_with(suffix) {
@@ -328,23 +214,13 @@ pub(crate) fn refuse_suffixed(title: &str, flag: &str) -> Result<(), String> {
 pub struct CommitParams {
     /// The pair, work then agent, or the one plain repo.
     pub target: Target,
-    /// The title, the opening's with " opening" appended, and the
-    /// body. Either is None only with `--closing`, which derives it.
+    /// The title and the body.
     pub title: Option<String>,
     pub body: Option<String>,
-    /// Close the cycle, finalizing its one commit or making the
-    /// closing commit.
-    pub closing: Option<Closing>,
-    /// Make the work commit the cycle's opening, with its bookmark.
-    pub opening: Option<Opening>,
     /// The local bookmark advanced to the work commit.
     pub advance: Advance,
     /// Push what was committed: the flag given, else `[commit] push`.
     pub push: bool,
-    /// Land the cycle on the closing's `--onto` bookmark.
-    pub land: bool,
-    /// With `--land`, the side of the cycle's bookmark kept.
-    pub skip: Option<Skip>,
     /// Stamp no `orepo:` link.
     pub no_url_trailer: bool,
     /// Print the descriptions and commit nothing.
@@ -355,6 +231,15 @@ pub struct CommitParams {
     /// With `-s a`, the work commits it covers, a revset in the work
     /// repo, each linked by an `ochid:`.
     pub covers: Option<String>,
+    /// Commit a work `@` that holds no change, a merge whose parents
+    /// are its content, which `cycle --land --merge` makes.
+    pub allow_empty: bool,
+    /// Commit although the version's line is unchanged, the check
+    /// `[version]` in the config asks for.
+    pub same_version: bool,
+    /// A Land follows in the same invocation and publishes what is
+    /// committed, so the commit does not say it is kept local.
+    pub land_follows: bool,
 }
 
 /// What `-s` resolved to.
@@ -379,33 +264,25 @@ impl TryFrom<&CommitArgs> for CommitParams {
     /// alone, read the body when it names a file, and check the
     /// description is not blank.
     fn try_from(a: &CommitArgs) -> Result<Self, String> {
-        // `--land <TRUNK>` took a value before the target became
-        // `--onto`'s, so a value after `--land` is that form, not the
-        // retired revision positional.
-        if let (Some(value), true) = (&a.retired, a.land) {
-            return Err(format!(
-                "commit --land: it takes no value now, the target being --onto's: `--onto {value} \
-                 --land`"
-            ));
+        for (flag, given, stage) in [
+            ("--opening", a.retired_opening.is_some(), "cycle --commit"),
+            ("--closing", a.retired_closing.is_some(), "cycle --close"),
+            (
+                "--land",
+                a.retired_land.is_some(),
+                "cycle --land <BOOKMARK>",
+            ),
+        ] {
+            if given {
+                return Err(format!(
+                    "commit {flag}: retired, a cycle's acts being `vc-x1 cycle`'s: `vc-x1 {stage}`"
+                ));
+            }
         }
         if let Some(value) = &a.retired {
             return Err(crate::options_flags::retired_positional::refusal(
                 "commit", value, "-r",
             ));
-        }
-        if a.opening.is_some() && a.no_advance {
-            return Err(
-                "commit --opening: its bookmark is on the opening already, made by \
-                        `vc-x1 open`, so --no-advance moves nothing"
-                    .into(),
-            );
-        }
-        if a.rev.is_some() && (a.opening.is_some() || a.closing.is_some()) {
-            return Err(
-                "commit -r: a bookend is made from `@`, so -r takes neither \
-                        --opening nor --closing"
-                    .into(),
-            );
         }
         if a.covers.is_some() && !matches!(&a.scope, RepoScope::Sides(s) if s.is_bot_only()) {
             return Err(
@@ -445,11 +322,6 @@ impl TryFrom<&CommitArgs> for CommitParams {
                 // agent @'s change id for its trailer.
                 let pair = resolve_pair(a.repo.as_deref()).map_err(|e| e.to_string())?;
                 if sides.is_bot_only() {
-                    if a.opening.is_some() || a.closing.is_some() {
-                        return Err("commit -s a: a bookend is the work repo's, so `--opening` \
-                                    and `--closing` take `-s b` or `-s w`"
-                            .into());
-                    }
                     Target::Agent(pair)
                 } else {
                     Target::Pair {
@@ -459,43 +331,23 @@ impl TryFrom<&CommitArgs> for CommitParams {
                 }
             }
         };
-        let (title, opening) = match (&a.opening, &a.title) {
-            (Some(named), Some(t)) => (
-                Some(opening_title(t)?),
-                Some(Opening {
-                    bookmark: opening_bookmark(named.as_deref(), t)?,
-                }),
-            ),
-            (Some(_), None) => return Err("commit --opening: --title is required".into()),
-            (None, t) => (t.clone(), None),
-        };
-        if a.closing.is_some()
-            && let Some(t) = &title
-        {
-            refuse_suffixed(t, "--closing")?;
-        }
         Ok(CommitParams {
             target,
-            title,
+            title: a.title.clone(),
             body,
-            closing: a.closing.as_ref().map(|rev| Closing {
-                rev: rev.clone(),
-                dead_end: a.dead_end,
-                onto: a.onto.clone(),
-            }),
-            opening,
             advance: match (&a.bookmark, a.no_advance) {
                 (_, true) => Advance::Off,
                 (Some(b), false) => Advance::Named(b.clone()),
                 (None, false) => Advance::Line,
             },
-            land: a.land,
-            skip: a.skip,
             push: a.push,
             no_url_trailer: a.no_url_trailer,
             dry_run: a.dry_run.value,
             rev: a.rev.clone(),
             covers: a.covers.clone(),
+            allow_empty: false,
+            same_version: a.same_version,
+            land_follows: false,
         })
     }
 }
@@ -514,89 +366,14 @@ impl SubcommandRunner for CommitArgs {
     }
 }
 
-/// Entry point: the pair, or the plain commit, a closing's detour
-/// around either.
+/// Entry point: the pair, the plain commit, or the agent's alone.
 pub fn commit(ctx: &mut Context, params: &CommitParams) -> Result<(), Box<dyn std::error::Error>> {
     debug!("commit: enter {params:?}");
     match &params.target {
-        Target::Pair { pair, agent_now } => {
-            let now = *agent_now;
-            with_detour(ctx, &pair.work, params, |ctx| {
-                commit_pair(ctx, pair, now, params)
-            })
-        }
-        Target::Por(repo) => with_detour(ctx, repo, params, |ctx| commit_por(ctx, repo, params)),
+        Target::Pair { pair, agent_now } => commit_pair(ctx, pair, *agent_now, params),
+        Target::Por(repo) => commit_por(ctx, repo, params),
         Target::Agent(pair) => commit_agent(ctx, pair, params),
     }
-}
-
-/// How `@` returns from a closing's detour: a fresh empty commit on
-/// the parent it had, when it was discardable and the move abandoned
-/// it, or an edit of the same commit, which the move kept. Both by
-/// change id, since a finalize rewrites the tip and rebases the
-/// commits above it, giving them new commit ids.
-enum Back {
-    NewOn(String),
-    Edit(String),
-}
-
-/// Run a commit, with `@` moved onto the closing's tip first when the
-/// tip is not `@-` and returned after, so the closing is made from
-/// the tip's working copy and the user's line is as it was. The move
-/// is undone with the rest on a failure, and a dry run moves nothing
-/// and says so.
-fn with_detour(
-    ctx: &mut Context,
-    repo: &Path,
-    params: &CommitParams,
-    run: impl FnOnce(&mut Context) -> Result<(), Box<dyn std::error::Error>>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let Some(c) = &params.closing else {
-        return run(ctx);
-    };
-    let tip = resolve_closing(repo, &c.rev)?;
-    // `@` itself is a branch with nothing committed, closed from `@`.
-    if jj::matches(repo, &format!("{tip} & (@ | @-)"))? {
-        return run(ctx);
-    }
-    if params.dry_run {
-        info!(
-            "commit: [dry-run] '{}' is not the work @-, so @ would move onto it first and \
-             return after; what follows reads the branch at @-",
-            c.rev
-        );
-        return run(ctx);
-    }
-    crate::pair::refuse_conflicts(repo, "commit", "work")?;
-    let discardable = jj::is_empty(repo, "@")?
-        && jj::desc_of(repo, "@")?.trim().is_empty()
-        && jj::local_bookmarks_at(repo, "@")?.is_empty();
-    let back = if discardable {
-        Back::NewOn(jj::chid_of(repo, "@-")?)
-    } else {
-        Back::Edit(jj::chid_of(repo, "@")?)
-    };
-    let snapshot = crate::pair::Snapshot::take(repo)?;
-    info!(
-        "commit --closing: '{}' is not the work @-, so @ moves onto it, and returns after",
-        c.rev
-    );
-    if let Err(e) = ctx.session(repo)?.new_on(&tip) {
-        snapshot.restore("commit", e.as_ref());
-        return Err(e);
-    }
-    if let Err(e) = run(ctx) {
-        snapshot.restore("commit", e.as_ref());
-        return Err(e);
-    }
-    let returned = match &back {
-        Back::NewOn(parent) => ctx.session(repo)?.new_on(parent),
-        Back::Edit(chid) => ctx.session(repo)?.edit(chid),
-    };
-    returned.map_err(|e| {
-        format!("commit --closing: the closing is made, and @ did not return to where it was: {e}")
-            .into()
-    })
 }
 
 /// The draft `REV` names, described in place: the revision as given.
@@ -662,8 +439,7 @@ fn plan_draft(
 /// Refuse a repo that cannot take the commit: a conflicted one, or
 /// for the work side an empty `@`, since a rung changes the work
 /// repo and an empty commit would carry a trailer naming nothing
-/// worth reviewing. A closing is never refused for an empty `@`,
-/// since the merge is its content.
+/// worth reviewing.
 fn preflight(
     repo: &Path,
     label: &str,
@@ -680,6 +456,51 @@ fn preflight(
     Ok(())
 }
 
+/// Refuse a work commit that leaves the version as it was, when the
+/// config asks: `[version] file` names the file that holds it and
+/// `[version] pattern` what its line starts with, and `rev`, the
+/// commit being made, must add or remove such a line. Without the keys
+/// nothing is checked, and `same_version` commits anyway, saying so.
+/// The tool reads the line and never writes it, the version being the
+/// project's.
+pub(crate) fn check_version(
+    repo: &Path,
+    rev: &str,
+    same_version: bool,
+    label: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let Some(cfg) = crate::config_md::load(repo)? else {
+        return Ok(());
+    };
+    let key = |k: &str| crate::toml_simple::toml_get(&cfg.map, k).cloned();
+    let (file, pattern) = match (key("version.file"), key("version.pattern")) {
+        (None, None) => return Ok(()),
+        (Some(file), Some(pattern)) => (file, pattern),
+        _ => {
+            return Err(format!(
+                "{label}: the config has one of `[version] file` and `pattern`, and the \
+                 version's check needs both"
+            )
+            .into());
+        }
+    };
+    if same_version {
+        info!("{label}: --same-version, so the version's line in {file} is not checked");
+        return Ok(());
+    }
+    let bumped = jj::changed_lines(repo, rev, Path::new(&file))?
+        .iter()
+        .any(|line| line.starts_with(&pattern));
+    if bumped {
+        return Ok(());
+    }
+    Err(format!(
+        "{label}: the commit changes no line of {file} starting `{pattern}`, the version's, and \
+         a commit bumps the version: bump it, or pass --same-version to commit it as it is"
+    )
+    .into())
+}
+
 /// Make the pair: both change ids read from the working copies
 /// first, then the work commit with the agent's id in its trailer
 /// and, with `agent_now`, the agent commit with the work's id in
@@ -692,46 +513,20 @@ fn commit_pair(
     params: &CommitParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (work, agent) = (pair.work.as_path(), pair.agent.as_path());
-    let closing = plan_closing(work, params)?;
-    let tip = closing_tip(closing.as_ref()).to_string();
-    let closing_bm = closing_bookmark(work, params, closing.as_ref(), &tip)?;
-    let land = plan_land(work, params, &tip, closing_bm.as_deref())?;
-    // A Land commits the agent `@`, naming every commit that names it,
-    // the closing among them.
-    let agent_now = agent_now && land.is_none();
-    let record = match &closing {
-        Some(_) => RecordMove::plan(work)?,
-        None => None,
-    };
-    if let Some(ClosingPlan::Finalize { title, body }) = &closing {
-        let body = finalized_body(
-            work,
-            body.as_deref(),
-            record.as_ref().map(|_| RecordMove::NAME),
-        )?;
-        if let Some(r) = &record {
-            r.write(params.dry_run)?;
-        }
-        finalize(ctx, work, Some(pair), title, Some(&body), params.dry_run)?;
-        return push_after(
-            ctx,
-            work,
-            Publish::Pair,
-            closing_bm.as_deref(),
-            params,
-            params.dry_run,
-            land.as_ref(),
-        );
-    }
     let draft = plan_draft(work, params)?;
     match &draft {
-        None => preflight(work, "work", closing.is_none())?,
+        None => preflight(work, "work", !params.allow_empty)?,
         Some(_) => crate::pair::refuse_conflicts(work, "commit", "work")?,
     }
     preflight(agent, "agent", false)?;
-    warn_unflagged_closing(params);
-    let (text, merge) = description(params, closing)?;
-    let plan = plan_bookmarks(work, params, draft.as_ref(), closing_bm.as_deref())?;
+    check_version(
+        work,
+        draft.as_ref().map_or("@", |d| d.rev.as_str()),
+        params.same_version,
+        "commit",
+    )?;
+    let text = description(params)?;
+    let plan = plan_bookmarks(work, params, draft.as_ref())?;
     let work_at = draft.as_ref().map_or("@", |d| d.rev.as_str());
     let work_chid = jj::chid_of(work, work_at)?;
     let agent_chid = jj::chid_of(agent, "@")?;
@@ -746,15 +541,7 @@ fn commit_pair(
     let agent_desc = with_trailer(&text, orepo_for(work, links)?, &work_chid);
 
     if params.dry_run {
-        if let Some((base, tip)) = &merge {
-            info!(
-                "commit: [dry-run] the work commit is the merge of {base} and the last rung {tip}"
-            );
-        }
         dry_run_bookmarks(&plan);
-        if let Some(r) = &record {
-            r.write(true)?;
-        }
         if let Some(d) = &draft {
             info!(
                 "commit: [dry-run] describe {} {work_chid} in place, in {}:\n{work_desc}",
@@ -784,19 +571,9 @@ fn commit_pair(
             plan.advance.as_deref(),
             params,
             true,
-            land.as_ref(),
         );
     }
-    if let Some(r) = &record {
-        r.write(false)?;
-    }
     let snapshots = Snapshots::take(pair)?;
-    if let Some((base, tip)) = &merge
-        && let Err(e) = make_closing_merge(ctx, work, base, tip)
-    {
-        snapshots.restore(pair, "commit", e.as_ref());
-        return Err(e);
-    }
     if agent_now {
         info!("commit agent: {} -> @- {agent_chid}", agent.display());
         if let Err(e) = ctx.session(agent)?.commit(&agent_desc) {
@@ -822,28 +599,19 @@ fn commit_pair(
         snapshots.restore(pair, "commit", e.as_ref());
         return Err(e);
     }
-    if !agent_now {
-        finish_bookmarks(ctx, work, &plan)?;
+    finish_bookmarks(ctx, work, &plan)?;
+    if agent_now {
+        info!(
+            "commit: the pair is made, review it with `vc-x1 show -s both {work_at} -R {}`",
+            work.display()
+        );
+    } else {
         info!(
             "commit: the work half is made, its trailer naming the agent @ {agent_chid}, which \
              push commits as the partner. Review it with `vc-x1 show -s work @- -R {}`",
             work.display()
         );
-        return push_after(
-            ctx,
-            work,
-            Publish::Pair,
-            plan.advance.as_deref(),
-            params,
-            false,
-            land.as_ref(),
-        );
     }
-    finish_bookmarks(ctx, work, &plan)?;
-    info!(
-        "commit: the pair is made, review it with `vc-x1 show -s both {work_at} -R {}`",
-        work.display()
-    );
     push_after(
         ctx,
         work,
@@ -851,20 +619,19 @@ fn commit_pair(
         plan.advance.as_deref(),
         params,
         false,
-        land.as_ref(),
     )
 }
 
 /// The cycle-record's file, at the repo's root.
-const RECORD: &str = "TODO.md";
+pub(crate) const RECORD: &str = "TODO.md";
 
 /// An empty `## In Progress`.
-const NONE_IN_PROGRESS: &str = "_No cycle currently in progress._";
+pub(crate) const NONE_IN_PROGRESS: &str = "_No cycle currently in progress._";
 
 /// The body of `heading`'s section in `text`, as byte offsets: from
 /// the line after the heading to the next `## ` or `# ` heading, else
 /// the end. A heading inside a fenced code block is not one.
-fn section(text: &str, heading: &str) -> Option<(usize, usize)> {
+pub(crate) fn section(text: &str, heading: &str) -> Option<(usize, usize)> {
     let mut body = None;
     let mut fenced = false;
     let mut at = 0;
@@ -914,13 +681,18 @@ fn replace_content(
     content: &str,
 ) -> String {
     let from = start + content_start(&text[start..end], starts);
+    let head = &text[..from];
+    // A blank line before the content, whether the section has an intro
+    // or the content follows its heading directly.
+    let gap = if head.ends_with("\n\n") {
+        ""
+    } else if head.ends_with('\n') {
+        "\n"
+    } else {
+        "\n\n"
+    };
     let tail = if end == text.len() { "\n" } else { "\n\n" };
-    format!(
-        "{}{}{tail}{}",
-        &text[..from],
-        content.trim_end(),
-        &text[end..]
-    )
+    format!("{head}{gap}{}{tail}{}", content.trim_end(), &text[end..])
 }
 
 /// The record moved within `TODO.md`, as text: the `## In Progress`
@@ -940,7 +712,7 @@ fn moved_record(text: &str) -> Result<Option<String>, String> {
         return Ok(None);
     }
     let closed = section(text, "## Closed").ok_or_else(|| {
-        format!("commit --closing: {RECORD} has no `## Closed` to move the cycle into")
+        format!("cycle --close: {RECORD} has no `## Closed` to move the cycle into")
     })?;
     // A section's content is a cycle's block or the empty marker.
     let content = |l: &str| entry(l) || l == NONE_IN_PROGRESS;
@@ -959,26 +731,25 @@ fn moved_record(text: &str) -> Result<Option<String>, String> {
 /// the landmark, keeps the cycle's final ladder, and the next opening
 /// replaces it.
 #[derive(Debug)]
-struct RecordMove {
+pub(crate) struct RecordMove {
     record: PathBuf,
-    new_record: String,
+    /// `TODO.md`'s text after the move, which `cycle --close` trims for
+    /// a single-step cycle.
+    pub(crate) new_record: String,
 }
 
 impl RecordMove {
-    /// The pointer a finalized body gains, the record's file.
-    const NAME: &str = RECORD;
-
     /// Plan the move when the repo's `TODO.md` has a cycle in
     /// progress, reading and checking it, so a refusal comes before
     /// anything is written. Nothing to move is said and is no error.
-    fn plan(repo: &Path) -> Result<Option<Self>, Box<dyn std::error::Error>> {
+    pub(crate) fn plan(repo: &Path) -> Result<Option<Self>, Box<dyn std::error::Error>> {
         let record = repo.join(RECORD);
         if !record.is_file() {
-            info!("commit --closing: no {RECORD}, so no cycle-record moves");
+            info!("cycle --close: no {RECORD}, so no cycle-record moves");
             return Ok(None);
         }
         let Some(new_record) = moved_record(&std::fs::read_to_string(&record)?)? else {
-            info!("commit --closing: nothing in progress in {RECORD}, so no cycle-record moves");
+            info!("cycle --close: nothing in progress in {RECORD}, so no cycle-record moves");
             return Ok(None);
         };
         Ok(Some(Self { record, new_record }))
@@ -986,12 +757,12 @@ impl RecordMove {
 
     /// Write the move into the working copy, so the commit carries it,
     /// or with `dry_run` say what would move.
-    fn write(&self, dry_run: bool) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) fn write(&self, dry_run: bool) -> Result<(), Box<dyn std::error::Error>> {
         let record = self.record.display();
         let tag = if dry_run {
-            "commit: [dry-run]"
+            "cycle --close: [dry-run]"
         } else {
-            "commit --closing:"
+            "cycle --close:"
         };
         info!("{tag} move the In Progress block of {record} into its Closed");
         if dry_run {
@@ -1000,63 +771,6 @@ impl RecordMove {
         std::fs::write(&self.record, &self.new_record)?;
         Ok(())
     }
-}
-
-/// The closing's bookmark, the one its commit carries and a Land
-/// deletes, decided by `--closing`'s argument by the rule
-/// [`crate::land::cycle_bookmark`] states, above `--onto`'s.
-fn closing_bookmark(
-    repo: &Path,
-    params: &CommitParams,
-    plan: Option<&ClosingPlan>,
-    tip: &str,
-) -> Result<Option<String>, Box<dyn std::error::Error>> {
-    let Some(c) = &params.closing else {
-        return Ok(None);
-    };
-    if let Some(ClosingPlan::Commit { bookmark }) = plan {
-        return Ok(Some(bookmark.clone()));
-    }
-    let target = onto(repo, c, tip)?;
-    let found =
-        crate::land::cycle_bookmark(repo, "commit --closing", "--closing", &c.rev, &target, tip)?;
-    if found.is_none() {
-        info!(
-            "commit --closing: no bookmark on the branch above '{target}', so the closing \
-             carries none"
-        );
-    }
-    Ok(found)
-}
-
-/// The closing's tip, the commit the branch is read up to, `@-` for
-/// a finalized commit, which the detour has put there.
-fn closing_tip(closing: Option<&ClosingPlan>) -> &str {
-    match closing {
-        Some(ClosingPlan::Merge { tip, .. }) => tip.as_str(),
-        _ => "@-",
-    }
-}
-
-/// Plan `--land` before anything is made, as [`crate::land::plan`]
-/// does, onto the closing's `--onto`. The bookmark deleted is the
-/// closing's, by `--closing`'s argument.
-fn plan_land(
-    repo: &Path,
-    params: &CommitParams,
-    tip: &str,
-    bookmark: Option<&str>,
-) -> Result<Option<LandPlan>, Box<dyn std::error::Error>> {
-    let (true, Some(c)) = (params.land, &params.closing) else {
-        return Ok(None);
-    };
-    let skip = params.skip;
-    let target = onto(repo, c, tip)?;
-    let plan = crate::land::plan(repo, "commit --land", target, tip, bookmark, skip, false)?;
-    Ok(Some(LandPlan {
-        push: params.push,
-        ..plan
-    }))
 }
 
 /// Which push publishes a commit.
@@ -1090,18 +804,7 @@ fn push_after(
     bookmark: Option<&str>,
     params: &CommitParams,
     dry: bool,
-    land: Option<&LandPlan>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if let Some(land) = land {
-        return crate::land::run(ctx, repo, publish.scope(), land, "@-", "the closing", dry);
-    }
-    if params.closing.is_some() && bookmark.is_none() {
-        info!(
-            "commit: the closing carries no bookmark, and a push would publish it on the line's \
-             nearest, the target, so it is kept local: --land lands it"
-        );
-        return Ok(());
-    }
     if let Some(rev) = &params.rev
         && !jj::matches(repo, &format!("({rev}) & (@ | @-)"))?
     {
@@ -1112,7 +815,11 @@ fn push_after(
         return Ok(());
     }
     if !params.push {
-        info!("commit: kept local, `vc-x1 push` publishes it");
+        if params.land_follows {
+            info!("commit: kept local until the Land that follows publishes it");
+        } else {
+            info!("commit: kept local, `vc-x1 push` publishes it");
+        }
         return Ok(());
     }
     let scope = publish.scope();
@@ -1148,7 +855,7 @@ fn commit_agent(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let agent = pair.agent.as_path();
     preflight(agent, "agent", true)?;
-    let (text, _) = description(params, None)?;
+    let text = description(params)?;
     let chid = jj::chid_of(agent, "@")?;
     let covered = match &params.covers {
         Some(revset) => Some(covered_chids(pair, revset, &chid)?),
@@ -1239,337 +946,26 @@ fn covered_chids(
     Ok(chids)
 }
 
-/// What `--closing` does, decided before anything is made.
-#[derive(Debug)]
-enum ClosingPlan {
-    /// A branch of one commit above `REV`, the opening: a single-step
-    /// cycle, its one commit finalized in place under the bare cycle
-    /// title, with the body given or else the opening's own.
-    Finalize { title: String, body: Option<String> },
-    /// A longer branch: the closing commit, the merge of `base` and
-    /// the last rung `tip`.
-    Merge {
-        base: String,
-        tip: String,
-        title: String,
-        body: String,
-    },
-    /// A branch with nothing committed above the target, its work in
-    /// `@` and `bookmark`, `vc-x1 open`'s, on it: a single-step cycle
-    /// whose one commit is made now from `@`, under the bare cycle
-    /// title and the body given, there being no opening to read.
-    Commit { bookmark: String },
-}
-
-/// The bookmark a closing merges onto and a Land lands on, `--onto`'s,
-/// required: no target is assumed, since a bookmark made is only
-/// likely the one a cycle lands on. Left out, it is refused naming the
-/// likely one, the nearest bookmark at or below the opening's parent,
-/// the opening being the nearest commit below `tip` titled so.
-fn onto(repo: &Path, closing: &Closing, tip: &str) -> Result<String, Box<dyn std::error::Error>> {
-    if let Some(o) = &closing.onto {
-        return Ok(o.clone());
-    }
-    let opening = format!("heads(::({tip}) & description(regex:\"^[^\\n]* opening(\\n|$)\"))");
-    let likely = jj::local_bookmarks_at(repo, &format!("heads(::(({opening})-) & bookmarks())"))?;
-    let hint = match likely.as_slice() {
-        [] => String::new(),
-        [one] => format!(", likely `--onto {one}`"),
-        many => format!(", likely one of {}", many.join(", ")),
-    };
-    Err(format!(
-        "commit --closing: name the bookmark the cycle closes onto, --onto <BOOKMARK>{hint}"
-    )
-    .into())
-}
-
-/// Plan `--closing`, refusing before anything is made. The argument
-/// names the tip, exactly one commit, and the target is `--onto`'s,
-/// read where it is now. The commits between decide the shape: none
-/// is refused, one, the opening, is a single-step cycle finalized in
-/// place, unless `--dead-end`, and more get the closing commit, the
-/// target and the tip its parents. The count reads the branch rather
-/// than a flag choosing the shape.
-fn plan_closing(
-    repo: &Path,
-    params: &CommitParams,
-) -> Result<Option<ClosingPlan>, Box<dyn std::error::Error>> {
-    let Some(c) = &params.closing else {
-        return Ok(None);
-    };
-    let rev = &c.rev;
-    let tip = resolve_closing(repo, rev)?;
-    let target = onto(repo, c, &tip)?;
-    let base = jj::cid_of(repo, &target).map_err(|e| {
-        format!(
-            "commit --closing: --onto '{target}' does not resolve in {}: {e}",
-            repo.display()
-        )
-    })?;
-    info!("commit --closing: close '{rev}' at {tip} onto '{target}' at {base}");
-    if let Some(plan) = plan_commit_closing(repo, params, c, &tip, &base, &target)? {
-        return Ok(Some(plan));
-    }
-    if tip == jj::cid_of(repo, "@")? {
-        return Err(format!(
-            "commit --closing: '{rev}' is the work @, which a closing commits only when the branch \
-             has nothing committed above '{target}': name the branch's last commit, @- the common \
-             one"
-        )
-        .into());
-    }
-    let nodes = jj::cids_of(repo, &format!("{base}..{tip}"))?;
-    if nodes.is_empty() {
-        return Err(format!(
-            "commit --closing: nothing above '{target}' to close, '{rev}' being in ::{target}: a \
-             cycle starts with `commit --opening`"
-        )
-        .into());
-    }
-    let cycle = match &params.title {
-        Some(t) => t.trim_end().to_string(),
-        None => cycle_title(repo, &base, &tip, &target)?,
-    };
-    if nodes.len() == 1 && !c.dead_end {
-        info!(
-            "commit --closing: one commit above '{target}', a single-step cycle, finalized in \
-             place as '{cycle}'"
-        );
-        return Ok(Some(ClosingPlan::Finalize {
-            title: cycle,
-            body: params.body.clone(),
-        }));
-    }
-    let suffix = if c.dead_end {
-        " dead-end closing"
-    } else {
-        " closing"
-    };
-    let body = match &params.body {
-        Some(b) => b.clone(),
-        None => default_body(repo, &cycle)?,
-    };
-    info!(
-        "commit --closing: {} commits above '{target}', so the closing commit merges it and \
-         '{rev}'",
-        nodes.len()
-    );
-    Ok(Some(ClosingPlan::Merge {
-        base,
-        tip,
-        title: format!("{cycle}{suffix}"),
-        body,
-    }))
-}
-
-/// The closing of a branch with nothing committed above the target,
-/// the single-step cycle `vc-x1 open` leaves: the tip is the work `@`,
-/// named by its bookmark or `@`, or the target itself at `@-`, and
-/// `@-` is the target, so the cycle's one commit is made now from `@`.
-/// `None` when the branch has commits, the other shapes' case. Refused
-/// before anything is made: an empty `@`, no bookmark on `@` or several
-/// with none named, `--dead-end`, which closes a cycle with commits,
-/// and a title or body left out, there being no opening to read.
-fn plan_commit_closing(
-    repo: &Path,
-    params: &CommitParams,
-    c: &Closing,
-    tip: &str,
-    base: &str,
-    target: &str,
-) -> Result<Option<ClosingPlan>, Box<dyn std::error::Error>> {
-    let at = jj::cid_of(repo, "@")?;
-    let below = jj::cid_of(repo, "@-")?;
-    if !(tip == at || tip == below) || below != base {
-        return Ok(None);
-    }
-    let label = "commit --closing";
-    if jj::is_empty(repo, "@")? {
-        return Err(format!(
-            "{label}: nothing above '{target}' to close, '{}' having no commit above it and \
-             nothing to commit: a cycle starts with `vc-x1 open`",
-            c.rev
-        )
-        .into());
-    }
-    let mut on_at = jj::local_bookmarks_at(repo, "@")?;
-    on_at.retain(|b| b != target);
-    let bookmark = match on_at.as_slice() {
-        [] => {
-            return Err(format!(
-                "{label}: the work @ carries no bookmark, and a cycle runs on one: make it \
-                 first, `vc-x1 open --title \"<cycle title>\"`"
-            )
-            .into());
-        }
-        [one] => one.clone(),
-        many if many.contains(&c.rev) => c.rev.clone(),
-        many => {
-            return Err(format!(
-                "{label}: the work @ carries several bookmarks, {}, so name the cycle's, \
-                 --closing <BOOKMARK>",
-                many.join(", ")
-            )
-            .into());
-        }
-    };
-    if c.dead_end {
-        return Err(format!(
-            "{label} --dead-end: the branch has no commit above '{target}', and a dead end \
-             closes the commits a cycle made"
-        )
-        .into());
-    }
-    if params.title.is_none() || params.body.is_none() {
-        return Err(format!(
-            "{label}: the branch has no commit above '{target}', so its one commit is made now \
-             from the work @, and --title and --body are required, there being no opening to \
-             read them from"
-        )
-        .into());
-    }
-    info!(
-        "{label}: no commit above '{target}', a single-step cycle on '{bookmark}', its one \
-         commit made now from the work @"
-    );
-    Ok(Some(ClosingPlan::Commit { bookmark }))
-}
-
-/// `--closing`'s argument as one commit id, a bookmark or a revision
-/// as jj resolves them, refused unless it names exactly one commit.
-fn resolve_closing(repo: &Path, rev: &str) -> Result<String, Box<dyn std::error::Error>> {
-    crate::land::resolve_tip(repo, "commit --closing", rev)
-}
-
-/// The cycle title read from the opening, the first commit above
-/// `base` on the way to `tip`, its " opening" removed. Refused when
-/// the branch has no one first commit or it is not an opening, asking
-/// for `--title`.
-fn cycle_title(
-    repo: &Path,
-    base: &str,
-    tip: &str,
-    target: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let roots = jj::cids_of(repo, &format!("roots({base}..{tip})"))?;
-    let [root] = roots.as_slice() else {
-        return Err(format!(
-            "commit --closing: the branch above '{target}' has {} first commits, so there is no \
-             one opening to read the cycle title from: pass --title",
-            roots.len()
-        )
-        .into());
-    };
-    let desc = jj::desc_of(repo, root)?;
-    let first = desc.lines().next().unwrap_or_default().trim_end();
-    match first.strip_suffix(" opening") {
-        Some(cycle) => {
-            info!("commit --closing: the cycle is '{cycle}', read from the opening");
-            Ok(cycle.to_string())
-        }
-        None => Err(format!(
-            "commit --closing: the first commit above '{target}', '{first}', is not an opening, \
-             so the cycle title cannot be read from it: pass --title"
-        )
-        .into()),
+/// The commit's description, its title and its body.
+fn description(params: &CommitParams) -> Result<String, Box<dyn std::error::Error>> {
+    match (&params.title, &params.body) {
+        (Some(title), Some(body)) => Ok(format!("{title}\n\n{body}")),
+        _ => Err("commit: --title and --body are required".into()),
     }
 }
 
-/// The closing commit's default body, `[closing] body` with its
-/// `{title}` the cycle title, refused when the key is absent.
-fn default_body(repo: &Path, cycle: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let body = crate::config_md::load(repo)?
-        .and_then(|cfg| crate::toml_simple::toml_get(&cfg.map, "closing.body").cloned());
-    match body {
-        Some(b) => Ok(b.replace("{title}", cycle)),
-        None => Err(
-            "commit --closing: no --body, and no `[closing] body` in the config to default it from"
-                .into(),
-        ),
-    }
-}
-
-/// The closing merge's two sources, `REV` then the last rung.
-type MergeSources = (String, String);
-
-/// The description of a commit that is not finalized in place, with
-/// the closing merge's sources when it is the closing commit.
-fn description(
-    params: &CommitParams,
-    closing: Option<ClosingPlan>,
-) -> Result<(String, Option<MergeSources>), Box<dyn std::error::Error>> {
-    match closing {
-        Some(ClosingPlan::Merge {
-            base,
-            tip,
-            title,
-            body,
-        }) => Ok((format!("{title}\n\n{body}"), Some((base, tip)))),
-        _ => match (&params.title, &params.body) {
-            (Some(title), Some(body)) => Ok((format!("{title}\n\n{body}"), None)),
-            _ => Err("commit: --title and --body are required without --closing".into()),
-        },
-    }
-}
-
-/// Without `--closing` a title ending " closing" may be a closing
-/// meant and not asked for, so it is warned about, never refused, a
-/// title like "fix: the door stops closing" being just a title.
-fn warn_unflagged_closing(params: &CommitParams) {
-    if params.closing.is_none()
-        && let Some(t) = &params.title
-        && t.trim_end().ends_with(" closing")
-    {
-        warn!(
-            "commit: the title '{t}' ends \" closing\": if it closes the cycle, pass \
-             --closing <BM|REV> with the bare cycle title"
-        );
-    }
-}
-
-/// A finalized commit's body: the one given, else the opening's own,
-/// with the record's pointer, "See details in <closed>.", added when
-/// the record moved and the kept body does not say it already.
-fn finalized_body(
-    repo: &Path,
-    given: Option<&str>,
-    pointer: Option<&str>,
-) -> Result<String, Box<dyn std::error::Error>> {
-    if let Some(b) = given {
-        return Ok(b.to_string());
-    }
-    let body = opening_body(repo)?;
-    Ok(match pointer {
-        Some(closed) if !body.contains(&format!("See details in {closed}")) => {
-            format!("{body}\n\nSee details in {closed}.")
-        }
-        _ => body,
-    })
-}
-
-/// The opening's body: its description less the title line and the
-/// trailers `vc-x1` stamps.
-fn opening_body(repo: &Path) -> Result<String, Box<dyn std::error::Error>> {
-    let desc = jj::desc_of(repo, "@-")?;
-    Ok(without_trailer_lines(&desc)
-        .skip(1)
-        .collect::<Vec<_>>()
-        .join("\n")
-        .trim()
-        .to_string())
-}
-
-/// Finalize a single-step cycle's one commit in place: fold the work
-/// `@` into it and give it the bare cycle title, its body the one
-/// given or else its own, its trailer kept, so its change id and its
-/// partner stand. The agent `@` is left for push, which commits or
-/// folds it as the partner. The line's bookmark follows the rewrite.
-fn finalize(
+/// Finalize a single-step cycle's one commit in place, `cycle
+/// --close`'s squash of the closing into the opening: fold the work
+/// `@` into `@-` and give it `title` and `body`, its trailer kept, so
+/// its change id and its partner stand. The agent `@` is left for push,
+/// which commits or folds it as the partner. The line's bookmark
+/// follows the rewrite.
+pub(crate) fn finalize(
     ctx: &mut Context,
     repo: &Path,
     pair: Option<&Pair>,
     title: &str,
-    body: Option<&str>,
+    body: &str,
     dry_run: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     preflight(repo, "work", false)?;
@@ -1585,17 +981,13 @@ fn finalize(
             }),
             None => {
                 return Err(
-                    "commit --closing: the work @- carries no `ochid:` trailer, so it \
-                            is not a pair's commit to finalize"
+                    "cycle --close: the work @- carries no `ochid:` trailer, so it is not a \
+                     pair's commit to squash the closing into"
                         .into(),
                 );
             }
         },
         None => None,
-    };
-    let body = match body {
-        Some(b) => b.to_string(),
-        None => opening_body(repo)?,
     };
     let text = format!("{title}\n\n{body}");
     let desc = match &trailers {
@@ -1646,32 +1038,25 @@ struct BookmarkPlan {
 }
 
 /// Resolve the bookmark plan, refusing before anything is made: the
-/// opening's checks, then the bookmark to advance, `--opening`'s, the
-/// one named, any on the work commit's line, at or below it, so the
-/// cycle's bookmark follows a rung past a nearer one of the user's,
-/// a closing's own, by `--closing`'s argument, or the line's, the
-/// nearest, refused when there are none or several, since a wrong
-/// guess moves the wrong branch.
+/// bookmark to advance, the one named, any on the work commit's line,
+/// at or below it, so the cycle's bookmark follows a rung past a nearer
+/// one of the user's, or the line's, the nearest, refused when there
+/// are none or several, since a wrong guess moves the wrong branch.
 fn plan_bookmarks(
     repo: &Path,
     params: &CommitParams,
     draft: Option<&Draft>,
-    closing_bm: Option<&str>,
 ) -> Result<BookmarkPlan, Box<dyn std::error::Error>> {
-    if let Some(o) = &params.opening {
-        check_opening(repo, o)?;
-    }
     // The work commit's line, the commit included: `@` when `@` is
-    // committed, whose bookmark, `vc-x1 open`'s, follows it to `@-`, so
-    // `main` below it is not the nearest, or the draft itself.
+    // committed, whose bookmark, `cycle --open`'s, follows it to `@-`,
+    // so `main` below it is not the nearest, or the draft itself.
     let (below, target) = match draft {
         None => ("@".to_string(), "@-".to_string()),
         Some(d) => (d.rev.clone(), jj::chid_of(repo, &d.rev)?),
     };
-    let advance = match (&params.advance, &params.opening) {
-        (Advance::Off, _) => None,
-        (_, Some(o)) => Some(o.bookmark.clone()),
-        (Advance::Named(b), None) => {
+    let advance = match &params.advance {
+        Advance::Off => None,
+        Advance::Named(b) => {
             let on_line = jj::local_bookmarks_at(repo, &format!("::({below}) & bookmarks()"))?;
             if !on_line.contains(b) {
                 return Err(format!(
@@ -1688,10 +1073,11 @@ fn plan_bookmarks(
             }
             Some(b.clone())
         }
-        (Advance::Line, None) if params.closing.is_some() => closing_bm.map(str::to_string),
-        (Advance::Line, None) => Some(crate::squash_push::current_bookmark(repo, &below).map_err(
-            |e| format!("commit: {e} with --bookmark <NAME>, or pass --no-advance to move none"),
-        )?),
+        Advance::Line => Some(
+            crate::squash_push::current_bookmark(repo, &below).map_err(|e| {
+                format!("commit: {e} with --bookmark <NAME>, or pass --no-advance to move none")
+            })?,
+        ),
     };
     Ok(BookmarkPlan { advance, target })
 }
@@ -1719,96 +1105,29 @@ fn finish_bookmarks(
     Ok(())
 }
 
-/// `--opening`'s bookmark checked before anything is made: `vc-x1
-/// open` made it on the work `@`, the change the opening commits, and
-/// the opening creates none, so one missing is refused naming the
-/// command that makes it.
-fn check_opening(repo: &Path, o: &Opening) -> Result<(), Box<dyn std::error::Error>> {
-    let name = &o.bookmark;
-    if !jj::local_bookmarks_at(repo, "@")?.contains(name) {
-        return Err(format!(
-            "commit --opening: the bookmark '{name}' is not on the work @ in {}, and the opening \
-             creates none: make it first, `vc-x1 open --bookmark {name}`",
-            repo.display()
-        )
-        .into());
-    }
-    Ok(())
-}
-
-/// Merge the closing's revision and the last rung into `@`, the
-/// closing's edits, setting them as `@`'s parents in that order,
-/// which `vc-x1 merge`'s append would not, before the commit, which
-/// keeps `@`'s parents.
-fn make_closing_merge(
-    ctx: &mut Context,
-    repo: &Path,
-    base: &str,
-    tip: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    info!("commit work: the closing merges {base} and {tip} into @");
-    crate::merge::set_parents(
-        ctx,
-        repo,
-        "@",
-        &[base.to_string(), tip.to_string()],
-        "commit",
-    )?;
-    Ok(())
-}
-
 /// Commit a plain repo with the description and no trailer.
 fn commit_por(
     ctx: &mut Context,
     repo: &Path,
     params: &CommitParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let closing = plan_closing(repo, params)?;
-    let tip = closing_tip(closing.as_ref()).to_string();
-    let closing_bm = closing_bookmark(repo, params, closing.as_ref(), &tip)?;
-    let land = plan_land(repo, params, &tip, closing_bm.as_deref())?;
-    let record = match &closing {
-        Some(_) => RecordMove::plan(repo)?,
-        None => None,
-    };
-    if let Some(ClosingPlan::Finalize { title, body }) = &closing {
-        let body = finalized_body(
-            repo,
-            body.as_deref(),
-            record.as_ref().map(|_| RecordMove::NAME),
-        )?;
-        if let Some(r) = &record {
-            r.write(params.dry_run)?;
-        }
-        finalize(ctx, repo, None, title, Some(&body), params.dry_run)?;
-        return push_after(
-            ctx,
-            repo,
-            Publish::Por,
-            closing_bm.as_deref(),
-            params,
-            params.dry_run,
-            land.as_ref(),
-        );
-    }
     let draft = plan_draft(repo, params)?;
     match &draft {
-        None => preflight(repo, "plain", closing.is_none())?,
+        None => preflight(repo, "plain", !params.allow_empty)?,
         Some(_) => crate::pair::refuse_conflicts(repo, "commit", "plain")?,
     }
-    warn_unflagged_closing(params);
-    let (desc, merge) = description(params, closing)?;
-    let plan = plan_bookmarks(repo, params, draft.as_ref(), closing_bm.as_deref())?;
+    check_version(
+        repo,
+        draft.as_ref().map_or("@", |d| d.rev.as_str()),
+        params.same_version,
+        "commit",
+    )?;
+    let desc = description(params)?;
+    let plan = plan_bookmarks(repo, params, draft.as_ref())?;
     let at = draft.as_ref().map_or("@", |d| d.rev.as_str());
     let chid = jj::chid_of(repo, at)?;
     if params.dry_run {
-        if let Some((base, tip)) = &merge {
-            info!("commit: [dry-run] the merge of {base} and the last rung {tip}");
-        }
         dry_run_bookmarks(&plan);
-        if let Some(r) = &record {
-            r.write(true)?;
-        }
         match &draft {
             Some(d) => info!(
                 "commit: [dry-run] describe {} {chid} in place, in {}:\n{desc}",
@@ -1827,19 +1146,9 @@ fn commit_por(
             plan.advance.as_deref(),
             params,
             true,
-            land.as_ref(),
         );
     }
-    if let Some(r) = &record {
-        r.write(false)?;
-    }
     let snapshot = crate::pair::Snapshot::take(repo)?;
-    if let Some((base, tip)) = &merge
-        && let Err(e) = make_closing_merge(ctx, repo, base, tip)
-    {
-        snapshot.restore("commit", e.as_ref());
-        return Err(e);
-    }
     let made = match &draft {
         None => {
             info!("commit: {} -> @- {chid}", repo.display());
@@ -1866,7 +1175,6 @@ fn commit_por(
         plan.advance.as_deref(),
         params,
         false,
-        land.as_ref(),
     )
 }
 
@@ -1905,6 +1213,10 @@ mod tests {
         a
     }
 
+    fn commit_id(repo: &Path, rev: &str) -> String {
+        jj_ok(repo, &["log", "-r", rev, "--no-graph", "-T", "commit_id"])
+    }
+
     /// `-s`, `--title`, and `--body` are required, and a blank
     /// description is refused at params time.
     #[test]
@@ -1922,17 +1234,12 @@ mod tests {
 
     /// `-s a` commits the agent repo alone, unpaired, with no trailer,
     /// and pushes its `main` when the commit pushes, the work repo
-    /// untouched. A bookend is the work repo's, so `-s a` refuses one,
-    /// and `-s p` on a side is still the resolver's refusal.
+    /// untouched, and `-s p` on a side is still the resolver's refusal.
     #[test]
     fn the_agent_repo_is_committed_alone() {
         let fx = Fixture::new("commit-agent");
         let err = CommitParams::try_from(&args("p", &fx.bot)).unwrap_err();
         assert!(err.contains("the agent side"), "{err}");
-        let mut a = args("a", &fx.work);
-        a.closing = Some("@-".to_string());
-        let err = CommitParams::try_from(&a).unwrap_err();
-        assert!(err.contains("a bookend is the work repo's"), "{err}");
 
         fs::write(fx.bot.join("notes.md"), "a fix-up\n").expect("write");
         let agent_at = chid(&fx.bot, "@");
@@ -2280,205 +1587,6 @@ mod tests {
         );
     }
 
-    /// A bookend flag takes the bare cycle title and refuses one that
-    /// carries a bookend's suffix already, so a suffix is never
-    /// doubled, while a plain commit's title is just a title.
-    #[test]
-    fn a_bookend_takes_the_bare_title() {
-        assert!(refuse_suffixed("feat: x", "--closing").is_ok());
-        for t in [
-            "feat: x opening",
-            "feat: x closing",
-            "feat: x dead-end closing",
-        ] {
-            let err = refuse_suffixed(t, "--closing").unwrap_err();
-            assert!(err.contains("bare cycle title"), "{t}: {err}");
-        }
-        let mut a = parse(&[
-            "vc-x1",
-            "commit",
-            "-s",
-            "w",
-            "--title",
-            "feat: x closing",
-            "--body",
-            "b",
-            "--closing",
-            "main",
-        ])
-        .expect("parses");
-        a.repo = None;
-        assert!(a.closing.is_some() && a.title.as_deref() == Some("feat: x closing"));
-        let a = parse(&[
-            "vc-x1",
-            "commit",
-            "-s",
-            "w",
-            "--title",
-            "fix: the door stops closing",
-            "--body",
-            "b",
-        ])
-        .expect("a plain commit's title is just a title");
-        assert!(a.closing.is_none());
-    }
-
-    /// The commit ids of a revision's parents, in order.
-    fn parents(repo: &Path, rev: &str) -> Vec<String> {
-        jj_ok(
-            repo,
-            &[
-                "log",
-                "-r",
-                rev,
-                "--no-graph",
-                "-T",
-                "parents.map(|p| p.commit_id()).join(\" \")",
-            ],
-        )
-        .split_whitespace()
-        .map(str::to_string)
-        .collect()
-    }
-
-    fn commit_id(repo: &Path, rev: &str) -> String {
-        jj_ok(repo, &["log", "-r", rev, "--no-graph", "-T", "commit_id"])
-    }
-
-    /// `--closing` on a ladder of two rungs makes the work commit the
-    /// merge of the fork point and the last rung, its tree the
-    /// ladder's plus the closing's, and a review fix folded in by
-    /// `squash` keeps both parents.
-    #[test]
-    fn closing_makes_the_merge_and_a_squash_keeps_it() {
-        let fx = Fixture::new("commit-closing");
-        let base = commit_id(&fx.work, "main");
-        for rung in ["one", "two"] {
-            fs::write(fx.work.join(format!("{rung}.txt")), rung).expect("write");
-            jj_ok(&fx.work, &["commit", "-m", &format!("feat: rung {rung}")]);
-        }
-        let tip = commit_id(&fx.work, "@-");
-        fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
-        fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write");
-        let work_at = chid(&fx.work, "@");
-        let agent_at = chid(&fx.bot, "@");
-
-        let mut a = args("b", &fx.work);
-        a.title = Some("feat: a cycle".to_string());
-        a.closing = Some("@-".to_string());
-        a.onto = Some("main".to_string());
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("the closing is made");
-
-        assert_eq!(parents(&fx.work, "@-"), [base.clone(), tip.clone()]);
-        assert_eq!(
-            chid(&fx.work, "@-"),
-            work_at,
-            "the merge keeps @'s change id"
-        );
-        let files = jj_ok(&fx.work, &["file", "list", "-r", "@-"]);
-        for f in ["one.txt", "two.txt", "closing.txt"] {
-            assert!(files.contains(f), "{f} missing:\n{files}");
-        }
-        // The merge names its partner, and no trailer names a parent,
-        // git holding the parents.
-        let desc = description(&fx.work, "@-");
-        assert_eq!(
-            Trailers::of(&desc).ochids,
-            std::slice::from_ref(&agent_at),
-            "{desc}"
-        );
-        assert!(!desc.contains("pcid:") && !desc.contains("ocid:"), "{desc}");
-        assert_eq!(
-            parents(&fx.work, "@"),
-            [commit_id(&fx.work, "@-")],
-            "@ sits on the merge"
-        );
-
-        fs::write(fx.work.join("fix.txt"), "a review fix\n").expect("write");
-        let fold = crate::squash::SquashParams {
-            target: crate::squash::Target::Pair {
-                pair: Pair {
-                    work: fx.work.clone(),
-                    agent: fx.bot.clone(),
-                },
-                sides: crate::options_flags::scope::Scope(vec![
-                    crate::options_flags::scope::Side::Work,
-                    crate::options_flags::scope::Side::Bot,
-                ]),
-            },
-            text: None,
-            dry_run: false,
-            ignore_immutable: false,
-        };
-        crate::squash::squash(&mut test_ctx(), &fold).expect("the fix folds");
-        assert_eq!(
-            parents(&fx.work, "@-"),
-            [base, tip],
-            "the squash kept both parents"
-        );
-        assert!(jj_ok(&fx.work, &["file", "list", "-r", "@-"]).contains("fix.txt"));
-    }
-
-    /// A `main` that moved during the cycle is joined by the closing:
-    /// its first parent is `main` as it is now, and its tree carries
-    /// what `main` gained, with no rebase of the ladder first.
-    #[test]
-    fn closing_joins_a_main_that_moved() {
-        let fx = Fixture::new("commit-closing-moved");
-        for rung in ["one", "two"] {
-            fs::write(fx.work.join(format!("{rung}.txt")), rung).expect("write");
-            jj_ok(&fx.work, &["commit", "-m", &format!("feat: rung {rung}")]);
-        }
-        let tip = commit_id(&fx.work, "@-");
-        jj_ok(&fx.work, &["bookmark", "create", "topic", "-r", "@-"]);
-        jj_ok(&fx.work, &["new", "main"]);
-        fs::write(fx.work.join("landed.txt"), "another cycle\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "feat: another cycle landed"]);
-        jj_ok(&fx.work, &["bookmark", "set", "main", "-r", "@-"]);
-        let moved = commit_id(&fx.work, "main");
-        jj_ok(&fx.work, &["new", &tip]);
-        fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
-
-        let mut a = args("w", &fx.work);
-        a.title = Some("feat: a cycle".to_string());
-        a.closing = Some("@-".to_string());
-        a.onto = Some("main".to_string());
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("the closing is made");
-
-        assert_eq!(parents(&fx.work, "@-"), [moved, tip]);
-        assert_eq!(
-            commit_id(&fx.work, "topic"),
-            commit_id(&fx.work, "@-"),
-            "the ladder's bookmark advanced to the closing"
-        );
-        let files = jj_ok(&fx.work, &["file", "list", "-r", "@-"]);
-        for f in ["one.txt", "two.txt", "landed.txt", "closing.txt"] {
-            assert!(files.contains(f), "{f} missing:\n{files}");
-        }
-    }
-
-    /// `--closing` with no ladder, the work `@-` on `main`, and no
-    /// bookmark on `@` to close it from, is refused before anything is
-    /// committed, naming `vc-x1 open`.
-    #[test]
-    fn closing_with_no_ladder_is_refused() {
-        let fx = Fixture::new("commit-closing-none");
-        fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
-        let work_at = chid(&fx.work, "@");
-        let mut a = args("b", &fx.work);
-        a.title = Some("feat: a cycle".to_string());
-        a.closing = Some("@-".to_string());
-        a.onto = Some("main".to_string());
-        let params = CommitParams::try_from(&a).expect("params");
-        let err = commit(&mut test_ctx(), &params)
-            .expect_err("no ladder")
-            .to_string();
-        assert!(err.contains("vc-x1 open"), "{err}");
-        assert_eq!(chid(&fx.work, "@"), work_at, "nothing was committed");
-    }
-
     /// An empty work `@` is nothing to commit, and the agent repo is
     /// left as it was.
     #[test]
@@ -2494,204 +1602,10 @@ mod tests {
         assert_eq!(chid(&fx.bot, "@"), agent_at, "the agent @ is untouched");
     }
 
-    /// The opening's bookmark: where it is locally, and on origin.
-    fn bookmark_state(repo: &Path, name: &str) -> (Option<String>, Option<String>) {
-        let local = jj::local_bookmark_exists(repo, name)
-            .expect("local")
-            .then(|| commit_id(repo, name));
-        let remote = jj::remote_bookmark_targets(repo, "origin")
-            .expect("remote")
-            .get(name)
-            .cloned();
-        (local, remote)
-    }
-
     /// The bookmark `vc-x1 open` makes on the work `@`, as a test makes
     /// it, so the opening takes it.
     fn open_bookmark(fx: &Fixture, name: &str) {
         jj_ok(&fx.work, &["bookmark", "create", name, "-r", "@"]);
-    }
-
-    /// `--opening` makes the opening under the bare title with
-    /// " opening" appended, on the bookmark `vc-x1 open` made on the work
-    /// `@`, which followed the change into it, and `--push` publishes
-    /// both, a rung's push, the bookmark tracked.
-    #[test]
-    fn opening_takes_the_bookmark_open_made() {
-        let fx = Fixture::new("commit-opening");
-        let o = crate::open::OpenParams {
-            work: fx.work.clone(),
-            agent: Some(fx.bot.clone()),
-            bookmark: "feat-a-cycle".to_string(),
-            dry_run: false,
-        };
-        crate::open::open(&mut test_ctx(), &o).expect("opened");
-        fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
-        fs::write(fx.bot.join("session.jsonl"), "{\"line\":1}\n").expect("write");
-        let mut a = args("b", &fx.work);
-        a.title = Some("feat: a cycle".to_string());
-        a.opening = Some(None);
-        a.push = true;
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("the opening is made");
-
-        let desc = description(&fx.work, "@-");
-        assert!(desc.starts_with("feat: a cycle opening\n\n"), "{desc}");
-        let opening = commit_id(&fx.work, "@-");
-        assert_eq!(
-            bookmark_state(&fx.work, "feat-a-cycle"),
-            (Some(opening.clone()), Some(opening)),
-            "the opening, locally and on origin"
-        );
-        assert!(jj::has_tracked_remote(&fx.work, "feat-a-cycle", "origin").expect("tracked"));
-        assert!(
-            jj::matches(&fx.work, "@- & ::remote_bookmarks()").expect("matches"),
-            "the opening is published"
-        );
-    }
-
-    /// `--opening` with no value takes the bookmark named by the bare
-    /// title's slug, the rules' name for a cycle's bookmark, and a
-    /// `--title` right after it is not taken for its value. A title
-    /// with nothing to slug is refused.
-    #[test]
-    fn opening_names_the_bookmark_from_the_title() {
-        let a = parse(&[
-            "vc-x1",
-            "commit",
-            "-s",
-            "w",
-            "--opening",
-            "--title",
-            "feat: vc-x1 single-step commit",
-            "--body",
-            "b",
-        ])
-        .expect("parses");
-        assert_eq!(a.opening, Some(None));
-        assert_eq!(a.title.as_deref(), Some("feat: vc-x1 single-step commit"));
-
-        let fx = Fixture::new("commit-opening-slug");
-        open_bookmark(&fx, "feat-vc-x1-single-step-commit");
-        fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
-        let mut a = args("w", &fx.work);
-        a.title = Some("feat: vc-x1 single-step commit".to_string());
-        a.opening = Some(None);
-        let params = CommitParams::try_from(&a).expect("params");
-        assert_eq!(
-            params.opening.as_ref().map(|o| o.bookmark.as_str()),
-            Some("feat-vc-x1-single-step-commit")
-        );
-        commit(&mut test_ctx(), &params).expect("the opening is made");
-        assert_eq!(
-            bookmark_state(&fx.work, "feat-vc-x1-single-step-commit").0,
-            Some(commit_id(&fx.work, "@-"))
-        );
-
-        a.title = Some("?!".to_string());
-        let err = CommitParams::try_from(&a).unwrap_err();
-        assert!(err.contains("no letters or digits"), "{err}");
-    }
-
-    /// An opening's bookmark stays off the remote by default, and by
-    /// `--local` and its alias, and `--push` publishes it.
-    #[test]
-    fn an_opening_kept_local_pushes_no_bookmark() {
-        let open = |tag: &str, flag: Option<&str>| {
-            let fx = Fixture::new(&format!("commit-opening-local-{tag}"));
-            open_bookmark(&fx, "feat-x");
-            fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
-            let mut argv = vec![
-                "vc-x1",
-                "commit",
-                "-s",
-                "w",
-                "--opening",
-                "feat-x",
-                "--title",
-                "feat: x",
-                "--body",
-                "why",
-            ];
-            argv.extend(flag);
-            let mut a = parse(&argv).expect("parses");
-            a.repo = Some(fx.work.clone());
-            let params = CommitParams::try_from(&a).expect("params");
-            commit(&mut test_ctx(), &params).expect("the opening is made");
-            bookmark_state(&fx.work, "feat-x")
-        };
-        for (tag, flag) in [
-            ("default", None),
-            ("flag", Some("--local")),
-            ("alias", Some("--no-push")),
-        ] {
-            let (local, remote) = open(tag, flag);
-            assert!(local.is_some(), "{tag}: the bookmark is there");
-            assert_eq!(remote, None, "{tag}: nothing is pushed");
-        }
-        let (_, remote) = open("push", Some("--push"));
-        assert!(remote.is_some(), "--push publishes it");
-    }
-
-    /// Every refusal comes before anything is committed: a title that
-    /// carries " opening" already, `--no-advance`, which has nothing to
-    /// move, and a bookmark `vc-x1 open` has not made on the work `@`,
-    /// named in the refusal. `--skip` needs `--land`, and `--opening` is
-    /// not `--closing`.
-    #[test]
-    fn opening_refusals_commit_nothing() {
-        let err = parse(&[
-            "vc-x1", "commit", "-s", "b", "--title", "t", "--body", "b", "--skip", "both",
-        ])
-        .unwrap_err();
-        assert!(err.contains("--land"), "{err}");
-        let err = parse(&[
-            "vc-x1",
-            "commit",
-            "-s",
-            "b",
-            "--title",
-            "t",
-            "--body",
-            "b",
-            "--opening",
-            "x",
-            "--closing",
-            "main",
-        ])
-        .unwrap_err();
-        assert!(err.contains("cannot be used with"), "{err}");
-
-        let fx = Fixture::new("commit-opening-refused");
-        let mut a = args("w", &fx.work);
-        a.title = Some("feat: x opening".to_string());
-        a.opening = Some(Some("feat-x".to_string()));
-        let err = CommitParams::try_from(&a).unwrap_err();
-        assert!(err.contains("already"), "{err}");
-        a.title = Some("feat: x".to_string());
-        a.no_advance = true;
-        let err = CommitParams::try_from(&a).unwrap_err();
-        assert!(err.contains("--no-advance moves nothing"), "{err}");
-        a.no_advance = false;
-
-        fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
-        let work_at = chid(&fx.work, "@");
-        let params = CommitParams::try_from(&a).expect("params");
-        let err = commit(&mut test_ctx(), &params)
-            .expect_err("no bookmark")
-            .to_string();
-        assert!(
-            err.contains("is not on the work @") && err.contains("vc-x1 open --bookmark feat-x"),
-            "{err}"
-        );
-        assert_eq!(chid(&fx.work, "@"), work_at, "nothing was committed");
-
-        jj_ok(&fx.work, &["bookmark", "create", "feat-x", "-r", "@-"]);
-        let err = commit(&mut test_ctx(), &params)
-            .expect_err("below @")
-            .to_string();
-        assert!(err.contains("is not on the work @"), "{err}");
-        assert_eq!(chid(&fx.work, "@"), work_at, "nothing was committed");
     }
 
     /// The line's bookmark advances to the work commit locally, and
@@ -2825,371 +1739,6 @@ mod tests {
         assert_eq!(commit_id(&fx.work, "main"), start, "main is left");
     }
 
-    /// A dry run of `--opening` commits nothing and leaves the bookmark
-    /// where `vc-x1 open` made it.
-    #[test]
-    fn an_opening_dry_run_commits_nothing() {
-        let fx = Fixture::new("commit-opening-dry-run");
-        open_bookmark(&fx, "feat-x");
-        fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
-        let at = chid(&fx.work, "@");
-        let mut a = args("w", &fx.work);
-        a.opening = Some(Some("feat-x".to_string()));
-        a.dry_run.value = true;
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("dry run");
-        assert_eq!(chid(&fx.work, "@"), at, "nothing was committed");
-        assert_eq!(chid(&fx.work, "feat-x"), at, "the bookmark is on @ still");
-    }
-
-    /// Open a cycle titled "feat: a cycle": its bookmark made on the work
-    /// `@`, as `vc-x1 open` makes it, then `--opening`, the pair made at
-    /// once, returning the opening's change id.
-    fn open_cycle(fx: &Fixture) -> String {
-        open_bookmark(fx, "feat-a-cycle");
-        fs::write(fx.work.join("opening.txt"), "opening\n").expect("write");
-        let mut a = args("b", &fx.work);
-        a.title = Some("feat: a cycle".to_string());
-        a.body = Some("Why the cycle.".to_string());
-        a.opening = Some(None);
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("the opening is made");
-        chid(&fx.work, "@-")
-    }
-
-    /// `commit --closing <BM|REV>` with the title and body left out.
-    fn closing_args(fx: &Fixture, scope: &str, rev: &str) -> CommitArgs {
-        let mut a = args(scope, &fx.work);
-        a.title = None;
-        a.body = None;
-        a.closing = Some(rev.to_string());
-        a.onto = Some("main".to_string());
-        a
-    }
-
-    /// Set the work config's `[closing] body`.
-    fn set_closing_body(fx: &Fixture) {
-        let path = fx.work.join(".vc-config.md");
-        let mut cfg = fs::read_to_string(&path).expect("read the config");
-        cfg.push_str("\n```toml\n[closing]\nbody = 'Closes the cycle \"{title}\".'\n```\n");
-        fs::write(&path, cfg).expect("write the config");
-    }
-
-    /// Finalizing keeps every trailer, once each and out of the body.
-    #[test]
-    fn finalizing_keeps_the_trailers() {
-        let fx = Fixture::new("commit-finalize-orepo");
-        open_cycle(&fx);
-        let before = Trailers::of(&description(&fx.work, "@-"));
-        assert!(
-            before.orepo.is_some() && !before.ochids.is_empty(),
-            "{before:?}"
-        );
-
-        let params = CommitParams::try_from(&closing_args(&fx, "w", "@-")).expect("params");
-        commit(&mut test_ctx(), &params).expect("finalized");
-
-        let desc = description(&fx.work, "@-");
-        assert_eq!(Trailers::of(&desc), before, "{desc}");
-        assert_eq!(desc.matches("orepo:").count(), 1, "{desc}");
-    }
-
-    /// A branch of one commit above the trunk, the opening, is a
-    /// single-step cycle: `--closing @-` folds `@` into it and gives it
-    /// the bare cycle title read from it, its body and trailer kept,
-    /// no new commit, the agent `@` left for push, and the bookmark
-    /// following the rewrite.
-    #[test]
-    fn a_one_commit_branch_is_finalized_in_place() {
-        let fx = Fixture::new("commit-finalize");
-        let base = commit_id(&fx.work, "main");
-        let opening = open_cycle(&fx);
-        let trailer = description(&fx.work, "@-")
-            .lines()
-            .last()
-            .expect("trailer")
-            .to_string();
-        fs::write(fx.work.join("fix.txt"), "fix\n").expect("write");
-        fs::write(fx.bot.join("session.jsonl"), "{\"line\":2}\n").expect("write");
-        let agent_at = chid(&fx.bot, "@");
-
-        let params = CommitParams::try_from(&closing_args(&fx, "b", "@-")).expect("params");
-        commit(&mut test_ctx(), &params).expect("finalized");
-
-        assert_eq!(
-            chid(&fx.work, "@-"),
-            opening,
-            "the same change, no new commit"
-        );
-        assert_eq!(parents(&fx.work, "@-"), [base]);
-        let desc = description(&fx.work, "@-");
-        assert!(
-            desc.starts_with("feat: a cycle\n\nWhy the cycle.\n"),
-            "{desc}"
-        );
-        assert_eq!(desc.trim_end().lines().last(), Some(trailer.as_str()));
-        let files = jj_ok(&fx.work, &["file", "list", "-r", "@-"]);
-        assert!(
-            files.contains("fix.txt") && files.contains("opening.txt"),
-            "{files}"
-        );
-        assert_eq!(chid(&fx.bot, "@"), agent_at, "the agent @ is left for push");
-        assert_eq!(
-            chid(&fx.work, "feat-a-cycle"),
-            opening,
-            "the bookmark followed"
-        );
-    }
-
-    /// A branch of two or three commits gets the closing commit, its
-    /// title the cycle's read from the opening with " closing", its
-    /// body `[closing] body` filled with it, and the line's bookmark
-    /// advanced to it. Without the key, `--body` is required.
-    #[test]
-    fn a_longer_branch_gets_the_closing_commit_titled_from_the_opening() {
-        for rungs in 1..=2 {
-            let fx = Fixture::new(&format!("commit-closing-derived-{rungs}"));
-            let base = commit_id(&fx.work, "main");
-            open_cycle(&fx);
-            for n in 0..rungs {
-                fs::write(fx.work.join(format!("rung{n}.txt")), "rung\n").expect("write");
-                jj_ok(&fx.work, &["commit", "-m", &format!("feat: rung {n}")]);
-            }
-            let tip = commit_id(&fx.work, "@-");
-            fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
-
-            let params = CommitParams::try_from(&closing_args(&fx, "w", "@-")).expect("params");
-            let err = commit(&mut test_ctx(), &params)
-                .expect_err("no body")
-                .to_string();
-            assert!(err.contains("[closing] body"), "{err}");
-
-            set_closing_body(&fx);
-            commit(&mut test_ctx(), &params).expect("the closing is made");
-            assert_eq!(parents(&fx.work, "@-"), [base, tip], "{rungs} rungs");
-            let desc = description(&fx.work, "@-");
-            assert!(
-                desc.starts_with("feat: a cycle closing\n\nCloses the cycle \"feat: a cycle\".\n"),
-                "{desc}"
-            );
-            assert_eq!(
-                commit_id(&fx.work, "feat-a-cycle"),
-                commit_id(&fx.work, "@-")
-            );
-        }
-    }
-
-    /// `--closing` names the tip as a bookmark or a revision, the two
-    /// forms naming the same commit, and the shape is read from the
-    /// branch: with a rung above the opening and `@` on the rung, the
-    /// opening's bookmark names a one-commit branch, finalized in place
-    /// by a detour, `@` moving onto it and returning to a fresh empty
-    /// commit on the rung, the rung itself left above, unclosed.
-    #[test]
-    fn a_closing_names_its_tip_as_a_bookmark_or_a_revision() {
-        let fx = Fixture::new("commit-closing-tip");
-        let opening = open_cycle(&fx);
-        jj_ok(&fx.work, &["commit", "-m", "feat: a rung"]);
-        let rung = chid(&fx.work, "@-");
-        let at = chid(&fx.work, "@");
-
-        let params =
-            CommitParams::try_from(&closing_args(&fx, "w", "feat-a-cycle")).expect("params");
-        commit(&mut test_ctx(), &params).expect("finalized by a detour");
-
-        assert_eq!(chid(&fx.work, "@-"), rung, "@ returned onto the rung");
-        assert_ne!(
-            chid(&fx.work, "@"),
-            at,
-            "to a fresh commit, the empty one abandoned"
-        );
-        assert!(jj::is_empty(&fx.work, "@").expect("empty"));
-        assert_eq!(
-            chid(&fx.work, "@--"),
-            opening,
-            "the rung still sits on the opening"
-        );
-        let desc = description(&fx.work, "@--");
-        assert!(
-            desc.starts_with("feat: a cycle\n\nWhy the cycle.\n"),
-            "{desc}"
-        );
-        assert_eq!(
-            description(&fx.work, "@-").trim_end(),
-            "feat: a rung",
-            "the rung is as it was"
-        );
-
-        // The revision form names the same tip, refused now that the
-        // opening carries no " opening" to read the title from.
-        let params = CommitParams::try_from(&closing_args(&fx, "w", &opening)).expect("params");
-        let err = commit(&mut test_ctx(), &params)
-            .expect_err("not an opening")
-            .to_string();
-        assert!(err.contains("is not an opening"), "{err}");
-    }
-
-    /// A `@` holding work is kept through a closing's detour: the
-    /// closing of a tip below `@-` is made from an empty working copy,
-    /// which is no refusal for a closing, carries nothing of `@`, and
-    /// `@` returns to the same commit with its work, the rung above
-    /// the tip left unclosed.
-    #[test]
-    fn a_detour_keeps_the_work_at_holds() {
-        let fx = Fixture::new("commit-closing-detour");
-        open_cycle(&fx);
-        // In rung one's tree, since the closing reads the config from
-        // the tip's working copy.
-        set_closing_body(&fx);
-        fs::write(fx.work.join("one.txt"), "one\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "feat: rung one"]);
-        let one = chid(&fx.work, "@-");
-        fs::write(fx.work.join("two.txt"), "two\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "feat: rung two"]);
-        let two = chid(&fx.work, "@-");
-        fs::write(fx.work.join("next.txt"), "next work\n").expect("write");
-        let at = chid(&fx.work, "@");
-
-        let params = CommitParams::try_from(&closing_args(&fx, "w", &one)).expect("params");
-        commit(&mut test_ctx(), &params).expect("closed by a detour");
-
-        assert_eq!(chid(&fx.work, "@"), at, "@ is the same commit");
-        assert_eq!(chid(&fx.work, "@-"), two, "on rung two, unclosed");
-        let files = jj_ok(&fx.work, &["file", "list", "-r", "@"]);
-        assert!(files.contains("next.txt"), "with its work: {files}");
-        let closing = jj_ok(
-            &fx.work,
-            &[
-                "log",
-                "-r",
-                "description(substring:\"feat: a cycle closing\")",
-                "--no-graph",
-                "-T",
-                "commit_id",
-            ],
-        );
-        let closing = closing.trim();
-        assert_eq!(
-            parents(&fx.work, closing),
-            [commit_id(&fx.work, "main"), commit_id(&fx.work, &one)]
-        );
-        let carried = jj_ok(&fx.work, &["file", "list", "-r", closing]);
-        assert!(
-            !carried.contains("next.txt") && !carried.contains("two.txt"),
-            "the closing carries nothing above its tip: {carried}"
-        );
-    }
-
-    /// The target is `--onto`'s bookmark, the closing's first parent,
-    /// with none assumed: left out it is refused naming the bookmark
-    /// below the opening, and one that does not resolve is refused,
-    /// both before anything is made.
-    #[test]
-    fn the_target_is_ontos_and_none_is_assumed() {
-        let fx = Fixture::new("commit-closing-onto");
-        jj_ok(&fx.work, &["bookmark", "create", "dev", "-r", "main"]);
-        open_cycle(&fx);
-        fs::write(fx.work.join("rung.txt"), "rung\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "feat: a rung"]);
-        let tip = commit_id(&fx.work, "@-");
-        jj_ok(&fx.work, &["new", "main"]);
-        fs::write(fx.work.join("landed.txt"), "landed\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "feat: main moved"]);
-        jj_ok(&fx.work, &["bookmark", "set", "main", "-r", "@-"]);
-        jj_ok(&fx.work, &["new", &tip]);
-        fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
-        let work_at = chid(&fx.work, "@");
-
-        let mut a = closing_args(&fx, "w", "@-");
-        a.body = Some("Closing.".to_string());
-        for (onto, why) in [
-            (None, "--onto <BOOKMARK>, likely `--onto dev`"),
-            (
-                Some("no-such-target"),
-                "--onto 'no-such-target' does not resolve",
-            ),
-        ] {
-            a.onto = onto.map(str::to_string);
-            let params = CommitParams::try_from(&a).expect("params");
-            let err = commit(&mut test_ctx(), &params)
-                .expect_err("refused")
-                .to_string();
-            assert!(err.contains(why), "{onto:?}: {err}");
-            assert_eq!(
-                chid(&fx.work, "@"),
-                work_at,
-                "{onto:?}: nothing was committed"
-            );
-        }
-
-        a.onto = Some("dev".to_string());
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("closed onto dev");
-        assert_eq!(parents(&fx.work, "@-"), [commit_id(&fx.work, "dev"), tip]);
-    }
-
-    /// `--dead-end` always makes the closing commit, a branch of the
-    /// opening alone included, titled " dead-end closing".
-    #[test]
-    fn a_dead_end_always_gets_the_closing_commit() {
-        let fx = Fixture::new("commit-closing-dead-end");
-        open_cycle(&fx);
-        let opening = commit_id(&fx.work, "@-");
-        fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
-        let mut a = closing_args(&fx, "w", "@-");
-        a.body = Some("Why it stopped.".to_string());
-        a.dead_end = true;
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("the closing is made");
-        assert_eq!(
-            parents(&fx.work, "@-"),
-            [commit_id(&fx.work, "main"), opening]
-        );
-        assert!(description(&fx.work, "@-").starts_with("feat: a cycle dead-end closing\n\n"));
-    }
-
-    /// `--closing` takes any one revision as the tip: a change id names
-    /// it as a bookmark would, and a revision naming no commit, or
-    /// several, or the trunk itself, or a branch whose first commit is
-    /// not an opening with no `--title`, is refused before anything is
-    /// committed.
-    #[test]
-    fn closing_takes_any_one_revision() {
-        let fx = Fixture::new("commit-closing-rev");
-        let base = commit_id(&fx.work, "main");
-        for rung in ["one", "two"] {
-            fs::write(fx.work.join(format!("{rung}.txt")), rung).expect("write");
-            jj_ok(&fx.work, &["commit", "-m", &format!("feat: rung {rung}")]);
-        }
-        jj_ok(&fx.work, &["bookmark", "create", "topic", "-r", "@-"]);
-        let tip = commit_id(&fx.work, "@-");
-        let tip_chid = chid(&fx.work, "@-");
-        fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
-        let work_at = chid(&fx.work, "@");
-
-        let mut a = closing_args(&fx, "w", "@-");
-        a.body = Some("b".to_string());
-        for (rev, why) in [
-            ("nosuch", "does not resolve"),
-            ("main::@-", "names 3 commits"),
-            ("main", "nothing above 'main' to close"),
-            ("@-", "is not an opening"),
-        ] {
-            a.closing = Some(rev.to_string());
-            let params = CommitParams::try_from(&a).expect("params");
-            let err = commit(&mut test_ctx(), &params).expect_err(rev).to_string();
-            assert!(err.contains(why), "{rev}: {err}");
-            assert_eq!(chid(&fx.work, "@"), work_at, "{rev}: nothing was committed");
-        }
-
-        a.closing = Some(tip_chid);
-        a.title = Some("feat: a cycle".to_string());
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("the closing is made");
-        assert_eq!(parents(&fx.work, "@-"), [base, tip]);
-        assert!(description(&fx.work, "@-").starts_with("feat: a cycle closing\n"));
-    }
-
     /// A `TODO.md` in the Todo format, a cycle in progress whose block
     /// holds a fenced `## ` line, and an older cycle closed.
     const RECORD_TEXT: &str = "# Todo\n\n## Continuation notes\n\n_None._\n\n\
@@ -3224,528 +1773,14 @@ mod tests {
         );
         let err = moved_record("## In Progress\n\n### feat: a cycle\n").unwrap_err();
         assert!(err.contains("no `## Closed`"), "{err}");
-    }
-
-    /// The fixture's `zTOC.md`, its ladder listing the cycle's rung.
-    const TOC_TEXT: &str = "# TOC\n\n## Ladder\n\n- 0 (done) [r](TODO.md#r)\n\n## The TOC\n";
-
-    /// Give the fixture's work repo a `TODO.md` with a cycle in
-    /// progress, and a `zTOC.md` listing its rung.
-    fn set_record(fx: &Fixture) {
-        fs::write(fx.work.join(RECORD), RECORD_TEXT).expect("write");
-        fs::write(fx.work.join("zTOC.md"), TOC_TEXT).expect("write");
-    }
-
-    /// The commit's copy of a file.
-    fn file_at(repo: &Path, rev: &str, file: &str) -> String {
-        jj_ok(repo, &["file", "show", "-r", rev, &format!("root:{file}")])
-    }
-
-    /// A closing commit carries the record moved in `TODO.md` and
-    /// `zTOC.md`'s ladder as it was, and a finalized commit too, its kept
-    /// body gaining the pointer.
-    #[test]
-    fn a_closing_carries_the_record_moved() {
-        for multi in [false, true] {
-            let fx = Fixture::new(&format!("commit-record-{multi}"));
-            open_cycle(&fx);
-            if multi {
-                fs::write(fx.work.join("rung.txt"), "rung\n").expect("write");
-                jj_ok(&fx.work, &["commit", "-m", "feat: a rung"]);
-            }
-            set_record(&fx);
-            let mut a = closing_args(&fx, "w", "@-");
-            a.body = multi.then(|| "Closing.".to_string());
-            let params = CommitParams::try_from(&a).expect("params");
-            commit(&mut test_ctx(), &params).expect("closed");
-
-            let record = file_at(&fx.work, "@-", RECORD);
-            assert!(
-                record.contains("## In Progress\n\nIntro.\n\n_No cycle currently in progress._"),
-                "multi {multi}: {record}"
-            );
-            assert!(
-                record.contains("Closed intro.\n\n### feat: a cycle\n"),
-                "{record}"
-            );
-            assert!(!record.contains("an older cycle"), "{record}");
-            assert_eq!(
-                file_at(&fx.work, "@-", "zTOC.md"),
-                TOC_TEXT.trim_end(),
-                "the ladder stays"
-            );
-            let desc = description(&fx.work, "@-");
-            if multi {
-                assert!(
-                    desc.starts_with("feat: a cycle closing\n\nClosing.\n"),
-                    "{desc}"
-                );
-            } else {
-                assert!(
-                    desc.starts_with(
-                        "feat: a cycle\n\nWhy the cycle.\n\nSee details in TODO.md.\n"
-                    ),
-                    "{desc}"
-                );
-            }
-        }
-    }
-
-    /// A branch with nothing committed, `vc-x1 open`'s bookmark on a `@`
-    /// holding the work, closes in one commit made from `@` and lands,
-    /// the tip named `@-`, the bookmark, or `@`: `main` is `@` committed
-    /// under the bare title and published, the agent `main` with it.
-    #[test]
-    fn a_branch_with_nothing_committed_closes_and_lands_in_one_commit() {
-        for rev in ["@-", "feat-abc", "@"] {
-            let fx = Fixture::new(&format!("commit-land-uncommitted-{}", rev.len()));
-            open_bookmark(&fx, "feat-abc");
-            fs::write(fx.work.join("abc.txt"), "abc\n").expect("write");
-            let work_at = chid(&fx.work, "@");
-            let mut a = closing_args(&fx, "b", rev);
-            a.title = Some("feat: add abc.txt".to_string());
-            a.body = Some("Created abc.".to_string());
-            a.land = true;
-            a.push = true;
-            let params = CommitParams::try_from(&a).expect("params");
-            commit(&mut test_ctx(), &params).expect("landed");
-
-            assert_eq!(
-                chid(&fx.work, "main"),
-                work_at,
-                "{rev}: main is @, committed"
-            );
-            assert_eq!(
-                chid(&fx.work, "main@origin"),
-                work_at,
-                "{rev}: and published"
-            );
-            let desc = description(&fx.work, "main");
-            assert!(
-                desc.starts_with("feat: add abc.txt\n\nCreated abc."),
-                "{rev}: {desc}"
-            );
-            assert!(
-                jj_ok(&fx.work, &["file", "list", "-r", "main"]).contains("abc.txt"),
-                "{rev}"
-            );
-            assert_eq!(
-                chid(&fx.bot, "main@origin"),
-                chid(&fx.bot, "@-"),
-                "{rev}: with the agent main"
-            );
-            assert!(
-                !jj::local_bookmark_exists(&fx.work, "feat-abc").expect("local"),
-                "{rev}: the cycle's bookmark is gone"
-            );
-        }
-    }
-
-    /// A branch with nothing committed is refused before anything is
-    /// made when `@` is empty, carries no bookmark, the title or body is
-    /// left out, or `--dead-end` asks for a closing commit.
-    #[test]
-    fn a_branch_with_nothing_committed_is_refused_before_anything_is_made() {
-        let fx = Fixture::new("commit-closing-uncommitted-refused");
-        let main = commit_id(&fx.work, "main");
-        let mut a = closing_args(&fx, "b", "@-");
-        a.title = Some("feat: add abc.txt".to_string());
-        a.body = Some("Created abc.".to_string());
-        let refused = |a: &CommitArgs, why: &str| {
-            let at = chid(&fx.work, "@");
-            let params = CommitParams::try_from(a).expect("params");
-            let err = commit(&mut test_ctx(), &params).expect_err(why).to_string();
-            assert!(err.contains(why), "{why}: {err}");
-            assert_eq!(chid(&fx.work, "@"), at, "{why}: nothing was committed");
-            assert_eq!(commit_id(&fx.work, "main"), main, "{why}: main stays");
-        };
-        open_bookmark(&fx, "feat-abc");
-        refused(&a, "nothing above 'main' to close");
-        fs::write(fx.work.join("abc.txt"), "abc\n").expect("write");
-        jj_ok(&fx.work, &["bookmark", "delete", "feat-abc"]);
-        refused(&a, "vc-x1 open");
-        open_bookmark(&fx, "feat-abc");
-        a.dead_end = true;
-        refused(&a, "--dead-end");
-        a.dead_end = false;
-        a.body = None;
-        refused(&a, "--title and --body are required");
-    }
-
-    /// `--land` on a single-step cycle finalizes the opening, fast-
-    /// forwards `main` to it and pushes it with the agent `main`, and
-    /// deletes the cycle's bookmark locally and on origin.
-    #[test]
-    fn a_single_step_cycle_lands() {
-        let fx = Fixture::new("commit-land-single");
-        let opening = open_cycle(&fx);
-        let mut a = closing_args(&fx, "b", "@-");
-        a.land = true;
-        a.push = true;
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("landed");
-
+        // A `## Closed` with no intro, the file's last line, still gets a
+        // blank line between its heading and the block.
+        let bare = "## In Progress\n\n### feat: a cycle\n\nThe record.\n\n## Closed\n";
         assert_eq!(
-            chid(&fx.work, "main"),
-            opening,
-            "main is the finalized commit"
+            moved_record(bare).expect("moved").expect("a cycle"),
+            "## In Progress\n\n_No cycle currently in progress._\n\n## Closed\n\n\
+             ### feat: a cycle\n\nThe record.\n"
         );
-        assert_eq!(chid(&fx.work, "main@origin"), opening, "and published");
-        assert_eq!(
-            chid(&fx.bot, "main@origin"),
-            chid(&fx.bot, "@-"),
-            "with the agent main"
-        );
-        assert!(!jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("local"));
-        assert!(
-            !jj::remote_bookmark_targets(&fx.work, "origin")
-                .expect("remote")
-                .contains_key("feat-a-cycle"),
-            "the cycle's bookmark is gone on origin"
-        );
-    }
-
-    /// A bare `--land` on a ladder lands the closing merge on the
-    /// default trunk, `main`, and `--skip both` keeps the cycle's
-    /// bookmark.
-    #[test]
-    fn a_ladder_lands_through_its_closing() {
-        let fx = Fixture::new("commit-land-ladder");
-        open_cycle(&fx);
-        fs::write(fx.work.join("rung.txt"), "rung\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "feat: a rung"]);
-        fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
-        let mut a = closing_args(&fx, "b", "@-");
-        a.body = Some("Closing.".to_string());
-        a.land = true;
-        a.push = true;
-        a.skip = Some(Skip::Both);
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("landed");
-
-        assert_eq!(
-            parents(&fx.work, "main").len(),
-            2,
-            "main is the closing merge"
-        );
-        assert_eq!(
-            commit_id(&fx.work, "main@origin"),
-            commit_id(&fx.work, "main")
-        );
-        assert!(jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("kept"));
-    }
-
-    /// Whether `name` is a bookmark on origin.
-    fn on_origin(repo: &Path, name: &str) -> bool {
-        jj::remote_bookmark_targets(repo, "origin")
-            .expect("remote")
-            .contains_key(name)
-    }
-
-    /// With the cycle's bookmark and a user's own both at the tip, a
-    /// revision names no one bookmark, so it is refused listing both
-    /// before anything is made; the bookmark form names the one to
-    /// delete, locally and on origin, and the other is left, merged.
-    #[test]
-    fn a_land_deletes_the_bookmark_named() {
-        let fx = Fixture::new("commit-land-named");
-        open_cycle(&fx);
-        fs::write(fx.work.join("rung.txt"), "rung\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "feat: a rung"]);
-        jj_ok(&fx.work, &["bookmark", "set", "feat-a-cycle", "-r", "@-"]);
-        jj_ok(&fx.work, &["bookmark", "create", "mine", "-r", "@-"]);
-        let rung = commit_id(&fx.work, "@-");
-        let at = chid(&fx.work, "@");
-        let main = commit_id(&fx.work, "main");
-
-        let mut a = closing_args(&fx, "b", "@-");
-        a.body = Some("Closing.".to_string());
-        a.land = true;
-        a.push = true;
-        let params = CommitParams::try_from(&a).expect("params");
-        let err = commit(&mut test_ctx(), &params)
-            .expect_err("several")
-            .to_string();
-        assert!(
-            err.contains("several bookmarks")
-                && err.contains("feat-a-cycle")
-                && err.contains("mine"),
-            "{err}"
-        );
-        assert_eq!(chid(&fx.work, "@"), at, "nothing was committed");
-        assert_eq!(commit_id(&fx.work, "main"), main, "nothing was landed");
-
-        a.closing = Some("feat-a-cycle".to_string());
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("landed");
-        assert_eq!(parents(&fx.work, "main"), [main, rung.clone()]);
-        assert_eq!(
-            commit_id(&fx.work, "main@origin"),
-            commit_id(&fx.work, "main")
-        );
-        assert!(!jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("local"));
-        assert!(!on_origin(&fx.work, "feat-a-cycle"), "deleted on origin");
-        assert_eq!(commit_id(&fx.work, "mine"), rung, "the user's is left");
-    }
-
-    /// A revision with no bookmark on it takes the nearest parent's:
-    /// the cycle's bookmark left on the opening is the one deleted.
-    #[test]
-    fn a_land_takes_the_nearest_parents_bookmark() {
-        let fx = Fixture::new("commit-land-nearest");
-        open_cycle(&fx);
-        fs::write(fx.work.join("rung.txt"), "rung\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "feat: a rung"]);
-        let mut a = closing_args(&fx, "b", "@-");
-        a.body = Some("Closing.".to_string());
-        a.land = true;
-        a.push = true;
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("landed");
-        assert_eq!(parents(&fx.work, "main").len(), 2, "main is the closing");
-        assert!(!jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("local"));
-        assert!(!on_origin(&fx.work, "feat-a-cycle"), "deleted on origin");
-    }
-
-    /// Two rungs on `main` with no bookmark above it, closed with the
-    /// title given.
-    fn unbookmarked_branch(tag: &str) -> (Fixture, CommitArgs) {
-        let fx = Fixture::new(tag);
-        for rung in ["one", "two"] {
-            fs::write(fx.work.join(format!("{rung}.txt")), rung).expect("write");
-            jj_ok(&fx.work, &["commit", "-m", &format!("feat: rung {rung}")]);
-        }
-        let mut a = closing_args(&fx, "b", "@-");
-        a.title = Some("feat: a cycle".to_string());
-        a.body = Some("Closing.".to_string());
-        (fx, a)
-    }
-
-    /// A branch with no bookmark above the trunk lands with nothing
-    /// deleted, and a closing with none and no `--land` is kept local,
-    /// since its push would publish it on the trunk.
-    #[test]
-    fn a_branch_with_no_bookmark_lands_and_deletes_none() {
-        let (fx, mut a) = unbookmarked_branch("commit-close-none");
-        let main = commit_id(&fx.work, "main");
-        a.push = true;
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("closed, kept local");
-        assert_eq!(parents(&fx.work, "@-").len(), 2, "the closing is made");
-        assert_eq!(commit_id(&fx.work, "main"), main, "main is not moved");
-        assert_eq!(commit_id(&fx.work, "main@origin"), main, "nothing pushed");
-
-        let (fx, mut a) = unbookmarked_branch("commit-land-none");
-        a.land = true;
-        a.push = true;
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("landed");
-        assert_eq!(parents(&fx.work, "main").len(), 2, "main is the closing");
-        assert_eq!(
-            commit_id(&fx.work, "main@origin"),
-            commit_id(&fx.work, "main")
-        );
-    }
-
-    /// The live fixture `tmp/t-85-8.1-2ecac` replayed with local
-    /// remotes, the acceptance check of **feat: vc-x1 commit takes a
-    /// revision**: a cycle's opening on its bookmark, a draft made by
-    /// hand above it under a second bookmark, never pushed, and an
-    /// empty `@`, landed by three lines with no `jj` typed:
-    ///
-    /// 1. `commit @- -s b --title --body --bookmark <cycle's>`, the
-    ///    draft described and paired, the cycle's bookmark moved past
-    ///    the user's onto it, and pushed.
-    /// 2. `commit -s b --closing @- --onto main --land`, refused naming both
-    ///    bookmarks, then `--closing <cycle's> --onto main --land`, the closing
-    ///    merged, landed, and the cycle's bookmark deleted.
-    /// 3. `delete-bookmark -s w --bookmark <user's> --skip remote`.
-    #[test]
-    fn the_fixture_lands_by_three_lines() {
-        let fx = Fixture::new("commit-acceptance");
-        let base = commit_id(&fx.work, "main");
-        open_cycle(&fx);
-        fs::write(fx.work.join("opening.txt"), "opening\nline 2\n").expect("write");
-        jj_ok(&fx.work, &["new"]);
-        jj_ok(&fx.work, &["bookmark", "create", "line-2", "-r", "@-"]);
-        let draft = chid(&fx.work, "@-");
-        assert!(jj::is_empty(&fx.work, "@").expect("empty"), "@ is empty");
-
-        // Line 1.
-        let mut a = args("b", &fx.work);
-        a.rev = Some("@-".to_string());
-        a.title = Some("feat: add line-2".to_string());
-        a.body = Some("Added line 2 to opening.txt".to_string());
-        a.bookmark = Some("feat-a-cycle".to_string());
-        a.push = true;
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("line 1");
-        assert_eq!(chid(&fx.work, "@-"), draft, "described in place");
-        let desc = description(&fx.work, "@-");
-        assert!(desc.starts_with("feat: add line-2\n"), "{desc}");
-        let agent = chid(&fx.bot, "@-");
-        assert!(desc.contains(&format!("ochid: {agent}")), "{desc}");
-        assert!(description(&fx.bot, "@-").contains(&format!("ochid: {draft}")));
-        assert_eq!(
-            chid(&fx.work, "feat-a-cycle"),
-            draft,
-            "moved past the user's"
-        );
-        assert_eq!(chid(&fx.work, "feat-a-cycle@origin"), draft, "and pushed");
-        assert!(!on_origin(&fx.work, "line-2"), "the user's stays local");
-
-        // Line 2, first as a revision, which names two bookmarks.
-        let mut a = closing_args(&fx, "b", "@-");
-        a.body = Some("Closing.".to_string());
-        a.land = true;
-        a.push = true;
-        let params = CommitParams::try_from(&a).expect("params");
-        let err = commit(&mut test_ctx(), &params)
-            .expect_err("two bookmarks")
-            .to_string();
-        assert!(
-            err.contains("feat-a-cycle") && err.contains("line-2"),
-            "{err}"
-        );
-        a.closing = Some("feat-a-cycle".to_string());
-        let params = CommitParams::try_from(&a).expect("params");
-        commit(&mut test_ctx(), &params).expect("line 2");
-        assert_eq!(
-            parents(&fx.work, "main"),
-            [base, commit_id(&fx.work, &draft)]
-        );
-        assert_eq!(
-            commit_id(&fx.work, "main@origin"),
-            commit_id(&fx.work, "main")
-        );
-        assert_eq!(chid(&fx.bot, "main@origin"), chid(&fx.bot, "main"));
-        assert!(!jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("local"));
-        assert!(!on_origin(&fx.work, "feat-a-cycle"), "deleted on origin");
-
-        // Line 3.
-        crate::delete_bookmark::delete_bookmark(
-            &mut test_ctx(),
-            &fx.work,
-            "line-2",
-            Some(crate::delete_bookmark::Keep::Remote),
-            false,
-        )
-        .expect("line 3");
-        assert!(!jj::local_bookmark_exists(&fx.work, "line-2").expect("local"));
-        assert_eq!(
-            jj::local_bookmarks_at(&fx.work, "all()").expect("bookmarks"),
-            ["main"],
-            "main alone is left"
-        );
-    }
-
-    /// Every refusal of `--land` comes before anything is made: a trunk
-    /// whose local is not at origin's, and a branch that does not
-    /// descend from it, the trunk the default `main` throughout.
-    #[test]
-    fn a_land_is_refused_before_anything_is_made() {
-        let fx = Fixture::new("commit-land-refused");
-        open_cycle(&fx);
-        let opening = chid(&fx.work, "@-");
-        let refused = |a: &CommitArgs, why: &str| {
-            let at = chid(&fx.work, "@");
-            let params = CommitParams::try_from(a).expect("params");
-            let err = commit(&mut test_ctx(), &params).expect_err(why).to_string();
-            assert!(err.contains(why), "{why}: {err}");
-            assert_eq!(chid(&fx.work, "@"), at, "{why}: nothing was committed");
-            assert_eq!(
-                chid(&fx.work, "@-"),
-                opening,
-                "{why}: nothing was finalized"
-            );
-        };
-        let mut a = closing_args(&fx, "w", "@-");
-        a.land = true;
-        a.push = true;
-        jj_ok(
-            &fx.work,
-            &["new", "--no-edit", "main", "-m", "a side commit"],
-        );
-        jj_ok(
-            &fx.work,
-            &[
-                "bookmark",
-                "set",
-                "main",
-                "-r",
-                "description(substring:\"a side commit\")",
-                "--allow-backwards",
-            ],
-        );
-        refused(&a, "sync first");
-
-        jj_ok(&fx.work, &["new", "main@origin"]);
-        fs::write(fx.work.join("other.txt"), "other\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "feat: another cycle landed"]);
-        jj_ok(
-            &fx.work,
-            &["bookmark", "set", "main", "-r", "@-", "--allow-backwards"],
-        );
-        jj_ok(&fx.work, &["git", "push", "--bookmark", "main"]);
-        jj_ok(&fx.work, &["new", &opening]);
-        refused(&a, "rebase the branch");
-    }
-
-    /// `--land <TRUNK>`, the form before the target was `--onto`'s, is
-    /// refused naming `--onto`, not taken for the retired revision.
-    #[test]
-    fn a_value_after_land_names_onto() {
-        let a = parse(&[
-            "vc-x1",
-            "commit",
-            "-s",
-            "b",
-            "--closing",
-            "single-step-abc",
-            "--title",
-            "feat: add abc.txt",
-            "--body",
-            "Created abc",
-            "--land",
-            "main",
-            "--push",
-        ])
-        .expect("parses");
-        let err = CommitParams::try_from(&a).unwrap_err();
-        assert!(err.contains("`--onto main --land`"), "{err}");
-        assert!(!err.contains("-r main"), "{err}");
-    }
-
-    /// The target `--land` moves must be a local bookmark: an `--onto`
-    /// naming one that does not exist, and one that is a revision and
-    /// no bookmark, are refused before anything is made.
-    #[test]
-    fn a_land_needs_a_bookmark_for_its_target() {
-        let fx = Fixture::new("commit-land-no-bookmark");
-        open_cycle(&fx);
-        fs::write(fx.work.join("rung.txt"), "rung\n").expect("write");
-        jj_ok(&fx.work, &["commit", "-m", "feat: a rung"]);
-        fs::write(fx.work.join("closing.txt"), "closing\n").expect("write");
-        let (at, tip) = (chid(&fx.work, "@"), chid(&fx.work, "@-"));
-        let main = commit_id(&fx.work, "main");
-        let refused = |a: &CommitArgs, why: &str| {
-            let params = CommitParams::try_from(a).expect("params");
-            let err = commit(&mut test_ctx(), &params).expect_err(why).to_string();
-            assert!(err.contains(why), "{why}: {err}");
-            assert_eq!(chid(&fx.work, "@"), at, "{why}: nothing was committed");
-            assert_eq!(chid(&fx.work, "@-"), tip, "{why}: the branch is as it was");
-            assert_eq!(commit_id(&fx.work, "main"), main, "{why}: main stays");
-        };
-
-        let mut a = closing_args(&fx, "w", "@-");
-        a.body = Some("Closing.".to_string());
-        a.land = true;
-        a.push = true;
-        a.onto = Some("no-such-target".to_string());
-        refused(&a, "'no-such-target' does not resolve");
-
-        a.onto = Some(main.clone());
-        refused(&a, "is not a local bookmark");
     }
 
     /// `-s p` commits a plain repo with the description and no
@@ -3843,13 +1878,29 @@ mod tests {
         let err = commit(&mut test_ctx(), &params).unwrap_err().to_string();
         assert!(err.contains("nothing to describe"), "{err}");
 
-        let err =
-            parse(&["vc-x1", "commit", "-r", "@-", "-s", "b", "--closing", "@-"]).unwrap_err();
-        assert!(err.contains("cannot be used with"), "{err}");
         let mut a = args("a", &fx.work);
         a.rev = Some("@-".to_string());
         let err = CommitParams::try_from(&a).unwrap_err();
         assert!(err.contains("-r is the work commit's"), "{err}");
+    }
+
+    /// The cycle's flags are retired: each parses, hidden, and is refused
+    /// naming the `cycle` stage that took its place.
+    #[test]
+    fn the_cycles_flags_are_retired() {
+        let fx = Fixture::new("commit-retired-flags");
+        for (flag, stage) in [
+            (vec!["--opening"], "cycle --commit"),
+            (vec!["--closing", "@-"], "cycle --close"),
+            (vec!["--land"], "cycle --land"),
+        ] {
+            let mut argv = vec!["vc-x1", "commit", "-s", "b", "--title", "t", "--body", "b"];
+            argv.extend(&flag);
+            let mut a = parse(&argv).expect("parses");
+            a.repo = Some(fx.work.clone());
+            let err = CommitParams::try_from(&a).unwrap_err();
+            assert!(err.contains("retired") && err.contains(stage), "{err}");
+        }
     }
 
     /// `-r` and `--revision` name the commit, and the retired positional

@@ -375,6 +375,24 @@ pub fn cid_of(repo: &Path, rev: &str) -> Result<String> {
         .collect())
 }
 
+/// The lines the one commit `rev` removes from and adds to `file`, a
+/// path relative to the repo root, hunk by hunk, the removed lines
+/// before the added. Empty when the commit does not change the file.
+pub fn changed_lines(repo: &Path, rev: &str, file: &Path) -> Result<Vec<String>> {
+    let (workspace, repo_at_head) = repo_for_read(repo, rev)?;
+    let ids = common::resolve_revset(&workspace, &repo_at_head, rev)?;
+    let [id] = ids.as_slice() else {
+        return Err(format!("'{rev}' names {} commits, and one is read", ids.len()).into());
+    };
+    let commit = repo_at_head.store().get_commit(id)?;
+    let hunks =
+        crate::lookup::work_window::hunks_of(&repo_at_head, &commit, Some(&[file.to_path_buf()]))?;
+    Ok(hunks
+        .into_iter()
+        .flat_map(|h| h.removed.into_iter().chain(h.added))
+        .collect())
+}
+
 /// The full commit ids of every commit `revset` resolves to, oldest
 /// first, the order `jj log --reversed` lists them.
 pub fn cids_of(repo: &Path, revset: &str) -> Result<Vec<String>> {

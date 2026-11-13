@@ -1,6 +1,6 @@
 [package]
 name = "vc-x1"
-version = "0.85.21"
+version = "0.85.22"
 edition = "2024"
 
 # The package name is the installed binary's name and never
@@ -10,6 +10,12 @@ edition = "2024"
 # `vc-x1` on the PATH. The promotion is the plain `cargo install`
 # from `main`. Before 2026-10-20 a cycle renamed the package to
 # `vc-x1-dev` instead, guarded by build.rs (chores-16, 0.78.3).
+
+# The workspace: `vc-x1` itself and `xtask`, the project's own tasks
+# (`cargo xtask bump next`), both built, tested, and linted by default.
+[workspace]
+members = [".", "xtask"]
+default-members = [".", "xtask"]
 
 [lints.clippy]
 # The process-spawn ban: `Command::new` is disallowed via
@@ -40,6 +46,9 @@ pollster = "1.0"
 rand = "0.10"
 rand_chacha = "0.10"
 serde_json = "1"
+# The terminal's width, for wrapping an error or a warning to it. At the
+# version clap's `wrap_help` already brings into the lock file.
+terminal_size = "0.4"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

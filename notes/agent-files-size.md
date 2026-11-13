@@ -61,17 +61,17 @@ landings before the set was versioned relative to the first version (`- v0.1.0` 
 its own row above. A cell in angle brackets, `<543>`, is a file the total leaves out, shown so a
 reader sees what it costs, and an empty cell is a file that was not in the set that landing.
 
-| File | chore: complete vc-x1, ready for vc-x2 | feat: test repos, vc-dr-apply, and the v0.3.1-(0,1,2) agent-files | feat: build, install, and run take --profile |
+| File | feat: improve vc-x1 cycle flow | chore: complete vc-x1, ready for vc-x2 | feat: test repos, vc-dr-apply, and the v0.3.1-(0,1,2) agent-files |
 |---|---:|---:|---:|
-| AGENTS.md | 519 | 495 | 436 |
-| custom.md | 17 | 17 | 15 |
+| AGENTS.md | 570 | 519 | 495 |
+| custom.md | 24 | 17 | 17 |
 | agent-data/code.md | 90 | 90 | 90 |
-| agent-data/commit-model.md | 35 | 35 | 42 |
-| agent-data/cycle-model.md | 80 | 80 | 74 |
-| agent-data/jj.md | 324 | 316 | 389 |
-| agent-data/notes.md | 186 | 186 | 162 |
-| agent-data/prose.md | 384 | 384 | 401 |
-| agent-data/rationale.md | <730> | <671> | <653> |
+| agent-data/commit-model.md | 35 | 35 | 35 |
+| agent-data/cycle-model.md | 141 | 80 | 80 |
+| agent-data/jj.md | 332 | 324 | 316 |
+| agent-data/notes.md | 191 | 186 | 186 |
+| agent-data/prose.md | 384 | 384 | 384 |
+| agent-data/rationale.md | <800> | <730> | <671> |
 | agent-data/session-lock.md | 43 | 43 | 43 |
-| agent-data/versioning.md | 199 | 193 | 203 |
-| total | 1877 | 1839 | 1855 |
+| agent-data/versioning.md | 201 | 199 | 193 |
+| total | 2011 | 1877 | 1839 |

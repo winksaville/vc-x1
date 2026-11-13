@@ -275,7 +275,7 @@ Commit](https://www.conventionalcommits.org/), `<type>: <short description>` wit
 `(scope)`, at the width in [Line widths](#line-widths). The body is the [Commit-body
 form](#commit-body-form), wrapped per Line widths, with no version in title or body, no file list,
 and no deliberation. An agent commit takes its work commit's title and body. The trailers end the
-body, stamped by `vc-x1 commit`, and a breaking change uses the hyphenated `BREAKING-CHANGE:`
+body, stamped by the tool, and a breaking change uses the hyphenated `BREAKING-CHANGE:`
 trailer key.
 
 #### Conventional commit types

@@ -128,7 +128,7 @@ pub struct PushParams {
     pub dry_run: bool,
     pub yes: bool,
     /// Who answers a push that would be forced: `--yes`, else asked.
-    /// `commit --push` and `land --push` refuse one.
+    /// `commit --push` and `cycle --land --push` refuse one.
     pub forced: ForcedPush,
 }
 
@@ -466,10 +466,17 @@ fn resolve_bookmark(
             }
             let nearest = jj::local_bookmarks_at(root, "heads(::@- & bookmarks())")?;
             if !nearest.contains(b) {
+                let scope = match &params.scope {
+                    RepoScope::Por => "p",
+                    RepoScope::Sides(s) if s.is_both() => "b",
+                    RepoScope::Sides(s) if s.is_bot_only() => "a",
+                    RepoScope::Sides(_) => "w",
+                };
                 return Err(format!(
-                    "push: bookmark '{b}' is not the nearest bookmark below @-, the line's own \
-                     ({}). Name one of them, a new name to create at @-, or none to use the \
-                     line's, and `-r {b}` publishes it where it is",
+                    "push: '{b}' is not on the work @-, which push publishes, so pushing it here \
+                     would move it there. To publish '{b}' where it is: `vc-x1 push -s {scope} -r \
+                     {b}`. To publish @- instead, name its line's bookmark, {}, or a new name \
+                     to create there",
                     nearest.join(", ")
                 )
                 .into());

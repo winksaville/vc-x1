@@ -551,15 +551,14 @@ mod tests {
             },
             title: Some("feat: a rung".to_string()),
             body: Some("The problem.".to_string()),
-            closing: None,
-            opening: None,
             advance: crate::commit::Advance::Line,
             push: false,
-            land: false,
-            skip: None,
             dry_run: false,
             rev: None,
             covers: None,
+            allow_empty: false,
+            same_version: false,
+            land_follows: false,
             no_url_trailer,
         };
         commit(&mut test_ctx(), &params).expect("the pair is made");

@@ -87,15 +87,14 @@ fn make_pair_with(
         },
         title: Some(title.to_string()),
         body: Some("The problem.\n\n* A facet.\n  - Its solution.\n".to_string()),
-        closing: None,
-        opening: None,
         advance: crate::commit::Advance::Off,
         push: false,
-        land: false,
-        skip: None,
         dry_run: false,
         rev: None,
         covers: None,
+        allow_empty: false,
+        same_version: false,
+        land_follows: false,
         no_url_trailer,
     };
     commit(&mut test_ctx(), &params).expect("the pair is made");
@@ -477,7 +476,11 @@ fn push_needs_the_bookmark_named_when_the_line_is_ambiguous() {
     let err = push_in(&mut test_ctx(), &pair(&fx), &both(), &params)
         .expect_err("not on the line")
         .to_string();
-    assert!(err.contains("not the nearest bookmark"), "{err}");
+    assert!(
+        err.contains("'elsewhere' is not on the work @-") && err.contains("-r elsewhere"),
+        "{err}"
+    );
+    assert!(!err.contains("Name one of them"), "{err}");
 }
 
 /// Build a `Run` carrying the ids a completed push would have.
@@ -733,15 +736,14 @@ fn push_por_publishes_the_commit_on_its_bookmark() {
         target: Target::Por(fx.work.clone()),
         title: Some("feat: plain".to_string()),
         body: Some("A body.".to_string()),
-        closing: None,
-        opening: None,
         advance: crate::commit::Advance::Line,
         push: false,
-        land: false,
-        skip: None,
         dry_run: false,
         rev: None,
         covers: None,
+        allow_empty: false,
+        same_version: false,
+        land_follows: false,
         no_url_trailer: false,
     };
     commit(&mut test_ctx(), &params).expect("plain commit");
