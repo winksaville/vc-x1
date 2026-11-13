@@ -2064,7 +2064,8 @@ stands. A failure after the first commit restores both repos from `jj op` snapsh
 
 Run a cycle by its stages, each a flag, one command for the acts the flow has: `--open`,
 `--ladder`, `--commit`, `--close`, and `--land`, with `--status` to say where the cycle stands.
-The stages chain in their order, so `cycle --close --land main -s b --push` closes, lands, and
+The stages chain in their order, so `cycle --close --multi-step --land main -s b --push` closes,
+lands, and
 publishes in one invocation. `-s` is required with `--commit`, `--close`, and `--land`, as on every
 command that writes, and the other stages take none.
 
@@ -2075,12 +2076,12 @@ vc-x1 cycle --open --title "feat: a cycle" --dry-run    # say each edit, make no
 vc-x1 cycle --ladder                                    # the ladder, from the rung headings
 vc-x1 cycle --commit -s b                               # the opening, a cycle's first commit
 vc-x1 cycle --commit -s b --title "feat: one rung" --body @body.txt  # a work rung
-vc-x1 cycle --close -s b                                # a ladder's closing, linear
-vc-x1 cycle --close -s b --trapezoid main               # a merge, main its first parent
-vc-x1 cycle --close -s b --body @body.txt               # a single-step cycle's one commit
+vc-x1 cycle --close -s b --multi-step                   # a ladder's closing, linear
+vc-x1 cycle --close -s b --multi-step --trapezoid main  # a merge, main its first parent
+vc-x1 cycle --close -s b --single-step --body @body.txt # a single-step cycle's one commit
 vc-x1 cycle --land main -s b                            # land the closed cycle, locally
 vc-x1 cycle --land main -s b --push                     # and publish it
-vc-x1 cycle --close -s b --trapezoid main --land main --push  # close, land, and publish
+vc-x1 cycle --close -s b --multi-step --trapezoid main --land main --push  # close, land, publish
 vc-x1 cycle --land main -s b --merge                    # join a main that moved, then land
 vc-x1 cycle --status                                    # where the cycle stands, and what is next
 ```
@@ -2155,16 +2156,23 @@ no title or body. `--dry-run` prints the descriptions and commits nothing.
 
 `--close [REV,...]` closes the cycle in progress from the work `@`, which is on the cycle's tip,
 the bookmark on `@` or `@-`. The acceptance check is run first, by hand, and again after. The
-branch's commit count is the cycle's shape, read and never asked:
+cycle's shape is named, `--single-step` or `--multi-step`, one of them required, and the
+branch's commit count checks it:
 
-- No commit, the work in `@`: a single-step cycle, its one commit made now from `@` under the bare
-  cycle title.
-- One commit, the opening: a single-step cycle too, the closing squashed into it. `@` is folded
-  in, the title loses " opening", and the commit keeps its change id and its trailer, so its
-  partner stands and the agent `@` is left for `push`.
-- More: a ladder, whose closing is its own commit, the cycle title plus " closing", with
-  `[closing] body` from the config, or a body naming the cycle and its record when the key is
-  absent. `--dead-end` always makes it, titled " dead-end closing".
+| Commits on the branch | `--single-step` | `--multi-step` |
+|---|---|---|
+| none | its one commit, made now from `@` | refused: no opening to follow |
+| one, the opening | the closing squashed into the opening | the closing, its own commit above it |
+| two or more | refused: a ladder is never squashed | the closing commit |
+
+- A single-step cycle's one commit takes the bare cycle title. Squashed into the opening, `@` is
+  folded in, the title loses " opening", and the commit keeps its change id and its trailer, so
+  its partner stands and the agent `@` is left for `push`.
+- A ladder's closing is the cycle title plus " closing", with `[closing] body` from the config, or
+  a body naming the cycle and its record when the key is absent. `--dead-end`, with
+  `--multi-step`, titles it " dead-end closing".
+- With one commit the name decides, since a single-step cycle whose opening was committed early
+  and a ladder with only its opening made look the same.
 
 A single-step cycle's commit holds the work, so its `--body` is required, and `--default-body`
 is the waiver, the pointer at the record. A `--title` or `--body` given is used as written.
@@ -2194,7 +2202,7 @@ cycle forked is refused naming the ways on:
   commit, made from an empty `@` on that commit, titled the cycle title plus " merge" unless
   `--title` and `--body` say otherwise, and then landed. Its tree is one no rung validated, which
   asking for it accepts. A conflicted merge is undone and refused, the resolving being by hand.
-- The closing made again as a trapezoid, `cycle --close --trapezoid <BOOKMARK>`.
+- The closing made again as a trapezoid, `cycle --close --multi-step --trapezoid <BOOKMARK>`.
 - A rebase, by `jj rebase`, every rung then validated again.
 
 After `--close` in the same invocation, `--land` lands the closing just made, its checks made
@@ -2222,7 +2230,7 @@ the destination becomes the closing commit itself, its id and its tree, and the 
 the committed source, installed off the PATH by `install --dir`, is the binary that ships:
 
 ```bash
-vc-x1 cycle --close -s b --trapezoid main  # the closing, on the cycle's bookmark, main unmoved
+vc-x1 cycle --close -s b --multi-step --trapezoid main  # the closing, main unmoved
 mkdir -p tmp/candidate                     # install --dir takes a directory that exists
 vc-x1 install --dir tmp/candidate          # its release build, the plain name, off the PATH
 tmp/candidate/vc-x1 -V                     # the closing's commit, clean
@@ -2248,7 +2256,7 @@ ladder:
   - 0 (done) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)
   - 1 (done) [feat: one rung](TODO.md#feat-one-rung)
   - 2 (current) [feat: a cycle closing](TODO.md#feat-a-cycle-closing)
-next: `cycle --close -s <SCOPE>` makes the closing, `--trapezoid <BOOKMARK>` a merge
+next: `cycle --close -s <SCOPE> --multi-step` makes the closing, `--trapezoid <BOOKMARK>` a merge
 ```
 
 The ladder is the one the rung headings and the commits make, with a note when `zTOC.md`'s

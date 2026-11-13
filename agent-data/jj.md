@@ -150,7 +150,8 @@ cycle's record. It refuses a name in use, locally or on `origin`, and a cycle al
 `@` holding edits or not. The bookmark follows the change, so `vc-x1 cycle --commit` commits the
 opening on it, and every later rung advances it and no other.
 
-**Close**: `vc-x1 cycle --close -s b`, from the work `@` on the cycle's tip, makes the closing: a
+**Close**: `vc-x1 cycle --close -s b` with `--single-step` or `--multi-step`, from the work `@` on
+the cycle's tip, makes the closing: a
 ladder's closing commit, a merge of the target and the tip with `--trapezoid <target>`, or for a
 single-step cycle the one commit, made from `@` or squashed into the opening, its `--body` given.
 The target is read where it is now, so one that moved is joined. The record moves to `## Closed`
@@ -167,7 +168,7 @@ before it and silence after ([At rest](../AGENTS.md#at-rest)):
    user may test here, before anything is published.
 3. Publish: `vc-x1 push -s b --bookmark <target>`, the work repo first, the journal folded into the
    last agent commit while that is unpublished. `cycle --land <target> -s b --push` does steps 2 and
-   3 as one, and `cycle --close --land <target> -s b --push` the closing too.
+   3 as one, and `cycle --close --multi-step --land <target> -s b --push` the closing too.
    The agent publishes only with the user's permission, and otherwise the user does after the
    session, by `vc-x1 squash-push -s b` ([At rest](../AGENTS.md#at-rest)).
 4. Remote bookmark: `vc-x1 delete-bookmark -s w --bookmark <bookmark> --skip local`, when the topic
@@ -221,8 +222,8 @@ is one commit and lands as it is:
   `git log --first-parent` reads one commit per cycle while every rung stays reachable. It joins a
   target that moved. With one rung the figure is a triangle.
 - **linear**, one commit per rung on the target, the closing a plain commit on the ladder, is
-  `cycle --close` without `--trapezoid`, the user's to ask for. A Land of it refuses a target that
-  moved, since joining one would rewrite the reviewed ladder or need a merge.
+  `cycle --close --multi-step` without `--trapezoid`, the user's to ask for. A Land of it refuses a
+  target that moved, since joining one would rewrite the reviewed ladder or need a merge.
 
 Squash is not a shape: each rung's `ochid:` trailer is a change id, a squash keeps one and drops the
 rest, and every agent-repo commit that pointed at a dropped rung is left dangling ([Cycle

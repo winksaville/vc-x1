@@ -125,10 +125,27 @@ pub struct CycleArgs {
     )]
     pub default_body: bool,
 
-    /// With `--close`, close the cycle as a dead end: always a closing
-    /// commit, its title ending " dead-end closing"
+    /// With `--close`, close the cycle as a dead end: a closing commit,
+    /// with `--multi-step`, its title ending " dead-end closing"
     #[arg(long, requires = "close", help_heading = "Close")]
     pub dead_end: bool,
+
+    /// With `--close`, required or `--multi-step`: the cycle is one
+    /// commit, made now from the work `@` when the branch has none, or
+    /// its opening with the closing squashed into it when it has one
+    #[arg(
+        long,
+        requires = "close",
+        conflicts_with = "multi_step",
+        help_heading = "Close"
+    )]
+    pub single_step: bool,
+
+    /// With `--close`, required or `--single-step`: the cycle is a
+    /// ladder, and the closing is its own commit above the opening and
+    /// any work rungs
+    #[arg(long, requires = "close", help_heading = "Close")]
+    pub multi_step: bool,
 
     /// The cycle's bookmark, in place of the title's slug: the name
     /// `--open` makes, and the one another stage reads the cycle's
@@ -250,6 +267,8 @@ pub struct CloseCycle {
     pub trapezoid: Option<String>,
     pub default_body: bool,
     pub dead_end: bool,
+    /// The shape named: one commit, or a ladder with its own closing.
+    pub single_step: bool,
     /// The Land that follows the closing, in the same invocation.
     pub land: Option<LandCycle>,
 }
@@ -461,6 +480,21 @@ impl TryFrom<&CycleArgs> for CycleParams {
             only("--status", &commits)?;
             Ok(CycleParams::Status(a.running(work)))
         } else if let Some(heads) = &a.close {
+            if !a.single_step && !a.multi_step {
+                return Err(
+                    "cycle --close: name the cycle's shape, --single-step, its one commit, or \
+                     --multi-step, a ladder whose closing is its own commit: the branch's commits \
+                     are checked against it, and with one commit, the opening, it decides which"
+                        .into(),
+                );
+            }
+            if a.dead_end && a.single_step {
+                return Err(
+                    "cycle --close --dead-end: a dead end closes the commits a cycle made with a \
+                     closing commit of its own: --multi-step"
+                        .into(),
+                );
+            }
             let land = a.land_params(work.clone(), agent.clone(), false)?;
             let mut rung = a.rung(work, agent, "--close")?;
             // With a Land the push is the Land's, the destination's.
@@ -471,6 +505,7 @@ impl TryFrom<&CycleArgs> for CycleParams {
                 trapezoid: a.trapezoid.clone(),
                 default_body: a.default_body,
                 dead_end: a.dead_end,
+                single_step: a.single_step,
                 land,
             }))
         } else if let Some(land) = a.land_params(work.clone(), agent.clone(), true)? {
@@ -897,13 +932,26 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
         let joined = c.trapezoid.as_deref() == Some(l.dest.as_str());
         land_checks(work, &l.dest, (!joined).then_some("@-"), l.agent.is_none())?;
     }
-    let single = commits.len() <= 1 && !c.dead_end;
-    if c.dead_end && commits.is_empty() {
-        return Err(format!(
-            "cycle {stage} --dead-end: the branch has no commit, and a dead end closes the \
-             commits a cycle made"
-        )
-        .into());
+    // The shape is named, and the branch's commit count checks it: one
+    // commit fits either, the opening, and the name decides.
+    let single = c.single_step;
+    match (single, commits.len()) {
+        (true, n) if n >= 2 => {
+            return Err(format!(
+                "cycle {stage} --single-step: the branch has {n} commits, a ladder, which is \
+                 never squashed into one: --multi-step makes its closing commit"
+            )
+            .into());
+        }
+        (false, 0) => {
+            return Err(format!(
+                "cycle {stage} --multi-step: the branch has no commit, so there is no opening \
+                 for a closing to follow: `cycle --commit` makes the opening first, or \
+                 --single-step commits the work @ as the cycle's one commit"
+            )
+            .into());
+        }
+        _ => {}
     }
     let closing = format!("{cycle} closing");
     let title = match (&c.rung.title, single, c.dead_end) {
@@ -916,7 +964,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
         (Some(b), _) => b.clone(),
         (None, true) => {
             return Err(format!(
-                "cycle {stage}: a single-step cycle's one commit holds the work, so it gives \
+                "cycle {stage} --single-step: the cycle's one commit holds the work, so it gives \
                  --body, its problem and solution, or --default-body for the pointer at the record"
             )
             .into());
@@ -926,13 +974,8 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
     let parents = match single {
         true if c.trapezoid.is_some() || !c.heads.is_empty() => {
             return Err(format!(
-                "cycle {stage}: the branch has {}, a single-step cycle, whose one commit joins \
-                 nothing: it takes no head and no --trapezoid",
-                if commits.is_empty() {
-                    "no commit"
-                } else {
-                    "one commit"
-                }
+                "cycle {stage} --single-step: the cycle's one commit joins nothing, so it takes \
+                 no head and no --trapezoid: --multi-step makes a closing commit that can"
             )
             .into());
         }
@@ -1344,14 +1387,16 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     out.push(match (commits.len(), current) {
         (0, _) => {
             "next: `cycle --commit -s <SCOPE>` makes the opening, or `cycle --close -s <SCOPE> \
-                   --body` closes a single-step cycle"
+                   --single-step --body` closes a single-step cycle"
                 .to_string()
         }
-        (1, Some(c)) if *c == closing => "next: `cycle --close -s <SCOPE> --body` squashes \
-                                          the closing into the opening, a single-step cycle"
+        (1, Some(c)) if *c == closing => "next: `cycle --close -s <SCOPE> --single-step \
+                                          --body` squashes the closing into the opening, or \
+                                          `--multi-step` makes a closing commit above it"
             .to_string(),
         (_, Some(c)) if *c == closing => {
-            "next: `cycle --close -s <SCOPE>` makes the closing, `--trapezoid <BOOKMARK>` a merge"
+            "next: `cycle --close -s <SCOPE> --multi-step` makes the closing, `--trapezoid \
+             <BOOKMARK>` a merge"
                 .to_string()
         }
         (_, Some(c)) => format!("next: `cycle --commit -s <SCOPE> --title \"{c}\" --body ...`"),
@@ -1879,21 +1924,47 @@ mod tests {
         write_record(&fx);
         run(&fx.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
         fs::write(fx.work.join("work.txt"), "the work\n").expect("write");
-        let err = run(&fx.work, &["--close"]).unwrap_err();
+        let err = run(&fx.work, &["--close", "--single-step"]).unwrap_err();
         assert!(
             err.contains("--body") && err.contains("--default-body"),
             "{err}"
         );
-        let err = run(&fx.work, &["--close", "--trapezoid", "main", "--body", "b"]).unwrap_err();
-        assert!(err.contains("single-step"), "{err}");
+        let err = run(
+            &fx.work,
+            &[
+                "--close",
+                "--single-step",
+                "--trapezoid",
+                "main",
+                "--body",
+                "b",
+            ],
+        )
+        .unwrap_err();
+        assert!(err.contains("joins nothing"), "{err}");
         run(
             &fx.work,
-            &["--close", "--body", "Why.\n\nSolution: how.", "--dry-run"],
+            &[
+                "--close",
+                "--single-step",
+                "--body",
+                "Why.\n\nSolution: how.",
+                "--dry-run",
+            ],
         )
         .expect("a dry run");
         assert!(above_main(&fx.work).is_empty(), "a dry run commits nothing");
 
-        run(&fx.work, &["--close", "--body", "Why.\n\nSolution: how."]).expect("closed");
+        run(
+            &fx.work,
+            &[
+                "--close",
+                "--single-step",
+                "--body",
+                "Why.\n\nSolution: how.",
+            ],
+        )
+        .expect("closed");
         assert_eq!(above_main(&fx.work), ["feat: a cycle"]);
         assert!(
             description(&fx.work, "@-").contains("Solution: how.\n\n"),
@@ -1933,7 +2004,7 @@ mod tests {
         let stamped = trailer(description(&fx.work, "@-"));
         fs::write(fx.work.join("work.txt"), "the work\n").expect("write");
 
-        run(&fx.work, &["--close", "--default-body"]).expect("closed");
+        run(&fx.work, &["--close", "--single-step", "--default-body"]).expect("closed");
         assert_eq!(above_main(&fx.work), ["feat: a cycle"]);
         assert_eq!(
             jj_ok(
@@ -1974,11 +2045,11 @@ mod tests {
             &["log", "-r", "@-", "--no-graph", "-T", "commit_id"],
         );
         jj_ok(&fx.work, &["new", "feat-a-cycle-"]);
-        let err = run(&fx.work, &["--close"]).unwrap_err();
+        let err = run(&fx.work, &["--close", "--multi-step"]).unwrap_err();
         assert!(err.contains("not on the work @ or @-"), "{err}");
         jj_ok(&fx.work, &["new", "feat-a-cycle"]);
 
-        run(&fx.work, &["--close"]).expect("closed");
+        run(&fx.work, &["--close", "--multi-step"]).expect("closed");
         assert_eq!(
             above_main(&fx.work),
             [
@@ -2052,7 +2123,11 @@ mod tests {
             &["log", "-r", &side, "--no-graph", "-T", "commit_id"],
         );
 
-        run(&fx.work, &["--close", &side, "--trapezoid", "main"]).expect("closed");
+        run(
+            &fx.work,
+            &["--close", &side, "--multi-step", "--trapezoid", "main"],
+        )
+        .expect("closed");
         assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle closing");
         assert_eq!(parents(&fx.work, "@-"), [main, tip, side]);
         assert_eq!(
@@ -2068,11 +2143,11 @@ mod tests {
     #[test]
     fn a_dead_end_is_a_closing_commit() {
         let fx = planned("cycle-close-dead-end");
-        let err = run(&fx.work, &["--close", "--dead-end"]).unwrap_err();
+        let err = run(&fx.work, &["--close", "--multi-step", "--dead-end"]).unwrap_err();
         assert!(err.contains("no commit"), "{err}");
         run(&fx.work, &["--commit"]).expect("the opening");
         fs::write(fx.work.join("work.txt"), "kept\n").expect("write");
-        run(&fx.work, &["--close", "--dead-end"]).expect("closed");
+        run(&fx.work, &["--close", "--multi-step", "--dead-end"]).expect("closed");
         assert_eq!(
             above_main(&fx.work),
             ["feat: a cycle opening", "feat: a cycle dead-end closing"]
@@ -2103,7 +2178,11 @@ mod tests {
     fn close_and_land_chain() {
         let fx = laddered("cycle-land-chain");
         let main = cid(&fx.work, "main");
-        run(&fx.work, &["--close", "--land", "main", "--dry-run"]).expect("a dry run");
+        run(
+            &fx.work,
+            &["--close", "--multi-step", "--land", "main", "--dry-run"],
+        )
+        .expect("a dry run");
         assert_eq!(cid(&fx.work, "main"), main, "a dry run lands nothing");
         assert_eq!(
             title_of(&fx.work, "@-"),
@@ -2111,7 +2190,7 @@ mod tests {
             "and closes nothing"
         );
 
-        run(&fx.work, &["--close", "--land", "main"]).expect("closed and landed");
+        run(&fx.work, &["--close", "--multi-step", "--land", "main"]).expect("closed and landed");
         assert_eq!(title_of(&fx.work, "main"), "feat: a cycle closing");
         assert_eq!(cid(&fx.work, "main"), cid(&fx.work, "@-"));
         assert_eq!(
@@ -2146,7 +2225,15 @@ mod tests {
         fs::write(fx.work.join("work.txt"), "the work\n").expect("write");
         run(
             &fx.work,
-            &["--close", "--body", "Why.", "--land", "main", "--push"],
+            &[
+                "--close",
+                "--single-step",
+                "--body",
+                "Why.",
+                "--land",
+                "main",
+                "--push",
+            ],
         )
         .expect("landed");
         assert_eq!(title_of(&fx.work, "main"), "feat: a cycle");
@@ -2176,7 +2263,7 @@ mod tests {
         assert!(err.contains("--merge"), "{err}");
         let err = params(&fx.work, &["--land", "main", "-s", "w"]).unwrap_err();
         assert!(err.contains("work-only"), "{err}");
-        run(&fx.work, &["--close"]).expect("closed");
+        run(&fx.work, &["--close", "--multi-step"]).expect("closed");
         let err = run(&fx.work, &["--land", "trunk"]).unwrap_err();
         assert!(err.contains("not a local bookmark"), "{err}");
         run(&fx.work, &["--land", "main"]).expect("landed");
@@ -2188,7 +2275,7 @@ mod tests {
     #[test]
     fn a_destination_that_moved_is_refused_or_merged() {
         let fx = laddered("cycle-land-moved");
-        run(&fx.work, &["--close"]).expect("closed");
+        run(&fx.work, &["--close", "--multi-step"]).expect("closed");
         let closing = cid(&fx.work, "@-");
         // The destination moves on origin, and is synced here.
         jj_ok(&fx.work, &["new", "main", "-m", "feat: someone else's"]);
@@ -2267,7 +2354,9 @@ mod tests {
             &["--commit", "--title", "feat: one rung", "--body", "b"],
         )
         .expect("the rung");
-        assert!(status(&fx).contains("next: `cycle --close -s <SCOPE>` makes the closing"));
+        assert!(
+            status(&fx).contains("next: `cycle --close -s <SCOPE> --multi-step` makes the closing")
+        );
         jj_ok(&fx.work, &["commit", "-m", "wip: by hand"]);
         let s = status(&fx);
         assert!(
@@ -2276,7 +2365,7 @@ mod tests {
         );
         jj_ok(&fx.work, &["abandon", "@-"]);
 
-        run(&fx.work, &["--close"]).expect("closed");
+        run(&fx.work, &["--close", "--multi-step"]).expect("closed");
         let s = status(&fx);
         assert!(
             s.contains("closed: 'feat: a cycle'") && s.contains("cycle --land"),
@@ -2337,10 +2426,10 @@ mod tests {
         run(&fx.work, &rung).expect("the version is bumped");
         assert_eq!(title_of(&fx.work, "@-"), "feat: one rung");
 
-        let err = run(&fx.work, &["--close"]).unwrap_err();
+        let err = run(&fx.work, &["--close", "--multi-step"]).unwrap_err();
         assert!(err.contains("--same-version"), "{err}");
         assert_eq!(title_of(&fx.work, "@-"), "feat: one rung", "nothing closed");
-        run(&fx.work, &["--close", "--same-version"]).expect("closed as it is");
+        run(&fx.work, &["--close", "--multi-step", "--same-version"]).expect("closed as it is");
         assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle closing");
         assert_eq!(
             file_at(&fx.work, "@-", "VERSION.md"),
@@ -2440,5 +2529,80 @@ mod tests {
         assert!(!err.contains("--source"), "{err}");
         run(&fx.work, &["--land", "main", "--bookmark", "two"]).expect("landed");
         assert_eq!(title_of(&fx.work, "main"), "two");
+    }
+
+    /// `--close` names the shape, one of the two, and the branch's
+    /// commit count checks it: no commit is no ladder, two are no single
+    /// step, and one commit, the opening, takes either, the name
+    /// deciding whether the closing is squashed into it or its own.
+    #[test]
+    fn the_closing_names_its_shape_and_the_count_checks_it() {
+        let fx = planned("cycle-close-shape");
+        let err = params(&fx.work, &["--close"]).unwrap_err();
+        assert!(
+            err.contains("--single-step") && err.contains("--multi-step"),
+            "{err}"
+        );
+        let err = parse(&[
+            "vc-x1",
+            "cycle",
+            "--close",
+            "-s",
+            "b",
+            "--single-step",
+            "--multi-step",
+        ])
+        .unwrap_err();
+        assert!(err.contains("cannot be used with"), "{err}");
+        let err = params(&fx.work, &["--close", "--single-step", "--dead-end"]).unwrap_err();
+        assert!(err.contains("--multi-step"), "{err}");
+
+        fs::write(fx.work.join("work.txt"), "work\n").expect("write");
+        let err = run(&fx.work, &["--close", "--multi-step"]).unwrap_err();
+        assert!(
+            err.contains("no opening") && err.contains("--single-step"),
+            "{err}"
+        );
+
+        // One commit, the opening: --multi-step makes a closing above it.
+        run(&fx.work, &["--commit"]).expect("the opening");
+        let opening = jj_ok(
+            &fx.work,
+            &["log", "-r", "@-", "--no-graph", "-T", "commit_id"],
+        );
+        fs::write(fx.work.join("more.txt"), "more\n").expect("write");
+        run(&fx.work, &["--close", "--multi-step", "--dry-run"]).expect("a dry run");
+        assert_eq!(
+            title_of(&fx.work, "@-"),
+            "feat: a cycle opening",
+            "nothing made"
+        );
+        // The ladder check refuses a closing over an unmade work rung, so
+        // this plan's ladder is the bookends alone.
+        let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
+        let bookends = todo.replace("##### feat: one rung\n\nIts intent.\n\n", "");
+        fs::write(fx.work.join("TODO.md"), bookends).expect("write");
+        run(&fx.work, &["--close", "--multi-step"]).expect("closed");
+        assert_eq!(
+            above_main(&fx.work),
+            ["feat: a cycle opening", "feat: a cycle closing"],
+            "the opening kept, the closing its own commit"
+        );
+        assert_eq!(parents(&fx.work, "@-"), [opening]);
+
+        // Two commits: no single step.
+        let fx = planned("cycle-close-shape-two");
+        run(&fx.work, &["--commit"]).expect("the opening");
+        fs::write(fx.work.join("work.txt"), "work\n").expect("write");
+        run(
+            &fx.work,
+            &["--commit", "--title", "feat: one rung", "--body", "b"],
+        )
+        .expect("rung");
+        let err = run(&fx.work, &["--close", "--single-step", "--body", "b"]).unwrap_err();
+        assert!(
+            err.contains("2 commits") && err.contains("--multi-step"),
+            "{err}"
+        );
     }
 }

@@ -164,7 +164,7 @@ check_has "open wrote the scaffold" "$(cat TODO.md)" "### feat: one commit"
 check "open wrote the ladder" "$(ladder | head -1)" \
     "- 0 (current) [feat: one commit opening](TODO.md#feat-one-commit-opening)"
 echo "one" >work.txt
-run "$VC" cycle --close -s b --body "The problem.
+run "$VC" cycle --close -s b --single-step --body "The problem.
 
 Solution: the one commit." --land main --push
 check "one commit above the old main" "$(above_main 'main@origin-' main)" "feat: one commit"
@@ -181,7 +181,7 @@ check_has "the opening has the default body" "$(jjw log -r @- --no-graph -T desc
     'Opens the cycle "fix: opened first".'
 opening=$(jjw log -r @- --no-graph -T 'change_id.short(12)')
 echo "two" >>work.txt
-run "$VC" cycle --close -s b --default-body
+run "$VC" cycle --close -s b --single-step --default-body
 check "the closing is squashed into the opening" "$(above_main "$base" @-)" "fix: opened first"
 check "the opening's change is kept" "$(jjw log -r @- --no-graph -T 'change_id.short(12)')" \
     "$opening"
@@ -218,7 +218,7 @@ check "main has not moved" "$(cid main)" "$base"
 run "$VC" push -s b
 check "the draft push published the cycle's bookmark" "$(remote_bookmarks)" \
     "feat-a-ladder-cycle main "
-run "$VC" cycle --close -s b --trapezoid main
+run "$VC" cycle --close -s b --multi-step --trapezoid main
 check "the closing is titled" "$(title @-)" "feat: a ladder cycle closing"
 check "the closing is a merge of two" "$(nparents @-)" "2"
 check "every rung is done" "$(ladder | grep -c '(done)')" "4"
@@ -251,7 +251,7 @@ tries "reopen, a fix rung by \`cycle --commit\`" \
     "$VC" cycle --commit -s b --title "fix: the fault" --body "Why.
 
 Solution: how."
-tries "reopen, the closing made again" "$VC" cycle --close -s b --trapezoid main
+tries "reopen, the closing made again" "$VC" cycle --close -s b --multi-step --trapezoid main
 check "the cycle closed again" "$(title @-)" "feat: a ladder cycle closing"
 check "the fix is a rung of it" "$(above_main "$base" @- | grep -c '^fix: the fault$')" "1"
 

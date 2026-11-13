@@ -180,7 +180,14 @@ because every `vc-x1` command is `command --options`, and the opening is the fir
 and not flagged, since `--open` and `--opening` differed by three letters and meant two things.
 
 **Every cycle has an opening and a closing** (wink, 2026-11-11), and in a single-step cycle the
-closing is squashed into the opening, so there is one flow and the count picks the commits.
+closing is squashed into the opening, so there is one flow and the shape picks the commits.
+
+**The shape is named, the count checks it** (wink, 2026-11-13), where the count alone had decided
+it since 2026-11-11. The count is unambiguous over no commit and over two or more, and over one it
+guessed: a single-step cycle whose opening was committed early and a ladder with only its opening
+made are the same branch, and the guess squashed the second's closing into its opening, retitling
+it. Named at the closing, the shape is still decided only when it is known, and the count turns a
+wrong name into a refusal. Found testing in `~/tmp/wt-21-6`.
 
 **Linear is the user's to ask for**: a trapezoid joins a target that moved and keeps one commit per
 cycle on the first-parent line, so the rules close with `--trapezoid`, and the flag being the

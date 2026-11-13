@@ -95,8 +95,9 @@ silently.
   agent-files](#a-sessions-rules-are-its-own-agent-files)).
 - Bookmark per cycle: a cycle runs on one topic bookmark in the work-repo, and `main` advances
   only when the cycle lands ([Cycles run on a bookmark](#cycles-run-on-a-bookmark)).
-- Shape by count: a branch with one commit above its target is single-step and more is a ladder, and
-  a ladder lands as a trapezoid, never squashed ([Cycle shape](#cycle-shape)).
+- Shape named, count checked: the closing names the cycle single-step or multi-step, its branch's
+  commit count checks the name, and a ladder lands as a trapezoid, never squashed ([Cycle
+  shape](#cycle-shape)).
 - Local by default: a cycle's commits stay on this machine until the Land, and the user decides when
   each side commits and publishes ([A cycle is local by default](#a-cycle-is-local-by-default)).
 - Read the step before the action: [The per-rung flow](#the-per-rung-flow) before commit work,
@@ -200,20 +201,22 @@ bookmarks][llb].
 
 ### Cycle shape
 
-A cycle's shape is its branch's commit count, so nothing has to be decided before its first commit
+A cycle's shape is named at its closing, `--single-step` or `--multi-step`, and its branch's commit
+count checks the name, so nothing is decided before the closing and nothing is guessed at it
 ([why](agent-data/rationale.md#cycle-shape)). Every cycle has an opening and a closing, and the
-count says whether they are one commit.
+shape says whether they are one commit.
 
 - Every cycle starts with `vc-x1 cycle --open`, which makes its bookmark on the work `@` and
   writes its record, a single-step cycle included. A cycle's first commit, by `cycle --commit`, is
   its opening, which the tool sees and no flag says.
-- No commit on the branch, the work in `@`, is single-step: `cycle --close --body "..."` commits
-  `@` as its one commit, under the bare cycle title, and it carries the opening's duties, the work,
-  and the close-out's duties.
-- One commit, an opening committed first, is single-step too: `cycle --close` squashes the closing
-  into it, `@` folded in, the title losing " opening" and gaining no " closing".
-- More commits are a ladder: `cycle --close` makes the closing commit, from the work `@` on the
-  cycle's tip. `--trapezoid <target>` makes it the merge of the target and the tip, each revision
+- Single-step, no commit on the branch, the work in `@`: `cycle --close --single-step --body
+  "..."` commits `@` as its one commit, under the bare cycle title, and it carries the opening's
+  duties, the work, and the close-out's duties.
+- Single-step, one commit, an opening committed first: `cycle --close --single-step` squashes the
+  closing into it, `@` folded in, the title losing " opening" and gaining no " closing".
+- Multi-step, a ladder: `cycle --close --multi-step` makes the closing commit, from the work `@` on
+  the cycle's tip, over one commit or more, and is refused over none. Single-step is refused over
+  two or more. `--trapezoid <target>` makes it the merge of the target and the tip, each revision
   listed, `cycle --close <REV,...>`, is another head joined, and `--land <target>` lands it in the
   same invocation.
 - A ladder lands as a trapezoid, never squashed: every rung's `ochid:` trailer is a change id, and a
@@ -224,7 +227,8 @@ count says whether they are one commit.
   cycle's one commit gives its `--body`, since it holds the work. A work rung gives both.
 - A dead end still closes and lands: a cycle abandoned after its opening keeps what is worth
   keeping, reverts the rest, and records what was tried, why it stopped, and what replaces it. Its
-  closing is `cycle --close --dead-end`, titled with the cycle title plus " dead-end closing".
+  closing is `cycle --close --multi-step --dead-end`, titled with the cycle title plus " dead-end
+  closing".
 
 ### Unplanned work
 
@@ -336,7 +340,7 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)). `v
    -s b --title "..." --body "..."`, a pair ([Committing vs pushing](#committing-vs-pushing)). The
    cycle's first commit is its opening and needs neither title nor body. The ladder is rewritten
    into the commit, the rung `(done)` and the next `(current)`, so no marker is typed or flipped.
-   The closing is `vc-x1 cycle --close -s b` ([Cycle shape](#cycle-shape),
+   The closing is `vc-x1 cycle --close -s b` and its shape ([Cycle shape](#cycle-shape),
    [Close-out](#close-out)). A rung that
    changes the artifact then installs its dev build again, so the next rung runs the committed
    code, not the working copy's ([Dev artifact name](agent-data/versioning.md#dev-artifact-name)).
@@ -451,7 +455,8 @@ does all of it in its one commit, step 5 aside ([Cycle shape](#cycle-shape)):
 4. Size: when an agent-file changed, record the line count in `notes/agent-files-size.md`,
    smaller being the quasi-goal. A cycle that touched none adds no row.
 5. Close-out shape ([Close-out shapes](agent-data/jj.md#close-out-shapes)): a ladder closes as a
-   trapezoid, `cycle --close -s b --trapezoid <target>`, the closing commit carrying the shape, so
+   trapezoid, `cycle --close -s b --multi-step --trapezoid <target>`, the closing commit carrying
+   the shape, so
    nothing is reshaped at Land.
 6. Continuation notes: anything the next agent needs is written into `TODO.md > ## Continuation
    notes`, the first section, before the closing commit, which carries them, so the work-repo is

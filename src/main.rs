@@ -773,17 +773,20 @@ pub(crate) enum Commands {
         checked against the workspace. --push publishes the rung on the cycle's bookmark, a\n\
         draft. The closing is not a rung's commit, and is refused.\n\n\
         --close [REV,...] closes the cycle from the work @, which is on the\n\
-        cycle's tip. The branch's commit count is its shape. None or one is\n\
-        a single-step cycle, the closing squashed into its one commit: made\n\
-        now from @, or the opening with @ folded in, its title the bare\n\
-        cycle title and its trailer kept. Its --body is required, the commit\n\
-        holding the work, unless --default-body asks for the pointer. More\n\
-        is a ladder, whose closing is its own commit, the cycle title plus\n\
-        \" closing\" and `[closing] body` unless --title or --body is given.\n\
+        cycle's tip, and names its shape, --single-step or --multi-step,\n\
+        which the branch's commit count checks. --single-step is the cycle's\n\
+        one commit: made now from @ when the branch has none, or the opening\n\
+        with the closing squashed into it when it has one, its title the bare\n\
+        cycle title and its trailer kept, and refused over two or more. Its\n\
+        --body is required, the commit holding the work, unless\n\
+        --default-body asks for the pointer. --multi-step is a ladder, whose\n\
+        closing is its own commit, the cycle title plus \" closing\" and\n\
+        `[closing] body` unless --title or --body is given, and refused with\n\
+        no opening committed.\n\
         It is linear, on @'s own parents, unless --trapezoid <BOOKMARK> makes\n\
         the destination its first parent or a REV listed joins another\n\
-        head, each a parent after @'s. --dead-end always makes a closing\n\
-        commit, titled \" dead-end closing\". The ladder is rewritten, every\n\
+        head, each a parent after @'s. --dead-end, with --multi-step, titles\n\
+        the closing \" dead-end closing\". The ladder is rewritten, every\n\
         rung done, and the record moved to `## Closed`, both in the commit.\n\
         The acceptance check comes first, by hand, and again after.\n\n\
         --land <BOOKMARK> lands a closed cycle on the destination, any\n\
@@ -796,7 +799,8 @@ pub(crate) enum Commands {
         naming the ways on, and --merge is one: a merge commit of the\n\
         destination and the cycle's last commit, made from an empty @ and\n\
         then landed, a conflicted one undone and left to you. The stages\n\
-        chain in their order, `cycle --close --land <BOOKMARK> -s b --push`, the\n\
+        chain in their order, `cycle --close --multi-step --land <BOOKMARK> -s b\n\
+        --push`, the\n\
         Land's checks made before the closing is. --push with --land\n\
         publishes the destination and deletes the cycle's bookmark on\n\
         origin, and without --land it is the draft push.\n\n\

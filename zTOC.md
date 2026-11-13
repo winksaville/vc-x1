@@ -20,7 +20,8 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 - 13 (done) [feat: the xtask completes its tasks](TODO.md#feat-the-xtask-completes-its-tasks)
 - 14 (done) [fix: cycle --land names push for a main ahead](TODO.md#fix-cycle---land-names-push-for-a-main-ahead)
 - 15 (done) [fix: cycle --land and push name -r for a target](TODO.md#fix-cycle---land-and-push-name--r-for-a-target)
-- 16 (current) [feat: improve vc-x1 cycle flow closing](TODO.md#feat-improve-vc-x1-cycle-flow-closing)
+- 16 (done) [feat: cycle --close names the cycle's shape](TODO.md#feat-cycle---close-names-the-cycles-shape)
+- 17 (current) [feat: improve vc-x1 cycle flow closing](TODO.md#feat-improve-vc-x1-cycle-flow-closing)
 
 ## The TOC
 

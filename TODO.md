@@ -889,6 +889,29 @@ was named. Both name `-r <target>` now, which publishes a bookmark where it is.
 - The test now runs the command the refusal names, in a workspace whose `@-` is not the target,
   and checks the target is then where `origin` is, so the advice is tried and not only matched.
 
+##### feat: cycle --close names the cycle's shape
+
+`cycle --close` took the cycle's shape from its branch's commit count, which is a guess over one
+commit: a single-step cycle whose opening was committed early and a ladder with only its opening
+made are the same branch, and the guess squashed the second's closing into its opening. The
+closing names the shape, `--single-step` or `--multi-step`, one required, and the count checks it.
+
+- wink's call (2026-11-13), testing a single-step closing in `~/tmp/wt-21-6`, before the
+  multi-step cycle there, so each flag gets its first real use there in turn.
+- The table: no commit, single-step makes the one commit and multi-step is refused, there being
+  no opening. One commit, single-step squashes into the opening and multi-step makes a closing
+  commit above it. Two or more, single-step is refused, a ladder never squashed.
+  - Multi-step over the opening alone is new: a ladder of its bookends, which only `--dead-end`
+    could make before.
+- `--dead-end` takes `--multi-step` and is refused with `--single-step`, a dead end being a
+  closing commit of its own. The agent had said it would work with either, and chose the refusal
+  writing it, since a single-step dead end has no closing to title.
+- The flags exclude each other in the parser, and the one required is a refusal of the params,
+  clap having no "one of these, with that flag" of its own.
+- The rules' Cycle shape and its rule change from the count being the shape to the count checking
+  it, the set now `v0.3.1-11`, and `rationale.md` says why, `cycle --status`'s next names the flag.
+- Every test that closes names its shape, and the rehearsal's three closings do.
+
 ##### feat: improve vc-x1 cycle flow closing
 
 Closing out the cycle.
