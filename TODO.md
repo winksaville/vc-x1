@@ -852,6 +852,24 @@ through cargo's hand-off to `cargo-xtask` and for a shell alias such as `cx`.
   a runner with its own name, installed once and reading each repo's config, is vc-x2's to
   decide, and this rung is a trial of the first.
 
+##### fix: cycle --land names push for a main ahead
+
+`cycle --land` refused a target whose local and `origin` positions differ with "`vc-x1 sync`
+brings it up to date" whichever way they differ, so a local `main` ahead of `origin` was told to
+sync, which changes nothing. And with no cycle-record the Land named its source by `--source`, a
+flag of the retired `vc-x1 land` and none of `cycle`'s.
+
+- Found by wink (2026-11-13) in `~/tmp/wt-21-6`, step 0 of the test plan: its local `main`
+  carries an unpublished closing, and the dry run said to sync.
+- The refusal now names the way on by how the two stand, read from the commits: ahead, a push,
+  `vc-x1 push -s b --bookmark <target>`, `-s p` in a plain repo; behind, a sync; absent on
+  `origin`, a push; diverged, neither, the two to be reconciled first.
+  - One function, `land::not_at_origin`, serves `cycle --land`'s own check and the Land's plan,
+    which said "sync first" the same way.
+- The Land's messages are labelled `cycle --land` and name `--bookmark`, since `vc-x1 land` is
+  retired and `cycle --land` is the only caller of its code. The one other bookmark found with
+  no record is "the cycle's bookmark", and several ask for `--bookmark <NAME>`.
+
 ##### feat: improve vc-x1 cycle flow closing
 
 Closing out the cycle.

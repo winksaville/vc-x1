@@ -895,7 +895,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
         // The Land's own checks, before the closing is made: a
         // trapezoid onto the destination joins one that moved.
         let joined = c.trapezoid.as_deref() == Some(l.dest.as_str());
-        land_checks(work, &l.dest, (!joined).then_some("@-"))?;
+        land_checks(work, &l.dest, (!joined).then_some("@-"), l.agent.is_none())?;
     }
     let single = commits.len() <= 1 && !c.dead_end;
     if c.dead_end && commits.is_empty() {
@@ -1054,6 +1054,7 @@ fn land_checks(
     work: &std::path::Path,
     dest: &str,
     tip: Option<&str>,
+    plain: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if !jj::local_bookmark_exists(work, dest)? {
         return Err(format!(
@@ -1066,13 +1067,9 @@ fn land_checks(
         .get(dest)
         .cloned();
     if remote.as_deref() != Some(at.as_str()) {
-        return Err(format!(
-            "cycle --land: '{dest}' is at {} locally and {} on origin, so it is not where a Land \
-             fast-forwards from: `vc-x1 sync` brings it up to date",
-            short(&at),
-            remote.as_deref().map_or("absent".to_string(), short)
-        )
-        .into());
+        let refusal =
+            crate::land::not_at_origin(work, "cycle --land", dest, &at, remote.as_deref(), plain)?;
+        return Err(refusal.into());
     }
     if let Some(tip) = tip
         && !jj::matches(work, &format!("{at} & ::({tip})"))?
@@ -1139,7 +1136,7 @@ fn land_closed(
             }
         }
     };
-    land_checks(work, &l.dest, None)?;
+    land_checks(work, &l.dest, None, l.agent.is_none())?;
     let dest_at = jj::cid_of(work, &l.dest)?;
     let descends = jj::matches(work, &format!("{dest_at} & ::({source})"))?;
     match (descends, l.merge) {
@@ -2350,5 +2347,76 @@ mod tests {
             "name = \"y\"\nversion = \"1.0.0-1\"",
             "the tool never writes the version"
         );
+    }
+
+    /// A target not where its `origin` is names the way on by how the
+    /// two stand: ahead is a push, behind a sync, diverged neither.
+    #[test]
+    fn a_target_off_its_origin_names_the_way_on() {
+        let fx = Fixture::new("cycle-land-off-origin");
+        let checks = |fx: &Fixture| {
+            land_checks(&fx.work, "main", None, false)
+                .unwrap_err()
+                .to_string()
+        };
+        let base = jj_ok(
+            &fx.work,
+            &["log", "-r", "main", "--no-graph", "-T", "commit_id"],
+        );
+        // Ahead: a commit on main, not pushed.
+        fs::write(fx.work.join("ahead.txt"), "ahead\n").expect("write");
+        jj_ok(&fx.work, &["commit", "-m", "ahead"]);
+        jj_ok(&fx.work, &["bookmark", "set", "main", "-r", "@-"]);
+        let err = checks(&fx);
+        assert!(
+            err.contains("ahead") && err.contains("vc-x1 push -s b --bookmark main"),
+            "{err}"
+        );
+        assert!(!err.contains("sync"), "{err}");
+        // Behind: published, then main set back to where it was.
+        jj_ok(&fx.work, &["git", "push", "--bookmark", "main"]);
+        jj_ok(
+            &fx.work,
+            &["bookmark", "set", "main", "-r", &base, "--allow-backwards"],
+        );
+        let err = checks(&fx);
+        assert!(
+            err.contains("behind") && err.contains("vc-x1 sync -s b"),
+            "{err}"
+        );
+        // Diverged: a commit of its own beside the published one.
+        jj_ok(&fx.work, &["new", &base]);
+        fs::write(fx.work.join("mine.txt"), "mine\n").expect("write");
+        jj_ok(&fx.work, &["commit", "-m", "mine"]);
+        jj_ok(
+            &fx.work,
+            &["bookmark", "set", "main", "-r", "@-", "--allow-backwards"],
+        );
+        let err = checks(&fx);
+        assert!(
+            err.contains("diverged") && !err.contains("vc-x1 push"),
+            "{err}"
+        );
+    }
+
+    /// A Land with no cycle-record finds the one other bookmark, and with
+    /// several names `--bookmark`, the flag `cycle --land` has.
+    #[test]
+    fn several_bookmarks_name_the_flag_cycle_has() {
+        let fx = Fixture::new("cycle-land-several");
+        for name in ["one", "two"] {
+            jj_ok(&fx.work, &["new", "main"]);
+            fs::write(fx.work.join(format!("{name}.txt")), "x\n").expect("write");
+            jj_ok(&fx.work, &["commit", "-m", name]);
+            jj_ok(&fx.work, &["bookmark", "create", name, "-r", "@-"]);
+        }
+        let err = run(&fx.work, &["--land", "main"]).unwrap_err();
+        assert!(
+            err.starts_with("cycle --land:") && err.contains("--bookmark <NAME>"),
+            "{err}"
+        );
+        assert!(!err.contains("--source"), "{err}");
+        run(&fx.work, &["--land", "main", "--bookmark", "two"]).expect("landed");
+        assert_eq!(title_of(&fx.work, "main"), "two");
     }
 }

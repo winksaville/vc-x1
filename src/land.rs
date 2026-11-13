@@ -66,6 +66,10 @@ pub enum Skip {
     Both,
 }
 
+/// How the Land's messages name the command: `vc-x1 land` is retired,
+/// and `cycle --land` runs this code.
+const LABEL: &str = "cycle --land";
+
 /// Inputs to the land op, flat, owned, clap-free.
 #[derive(Debug)]
 pub struct LandParams {
@@ -84,11 +88,11 @@ pub struct LandParams {
 /// Entry point: resolve `--source` and the cycle's bookmark, plan the
 /// Land, refusing before anything moves, and run it.
 pub fn land(ctx: &mut Context, params: &LandParams) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("land: enter {params:?}");
+    debug!("{LABEL}: enter {params:?}");
     let repo = params.repo.as_path();
     if !jj::local_bookmark_exists(repo, &params.onto)? {
         return Err(format!(
-            "land: '{}' is not a local bookmark, and Land moves one",
+            "{LABEL}: '{}' is not a local bookmark, and Land moves one",
             params.onto
         )
         .into());
@@ -97,29 +101,29 @@ pub fn land(ctx: &mut Context, params: &LandParams) -> Result<(), Box<dyn std::e
         Some(s) => s.clone(),
         None => default_source(repo, &params.onto)?,
     };
-    let tip = resolve_tip(repo, "land", &source)?;
+    let tip = resolve_tip(repo, LABEL, &source)?;
     if jj::cid_of(repo, &params.onto)? == tip {
         return Err(format!(
-            "land: '{}' is at '{source}' already, so there is nothing to land",
+            "{LABEL}: '{}' is at '{source}' already, so there is nothing to land",
             params.onto
         )
         .into());
     }
-    let bookmark = cycle_bookmark(repo, "land", "--source", &source, &params.onto, &tip)?;
+    let bookmark = cycle_bookmark(repo, LABEL, "--bookmark", &source, &params.onto, &tip)?;
     if bookmark.is_none() {
         info!(
-            "land: no bookmark on the branch above '{}', so none is deleted",
+            "{LABEL}: no bookmark on the branch above '{}', so none is deleted",
             params.onto
         );
     }
     let plan = plan(
         repo,
-        "land",
         params.onto.clone(),
         &tip,
         bookmark.as_deref(),
         params.skip,
         params.delete_intermediate,
+        matches!(params.scope, RepoScope::Por),
     )?;
     run(
         ctx,
@@ -135,8 +139,9 @@ pub fn land(ctx: &mut Context, params: &LandParams) -> Result<(), Box<dyn std::e
     )
 }
 
-/// `--source` left out: the one local bookmark besides `onto`, refused
-/// with the list when there are several, since naming one settles it.
+/// The cycle's bookmark left unnamed: the one local bookmark besides
+/// `onto`, refused with the list when there are several, since naming
+/// one, `--bookmark`, settles it.
 pub(crate) fn default_source(
     repo: &Path,
     onto: &str,
@@ -145,16 +150,18 @@ pub(crate) fn default_source(
     found.retain(|b| b != onto);
     match found.as_slice() {
         [one] => {
-            info!("land: --source is '{one}', the one local bookmark besides '{onto}'");
+            info!(
+                "{LABEL}: the cycle's bookmark is '{one}', the one local bookmark besides '{onto}'"
+            );
             Ok(one.clone())
         }
         [] => Err(format!(
-            "land: there is no local bookmark besides '{onto}', so there is nothing to land"
+            "{LABEL}: there is no local bookmark besides '{onto}', so there is nothing to land"
         )
         .into()),
         several => Err(format!(
-            "land: there are several local bookmarks besides '{onto}', {}, so which is the \
-             source is not known: name it, --source <BM|REV>",
+            "{LABEL}: there are several local bookmarks besides '{onto}', {}, so which is the \
+             cycle's is not known: name it, --bookmark <NAME>",
             several.join(", ")
         )
         .into()),
@@ -218,6 +225,52 @@ pub(crate) fn cycle_bookmark(
     }
 }
 
+/// The refusal of a target that is not where its `origin` is, naming
+/// the way on by how the two stand: one only behind is brought up by
+/// a sync, one only ahead, or absent there, is published by a push,
+/// and two that diverged are the user's to reconcile first.
+pub(crate) fn not_at_origin(
+    repo: &Path,
+    label: &str,
+    onto: &str,
+    local: &str,
+    remote: Option<&str>,
+    plain: bool,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let short = |id: &str| -> String {
+        id.chars()
+            .take(crate::desc_helpers::DEFAULT_ID_LEN)
+            .collect()
+    };
+    let scope = if plain { "p" } else { "b" };
+    let push = format!("`vc-x1 push -s {scope} --bookmark {onto}` publishes it first");
+    let Some(remote) = remote else {
+        return Ok(format!(
+            "{label}: '{onto}' is at {} locally and is not on origin, so a Land has nothing \
+             published to fast-forward from: {push}",
+            short(local)
+        ));
+    };
+    let at = format!(
+        "'{onto}' is at {} locally and {} on origin",
+        short(local),
+        short(remote)
+    );
+    Ok(if jj::matches(repo, &format!("{remote} & ::{local}"))? {
+        format!("{label}: {at}, ahead with commits not yet published: {push}")
+    } else if jj::matches(repo, &format!("{local} & ::{remote}"))? {
+        format!(
+            "{label}: {at}, behind with commits not yet fetched: `vc-x1 sync -s {scope}` brings it \
+             up to date"
+        )
+    } else {
+        format!(
+            "{label}: {at}, and the two have diverged, each with commits the other lacks: \
+             reconcile them first, a sync refusing until then"
+        )
+    })
+}
+
 /// A Land planned before anything is made: the `--onto` bookmark and where it is,
 /// and the cycle's own bookmark, deleted after, `skip` keeping a side.
 #[derive(Debug)]
@@ -244,16 +297,16 @@ pub(crate) struct LandPlan {
 /// and with `delete_intermediate` the bookmarks strictly between too.
 pub(crate) fn plan(
     repo: &Path,
-    label: &'static str,
     onto: String,
     tip: &str,
     bookmark: Option<&str>,
     skip: Option<Skip>,
     delete_intermediate: bool,
+    plain: bool,
 ) -> Result<LandPlan, Box<dyn std::error::Error>> {
     if !jj::local_bookmark_exists(repo, &onto)? {
         return Err(
-            format!("{label}: '{onto}' is not a local bookmark, and Land moves one").into(),
+            format!("{LABEL}: '{onto}' is not a local bookmark, and Land moves one").into(),
         );
     }
     let onto_cid = jj::cid_of(repo, &onto)?;
@@ -261,16 +314,11 @@ pub(crate) fn plan(
         .get(&onto)
         .cloned();
     if remote.as_deref() != Some(onto_cid.as_str()) {
-        return Err(format!(
-            "{label}: '{onto}' is at {onto_cid} locally and {} on origin: sync first, \
-             since a bookmark that moved stops a Land",
-            remote.as_deref().unwrap_or("absent")
-        )
-        .into());
+        return Err(not_at_origin(repo, LABEL, &onto, &onto_cid, remote.as_deref(), plain)?.into());
     }
     if !jj::matches(repo, &format!("{onto_cid} & ::({tip})"))? {
         return Err(format!(
-            "{label}: the branch does not descend from '{onto}' at {onto_cid}, so \
+            "{LABEL}: the branch does not descend from '{onto}' at {onto_cid}, so \
              '{onto}' moved since the fork and the Land would carry a tree no validation saw: rebase \
              the branch onto it first"
         )
@@ -291,14 +339,14 @@ pub(crate) fn plan(
         Vec::new()
     };
     info!(
-        "{label}: land onto '{onto}' at {onto_cid}, the cycle's bookmark {}",
+        "{LABEL}: land onto '{onto}' at {onto_cid}, the cycle's bookmark {}",
         topic
             .as_deref()
             .map(|t| format!("'{t}'"))
             .unwrap_or_else(|| "none".into())
     );
     Ok(LandPlan {
-        label,
+        label: LABEL,
         onto,
         onto_cid,
         topic,
@@ -1137,7 +1185,10 @@ mod tests {
             &["-s", "b", "--source", "feat-a-cycle", "--onto", "main"],
         );
         let err = land(&mut test_ctx(), &p).expect_err("refused").to_string();
-        assert!(err.contains("sync first"), "{err}");
+        assert!(
+            err.contains("ahead") && err.contains("vc-x1 push -s b --bookmark main"),
+            "{err}"
+        );
         assert_eq!(commit_id(&fx.work, "main"), moved, "main stays");
     }
 

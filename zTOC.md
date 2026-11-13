@@ -18,7 +18,8 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 - 11 (done) [docs: the Cycle Protocol follows the cycle command](TODO.md#docs-the-cycle-protocol-follows-the-cycle-command)
 - 12 (done) [feat: cycle requires -s on commit, close, land](TODO.md#feat-cycle-requires--s-on-commit-close-land)
 - 13 (done) [feat: the xtask completes its tasks](TODO.md#feat-the-xtask-completes-its-tasks)
-- 14 (current) [feat: improve vc-x1 cycle flow closing](TODO.md#feat-improve-vc-x1-cycle-flow-closing)
+- 14 (done) [fix: cycle --land names push for a main ahead](TODO.md#fix-cycle---land-names-push-for-a-main-ahead)
+- 15 (current) [feat: improve vc-x1 cycle flow closing](TODO.md#feat-improve-vc-x1-cycle-flow-closing)
 
 ## The TOC
 
