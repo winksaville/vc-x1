@@ -23,7 +23,8 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 - 16 (done) [feat: cycle --close names the cycle's shape](TODO.md#feat-cycle---close-names-the-cycles-shape)
 - 17 (done) [fix: the cycle's messages say what happens](TODO.md#fix-the-cycles-messages-say-what-happens)
 - 18 (done) [feat: errors and warnings wrap to the terminal](TODO.md#feat-errors-and-warnings-wrap-to-the-terminal)
-- 19 (current) [feat: improve vc-x1 cycle flow closing](TODO.md#feat-improve-vc-x1-cycle-flow-closing)
+- 19 (done) [feat: cycle --push publishes by the cycle's state](TODO.md#feat-cycle---push-publishes-by-the-cycles-state)
+- 20 (current) [feat: improve vc-x1 cycle flow closing](TODO.md#feat-improve-vc-x1-cycle-flow-closing)
 
 ## The TOC
 

@@ -734,7 +734,7 @@ pub(crate) enum Commands {
         rest: Vec<String>,
     },
 
-    /// Run a cycle's stages: --open, --commit, --close, --land, and --status
+    /// Run a cycle's stages: --open, --commit, --close, --land, --push, and --status
     #[command(long_about = "\
         Run a cycle by its stages, each a flag, one command for the acts\n\
         the flow has.\n\n\
@@ -806,6 +806,11 @@ pub(crate) enum Commands {
         Land's checks made before the closing is. --push with --land\n\
         publishes the destination and deletes the cycle's bookmark on\n\
         origin, and without --land it is the draft push.\n\n\
+        --push alone is a stage: it publishes what the cycle's state calls\n\
+        for. A cycle in progress, or closed and not landed, is a draft, and\n\
+        its bookmark is pushed. A cycle landed here publishes the target its\n\
+        landmark is on and deletes the cycle's bookmark on origin, and with\n\
+        nothing to publish it says so. -s is required, `b` or `p`.\n\n\
         --status says where the cycle stands and changes nothing: the\n\
         title, the bookmark and whether it is on the work @, the commits on\n\
         the branch and how many are not pushed, the ladder as the rungs and\n\

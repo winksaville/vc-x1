@@ -2081,6 +2081,7 @@ vc-x1 cycle --close -s b --multi-step --trapezoid main  # a merge, main its firs
 vc-x1 cycle --close -s b --single-step --body @body.txt # a single-step cycle's one commit
 vc-x1 cycle --land main -s b                            # land the closed cycle, locally
 vc-x1 cycle --land main -s b --push                     # and publish it
+vc-x1 cycle --push -s b                                 # publish what the cycle's state calls for
 vc-x1 cycle --close -s b --multi-step --trapezoid main --land main --push  # close, land, publish
 vc-x1 cycle --land main -s b --merge                    # join a main that moved, then land
 vc-x1 cycle --status                                    # where the cycle stands, and what is next
@@ -2213,8 +2214,19 @@ before the closing is, so a destination that cannot be landed on closes nothing.
 publishes the destination, the work repo first, and deletes the cycle's bookmark on `origin`, and
 it refuses a push that would be forced, which `push` and `squash-push` ask about. Without `--land`
 it is the draft push of the cycle's bookmark. Without `--push` the Land stays on the machine, and
-`vc-x1 push -s b --bookmark <BOOKMARK>` publishes it, a published cycle's bookmark left on `origin`
-for `delete-bookmark`. The install after a Land is the project's own.
+`cycle --push` publishes it later. The install after a Land is the project's own.
+
+`--push` alone is a stage, publishing what the cycle's state calls for, so no push needs its
+bookmark or its flags worked out:
+
+- A cycle in progress, or closed and not landed, is a draft: its bookmark is pushed, with its pair
+  when it is at the work `@-`.
+- A cycle landed here: the target its landmark is on, the one such bookmark not where its
+  `origin` is, is published, and the cycle's bookmark is deleted on `origin` when it is there.
+  Several such bookmarks are refused, naming them.
+- Nothing to publish is said, and exits 0.
+
+`-s` is required, `b` or `p`, `w` alone being refused as it is for a Land.
 
 The agent commit a Land makes carries the last commit's text and one `ochid:` per work commit
 naming the agent `@`, oldest first, none when every rung is a pair. The links the cycle's commits

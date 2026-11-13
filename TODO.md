@@ -994,6 +994,33 @@ wraps an error or a warning to the terminal's width, between words, its later li
 - Tested by the wrap's own unit tests. What a terminal shows is wink's to look at, the tests
   running with no terminal.
 
+##### feat: cycle --push publishes by the cycle's state
+
+A Land made locally left `cycle` with nothing to publish it, so the user dropped to `push` and had
+to know its flags, and testing `~/tmp/t17` (wink, 2026-11-13) found three messages that said too
+little or too soon. `--push` alone becomes a stage, and the three are fixed.
+
+- `cycle --push` alone publishes what the state calls for, read from the record and the
+  branch: a draft's bookmark, with its pair when it is at the work `@-` and alone where it is
+  otherwise, or for a cycle landed here the target its landmark is on, the one such bookmark not
+  where its `origin` is, and the cycle's bookmark deleted on `origin`. Nothing to publish is said
+  and exits 0. Several unpublished targets are refused, naming them.
+  - No target flag: the landmark names it, as `--status` already found it, so the user names
+    nothing. `-s w` is refused, as a Land refuses it.
+  - The Land's last line, when made here, names `vc-x1 cycle --push -s b`, right wherever `@-`
+    is, and `--status` after a local Land names it as next.
+  - Before it the Land's line named `push --bookmark` at the work `@-` and `push -s w -r` with
+    `push -s a` elsewhere, both right and both a thing to work out.
+- `--open` warns when the title is no Conventional Commit or is over 50 characters, since every
+  commit of the cycle carries it. Warned, not refused, as the unwritten items are. Found when a
+  `## Todo` heading, "Feat y to check TODO.md updating", became a cycle title as written.
+- `--close` names all it lacks in one refusal, the shape and, for a single step, the body, where
+  it said one and then the next. `--dead-end` with `--single-step` is still refused first, being
+  wrong whatever else is given.
+- The `_To write._` warning is said once every check has passed, so it never comes before a
+  refusal of the closing it warns about.
+- The agent-files' Pushing names `cycle --push`, the set at `v0.3.1-13`.
+
 ##### feat: improve vc-x1 cycle flow closing
 
 Closing out the cycle.

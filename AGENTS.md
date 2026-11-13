@@ -396,8 +396,9 @@ version, file list, or deliberation ([why](agent-data/rationale.md#commit-descri
 
 ### Pushing
 
-Pushing is by `vc-x1 push` or a stage's `--push`, and the Land's bookmark moves are `cycle --land`'s
-and `delete-bookmark`'s.
+Pushing is by `vc-x1 cycle --push -s b`, which publishes what the cycle's state calls for, a
+draft's bookmark or a Land made here, by a stage's `--push`, or by `vc-x1 push`, and the Land's
+bookmark moves are `cycle --land`'s and `delete-bookmark`'s.
 
 #### Before any push
 

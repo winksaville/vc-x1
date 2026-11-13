@@ -599,13 +599,9 @@ pub(crate) fn run(
         );
     } else if !dry {
         let flag = if pair.is_some() { "b" } else { "p" };
-        let publish = if at_work_head {
-            format!("`vc-x1 push -s {flag} --bookmark {onto}`")
-        } else if pair.is_some() {
-            format!("`vc-x1 push -s w -r {onto}` and `vc-x1 push -s a`")
-        } else {
-            format!("`vc-x1 push -s p -r {onto}`")
-        };
+        // `cycle --push` reads what the Land left and publishes it, the
+        // target and the cycle's bookmark on origin, wherever @- is.
+        let publish = format!("`vc-x1 cycle --push -s {flag}`");
         info!(
             "{label}: landed on '{onto}' on this machine, '{onto}' having moved from \
              {}, and {publish} publishes it.{}",
