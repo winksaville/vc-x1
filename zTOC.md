@@ -6,6 +6,8 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 
 - 0 (done) [fix: a cycle commit marks no rung current opening](TODO.md#fix-a-cycle-commit-marks-no-rung-current-opening)
 - 1 (done) [fix: the ladder marks done rungs only](TODO.md#fix-the-ladder-marks-done-rungs-only)
+- 2 (done) [fix: a set-aside bookmark leaves the cycle's branch whole](TODO.md#fix-a-set-aside-bookmark-leaves-the-cycles-branch-whole)
+- [feat: cycle --rung-start marks the rung in flight](TODO.md#feat-cycle---rung-start-marks-the-rung-in-flight)
 - [docs: the agent-files mark no rung current](TODO.md#docs-the-agent-files-mark-no-rung-current)
 - [fix: a cycle commit marks no rung current closing](TODO.md#fix-a-cycle-commit-marks-no-rung-current-closing)
 

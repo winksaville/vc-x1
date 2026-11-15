@@ -762,7 +762,8 @@ pub(crate) enum Commands {
         and closed by the cycle title plus \" opening\" and \" closing\", and\n\
         a line of the ladder there that is no rung by its grammar. The\n\
         branch is the commits the cycle's bookmark reaches that no other\n\
-        local bookmark does, the bookmark the title's slug or --bookmark's.\n\n\
+        local bookmark below it does, the bookmark the title's slug or\n\
+        --bookmark's.\n\n\
         --commit commits the working copies as a rung of the cycle in\n\
         progress, by the code `vc-x1 commit` runs, so a dual workspace gets\n\
         the pair, each half stamped with the other's change id. A cycle's\n\

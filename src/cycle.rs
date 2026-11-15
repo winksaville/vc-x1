@@ -771,10 +771,13 @@ fn commit_rung(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::err
 
 /// The revset of the cycle's branch: the commits `bookmark` reaches,
 /// and those above it up to the work `@-`, a commit made by hand not
-/// having advanced it, that no other local bookmark reaches.
+/// having advanced it, that no other local bookmark reaches from below.
+/// A bookmark at or above the cycle's own, a set-aside commit's, cuts
+/// nothing, since it reaches every rung, and one at the same commit,
+/// `main` after a fast-forward, is left out with the cycle's own.
 fn branch_revset(bookmark: &str) -> String {
     let own = format!("bookmarks(exact:\"{bookmark}\")");
-    format!("((::({own}) | ({own})::@-) ~ ::(bookmarks() ~ {own}))")
+    format!("((::({own}) | ({own})::@-) ~ ::(bookmarks() ~ ({own})::))")
 }
 
 /// The titles of the commits on the cycle's branch in `repo`, oldest
@@ -1979,6 +1982,26 @@ mod tests {
         );
         fs::write(fx.work.join("TODO.md"), planned).expect("write");
         fx
+    }
+
+    /// A bookmark above the cycle's, a set-aside commit's, leaves the
+    /// branch whole, and `main` below it still cuts it off.
+    #[test]
+    fn a_set_aside_bookmark_leaves_the_branch_whole() {
+        let fx = planned("cycle-branch-set-aside");
+        run(&fx.work, &["--commit"]).expect("the opening");
+        let opening = jj_ok(
+            &fx.work,
+            &["log", "-r", "@-", "--no-graph", "-T", "change_id"],
+        );
+        fs::write(fx.work.join("work.txt"), "the next rung's edits\n").expect("write");
+        jj_ok(&fx.work, &["commit", "-m", "set aside"]);
+        jj_ok(&fx.work, &["bookmark", "create", "aside", "-r", "@-"]);
+        jj_ok(&fx.work, &["new", &opening]);
+        assert_eq!(
+            branch_titles(&fx.work, "feat-a-cycle").expect("the branch"),
+            ["feat: a cycle opening"]
+        );
     }
 
     /// The cycle's first commit is its opening, titled and bodied by

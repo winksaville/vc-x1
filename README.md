@@ -2125,9 +2125,10 @@ A rung is `(done)`, numbered by its position, when a commit of its title is on t
 and every other rung is its link alone, so the first unmarked rung is the next and no line claims
 work not yet begun. A `(current)` marker, which a `vc-x1` before 0.85.23 wrote on the next rung,
 is read as a rung and rewritten without it. A single-step cycle, its one commit under the bare
-cycle title, is one unlinked rung. The branch is the commits the cycle's bookmark reaches, and those above it up to the work `@-`, that no other
-local bookmark reaches, so no destination is named. The bookmark is the slug of the title in `##
-In Progress`, or `--bookmark`'s.
+cycle title, is one unlinked rung. The branch is the commits the cycle's bookmark reaches, and
+those above it up to the work `@-`, that no other local bookmark below the cycle's reaches, so no
+destination is named, and a bookmark above it, a set-aside commit's, cuts nothing. The bookmark is
+the slug of the title in `## In Progress`, or `--bookmark`'s.
 
 The grammar is strict, and each of these is refused with nothing edited: a commit on the branch
 whose title is no rung's, so an unplanned rung gets its heading before its commit, a rung written

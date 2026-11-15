@@ -48,15 +48,20 @@ already computed by `--status` and `--ladder`.
 The ladder marks a rung `(done)` when a commit of its title is on the cycle's branch, and every
 other rung is its link alone. `cycle --status` names the next rung on its `next:` line as it does
 now. The ladder's grammar still reads a `(current)` line, so a `zTOC.md` written by an older
-`vc-x1` is recognized and rewritten. The agent-files say the same, as `v0.3.1-14`.
+`vc-x1` is recognized and rewritten. A rung in flight is marked `(current)` by `cycle
+--rung-start`, in the working copy alone, and its commit makes it `(done)`. The agent-files say the
+same, as `v0.3.1-14`.
 
 #### Acceptance check
 
 - In the tests, a `cycle --commit` writes its own rung `(done)` and no `(current)` anywhere in
   `zTOC.md`, `cycle --status` names the next rung, and a ladder holding an old `(current)` line is
   read and rewritten.
-- In this cycle, the rung after the code rung is committed by `vc-x1-dev cycle --commit`, and its
-  `zTOC.md` reads `(done)` for rungs 0 to 2 and the closing unmarked.
+- In the tests, `cycle --rung-start` marks the rung `(current)` in the working copy, its commit
+  holds it `(done)` with no `(current)`, and `--commit` without `--title` takes the rung in flight.
+- In this cycle, the docs rung is started by `vc-x1-dev cycle --rung-start` and committed by
+  `vc-x1-dev cycle --commit`, its working copy showing it `(current)` under review and its commit
+  reading `(done)` for rungs 0 to 3 and the closing unmarked.
 - `rg -F '(current)' AGENTS.md agent-data/ README.md` prints only the rationale's account of the
   change.
 
@@ -71,6 +76,15 @@ now. The ladder's grammar still reads a `(current)` line, so a `zTOC.md` written
   cycle it is upgrading.
 - **The finding keeps its meaning.** A `(done)` rung below a rung not done is still a finding,
   named against the first rung not done rather than the current one.
+- **A rung in flight is marked when it starts, by `cycle --rung-start`** (wink, 2026-11-15). A
+  `(current)` written when work begins is a fact, and one written by the commit before was a
+  prediction, so the marker returns in the working copy alone and no commit holds it.
+  - `cycle --start` was considered and is not taken, reading too like `cycle --open`, wink's.
+    `rung start` is a positional verb, which the scope-flags rule retired.
+  - `cycle --commit` writing the next rung `(current)` into the new working copy was considered
+    and is not taken: the work `@` would never be empty after a rung, against At rest.
+  - m-13-0 set aside the working copy marking itself current, on the ground that committed trees
+    would hold the marker. They do not, since the commit makes it `(done)`, and `m-13` is told.
 - **Two rungs, code then agent-files.** The code is reviewed and installed as `vc-x1-dev` first,
   so the agent-files rung is committed by the new code and checks it.
 - **The agent-files version moves in the agent-files rung**, to `v0.3.1-14`, since that rung is
@@ -98,6 +112,34 @@ grammar still reads `(current)`, and `--ladder`'s help, the tests, and `README.m
   next write drops the marker. The refusal's grammar names `(done)` alone, the form it asks for.
 - The finding for a done rung below one not done names that rung rather than the current one.
 - `README.md`'s `--status` specimen shows the titles unlinked, as the command prints them.
+
+##### fix: a set-aside bookmark leaves the cycle's branch whole
+
+(found 2026-11-15, setting the docs rung's edits aside) The branch was the commits the cycle's
+bookmark reaches less those any other local bookmark reaches, so a bookmark above the cycle, the
+set-aside Unplanned work asks for, reached every rung and emptied the branch: `--ladder` dropped
+every `(done)` and `--status` counted no commit. Only a bookmark not above the cycle's own cuts the
+branch now.
+
+- The revset subtracts what the other local bookmarks reach less those at or above the cycle's
+  own, so `main` below the cycle still cuts it off and one at the same commit is left out as before.
+- A test sets a commit aside with a bookmark above the opening and finds the opening still on the
+  branch. Against the old revset it finds none.
+- A `main` moved above a cycle in progress no longer empties the branch silently: what it brings
+  is refused as commits that match no rung. Only cycles in progress read the branch, a landed one
+  being found by `landed_bookmarks`, so a merge Land is untouched.
+- `README.md` and `--ladder`'s help say a bookmark below the cycle's is what cuts the branch.
+  `README.md`'s rung-marker paragraph, left with an overlong line by the last rung, is rewrapped.
+- This rung's commit carries the record's revision for the inserted rungs, the plan's `cycle
+  --rung-start` and its deliberation included.
+
+##### feat: cycle --rung-start marks the rung in flight
+
+(wink, 2026-11-15, inserted at the docs rung's review) With no `(current)` anywhere, the working
+copy under review showed no rung in flight. `cycle --rung-start` marks the first rung not done, or
+`--title`'s, `(current)` in the working copy's `zTOC.md` alone, `cycle --commit` makes it `(done)`
+and takes its title by default, `cycle --open` marks the opening, and `cycle --status` names the
+rung in flight.
 
 ##### docs: the agent-files mark no rung current
 
@@ -189,6 +231,18 @@ From ~/tmp/t85-22 while testing multi-step:
   which was retired at 0.80.6 in favour of `vc-x1 validate-config`, but actually
   `config --validate` is more correct with our current style where we want to retire
   hyphenated commands.
+
+### feat: cycle sets a rung's edits aside and takes them back
+
+(wink + agent, 2026-11-15, from **fix: a cycle commit marks no rung current**) Unplanned work
+sets the next rung's edits aside as a jj commit with a local bookmark, and that cycle did it by
+hand: `jj restore` of the version files, `jj commit`, `jj bookmark create`, and `jj new` on the
+cycle's tip, with a `jj rebase` and a bookmark delete to take them back. The hand bookmark is what
+found the branch revset's bug, so the tool should own the steps.
+- `cycle --set-aside` saves the working copy as a commit under a local bookmark, leaves the version
+  files out so the return cannot conflict on the version line, and puts `@` back on the cycle's tip.
+- `cycle --take-back` rebases it onto the new tip and deletes the bookmark.
+- The names follow the stage flags and are to be settled at the opening.
 
 ### Work in progress is durable and continues on any machine
 
