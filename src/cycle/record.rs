@@ -243,7 +243,7 @@ fn rung_link(title: &str) -> String {
 }
 
 /// `zTOC.md`'s text with the ladder of a cycle just opened in place of
-/// the last cycle's: the opening, current, and the closing. Refused
+/// the last cycle's: the opening and the closing, neither marked. Refused
 /// when there is no `## Ladder`.
 pub(crate) fn opened_ladder(text: &str, title: &str) -> Result<String, String> {
     let title = title.trim();
@@ -318,15 +318,16 @@ pub(crate) struct Ladder {
 
 /// The ladder of the cycle `cycle`, a line per rung in `rungs`' order,
 /// `commits` being the titles of the commits on its branch. A rung is
-/// `(done)` when a commit has its title, `(current)` when it is the
-/// first without one, each numbered by its position, and a rung not
-/// started is its link alone. A single-step cycle, its one commit
-/// under the bare cycle title, is one unlinked rung.
+/// `(done)`, numbered by its position, when a commit has its title, and
+/// every other rung is its link alone, so the first unmarked rung is
+/// the next and no line claims work not yet begun. A single-step cycle,
+/// its one commit under the bare cycle title, is one unlinked rung.
 ///
 /// Refused: a title written twice, a ladder not opened by the cycle
 /// title plus " opening" or not closed by it plus " closing", and a
 /// commit whose title is no rung's, each naming what it found. A done
-/// rung below the current one is a finding, the ladder still made.
+/// rung below the first rung not done is a finding, the ladder still
+/// made.
 pub(crate) fn ladder_of(
     cycle: &str,
     rungs: &[String],
@@ -383,7 +384,7 @@ pub(crate) fn ladder_of(
             findings: Vec::new(),
         });
     }
-    let current = rungs.iter().position(|r| !commits.contains(r));
+    let next = rungs.iter().position(|r| !commits.contains(r));
     let mut findings = Vec::new();
     let lines = rungs
         .iter()
@@ -391,17 +392,15 @@ pub(crate) fn ladder_of(
         .map(|(i, r)| {
             let link = rung_link(r);
             if commits.contains(r) {
-                if let Some(c) = current
-                    && c < i
+                if let Some(n) = next
+                    && n < i
                 {
                     findings.push(format!(
-                        "the rung '{r}' is done and is below the current one, '{}'",
-                        rungs[c]
+                        "the rung '{r}' is done and is below '{}', a rung not done",
+                        rungs[n]
                     ));
                 }
                 format!("- {i} (done) {link}")
-            } else if current == Some(i) {
-                format!("- {i} (current) {link}")
             } else {
                 format!("- {link}")
             }
@@ -411,7 +410,7 @@ pub(crate) fn ladder_of(
 }
 
 /// A ladder line with its link reduced to the title it shows,
-/// `- 1 (current) [feat: x](TODO.md#feat-x)` to `- 1 (current) feat: x`,
+/// `- 1 (done) [feat: x](TODO.md#feat-x)` to `- 1 (done) feat: x`,
 /// for a terminal, where the link cannot be followed.
 pub(crate) fn unlinked(line: &str) -> String {
     let Some(open) = line.find('[') else {
@@ -427,9 +426,11 @@ pub(crate) fn unlinked(line: &str) -> String {
 }
 
 /// Whether `line`, a left-margin bullet, is a rung by the ladder's
-/// grammar: `- `, then optionally a number and `(current)` or `(done)`,
-/// then the title, linked to its slug in the record or, for a
-/// single-step cycle, bare.
+/// grammar: `- `, then optionally a number and `(done)`, then the
+/// title, linked to its slug in the record or, for a single-step cycle,
+/// bare. A number and `(current)`, which a `vc-x1` before 0.85.23 wrote
+/// on the next rung, is read too, so a ladder from mid-cycle at an
+/// upgrade is still a ladder and is rewritten without it.
 fn is_rung(line: &str) -> bool {
     let Some(rest) = line.strip_prefix("- ") else {
         return false;
@@ -473,7 +474,7 @@ pub(crate) fn written_ladder(text: &str, lines: &[String]) -> Result<String, Str
     if !misfits.is_empty() {
         return Err(format!(
             "{LADDER_FILE}'s `{LADDER}` holds {} that a rung's grammar does not fit, `- [N \
-             (current|done)] [<title>]({RECORD}#<slug>)`, so nothing is edited:\n{}",
+             (done)] [<title>]({RECORD}#<slug>)`, so nothing is edited:\n{}",
             if misfits.len() == 1 {
                 "a line".to_string()
             } else {
@@ -737,8 +738,8 @@ The last cycle's record.
         assert!(did.iter().any(|d| d.contains("no `## Closed`")), "{did:?}");
     }
 
-    /// The ladder is replaced with the opening, current, and the
-    /// closing, each linked by its title's slug, and `## The TOC` stays.
+    /// The ladder is replaced with the opening and the closing, neither
+    /// marked, each linked by its title's slug, and `## The TOC` stays.
     #[test]
     fn open_replaces_the_ladder() {
         let new = opened_ladder(ZTOC, "feat: a cycle").expect("ladder");
@@ -749,7 +750,7 @@ The last cycle's record.
 
 ## Ladder
 
-- 0 (current) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)
+- [feat: a cycle opening](TODO.md#feat-a-cycle-opening)
 - [feat: a cycle closing](TODO.md#feat-a-cycle-closing)
 
 ## The TOC
@@ -805,8 +806,8 @@ The last cycle's record.
         t.iter().map(|s| s.to_string()).collect()
     }
 
-    /// A rung with a commit is done, the first without one is current,
-    /// each numbered by its position, and the rest are links alone.
+    /// A rung with a commit is done, numbered by its position, and the
+    /// rest are links alone, none marked current.
     #[test]
     fn the_markers_are_computed_from_the_commits() {
         let made = ladder_of(
@@ -820,7 +821,7 @@ The last cycle's record.
             [
                 "- 0 (done) [feat: c opening](TODO.md#feat-c-opening)",
                 "- 1 (done) [feat: one](TODO.md#feat-one)",
-                "- 2 (current) [feat: two](TODO.md#feat-two)",
+                "- [feat: two](TODO.md#feat-two)",
                 "- [feat: c closing](TODO.md#feat-c-closing)",
             ]
         );
@@ -835,9 +836,18 @@ The last cycle's record.
             &titles(&["feat: c opening", "feat: two"]),
         )
         .expect("made");
-        assert_eq!(made.lines[1], "- 1 (current) [feat: one](TODO.md#feat-one)");
+        assert_eq!(made.lines[1], "- [feat: one](TODO.md#feat-one)");
         assert_eq!(made.lines[2], "- 2 (done) [feat: two](TODO.md#feat-two)");
-        assert_eq!(made.findings.len(), 1, "{:?}", made.findings);
+        assert_eq!(
+            made.findings,
+            ["the rung 'feat: two' is done and is below 'feat: one', a rung not done"]
+        );
+        let none = ladder_of("feat: c", &rungs(), &[]).expect("made");
+        assert!(
+            none.lines.iter().all(|l| l.starts_with("- [")),
+            "{:?}",
+            none.lines
+        );
     }
 
     /// A single-step cycle's one commit, under the bare title, is one
@@ -871,15 +881,16 @@ The last cycle's record.
     #[test]
     fn a_ladder_line_unlinked() {
         assert_eq!(
-            unlinked("- 1 (current) [feat: one](TODO.md#feat-one)"),
-            "- 1 (current) feat: one"
+            unlinked("- 1 (done) [feat: one](TODO.md#feat-one)"),
+            "- 1 (done) feat: one"
         );
         assert_eq!(unlinked("- [feat: two](TODO.md#feat-two)"), "- feat: two");
         assert_eq!(unlinked("- 0 (done) feat: x"), "- 0 (done) feat: x");
     }
 
     /// The grammar: a rung is a left-margin bullet, numbered and
-    /// marked or neither, its link's slug the title's.
+    /// marked or neither, its link's slug the title's, an older
+    /// `vc-x1`'s `(current)` read as a mark.
     #[test]
     fn the_ladders_grammar() {
         for fits in [
@@ -988,16 +999,24 @@ _None._
         );
     }
 
-    /// A ladder is written over one whose lines fit, and a line that
-    /// does not is named with nothing edited.
+    /// A ladder is written over one whose lines fit, an older `vc-x1`'s
+    /// `(current)` line among them, and a line that does not is named
+    /// with nothing edited.
     #[test]
     fn a_ladder_is_written_over_one_that_fits() {
-        let lines = titles(&["- 0 (current) [feat: c opening](TODO.md#feat-c-opening)"]);
+        let lines = titles(&["- 0 (done) [feat: c opening](TODO.md#feat-c-opening)"]);
         let new = written_ladder(ZTOC, &lines).expect("written");
         assert!(
-            new.contains("## Ladder\n\n- 0 (current) [feat: c opening]"),
+            new.contains("## Ladder\n\n- 0 (done) [feat: c opening]"),
             "{new}"
         );
+        let older = ZTOC.replace(
+            "- 0 (done) chore: the last cycle",
+            "- 0 (done) [feat: c opening](TODO.md#feat-c-opening)\n\
+             - 1 (current) [feat: one](TODO.md#feat-one)",
+        );
+        let new = written_ladder(&older, &lines).expect("an older ladder fits");
+        assert!(!new.contains("(current)"), "{new}");
         assert!(new.contains("\n\n## The TOC\n"), "{new}");
         let skeleton = ZTOC.replace("- 0 (done) chore: the last cycle", "_None._");
         written_ladder(&skeleton, &lines).expect("the skeleton fits");

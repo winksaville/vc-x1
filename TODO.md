@@ -91,6 +91,14 @@ testing, their titles' typos fixed, and the continuation notes reset.
 `ladder_of` stops writing `(current)`, the finding is named against the first rung not done, the
 grammar still reads `(current)`, and `--ladder`'s help, the tests, and `README.md` follow.
 
+- The ladder marks a rung `(done)`, numbered, when a commit of its title is on the branch, and
+  every other rung, the next included, is its link alone. `cycle --open`'s first ladder is the
+  opening and the closing, neither marked, since it is made by the same function.
+- The grammar reads `(current)` still, so a `zTOC.md` from an older `vc-x1` is a ladder and the
+  next write drops the marker. The refusal's grammar names `(done)` alone, the form it asks for.
+- The finding for a done rung below one not done names that rung rather than the current one.
+- `README.md`'s `--status` specimen shows the titles unlinked, as the command prints them.
+
 ##### docs: the agent-files mark no rung current
 
 `AGENTS.md`, `agent-data/notes.md`, `agent-data/cycle-model.md`, and `agent-data/prose.md` drop

@@ -754,9 +754,10 @@ pub(crate) enum Commands {
         --ladder makes the ladder in zTOC.md from the rung headings, the\n\
         `##### ` headings under `#### Rungs` of the cycle in progress in\n\
         TODO.md, in their order, so a rung is written once. Each line is\n\
-        numbered by its position and its marker computed: `(done)` when a\n\
-        commit of the rung's title is on the cycle's branch, `(current)` the\n\
-        first without one. Refused, with nothing edited: a commit on the\n\
+        marked `(done)` and numbered by its position when a commit of the\n\
+        rung's title is on the cycle's branch, and every other rung is its\n\
+        link alone, the first of them the next, which --status names.\n\
+        Refused, with nothing edited: a commit on the\n\
         branch that is no rung's, a rung written twice, a ladder not opened\n\
         and closed by the cycle title plus \" opening\" and \" closing\", and\n\
         a line of the ladder there that is no rung by its grammar. The\n\

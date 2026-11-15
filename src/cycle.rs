@@ -1698,8 +1698,8 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
         ));
     }
     let closing = format!("{cycle} closing");
-    let current = rungs.iter().find(|r| !commits.contains(r));
-    out.push(match (commits.len(), current) {
+    let next = rungs.iter().find(|r| !commits.contains(r));
+    out.push(match (commits.len(), next) {
         (0, _) => {
             "next: `cycle --commit -s <SCOPE>` makes the opening, or `cycle --close -s <SCOPE> \
                    --single-step --body` closes a single-step cycle"
@@ -1815,7 +1815,10 @@ mod tests {
         assert!(!todo.contains("chore: the last cycle"), "{todo}");
         let ztoc = fs::read_to_string(fx.work.join("zTOC.md")).unwrap();
         assert!(
-            ztoc.contains("- 0 (current) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)\n"),
+            ztoc.contains(
+                "- [feat: a cycle opening](TODO.md#feat-a-cycle-opening)\n\
+                 - [feat: a cycle closing](TODO.md#feat-a-cycle-closing)\n"
+            ),
             "{ztoc}"
         );
         assert_eq!(
@@ -1909,7 +1912,7 @@ mod tests {
         run(&fx.work, &["--ladder"]).expect("made");
         assert!(
             ladder().contains(
-                "- 0 (current) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)\n\
+                "- [feat: a cycle opening](TODO.md#feat-a-cycle-opening)\n\
                  - [feat: one rung](TODO.md#feat-one-rung)\n\
                  - [feat: a cycle closing](TODO.md#feat-a-cycle-closing)\n"
             ),
@@ -1922,7 +1925,7 @@ mod tests {
         assert!(
             ladder().contains(
                 "- 0 (done) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)\n\
-                 - 1 (current) [feat: one rung](TODO.md#feat-one-rung)\n"
+                 - [feat: one rung](TODO.md#feat-one-rung)\n"
             ),
             "{}",
             ladder()
@@ -1979,17 +1982,17 @@ mod tests {
     }
 
     /// The cycle's first commit is its opening, titled and bodied by
-    /// default, the ladder in it showing it done and the next rung
-    /// current, the cycle's bookmark on it, and the pair stamped.
+    /// default, the ladder in it showing it done and no rung current,
+    /// the cycle's bookmark on it, and the pair stamped.
     #[test]
     fn the_first_commit_is_the_opening() {
         let fx = planned("cycle-commit-opening");
         run(&fx.work, &["--commit", "--dry-run"]).expect("a dry run");
         assert_eq!(bookmarks_at(&fx.work), "feat-a-cycle", "nothing committed");
         assert!(
-            fs::read_to_string(fx.work.join("zTOC.md"))
+            !fs::read_to_string(fx.work.join("zTOC.md"))
                 .unwrap()
-                .contains("- 0 (current)"),
+                .contains("(done) [feat: a cycle opening]"),
             "a dry run writes no ladder"
         );
 
@@ -2013,7 +2016,7 @@ mod tests {
         assert!(
             file_at(&fx.work, "@-", "zTOC.md").contains(
                 "- 0 (done) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)\n\
-                 - 1 (current) [feat: one rung](TODO.md#feat-one-rung)\n\
+                 - [feat: one rung](TODO.md#feat-one-rung)\n\
                  - [feat: a cycle closing](TODO.md#feat-a-cycle-closing)\n"
             ),
             "the commit carries the ladder"
@@ -2047,7 +2050,7 @@ mod tests {
         assert!(
             file_at(&fx.work, "@-", "zTOC.md").contains(
                 "- 1 (done) [feat: one rung](TODO.md#feat-one-rung)\n\
-                 - 2 (current) [feat: a cycle closing](TODO.md#feat-a-cycle-closing)\n"
+                 - [feat: a cycle closing](TODO.md#feat-a-cycle-closing)\n"
             ),
             "the commit carries the ladder"
         );
@@ -2669,7 +2672,8 @@ mod tests {
         run(&fx.work, &["--commit"]).expect("the opening");
         let s = status(&fx);
         assert!(s.contains("commits: 1 on the branch, 1 not pushed"), "{s}");
-        assert!(s.contains("  - 1 (current) feat: one rung\n"), "{s}");
+        assert!(s.contains("  - feat: one rung\n"), "{s}");
+        assert!(!s.contains("(current)"), "{s}");
         assert!(s.contains("work @: empty"), "{s}");
         assert!(!s.contains("differs"), "{s}");
         assert!(

@@ -5,7 +5,7 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 ## Ladder
 
 - 0 (done) [fix: a cycle commit marks no rung current opening](TODO.md#fix-a-cycle-commit-marks-no-rung-current-opening)
-- 1 (current) [fix: the ladder marks done rungs only](TODO.md#fix-the-ladder-marks-done-rungs-only)
+- 1 (done) [fix: the ladder marks done rungs only](TODO.md#fix-the-ladder-marks-done-rungs-only)
 - [docs: the agent-files mark no rung current](TODO.md#docs-the-agent-files-mark-no-rung-current)
 - [fix: a cycle commit marks no rung current closing](TODO.md#fix-a-cycle-commit-marks-no-rung-current-closing)
 

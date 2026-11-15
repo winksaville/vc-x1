@@ -2117,14 +2117,15 @@ heading, and its line and its marker are made:
 
 ```
 - 0 (done) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)
-- 1 (current) [feat: one rung](TODO.md#feat-one-rung)
+- [feat: one rung](TODO.md#feat-one-rung)
 - [feat: a cycle closing](TODO.md#feat-a-cycle-closing)
 ```
 
-A rung is `(done)` when a commit of its title is on the cycle's branch and `(current)` when it is
-the first without one, each numbered by its position, and a rung not started is its link alone. A
-single-step cycle, its one commit under the bare cycle title, is one unlinked rung. The branch is
-the commits the cycle's bookmark reaches, and those above it up to the work `@-`, that no other
+A rung is `(done)`, numbered by its position, when a commit of its title is on the cycle's branch,
+and every other rung is its link alone, so the first unmarked rung is the next and no line claims
+work not yet begun. A `(current)` marker, which a `vc-x1` before 0.85.23 wrote on the next rung,
+is read as a rung and rewritten without it. A single-step cycle, its one commit under the bare
+cycle title, is one unlinked rung. The branch is the commits the cycle's bookmark reaches, and those above it up to the work `@-`, that no other
 local bookmark reaches, so no destination is named. The bookmark is the slug of the title in `##
 In Progress`, or `--bookmark`'s.
 
@@ -2132,8 +2133,8 @@ The grammar is strict, and each of these is refused with nothing edited: a commi
 whose title is no rung's, so an unplanned rung gets its heading before its commit, a rung written
 twice, a ladder whose first rung is not the cycle title plus " opening" or whose last is not it
 plus " closing", and a line of the ladder already there that is not a rung, a left-margin `- `
-with a number and marker or neither and a link whose slug is its title's. A done rung below the
-current one is a warning. `--dry-run` prints the ladder and writes none.
+with a number and marker or neither and a link whose slug is its title's. A done rung below one
+not done is a warning. `--dry-run` prints the ladder and writes none.
 
 `--commit` commits the working copies as a rung of the cycle in progress, by the code
 [`commit`](#commit) runs, so a dual workspace gets the pair, each half stamped with the other's
@@ -2268,14 +2269,14 @@ bookmark: feat-a-cycle, on the work @-
 commits: 2 on the branch, 1 not pushed
 work @: holds changes
 ladder:
-  - 0 (done) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)
-  - 1 (done) [feat: one rung](TODO.md#feat-one-rung)
-  - 2 (current) [feat: a cycle closing](TODO.md#feat-a-cycle-closing)
+  - 0 (done) feat: a cycle opening
+  - 1 (done) feat: one rung
+  - feat: a cycle closing
 next: `cycle --close -s <SCOPE> --multi-step` makes the closing, `--trapezoid <BOOKMARK>` a merge
 ```
 
 The ladder is the one the rung headings and the commits make, with a note when `zTOC.md`'s
-differs, and `next` is the stage the cycle is at: the opening, the current rung by its title, the
+differs, and `next` is the stage the cycle is at: the opening, the next rung by its title, the
 closing, or the Land of a cycle closed and not yet landed. What another stage would refuse, a
 commit that is no rung's among them, is said and refuses nothing here.
 
