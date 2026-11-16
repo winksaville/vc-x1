@@ -561,6 +561,24 @@ config](https://github.com/winksaville/vc-x1/blob/2dc8d969c3f3/notes/chores/chor
 The cycle **agent-files(proposal): v0.3.0** retired them, the proposal bullet covering what they
 guarded (wink, 2026-10-18).
 
+## CONTRIBUTING.md
+
+**The project has a committed layer** (wink + agent, 2026-11-16) because the two homes before it
+were wrong for it. The agent-files are every adopter's, so they cannot name one project's commands,
+and `custom.md` is one machine's, so what every clone needs was lost on a fresh clone: a session on
+another machine had no messaging protocol and could not send a message.
+
+**It is `CONTRIBUTING.md`** because a person working without an agent looks there for how to build
+and test a project, so the tasks are found the same way by both, and `.vc-config.md` is repo
+management's, not the work's.
+
+**It is read after `custom.md` and overridden by it** so one machine can still depart from what the
+project says, as it can from the agent-files.
+
+**It is required, its two headings fixed, and `vc-dr-apply` starts one** because a link in the
+agent-files should resolve in every repo they are applied to (wink, 2026-11-16), and a link to an
+optional file is broken wherever the file is missing.
+
 ## custom.md
 
 **custom.md is local and optional** (wink, 2026-10-18) because a committed one hands every clone of

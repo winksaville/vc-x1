@@ -1,9 +1,10 @@
-# custom.md - the project layer
+# custom.md - the local layer
 
-The project's own layer over the other agent-files (see [AGENTS.md](AGENTS.md#custommd)). Loaded
-last. On conflict, this file wins.
+This workspace's own layer over the agent-files and the project's `CONTRIBUTING.md` (see
+[AGENTS.md](AGENTS.md#custommd)). Gitignored, read first. On conflict, this file wins. What every
+clone needs is in [CONTRIBUTING.md](CONTRIBUTING.md), and this file holds what is local alone.
 
-## Project conventions and overrides
+## Local permissions and overrides
 
-Project-local conventions and overrides of the agent-files. An override names the section it
-supersedes.
+One machine's paths and permissions, and overrides of the agent-files. An override names the
+section it supersedes.

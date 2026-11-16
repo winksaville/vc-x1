@@ -108,18 +108,8 @@ the cycle lands. It is `--locked`, so every profile compiles the same dependenci
 Where each build leaves its binary is the config's to say, each profile's `bin`: vc-x1 never
 works it out from cargo or the package's name.
 
-The commands in the order a cycle uses them, a rung's loop first and Land after:
-
-| Command | What it does | When |
-|---|---|---|
-| `vc-x1 validate` | fmt, clippy, every test | every rung, before review |
-| `vc-x1 validate --fast` | the unit tests only | while iterating |
-| `vc-x1 build --profile dev` | the dev build, into `target/debug` | to build without running |
-| `vc-x1 run --profile dev` | `build --profile dev`, then runs it | trying the change |
-| `vc-x1 install --profile dev` | `build --profile dev`, then copies it into `~/.cargo/bin` as `vc-x1-dev` | trying the change elsewhere |
-| `vc-x1 build` | the release, the default profile, into `target/release` | at Land, or to try the release profile |
-| `vc-x1 run` | `build`, then runs it | the smoke check before install |
-| `vc-x1 install` | `build`, then reports it and copies it into `~/.cargo/bin` | at Land |
+The commands in the order a cycle uses them, a rung's loop first and Land after, are the
+project's tasks, in [CONTRIBUTING.md](CONTRIBUTING.md#tasks).
 
 `validate` checks the source and makes no build of any profile. `run` and `install`, whatever the
 profile, build first, as `cargo run` does, and cargo rebuilds only what changed, so the binary
@@ -2915,6 +2905,9 @@ reference, not a status doc, and most of what's there is forward-looking, not ye
 
 ## Contributing
 
+The project's tasks, how to build, test, and install it, are in
+[CONTRIBUTING.md](CONTRIBUTING.md), with what an agent working here reads beyond the agent-files.
+
 The tool's internal structure (module map, the CLI-args / ops-`Context`+`Params` split, the
 subcommand model, and the two in-flight migrations) is described in
 [ARCHITECTURE.md](ARCHITECTURE.md). Start there to orient.
@@ -2924,7 +2917,8 @@ validate`, commit description shape, ochid trailers, pushing) is AGENTS.md's
 [Cycle protocol](AGENTS.md#cycle-protocol).
 
 Bot-facing conventions are canonical in [AGENTS.md](AGENTS.md) (hard rules + file map), its
-`agent-data/` satellites, and the project layer [custom.md](custom.md):
+`agent-data/` satellites, the project's layer [CONTRIBUTING.md](CONTRIBUTING.md), and a
+workspace's local layer `custom.md`, gitignored:
 
 - [Notes file conventions](agent-data/notes.md): Todo format, Reference numbering, Notes references
   (`[[N]]` citation style), Markdown anchor links, Retiring Done entries, and Chores conventions

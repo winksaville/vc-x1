@@ -13,7 +13,9 @@ always hyphenated.
 Agent-files: the instruction set an agent reads, `AGENTS.md` and `agent-data/*`. `TODO.md` is not
 one, since its content is the project's record, but the agent-files require that there is one, of
 the shape in [Todo format](agent-data/notes.md#todo-format), and a `zTOC.md` beside it holding the
-cycle's ladder and the files worth knowing ([zTOC format](agent-data/notes.md#ztoc-format)).
+cycle's ladder and the files worth knowing ([zTOC format](agent-data/notes.md#ztoc-format)). They
+require a [CONTRIBUTING.md](CONTRIBUTING.md) too, the project's tasks and what its agents read,
+under the headings `## Tasks` and `## Agents` ([CONTRIBUTING.md](#contributingmd)).
 
 Agent-files version: the set's own version, `vX.Y.Z`, the name of an empty
 `agent-data/agent-files-vX.Y.Z` file, bumped by `agent-files` proposal cycles and copied by
@@ -86,6 +88,9 @@ silently.
 - Read custom.md first: when a `custom.md` exists, the agent must read it first, it overrides
   anything in the agent-files, and it holds what is local to the workspace
   ([custom.md](#custommd)).
+- The project's layer: a committed `CONTRIBUTING.md`, required, holds the project's tasks and what
+  its agents read, every clone carrying it, and `custom.md` overrides it
+  ([CONTRIBUTING.md](#contributingmd)).
 - Acquaint before work: a session acquaints first, and what its repo check finds is reported and
   left as found until the user says how to proceed ([Acquaint](#acquaint)).
 - Sync where `main` matters: a look at acquaint and a sync at the opening, the closing, and Land,
@@ -140,8 +145,9 @@ silently.
 What a session does first, at its start and whenever the user says "acquaint" or "reacquaint",
 in this order ([why](agent-data/rationale.md#acquaint)):
 
-1. custom.md: when there is one, read it, and do what it asks for at acquaint
-   ([custom.md](#custommd)).
+1. custom.md and CONTRIBUTING.md: when there is a `custom.md`, read it, then [CONTRIBUTING.md >
+   ## Agents](CONTRIBUTING.md#agents), and do what they ask for at acquaint
+   ([custom.md](#custommd), [CONTRIBUTING.md](#contributingmd)).
 2. Hooks: `bash agent-data/hooks.sh check`, and what it finds missing, different, or
    unregistered is reported for the user to install ([Working practices](#working-practices)).
 3. Tools: `vc-x1 -V` and `vc-x1-dev -V`, both reported, and a dev build newer than the plain one
@@ -561,10 +567,20 @@ A new repo starts from an adopter's set, its working copy's by default, applied 
 - Retirement: a resolved experiment retires like a finished Todo, adopted and rejected alike: the
   cycle that resolved it is its record.
 
+## CONTRIBUTING.md
+
+The work-repo's [CONTRIBUTING.md](CONTRIBUTING.md) is the project's layer, committed, so every
+clone carries it, and `vc-dr-apply` starts one ([why](agent-data/rationale.md#contributingmd)).
+Two headings are fixed, since the agent-files find them by name:
+[Tasks](CONTRIBUTING.md#tasks) names the commands that build, test, and install the work, and
+[Agents](CONTRIBUTING.md#agents) is what an agent working there reads beyond the agent-files, read
+at acquaint after `custom.md`, which overrides it.
+
 ## custom.md
 
 When a `custom.md` exists at the workspace root, the agent must read it first, and it overrides
-anything in the agent-files ([why](agent-data/rationale.md#custommd)). It is the place for what is
-local to the workspace, one machine's paths and permissions, since a change every clone needs is a
-cycle on the agent-file it belongs in. The session lock,
+anything in the agent-files and `CONTRIBUTING.md` ([why](agent-data/rationale.md#custommd)). It is
+the place for what is local to the workspace, one machine's paths and permissions, since a change
+every clone needs is a cycle on the agent-file it belongs in, or on `CONTRIBUTING.md` when it is the
+project's alone. The session lock,
 [session-lock.md](agent-data/session-lock.md), is an experiment it may carry.

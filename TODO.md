@@ -20,14 +20,14 @@ acquaint, acted on, and reset to `_None._` by the reader.
   calls the name it was typed as**, **cycle --open takes a Todo entry by number or name**, and the
   three reshapes of a ladder, **feat: add a capability in vc-x1 to insert rung with -sw|a|b|p**,
   **A rung is removed from a local ladder**, and **A local ladder's rungs are reordered**.
-- The dead-end **fix: a cycle commit marks no rung current** filed three Todo entries at the top of
-  `## Todo` that replace it, to rank with the others. Check that `main` is at its trapezoid closing,
-  its bookmark gone, and the installed `vc-x1` `0.85.23`, running `0.85.22`'s code.
 - `../vc-x1-messages` holds `m-13-1`, appended and not committed. `m-13` wants a line saying the
-  cycle dead-ended and **feat: a rung's state is recorded in TODO.md** carries its fix, and the
-  commit and push are wink's go.
-- The set-aside `nruymrqm`, the dead-end's docs rung, is local and unlanded, kept for **feat: a
-  rung's state is recorded in TODO.md**'s docs rung, and abandoned once that has taken what it needs.
+  cycle dead-ended and **feat: a cycle's state is recorded, and every end is durable** carries its
+  fix, and the commit and push are wink's go. `m-14-0`, zc-ring-x1's `cycle --land tags the landed
+  version`, is pending for us, and that entry takes it.
+- The set-aside `nruymrqm`, the dead-end's docs rung, is local and unlanded under the local
+  bookmark `aside/fix-a-cycle-commit-marks-no-rung-current`, kept for **feat: a cycle's state is
+  recorded, and every end is durable**'s docs rung, and abandoned with its bookmark once that has
+  taken what it needs.
 
 ## In Progress
 
@@ -102,80 +102,293 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### feat: a rung's state is recorded in TODO.md
+### feat: the project's tasks move to cargo xtask
+
+(wink + agent, 2026-11-16) Validate, build, test, run, and install are the work's, a C project's
+nothing like a Rust one's, and none of them is repo management, so they leave vc-x1 for the
+project's own `cargo xtask`, which already bumps the version. Before **feat: a cycle's state is
+recorded, and every end is durable**, by wink's call, sooner rather than later.
+
+- **xtask gains the tasks**: `validate [--fast]`, `build`, `run`, and `install [--profile dev]`,
+  the build's provenance, `VC_X1_BUILD_COMMIT` and `VC_X1_BUILD_STATE`, made by spawning `jj`,
+  which xtask may since it is not vc-x1.
+- **The profiles are Cargo's** (wink, 2026-11-16): a profile is a `Cargo.toml` `[profile.<name>]`,
+  `dev` and `release` built in and any other, a soak's release candidate, declared there with
+  `inherits`, and `.vc-config.md`'s `[profile.*]` tables go. xtask takes a profile by its Cargo
+  name and keeps nothing beside it.
+  - The `cargo` key is the name itself, and the binary's path is cargo's to say, `target/<profile
+    dir>/<name>` from `cargo metadata`, `dev`'s directory being `debug`.
+  - We think the install suffix is a rule, not a setting: `release` installs as `vc-x1` and every
+    other profile as `vc-x1-<name>`, so `dev` keeps `vc-x1-dev`.
+- **vc-x1 drops them**: its `validate`, `build`, `run`, and `install` and the `[validate]`,
+  `[build]`, `[install]`, and `[profile.*]` tables go, each command refused with a pointer to
+  `cargo xtask`, and the README's [Workspace config tables](README.md#workspace-config-tables)
+  with them.
+- **Who names them**: `CONTRIBUTING.md > ## Tasks`'s command column, its pointer to the config
+  tables, and the agent-files' per-rung flow and `[validate]` sentence, rewritten to task names.
+- **The family**: `vc-dr-apply`'s language skeleton stops writing `[validate]` and fills the
+  `CONTRIBUTING.md` stub's tasks, the stub itself shipped by **docs: CONTRIBUTING.md names the
+  project's tasks**, and a message tells the other projects.
+- Open: whether vc-x1's domain validators, the checks of its own config and records, are renamed
+  `vc-x1 check`.
+
+### Initialization leaves no bad link
+
+(wink + agent, 2026-11-16, from **docs: CONTRIBUTING.md names the project's tasks**) A workspace an
+initialization makes should have no bad link, and where one cannot be avoided it says what fixes
+it, never leaving the reader a broken link to find. The information a link points at travels with
+the agent-files, so the fix is to ship it, not to drop the link.
+
+- **One mechanism** (wink, 2026-11-16). Three set a workspace up today: `vc-x1 init`, `--adopt`
+  included, makes the repos and copies no agent-files, `scripts/vc-dr-apply.sh` copies the set,
+  the base skeleton, and a language skeleton, and `vc-x1 agent-files copy` copies the set between
+  adopters. Two ways to start a workspace is acceptable for now, and not for long: `init` takes
+  on what `vc-dr-apply` does and the script retires. Whether `agent-files copy` folds in too is
+  settled then.
+- **The skeleton is part of the agent-files.** `TODO.md`, `zTOC.md`, `CONTRIBUTING.md`, and
+  `notes/`'s `README.md`, `bugs.md`, and `todo-backlog.md` are required and shaped by the
+  agent-files, their content each project's, and they live in `scripts/vc-dr-apply-base/` beside
+  the script. They move into the set's tree, named as required with their shape, so a copy of the
+  agent-files carries what their links point at, and `agent-files diff` checks the shape, not
+  the content.
+- **Links are checked across files.** `vc-x1 validate-anchors` checks a file's links to itself and
+  skips the rest. It learns to follow a link into another file and to its anchor, and an
+  initialization runs it on what it made. A link it cannot satisfy, `custom.md`'s, local and
+  gitignored, for one, is reported with what fixes it.
+  - The rung's hand check, a script, found 40 bad cross-file links of 646 in vc-x1's own tree. The
+    starter files' 14 are relative to the workspace they are written into, so bad only where they
+    sit. The frozen history's 15, `notes/done.md` and `notes/chores/`, retire under **Retire the
+    frozen history**. The live 11 are anchors renamed since: `README.md:2500` and
+    `notes/todo-backlog.md:54`'s `#at-rest-push-stop-squash-push`, `TODO.md`'s
+    `jj.md#vc-x1-push-what-it-does-and-does-not-do`, and the rest in `notes/todo-backlog.md`,
+    `notes/refactor-20260716.md`, `notes/transcript-format.md`, and
+    `notes/design-cli/por-dual-parity-audit.md`. The script's slug is GitHub's rule by hand, so a
+    few may be its own mistake.
+- **The language skeletons are too narrow.** `--lang NAME` offers four, wink has used none, every
+  project so far Rust and a test or toy, and what a real project starts from is likely more than a
+  directory of files: cloning a template repo, or a project's own skeleton. Open, to be settled
+  when a real project needs it.
+
+### feat: a cycle's state is recorded, and every end is durable
 
 (wink + agent, 2026-11-15 and 16, from the dead-end **fix: a cycle commit marks no rung current**,
-and io-uring-x1's `m-13`) A cycle's state is inferred from the graph, so a set-aside bookmark
-corrupted the ladder and the commit count twice, and `cycle --commit` writes the next rung
-`(current)`, a prediction. `TODO.md` becomes the cycle's one source of truth:
-- Each rung heading under `#### Rungs` is followed by a TOML block once the rung has a state:
-  `state`, one of `current`, `done`, or `dead-end`, and a done rung's `change`, its commit's change
-  id. No number is stored, and a rung not started has no block.
-- `zTOC.md` is generated from the blocks by every cycle command and never edited by hand, a hand
-  edit refused, the fix being an edit of `TODO.md` while the cycle is unpushed. A record without
-  blocks, its ladder marked `(done)` or `(current)`, is migrated once.
-- `cycle --rung-start` writes `current` in the working copy alone, under the first rung not done or
-  `--title`'s, `cycle --commit` writes `done` and the working copy's change id and takes the rung
-  in flight's title by default, `cycle --open` marks the opening, and `cycle --status` names the
-  rung in flight. Whether a `current` rung with no commit may return to no state is to settle.
-- The cycle's commits are the change ids its record holds, so the branch revset retires and no
-  bookmark cuts the cycle.
-- Done is frozen (wink): a rung marked `done` or `dead-end` is never deleted, nor its heading or
-  block changed, and vc-x1 refuses to continue a cycle until it is restored. A rung given up is
-  marked `dead-end`, and its prose stays editable.
+io-uring-x1's `m-13`, and zc-ring-x1's `m-14`) The cycle protocol's next form, folding the three
+entries the dead-end filed, **feat: a rung's state is recorded in TODO.md**, **feat: a closing names
+its shape, and its target once**, and **feat: a dead-end lands on a target or a tag**. vc-x1 infers
+a cycle's commits from bookmark reachability, so a set-aside bookmark corrupted the ladder and the
+commit count twice. `cycle --commit` writes the next rung `(current)`, a prediction. And a cycle
+stopped early has no durable end, its agent commits' `ochid:` trailers left naming work commits no
+pushed ref keeps. One cycle, its rungs below, wink's "we'll see how it goes".
 
-Considered and not taken: `zTOC.toml` or `zTOC.json` as the record, wink's first thought, a second
-source beside `TODO.md`; cutting the branch only at bookmarks not descending from the opening,
-still an inference; `cycle --start`, reading too like `--open`, and `rung start`, a positional verb.
-A block per rung is a trial, wink's "see how the noise feels". The dead-end's rungs 1 and 2 hold the
-`(done)`-only ladder and its tests to take back. `m-13` is told when it lands. Value completion for
-the new flags.
+- **The principle.** The repo holds what happened, and `TODO.md` holds where the cycle is going and
+  which commit each finished rung is. Every stage checks that the two agree, and a disagreement
+  stops it, neither side assumed right.
+  - The one inference that goes is the branch revset: the cycle's commits are the change ids its
+    record holds, each confirmed by the repo.
+  - `zTOC.md`'s ladder is generated from the record by every cycle command, never edited by hand.
+  - A session resumes from the record and the repo, never from a note: a cold acquaint knows where a
+    cycle stands with nothing written for it by hand (wink, 2026-11-16).
+- **The record.** A fenced `toml` block follows the `###` cycle heading, and one follows each
+  `#####` rung heading once the rung has started.
+  - The cycle block: `bookmark`, the cycle's one bookmark, `provisional = true` while that name is
+    vc-x1's placeholder, and `state`, `done` or `dead-end`, added by the closing.
+  - The rung block: `state`, one of `current`, `done`, or `dead-end`, `change`, the work commit's
+    full change id for `done` and `dead-end`, and `agent-at`, the agent `@`'s commit id when the
+    rung started, a commit id since it changes with every snapshot.
+  - `current` and `agent-at` live in the working copy alone, `--commit` replacing them, so a commit
+    holds `state` and `change` only.
+  - No number is stored, the ladder numbering by position.
+- **The invariants**, checked by every stage before it writes:
+  - Order: the opening, the `done` and `dead-end` rungs in commit order, at most one `current`, the
+    rungs not started, and the closing. No rung is inserted above a done one.
+  - Resolves: each `change` is one visible commit, not divergent, titled as its heading.
+  - Chain: each rung's commit is the next one's parent, the last being `@-`, the tip.
+  - Nothing unrecorded: `opening::@- ~ <recorded>` is empty. A hand `jj commit` in the chain is
+    refused, naming the fix, and local-ladder intermediates are reported as not yet collapsed,
+    `--commit` waiting for them.
+  - Done is frozen (wink): a `done` or `dead-end` rung's heading and block match its own commit's,
+    never deleted or changed, the prose under them editable, and vc-x1 refuses to continue until
+    one changed is restored. Done rungs are not renamed, unpublished ones included.
+  - Generated: `zTOC.md`'s ladder is the one the committed record or the working copy's makes, any
+    other a hand edit, refused, the fix being an edit of `TODO.md`.
+  - Bookmark: the cycle's bookmark is on the tip, and a move is reported.
+  - Heads: vc-x1 commits on the cycle's chain alone, and `--status` reports a head forking off it.
+    `--close` refuses while a work commit an agent commit names is reachable from neither the
+    closing nor a pushed ref, joining it by `--close <REV,...>` or tagging it clearing that.
+- **Starting a cycle.** `--open` needs nothing, and over a cycle in progress it makes nothing and
+  prints the ways to end it.
+  - Without `--title` the heading is the placeholder `### (untitled)`, editable until the opening
+    commits, whose `--commit` refuses the placeholder. The opening's heading is then frozen and the
+    closing pairs with it, the `###` heading still free to drift.
+  - Without `--bookmark` the bookmark is provisional, `cycle-<ts>`, `<ts>` UTC to the second in ISO
+    8601's basic form, and renamed to the title's slug when the opening commits. A name the user
+    gave is never renamed.
+  - `--bookmark-rename <new>` renames the cycle's bookmark on any stage, the record with it, free
+    before a draft push and a push after one, its approval asked.
+  - `--bookmark` on the later stages, which today names the cycle, goes, the record holding it.
+- **The rung lifecycle.** A rung is any work or experiment, with the agent's help or without.
+  `--rung-start` and `--rung-stop` edit `TODO.md` and `zTOC.md` in the work `@` and make no commit,
+  so a rung in flight shows in the ladder.
+  - `--rung-start` marks a rung `current` and records `agent-at`: the first rung not started, or
+    `--title`'s, moved up to be next with its subsection. `--title X --insert` adds a heading as the
+    next rung, so a ladder is built as it goes. Refused while a rung is current.
+  - `--rung-stop` returns the current rung to not started, its edits left alone.
+  - `--commit` commits the current rung or `--title`'s, writing `done` and `@`'s change id, and is
+    refused with no rung in flight and no `--title`.
+  - `--commit --dead-end` commits a rung given up, its attempt kept in history, then inserts and
+    starts `revert: <rung title>`, `@` restored to the parent's tree but for the record and the
+    version file, so the revert is its own reviewed commit.
+  - The quick path: `--open`, `--commit --title "..."` for the opening, then for each rung
+    `--rung-start --insert --title "..."`, the work, and `--commit`.
+- **Scopes and pairing.** `-s u`, unpaired, joins `b`, `w`, `a`, and `p`, taken by `commit`,
+  `squash`, `cycle --commit`, and `cycle --close`.
+  - `u` is the work-repo of a dual workspace committed with no trailer and never covered. `p` is a
+    plain repo, with no agent-repo, and stays refused on a dual workspace's sides. In a line: `p`
+    says there is no agent-repo here, `u` that there is one and this commit does not involve it.
+  - The scope is chosen at the commit, by what happened: `-s b` when the agent helped, `-s u` when
+    it did not, and `-s w` for the N:1 case. `-s u` warns when the agent `@` differs from the
+    rung's `agent-at`, a session having written during the rung.
+  - The Land commits the agent `@` for the work commits with a forward `ochid:` alone, so a cycle of
+    unpaired commits makes no agent commit.
+  - The durability obligation starts at a paired commit: a work commit an agent commit names stays
+    reachable from a pushed ref, landed, kept as a `dead-end` rung of a landed or tagged cycle, or
+    tagged. An unpaired commit, or an experiment never committed, is kept or dropped freely.
+- **The closing.** The shape is declared at the closing.
+  - `--close --multi-step` takes `--trapezoid [<target>]` or `--linear`, and a bare one is refused.
+    `--trapezoid` takes its target from `--land <target>` when it has none, `--trapezoid A --land B`
+    is refused, and `--linear` takes none. The conflicting flags are refused as they are parsed.
+  - The shape is checked against the count of the recorded commits.
+  - A done closing is refused while a work rung is current or not started: commit it, dead-end it,
+    or delete it, a rung not started always deletable.
+  - A dead-end closing, `--close --multi-step --dead-end [--revert]`, leaves the rungs not started
+    in the record unmarked, refuses a current one, and renames the closing heading `<cycle title>
+    dead-end closing` before its commit, so the ladder names the commit's title. `--revert`
+    restores the opening's parent tree but for the record and the version file, which still moves
+    forward.
+- **How a cycle ends.** Durable is reachable from a pushed ref, a remote keeping no commit without
+  one, and a tag is the ref for a dead-end not landed.
 
-### feat: a closing names its shape, and its target once
-
-(wink + agent, 2026-11-16, from the dead-end **fix: a cycle commit marks no rung current**) The
-trapezoid is the recommended shape, not an implied one, and its target is typed twice in
-`--trapezoid main --land main`.
-- A multi-step closing names `--trapezoid` or `--linear`, and a bare `--close --multi-step` is
-  refused.
-- `--trapezoid` takes its target from `--land <target>` when it has none, `--trapezoid A --land B`
-  is refused, and `--linear` takes none.
-- The targets complete as values, by `clap_complete`'s dynamic completers, and the conflicting
-  flags are refused as they are parsed.
-
-### feat: a dead-end lands on a target or a tag
-
-(wink + agent, 2026-11-16, from the dead-end **fix: a cycle commit marks no rung current**) A cycle
-stopped early has no durable end but landing, and `--open` over a cycle in progress is undefined.
-Durable is reachable from a pushed ref, a remote keeping no commit without one, and a tag, fixed,
-immutable to jj, and deleted by nothing of ours, is the ref for a dead-end not landed.
-
-| # | How the cycle ends | Durable ref | The next cycle begins | `--yes` |
+| # | How the cycle ends | Durable by | The next cycle begins | `--yes` |
 |---|---|---|---|---|
-| 1 | `--close --multi-step --dead-end --land <target> --push`, `--trapezoid` or `--linear` | the target | `--open` on it | no |
-| 2 | `--close --multi-step --dead-end --tag [<name>] --push` | a tag | `--open --from <target>` | no |
-| 3 | `--close --multi-step --dead-end --no-tag` | none, until a tag is pushed | `--open --from <target>` | yes |
-| 4 | nothing committed | none needed | `--open` | no |
+| 1 | `--close --multi-step [--dead-end] --trapezoid\|--linear --land <target> [--push]` | the target, and its version tag | `--open` | no |
+| 2 | `--close --multi-step --dead-end --tag [<name>] [--push]` | the dead-end tag | `--open --from <target>` | no |
+| 3 | `--close --multi-step --dead-end --no-tag` | nothing, until a tag is pushed | `--open --from <target>` | yes |
+| 4 | nothing committed | nothing needed | `--open` | no |
 | 5 | outside the tool: `jj abandon`, a bookmark deleted | none | anything | cannot ask |
 
-- The tag is annotated, the closing's title its message, named `dead-end-<ts>`, `<name>`, or
-  `<name>-<ts>`, `<ts>` UTC to the millisecond in ISO 8601's basic form, `20261116T215837.123Z`,
-  since a ref holds no `:`. A name already taken, locally or on the remote, is refused.
-- `--open` over a cycle in progress makes nothing and prints rows 1 to 3, and the next cycle starts
-  from a named target, `--from <target>`.
-- `--push` is the publish, as on every stage, so a dead-end is reviewed locally first. A push of the
-  work-repo carries vc-x1's unpushed dead-end tags, listed in its plan and `--dry-run`, tags first,
-  a clash stopping the push. `cycle --status`, the acquaint repo check, and the next `--open`
-  report a dead-end not yet durable.
-- `--tag-dead-end <rev> [<name>]` tags a closed dead-end after the fact, while its commits exist.
-- An agent push names the agent commits whose `ochid:` trailers resolve to nothing on the remote,
-  from row 3 or 5, and pushes anyway: the agent-repo stays whole, and the session is found from the
-  work-repo by time.
-- The flags complete their values: the default tag name and the dead-ends not yet tagged.
-- Considered and not taken: `--open` closing a cycle in progress as a dead-end, too easy, wink's;
-  the next cycle stacked on the dead-end, which lands it unasked; `--push-dead-end`, wink's lean,
-  `--push` kept so a dead-end can be reviewed before it is published.
-- The dead-end that filed this ran today's path, and its closing rung says what it taught.
+- **The tags.**
+  - The version tag, `m-14`'s ask: `--land <target>` tags the commit the target moves to
+    `v<version>`, read by `[version]`'s `file` and `pattern`, `[land] tag = "v{version}"` setting
+    the form. `--no-tag` skips it, a tag at the same commit is a no-op, one at another commit is
+    refused naming both, and a workspace with no `[version]` gets none, said. A landed dead-end is
+    tagged too, its version having moved forward.
+  - Tags are lightweight, made by jj-lib with no git spawn, the tagged commit's title saying what it
+    is.
+  - The dead-end tag is named `dead-end-<ts>`, `<name>`, or `<name>-<ts>`, `<ts>` UTC to the
+    millisecond in ISO 8601's basic form, `20261116T215837.123Z`, since a ref holds no `:`. A name
+    taken, locally or on the remote, is refused. `--tag-dead-end <rev> [<name>]` tags a closed
+    dead-end after the fact, row 3 becoming row 2.
+  - A work-repo push carries the local tags `origin` lacks, listed in its plan and `--dry-run`, tags
+    first, a clash stopping it. The work-repo alone is tagged, agent commits being on the agent
+    `main`.
+- **After a dead-end.**
+  - `--push` is the publish, as on every stage, so a dead-end is reviewed locally first.
+  - `--open --from <target>` follows an unlanded dead-end. It prints the dead-end's version and
+    refuses an opening whose version is not above it, so no `X.Y.Z-N` is built twice. It brings
+    forward the dead-end closing's `## Continuation notes`, `## Todo`, and `## Waiting` when the
+    target is where the dead-end opened, and is refused otherwise, those carried by hand.
+  - An agent push names the agent commits whose `ochid:` resolves to nothing on the remote, from row
+    3 or 5, and pushes anyway: the agent-repo stays whole, and the session is found from the
+    work-repo by time.
+- **Reports.** `--status` reads the record: the ladder, the rung in flight, the commits not pushed,
+  each failing invariant with its fix, the forked heads, and a dead-end not durable, the last two
+  also reported by the acquaint repo check and `--open`. Every new flag completes its values by
+  `clap_complete`'s dynamic completers: the targets, the rungs not started, the default tag name,
+  and the dead-ends not tagged.
+- **Resuming** (wink + agent, 2026-11-16, from **docs: CONTRIBUTING.md names the project's
+  tasks**, whose cold restart would have needed a continuation note to resume). The agent-files
+  state how a session picks a cycle up, so what a note said becomes a rule and the record.
+  - The acquaint's repo check counts uncommitted work on a cycle's bookmark, with a `current` rung
+    or a cycle with no commit, as that rung in flight, not a finding.
+  - A rung with work in the `@` resumes at the per-rung flow's validate and then "please review".
+    Asking again is cheap and always right, so how far a review got is not recorded, and an
+    interrupted iteration loses only the conversation, which the agent-repo keeps.
+  - We think a cycle with no commit and no work rung shows the one unlinked rung a single-step
+    closing would make, so a cold reader is not told of an opening that may never be committed.
+  - The continuation notes shrink to the loose ends outside any cycle, a message to answer or a
+    check a Land leaves the next session, and what a Todo entry or a parked head can hold moves
+    there, so the section may come to read `_None._` between sessions.
+- **Migration.** A cycle in progress whose record has no blocks is migrated once, by the first stage
+  that runs, its done rungs' blocks taken from the old branch revset, the inference's last use, and
+  an ambiguous one refused. This cycle migrates itself once the recorded-state rung's dev build
+  takes over.
+- **The agent-files**, to `v0.3.1-16`: `AGENTS.md`'s Acquaint, Cycle-record, Cycle shape,
+  Unplanned work, the per-rung flow, Committing vs pushing, Close-out and its continuation notes,
+  and the rules index, `jj.md`'s Land and push, `notes.md`'s Todo format's continuation notes, In
+  Progress block, and zTOC format, and `cycle-model.md`'s specimens, a dead-end rung,
+  an unpaired rung, and an unlanded dead-end among them.
+- **The rungs**, provisional, between the opening and the closing:
+  - `feat: a rung's state is recorded in TODO.md`
+  - `feat: cycle --rung-start, --rung-stop, and --commit by the rung in flight`
+  - `feat: -s u commits the work-repo unpaired`
+  - `feat: the cycle's bookmark is provisional, renamed by --bookmark-rename`
+  - `feat: a closing names its shape, and its target once`
+  - `feat: a dead-end rung and a dead-end cycle revert`
+  - `feat: land tags the version, and a dead-end lands on a target or a tag`
+  - `feat: open over a cycle in progress, and open --from`
+  - `feat: reports name forked heads and dead-ends not durable`
+  - `docs: the agent-files record a cycle's state`
+- **Considered and not taken:**
+  - `zTOC.toml` or `zTOC.json` as the record, wink's first thought, a second source beside
+    `TODO.md`.
+  - Cutting the branch only at bookmarks not descending from the opening, still an inference.
+  - Storing rung numbers, which shift on every insert.
+  - `cycle --start`, reading too like `--open`, and `rung start`, a positional verb.
+  - `--commit` taking the first rung not started, a guessed rung being the bug this removes.
+  - Always a trapezoid, each rung's commit the merge (wink's thought): it rewrites the previous
+    rung at every commit, and a closing with `--land` lands at any rung without that.
+  - `-s p` meaning unpaired in a dual workspace, which loses the refusal that catches `p` in the
+    wrong place, and the scope defaulted from `CLAUDECODE`, which says who typed the command, not
+    whether the agent helped.
+  - `--open` closing a cycle in progress as a dead-end, too easy, wink's, and the next cycle stacked
+    on the dead-end, which lands it unasked.
+  - `--push-dead-end`, wink's lean, `--push` kept so a dead-end is reviewed before it is published.
+  - Annotated tags, which jj-lib does not make, so a git spawn against `clippy.toml`'s register.
+- **Carried and left out.**
+  - A block per rung is a trial, wink's "see how the noise feels".
+  - The dead-end's rungs 1 and 2 hold the `(done)`-only ladder and its tests to take back, and its
+    closing rung says what today's dead-end path taught. `m-13` and `m-14` are told when it lands.
+  - Out of it, each its own entry: **feat: a short form for ending a cycle**, **feat: a cycle takes
+    an added bookmark**, and **A parked head is durable and continues on any machine**.
+
+### Durable messaging between projects
+
+(wink, 2026-11-16) The family's members message through a shared git repo, `../vc-x1-messages`, and
+a repo is a poor carrier for it. A clone of vc-x1 on fwlaptop had no `custom.md`, which is
+gitignored, so its session never learned the protocol and could not send. Messaging has nothing to
+do with repo management either, so neither `.vc-config.md`'s `[family]` nor `custom.md` is its home.
+
+- What the repo costs:
+  - One clone on one machine: thread and line ids are minted under that clone's `owner` mutex, so a
+    second clone can mint the same ones, caught only by a rejected push (its README's What is not
+    here).
+  - Every member needs the repo cloned at the path its config names, and the instructions to use
+    it, before it can read or send.
+  - A line is final only once pushed, and the commit and push are hand steps, so lines sit
+    uncommitted in one working copy, `m-12` to `m-14` today.
+  - Nothing new is seen without a fetch, and nothing tells the addressed member.
+- What is wanted: a message, once sent, is durable and visible from every machine and every
+  member's session with no per-machine setup beyond credentials. Its id is one no two senders can
+  both mint, and the pending query, what is addressed to a member and not yet answered, is kept.
+- Candidates, to weigh, we think:
+  - Member-scoped ids in the repo, `m-<member>-<n>`, the change its README names, keeping the repo
+    and dropping the mutex.
+  - A hosted tracker, a family repo's GitHub issues or discussions, read and written by `gh`, the
+    server allocating ids and keeping the history, at the cost of a network dependency and the
+    content living on GitHub.
+  - Claude Code's own messaging between sessions, which reaches live sessions on one machine and is
+    not durable, so a notifier at most.
+- The instructions to take part live in a committed file, so a fresh clone has them.
 
 ### feat: agent-files-size should exclude custom.md
 
@@ -194,17 +407,49 @@ From ~/tmp/t85-22 while testing multi-step:
   `config --validate` is more correct with our current style where we want to retire
   hyphenated commands.
 
-### feat: cycle sets a rung's edits aside and takes them back
+### A parked head is durable and continues on any machine
 
-(wink + agent, 2026-11-15, from **fix: a cycle commit marks no rung current**) Unplanned work
-sets the next rung's edits aside as a jj commit with a local bookmark, and that cycle did it by
-hand: `jj restore` of the version files, `jj commit`, `jj bookmark create`, and `jj new` on the
-cycle's tip, with a `jj rebase` and a bookmark delete to take them back. The hand bookmark is what
-found the branch revset's bug, so the tool should own the steps.
-- `cycle --set-aside` saves the working copy as a commit under a local bookmark, leaves the version
-  files out so the return cannot conflict on the version line, and puts `@` back on the cycle's tip.
-- `cycle --take-back` rebases it onto the new tip and deletes the bookmark.
-- The names follow the stage flags and are to be settled at the opening.
+(wink + agent, 2026-11-10, 15, and 16) A cycle's work sometimes waits off its chain, a rung's edits
+set aside for an unplanned rung, or a cycle stopped for the night. Each is a head beside the
+cycle's, a bushiness with a cost, worth it once the head is durable, on the remote, and continued on
+this machine or another. Merged from **feat: cycle sets a rung's edits aside and takes them back**
+and **Work in progress is durable and continues on any machine** (wink, 2026-11-16).
+
+- **The set-aside** (wink + agent, 2026-11-15, from **fix: a cycle commit marks no rung current**).
+  Unplanned work sets the next rung's edits aside as a jj commit with a local bookmark, and that
+  cycle did it by hand: `jj restore` of the version files, `jj commit`, `jj bookmark create`, and
+  `jj new` on the cycle's tip, with a `jj rebase` and a bookmark delete to take them back. The hand
+  bookmark is what found the branch revset's bug, so the tool should own the steps.
+  - `cycle --set-aside` saves the working copy as a commit under a local bookmark, leaves the
+    version and record files out so the return cannot conflict on them, and puts `@` back on the
+    cycle's tip.
+  - `cycle --take-back` rebases it onto the new tip and deletes the bookmark.
+  - The names follow the stage flags and are to be settled at the opening.
+- **Work in progress** (wink, 2026-11-10). A cycle stopped for the night was made durable by a work
+  and an agent commit titled `wip`, pushed, and removing them took two abandons and two backward
+  pushes by `jj`, since `vc-x1 push` would fold the agent `@` into the last rung's agent commit. A
+  scheme is wanted that makes work in progress durable, on the remote, and easy to continue on this
+  machine or another, then leaves no trace in the cycle's history once the rung it belongs to is
+  committed.
+  - We think a separate ref, a `wip/<bookmark>` on the remote holding both `@`s, is the shape: the
+    cycle's bookmark and the agent `main` never move for it, and a `continue` fetches it into `@`.
+  - What the other machine's session reads is part of it: the continuation notes ride in the work
+    `@` and the transcript in the agent `@`.
+- **One mechanism**: name, push, fetch, take back. A parked head changes, rebased when taken back,
+  so its ref is a remote bookmark, durable until deleted, not a tag, named for its cycle,
+  `aside/<cycle bookmark>` or `wip/<cycle bookmark>`, and its take-back deletes it locally and on
+  the remote, a push. No agent commit names a parked head until it lands through a rung.
+- Once **feat: a cycle's state is recorded, and every end is durable** lands, a hand set-aside no
+  longer cuts the cycle's branch, and its `--status` reports a parked head as parked, not forked.
+
+### feat: a cycle takes an added bookmark
+
+(wink + agent, 2026-11-16, from **feat: a cycle's state is recorded, and every end is durable**)
+`--bookmark <new>` would add a bookmark beside the cycle's own, which `--bookmark-rename` renames.
+Left out of that cycle: each added bookmark invites a head off the cycle's chain, a head an agent
+commit names must be made durable, and the record's change ids already address every rung. When a
+need appears, it settles whether an added bookmark stays where it is made or advances, whether a
+draft push carries it, and whether the Land deletes it.
 
 ### feat: a short form for ending a cycle
 
@@ -212,19 +457,6 @@ found the branch revset's bug, so the tool should own the steps.
 many flags, `--close --multi-step --dead-end --trapezoid --land main --push` for one. Once the long
 forms have been used, a short form is weighed: presets in vc-x1, each expanding to one way of ending
 a cycle and printing the long form it ran, so every adopter has them, or a `cargo xtask`.
-
-### Work in progress is durable and continues on any machine
-
-(wink, 2026-11-10) A cycle stopped for the night was made durable by a work and an agent commit
-titled `wip`, pushed, and removing them took two abandons and two backward pushes by `jj`, since
-`vc-x1 push` would fold the agent `@` into the last rung's agent commit. A scheme is wanted that
-makes work in progress durable, on the remote, and easy to continue on this machine or another,
-then leaves no trace in the cycle's history once the rung it belongs to is committed.
-
-- We think a separate ref, a `wip/<bookmark>` on the remote holding both `@`s, is the shape: the
-  cycle's bookmark and the agent `main` never move for it, and a `continue` fetches it into `@`.
-- What the other machine's session reads is part of it: the continuation notes ride in the work
-  `@` and the transcript in the agent `@`.
 
 ### push only publishes
 
@@ -1297,6 +1529,20 @@ table naming files, and a ladder that owns its numbers moves without renumbering
 
 Two copies kept in step by hand drift, and zed's markdown preview follows a link to another file but
 not one within the same file, so only `zTOC.md`'s could be followed, wink's (2026-11-04).
+
+#### The project's layer is CONTRIBUTING.md
+
+- `AGENTS.md` gains `## CONTRIBUTING.md` and its rule: a committed `CONTRIBUTING.md`, required
+  beside `TODO.md` and `zTOC.md`, holds the project's tasks, `## Tasks`, and what its agents read,
+  `## Agents`, read at acquaint after `custom.md`, which overrides it. The two headings are fixed,
+  so the agent-files link them, and `vc-dr-apply`'s base skeleton starts one. Added in the draft `v0.3.1-15` by **docs:
+  CONTRIBUTING.md names the project's tasks**.
+
+##### Why: what every clone needs is committed
+
+`custom.md` is gitignored, so what a project asked of every session was lost on a fresh clone, a
+session on fwlaptop unable to send a message (wink, 2026-11-16), and the agent-files cannot name one
+project's commands.
 
 #### Not in it
 
@@ -4321,149 +4567,62 @@ own directory) are separate traversals over the same three values today, and fou
 The last cycle's finished record, moved here whole by its closing commit and deleted by the next
 opening ([Cycle-record](AGENTS.md#cycle-record)).
 
-### fix: a cycle commit marks no rung current
+### docs: CONTRIBUTING.md names the project's tasks
 
 #### Problem
 
-(io-uring-x1's `m-13-0`, accepted at `m-13-1`, 2026-11-15) `cycle --commit` marks its own rung
-`(done)` and the next `(current)`, a prediction written into history, made false by an inserted
-rung, and already computed by `--status` and `--ladder`.
-
-Running the cycle found two more (wink + agent, 2026-11-15 and 16):
-- The rungs' states and the cycle's commits are inferred from the graph, the commits the cycle's
-  bookmark reaches less those other bookmarks reach. A set-aside bookmark broke the inference
-  twice: above the cycle it emptied the branch, and once the cycle moved past it, it cut the branch
-  at its fork. The brittleness is the inference, not the revset.
-- A cycle stopped early has no safe end. `--open` over a cycle in progress is undefined, a dead-end
-  must land, and one left unlanded leaves the agent-repo's `ochid:` trailers naming work commits no
-  pushed ref reaches.
+What this project asks of whoever works in it has two homes, and neither is right. The agent-files
+are every adopter's, so they cannot name vc-x1's commands, and `custom.md` is gitignored, one
+machine's. So the commands that print long output, the messaging protocol, and which agent-files
+draft we carry were in `custom.md`, and a clone on fwlaptop had none of them, its session unable to
+send a message. The commands themselves were a table in the README, whose reader wants to install
+and use vc-x1, not change it.
 
 #### Solution
 
-A dead-end (wink, 2026-11-16). The cycle stopped after three rungs, since its fixes inferred what
-should be recorded, and every change is reverted but this record, the Todo entries it filed, and
-the version, which moves forward to `0.85.23`. The closing adds one thing, wink's at its review:
-`agent-data/jj.md` names `jj diff --tool meld` for a side-by-side review, the agent-files draft
-moving to `v0.3.1-14`. What was tried: the ladder writing `(done)` alone,
-and a branch revset that a bookmark above the cycle no longer empties. What replaces it, in three
-cycles filed in `## Todo`:
-- **feat: a rung's state is recorded in TODO.md**, which carries m-13's fix.
-- **feat: a closing names its shape, and its target once**.
-- **feat: a dead-end lands on a target or a tag**.
+A committed `CONTRIBUTING.md`, the project's layer, which every clone carries.
 
-The closing is also an experiment, today's dead-end path run end to end before the third of them
-reshapes it: `cycle --close --multi-step --dead-end` as a trapezoid on `main`, landed.
+- `## Tasks`: the commands a cycle uses, in its order, each named, with what it does and when it
+  runs. The README's table moves here. `custom.md`'s list of commands with long output goes, the
+  Long output rule's validation, build, and test runs and unbounded logs and diffs covering it.
+- `## Agents`: what an agent here reads beyond the agent-files, the draft we carry and the
+  messaging protocol, with how a clone gets the messages repo.
+- The README's `## Build and install` keeps installing and using vc-x1 and links to the tasks.
+- `custom.md` keeps what is local alone, the standing permission for the messages Fetch. It is
+  gitignored, so the commit does not carry that edit: it is named here.
+- The agent-files, the draft `v0.3.1-15`: `CONTRIBUTING.md` is required beside `TODO.md` and
+  `zTOC.md`, its `## Tasks` and `## Agents` fixed, so the agent-files link it. The acquaint reads
+  its `## Agents` after `custom.md`, and `## custom.md` says what is not local goes there, its why
+  in `rationale.md`.
+- `vc-dr-apply`'s base skeleton starts one, the two headings with a placeholder row, its `zTOC.md`
+  lists it, and its `custom.md` is the local layer.
 
 #### Acceptance check
 
-- In the tests, a `cycle --commit` writes its own rung `(done)` and no `(current)` anywhere in
-  `zTOC.md`, `cycle --status` names the next rung, and a ladder holding an old `(current)` line is
-  read and rewritten.
-- In the tests, `cycle --rung-start` marks the rung `(current)` in the working copy, its commit
-  holds it `(done)` with no `(current)`, and `--commit` without `--title` takes the rung in flight.
-- In this cycle, the docs rung is started by `vc-x1-dev cycle --rung-start` and committed by
-  `vc-x1-dev cycle --commit`, its working copy showing it `(current)` under review and its commit
-  reading `(done)` for rungs 0 to 3 and the closing unmarked.
-- `rg -F '(current)' AGENTS.md agent-data/ README.md` prints only the rationale's account of the
-  change.
-
-Result: not met, by the dead-end. Rungs 1 and 2 passed their own tests and are reverted, and the
-checks move to the cycles that replace this one.
+- In a fresh clone of the landed `main`, with no `custom.md`, `CONTRIBUTING.md` names the messages
+  repo and its protocol, and `AGENTS.md`'s acquaint links it. `vc-x1 validate` passes. Run at the
+  closing on its tree, `custom.md` gitignored and so not carried: passed.
+- A workspace made by `vc-x1 init --repo local=...` and given the working copy's set by
+  `vc-dr-apply.sh` has no bad link: `vc-x1 validate-anchors` for links within a file, and a script
+  for links across files and their anchors, which `validate-anchors` skips. Run at the rung: 23
+  files, 96 links within a file and 180 across, none bad, the script shown to catch a missing file
+  and a missing anchor.
 
 #### Deliberation
 
-- **The next rung is unnumbered, as every rung not started is.** A number goes with a marker, so
-  dropping `(current)` drops the next rung's number with it.
-  - Numbering every rung was considered and is not done: the numbers would shift on every insert,
-    the churn the marker change removes.
-- **The grammar still reads `(current)`.** This cycle's own `zTOC.md` was written by `0.85.22`,
-  and any workspace mid-cycle at an upgrade holds one, so a reader that refused it would stop the
-  cycle it is upgrading.
-- **The finding keeps its meaning.** A `(done)` rung below a rung not done is still a finding,
-  named against the first rung not done rather than the current one.
-- **A rung in flight is marked when it starts, by `cycle --rung-start`** (wink, 2026-11-15). A
-  `(current)` written when work begins is a fact, and one written by the commit before was a
-  prediction, so the marker returns in the working copy alone and no commit holds it.
-  - `cycle --start` was considered and is not taken, reading too like `cycle --open`, wink's.
-    `rung start` is a positional verb, which the scope-flags rule retired.
-  - `cycle --commit` writing the next rung `(current)` into the new working copy was considered
-    and is not taken: the work `@` would never be empty after a rung, against At rest.
-  - m-13-0 set aside the working copy marking itself current, on the ground that committed trees
-    would hold the marker. They do not, since the commit makes it `(done)`, and `m-13` is told.
-- **The cycle is a dead-end, not trimmed and closed** (wink, 2026-11-16). Closing at the original
-  scope, the docs rung finished, was considered and is not taken: its "no rung current" would be
-  rewritten at once by recorded state's `current`, and rung 2's fix is partial.
-  - Folding the redesign into this cycle as rungs was tried in the working copy and is not taken:
-    the redesign is two problems and more than one cycle, and this cycle's subject is m-13's.
-- **Everything is reverted but the record, its Todo entries, and the version** (wink, 2026-11-16).
-  `main`'s tree is as it was at the opening, an experiment in what a landed dead-end leaves, and
-  the record is kept, since a dead-end says what was tried, why it stopped, and what replaces it.
-  - The version moves forward, not back to `0.85.22`, so no `0.85.23-N` is built twice with
-    different code.
-  - The side-by-side review is added at the closing's review, wink's, the one change `main` gains:
-    `jj diff --from main --to @ --tool meld &` was how the closing was reviewed. The agent-files
-    draft moves to `v0.3.1-14` for it, the set-aside's `-14` never committed.
-  - The reverted code stays in the ladder's commits, for the replacing cycles to take back.
-- **The set-aside docs rung stays local and unlanded**, `nruymrqm`, its bookmark deleted. No agent
-  commit names it, so nothing dangles, and jj keeps it as a visible head.
-
-#### Rungs
-
-The rung subsections, in the ladder's order. The ladder itself is in `zTOC.md > ## Ladder`.
-
-##### fix: a cycle commit marks no rung current opening
-
-The cycle's first commit, carrying its plan: the bookmark, the last cycle's record deleted, and the
-Todo entry moved into this block. It also carries wink's two Todo entries from the `t85-22`
-testing, their titles' typos fixed, and the continuation notes reset.
-
-##### fix: the ladder marks done rungs only
-
-`ladder_of` stops writing `(current)`, the finding is named against the first rung not done, the
-grammar still reads `(current)`, and `--ladder`'s help, the tests, and `README.md` follow.
-Reverted by the dead-end closing.
-
-- The ladder marks a rung `(done)`, numbered, when a commit of its title is on the branch, and
-  every other rung, the next included, is its link alone. `cycle --open`'s first ladder is the
-  opening and the closing, neither marked, since it is made by the same function.
-- The grammar reads `(current)` still, so a `zTOC.md` from an older `vc-x1` is a ladder and the
-  next write drops the marker. The refusal's grammar names `(done)` alone, the form it asks for.
-- The finding for a done rung below one not done names that rung rather than the current one.
-- `README.md`'s `--status` specimen shows the titles unlinked, as the command prints them.
-
-##### fix: a set-aside bookmark leaves the cycle's branch whole
-
-(found 2026-11-15, setting the docs rung's edits aside) The branch was the commits the cycle's
-bookmark reaches less those any other local bookmark reaches, so a bookmark above the cycle, the
-set-aside Unplanned work asks for, reached every rung and emptied the branch: `--ladder` dropped
-every `(done)` and `--status` counted no commit. Only a bookmark not above the cycle's own cuts the
-branch now. Reverted by the dead-end closing.
-
-- The revset subtracts what the other local bookmarks reach less those at or above the cycle's
-  own, so `main` below the cycle still cuts it off and one at the same commit is left out as before.
-- A test sets a commit aside with a bookmark above the opening and finds the opening still on the
-  branch. Against the old revset it finds none.
-- A `main` moved above a cycle in progress no longer empties the branch silently: what it brings
-  is refused as commits that match no rung. Only cycles in progress read the branch, a landed one
-  being found by `landed_bookmarks`, so a merge Land is untouched.
-- `README.md` and `--ladder`'s help say a bookmark below the cycle's is what cuts the branch.
-  `README.md`'s rung-marker paragraph, left with an overlong line by the last rung, is rewrapped.
-- The fix is partial: once the cycle moved past the set-aside, its bookmark cut the branch at its
-  fork, and `--status` counted one commit.
-
-##### fix: a cycle commit marks no rung current closing
-
-Closing out the cycle as a dead-end, landed on `main` as a trapezoid, its tree `main`'s but for
-this record, its Todo entries, the version, and `agent-data/jj.md`'s side-by-side review, the
-agent-files draft at `v0.3.1-14`. What closing taught, for **feat: a dead-end lands
-on a target or a tag**:
-- The revert is by hand: `jj restore --from main` of every path but `TODO.md` and `zTOC.md`, and a
-  bump of the version forward. A dead-end that reverts all would want the tool to do it.
-- The rungs not started are removed from the record by hand, since the closing marks every rung
-  on its ladder done and the closing below them done too.
-- The ladder's closing rung is headed `<cycle title> closing`, which `--close` marks done, while
-  the commit is titled `<cycle title> dead-end closing`, so the ladder names a title no commit
-  carries.
+- A single-step cycle, not the first rung of the task move: the project's content is committed at
+  once, a clone gets it without waiting for a ladder to land, and the task move then changes the
+  command column alone.
+- `CONTRIBUTING.md` is the conventional name, found by a person without an agent as readily as by
+  one, which `.vc-config.md`, repo management's, or a `vc-config.work.md` would not be.
+- Its `## Agents` is the project's layer over the agent-files, and `custom.md`, local, over both,
+  so one machine can still depart from what the project says.
+- The agent-files first named `CONTRIBUTING.md` conditionally, "when there is one", and the review
+  made it required, since a link to an optional file is broken wherever the file is missing. So
+  `vc-dr-apply` ships a stub now, and the task move fills its rows.
+- Left for **feat: the project's tasks move to cargo xtask**, filed by this cycle: the per-rung
+  flow's `vc-x1 validate` and `install --profile dev`, and the `[validate]` table the Cycle
+  protocol names, rewritten to task names once the tasks are xtask's.
 
 # References
 
