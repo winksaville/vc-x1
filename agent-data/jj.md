@@ -38,6 +38,11 @@ Viewing, for a review: `jj diff -R .` is the working copy, `jj diff -r @- -R .` 
 `jj show -r <X> -R .` one revision's description and diff. Never `jj edit -r @-` to view a past
 commit: it marks it mutable and shifts `@`.
 
+Side by side, `jj diff --from <base> --to @ --tool meld &` opens a folder comparison of the two
+trees, `<base>` being `main` for a cycle's net change and `@-` for a rung's. The trees are temporary
+copies kept until meld closes, so an edit in it is discarded, and `&` keeps the terminal. `jj
+diffedit` opens the same view and writes the edits back, so it is never the review's.
+
 ## Revsets
 
 How commits are addressed in `-r` arguments, condensed. jj's own semantics are the one dialect

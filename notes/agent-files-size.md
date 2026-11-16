@@ -53,6 +53,7 @@ since its note is prose.
 | 2026-10-27 | feat: build, install, and run take --profile | 10 | 1855 | hooks.sh's guard test names `install --profile dev`, uncounted as the count is of `.md`, no change |
 | 2026-11-04 | feat: test repos, vc-dr-apply, and the v0.3.1-(0,1,2) agent-files | 10 | 1839 | the drafts `v0.3.1-0` to `-2`: `-0` adopted whole, then the user deciding when each side commits and publishes, a new repo starting from an adopter's working copy, the dev-build choice, the record back in `TODO.md` with `zTOC.md` holding the one ladder, 16 lines fewer |
 | 2026-11-10 | chore: complete vc-x1, ready for vc-x2 | 10 | 1877 | the drafts `v0.3.1-3` to `-7`: `orepo:` in place of `ocid:` and `pcid:` with squash-push the clean-up, no push forced without asking, a rung committed as a pair, no trunk and the Target named by `--onto`, and `vc-x1 open` making the cycle's bookmark first, 38 lines more |
+| 2026-11-16 | fix: a cycle commit marks no rung current | 10 | 2016 | the draft `v0.3.1-14`, a dead-end's one kept change: `jj.md` names `jj diff --tool meld` for a side-by-side review, 5 lines more |
 
 Per file for the three most recent rows, newest on the left, the window sliding at each close-out
 so the earlier history is in the commits. A column is labeled by the set version it carries, the
@@ -61,17 +62,17 @@ landings before the set was versioned relative to the first version (`- v0.1.0` 
 its own row above. A cell in angle brackets, `<543>`, is a file the total leaves out, shown so a
 reader sees what it costs, and an empty cell is a file that was not in the set that landing.
 
-| File | feat: improve vc-x1 cycle flow | chore: complete vc-x1, ready for vc-x2 | feat: test repos, vc-dr-apply, and the v0.3.1-(0,1,2) agent-files |
+| File | fix: a cycle commit marks no rung current | feat: improve vc-x1 cycle flow | chore: complete vc-x1, ready for vc-x2 |
 |---|---:|---:|---:|
-| AGENTS.md | 570 | 519 | 495 |
-| custom.md | 24 | 17 | 17 |
+| AGENTS.md | 570 | 570 | 519 |
+| custom.md | 24 | 24 | 17 |
 | agent-data/code.md | 90 | 90 | 90 |
 | agent-data/commit-model.md | 35 | 35 | 35 |
-| agent-data/cycle-model.md | 141 | 80 | 80 |
-| agent-data/jj.md | 332 | 324 | 316 |
-| agent-data/notes.md | 191 | 186 | 186 |
+| agent-data/cycle-model.md | 141 | 141 | 80 |
+| agent-data/jj.md | 337 | 332 | 324 |
+| agent-data/notes.md | 191 | 191 | 186 |
 | agent-data/prose.md | 384 | 384 | 384 |
-| agent-data/rationale.md | <800> | <730> | <671> |
+| agent-data/rationale.md | <800> | <800> | <730> |
 | agent-data/session-lock.md | 43 | 43 | 43 |
-| agent-data/versioning.md | 201 | 199 | 193 |
-| total | 2011 | 1877 | 1839 |
+| agent-data/versioning.md | 201 | 201 | 199 |
+| total | 2016 | 2011 | 1877 |
