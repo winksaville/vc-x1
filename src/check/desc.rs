@@ -1,4 +1,4 @@
-//! The `validate-desc` subcommand: scan a revision range and check
+//! The `check desc` subcommand: scan a revision range and check
 //! each commit's `ochid:` trailer against the cross-referenced
 //! repo: flagging missing, malformed, or dangling links.
 //!
@@ -31,7 +31,7 @@ use crate::options_flags::scope::{REPO_SCOPE_FORMS, RepoScope, repo_scope_parser
 use crate::subcommand::SubcommandRunner;
 
 #[derive(Args, Debug)]
-pub struct ValidateDescArgs {
+pub struct CheckDescArgs {
     /// Retired: the revision, now `-r`, refused naming it.
     #[arg(value_name = "RETIRED", hide = true)]
     pub retired_rev: Option<String>,
@@ -76,15 +76,15 @@ pub struct ValidateDescArgs {
     pub id_len: usize,
 }
 
-/// Inputs to the validate-desc op, flat, owned, clap-free.
+/// Inputs to the check desc op, flat, owned, clap-free.
 ///
-/// Mirrors `ValidateDescArgs`: `--revision` / `--commits`
+/// Mirrors `CheckDescArgs`: `--revision` / `--commits`
 /// (`revision` / `limit`), `--other-repo`, `--id-len`, and `-s`
 /// with `-R` resolved into `repos`, each side's label and path in
 /// scope order. The retired positionals are refused before it is
 /// built.
 #[derive(Debug)]
-pub struct ValidateDescParams {
+pub struct CheckDescParams {
     pub revision: String,
     pub limit: Option<usize>,
     pub repos: Vec<(String, PathBuf)>,
@@ -92,15 +92,15 @@ pub struct ValidateDescParams {
     pub id_len: usize,
 }
 
-impl TryFrom<&ValidateDescArgs> for ValidateDescParams {
+impl TryFrom<&CheckDescArgs> for CheckDescParams {
     type Error = String;
 
     /// Resolve `-s` and `-R` into the sides to check, labeled by
     /// their keywords, and copy the rest over. `-s p` is refused
     /// here, before anything is read.
-    fn try_from(a: &ValidateDescArgs) -> Result<Self, String> {
+    fn try_from(a: &CheckDescArgs) -> Result<Self, String> {
         crate::options_flags::retired_positional::refuse_rev_count(
-            "validate-desc",
+            "check desc",
             a.retired_rev.as_deref(),
             a.retired_count.as_deref(),
         )?;
@@ -109,7 +109,7 @@ impl TryFrom<&ValidateDescArgs> for ValidateDescParams {
             RepoScope::Por => {
                 return Err(
                     "-s p: a plain repo has no other repo to check its descriptions \
-                            against. validate-desc takes `-s w|a|b` in a dual workspace"
+                            against. check desc takes `-s w|a|b` in a dual workspace"
                         .to_string(),
                 );
             }
@@ -144,33 +144,33 @@ enum CommitStatus {
     MissingWithMatch(String), // no ochid, unique title match found
 }
 
-impl SubcommandRunner for ValidateDescArgs {
-    type Params = ValidateDescParams;
+impl SubcommandRunner for CheckDescArgs {
+    type Params = CheckDescParams;
 
-    /// Delegate to the `TryFrom<&ValidateDescArgs>` impl above.
+    /// Delegate to the `TryFrom<&CheckDescArgs>` impl above.
     fn to_params(&self) -> Result<Self::Params, String> {
-        ValidateDescParams::try_from(self)
+        CheckDescParams::try_from(self)
     }
 
-    /// Run the existing `validate_desc` op.
+    /// Run the existing `check_desc` op.
     fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
-        validate_desc(ctx, params)
+        check_desc(ctx, params)
     }
 }
 
-/// Run the `validate-desc` subcommand: for each scoped side, scan
+/// Run the `check desc` subcommand: for each scoped side, scan
 /// the resolved revision range and report each commit's ochid status
 /// against the other repo, under the side's label when there is
 /// more than one. Errors if any commit on any side has issues.
 ///
-/// `ctx` is unused today (validate-desc reads `.vc-config.toml`,
+/// `ctx` is unused today (check desc reads `.vc-config.toml`,
 /// not the user config, and doesn't touch the `--log` path); it's
 /// present for the uniform subcommand-layer signature.
-pub fn validate_desc(
+pub fn check_desc(
     _ctx: &Context,
-    params: &ValidateDescParams,
+    params: &CheckDescParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("validate-desc: enter");
+    debug!("check desc: enter");
     let labeled = params.repos.len() > 1;
     let mut issues_total = 0;
     for (label, repo) in &params.repos {
@@ -183,10 +183,10 @@ pub fn validate_desc(
         }
     }
     if issues_total > 0 {
-        debug!("validate-desc: exit with issues");
+        debug!("check desc: exit with issues");
         Err(format!("{issues_total} commit(s) have issues").into())
     } else {
-        debug!("validate-desc: exit");
+        debug!("check desc: exit");
         Ok(())
     }
 }
@@ -256,7 +256,7 @@ fn is_older_id(issues: &OchidIssues, other: &Path) -> Result<bool, Box<dyn std::
 /// no other repo, a single-repo workspace, prints a notice and
 /// counts nothing.
 fn validate_side(
-    params: &ValidateDescParams,
+    params: &CheckDescParams,
     repo_path: &Path,
 ) -> Result<usize, Box<dyn std::error::Error>> {
     let (workspace, repo) = common::load_repo(repo_path)?;
@@ -272,7 +272,7 @@ fn validate_side(
         None => match common::other_repo_path(repo_path)? {
             Some(p) => p,
             None => {
-                info!("validate-desc: single-repo workspace (no bot side), nothing to validate");
+                info!("check desc: single-repo workspace (no bot side), nothing to validate");
                 return Ok(0);
             }
         },
@@ -436,13 +436,16 @@ mod tests {
     use clap::Parser;
     use std::fs;
 
-    fn parse(args: &[&str]) -> Result<ValidateDescArgs, String> {
+    fn parse(args: &[&str]) -> Result<CheckDescArgs, String> {
         match Cli::try_parse_from(args) {
             Ok(Cli {
-                command: Some(Commands::ValidateDesc(a)),
+                command:
+                    Some(Commands::Check(crate::check::CheckArgs {
+                        what: crate::check::CheckCommand::Desc(a),
+                    })),
                 ..
             }) => Ok(a),
-            Ok(_) => panic!("expected ValidateDesc"),
+            Ok(_) => panic!("expected check desc"),
             Err(e) => Err(e.to_string()),
         }
     }
@@ -451,12 +454,12 @@ mod tests {
     /// the reason: a plain repo has nothing to check against.
     #[test]
     fn scope_is_required_and_por_is_refused() {
-        let err = parse(&["vc-x1", "validate-desc"]).unwrap_err();
+        let err = parse(&["vc-x1", "check", "desc"]).unwrap_err();
         assert!(err.contains("--scope"), "{err}");
         let fx = FixturePor::new("vdesc-por-refused");
-        let mut a = parse(&["vc-x1", "validate-desc", "-s", "p"]).expect("parses");
+        let mut a = parse(&["vc-x1", "check", "desc", "-s", "p"]).expect("parses");
         a.repo = Some(fx.work.clone());
-        let err = ValidateDescParams::try_from(&a).unwrap_err();
+        let err = CheckDescParams::try_from(&a).unwrap_err();
         assert!(err.starts_with("-s p:"), "{err}");
         assert!(err.contains("`-s w|a|b`"), "{err}");
     }
@@ -468,16 +471,16 @@ mod tests {
     fn both_sides_are_labeled_and_a_fresh_workspace_passes() {
         let fx = Fixture::new("vdesc-both");
         let ctx = Context::load().expect("load user config");
-        let mut a = parse(&["vc-x1", "validate-desc", "-r", "@-", "-s", "b"]).expect("parses");
+        let mut a = parse(&["vc-x1", "check", "desc", "-r", "@-", "-s", "b"]).expect("parses");
         a.repo = Some(fx.bot.clone());
-        let params = ValidateDescParams::try_from(&a).expect("params");
+        let params = CheckDescParams::try_from(&a).expect("params");
         let labels: Vec<&str> = params.repos.iter().map(|(l, _)| l.as_str()).collect();
         assert_eq!(labels, ["work", "agent"]);
         assert_eq!(params.repos[1].1, fx.bot.canonicalize().expect("canonical"));
-        validate_desc(&ctx, &params).expect("a fresh workspace's trailers are valid");
+        check_desc(&ctx, &params).expect("a fresh workspace's trailers are valid");
 
         a.scope = RepoScope::Sides(Scope(vec![Side::Bot]));
-        let params = ValidateDescParams::try_from(&a).expect("params");
+        let params = CheckDescParams::try_from(&a).expect("params");
         assert_eq!(params.repos.len(), 1);
         assert_eq!(params.repos[0].0, "agent");
     }
@@ -544,25 +547,25 @@ mod tests {
         let ctx = Context::load().expect("load user config");
         let work_at = chid(&fx.work, "@-");
         let parse_params = |scope: &str, repo: &Path| {
-            let mut a = parse(&["vc-x1", "validate-desc", "-r", "@", "-s", scope]).expect("parses");
+            let mut a = parse(&["vc-x1", "check", "desc", "-r", "@", "-s", scope]).expect("parses");
             a.repo = Some(repo.to_path_buf());
-            ValidateDescParams::try_from(&a).expect("params")
+            CheckDescParams::try_from(&a).expect("params")
         };
         let describe = |desc: &str| jj_ok(&fx.bot, &["describe", "-m", desc]);
         describe(&format!("feat: x\n\nochid: {work_at}\nochid: {work_at}\n"));
-        validate_desc(&ctx, &parse_params("a", &fx.bot)).expect("both resolve");
+        check_desc(&ctx, &parse_params("a", &fx.bot)).expect("both resolve");
         describe(&format!(
             "feat: x\n\nochid: zzzzzzzzzzzk\nochid: {work_at}\n"
         ));
-        validate_desc(&ctx, &parse_params("a", &fx.bot)).expect_err("the first does not");
+        check_desc(&ctx, &parse_params("a", &fx.bot)).expect_err("the first does not");
 
         let at = chid(&fx.bot, "@");
         let desc = format!("feat: x\n\norepo: file:///no/such/repo\nochid: {at}\n");
         jj_ok(&fx.work, &["describe", "-m", &desc]);
-        validate_desc(&ctx, &parse_params("w", &fx.work)).expect_err("a wrong orepo");
+        check_desc(&ctx, &parse_params("w", &fx.work)).expect_err("a wrong orepo");
         let desc = format!("feat: x\n\nochid: {at}\npcid: file:///no/such/commit/abc\n");
         jj_ok(&fx.work, &["describe", "-m", &desc]);
-        validate_desc(&ctx, &parse_params("w", &fx.work)).expect("an older pcid is not checked");
+        check_desc(&ctx, &parse_params("w", &fx.work)).expect("an older pcid is not checked");
     }
 
     /// An older 8 or 32 character id naming one commit is a note, on
@@ -572,9 +575,9 @@ mod tests {
         let fx = Fixture::new("vdesc-older-id");
         let ctx = Context::load().expect("load user config");
         let parse_params = |scope: &str, repo: &Path| {
-            let mut a = parse(&["vc-x1", "validate-desc", "-r", "@", "-s", scope]).expect("parses");
+            let mut a = parse(&["vc-x1", "check", "desc", "-r", "@", "-s", scope]).expect("parses");
             a.repo = Some(repo.to_path_buf());
-            ValidateDescParams::try_from(&a).expect("params")
+            CheckDescParams::try_from(&a).expect("params")
         };
         let work_at = chid(&fx.work, "@-");
         let full = jj_ok(
@@ -586,15 +589,15 @@ mod tests {
                 &fx.bot,
                 &["describe", "-m", &format!("feat: x\n\nochid: {id}\n")],
             );
-            validate_desc(&ctx, &parse_params("a", &fx.bot)).expect(id);
+            check_desc(&ctx, &parse_params("a", &fx.bot)).expect(id);
         }
         jj_ok(&fx.bot, &["describe", "-m", "feat: x\n\nochid: zzzzzzzk\n"]);
-        validate_desc(&ctx, &parse_params("a", &fx.bot)).expect_err("names nothing");
+        check_desc(&ctx, &parse_params("a", &fx.bot)).expect_err("names nothing");
 
         let agent_at = chid(&fx.bot, "@");
         let desc = format!("feat: x\n\nochid: /.claude/{}\n", &agent_at[..8]);
         jj_ok(&fx.work, &["describe", "-m", &desc]);
-        validate_desc(&ctx, &parse_params("w", &fx.work)).expect("the work side too");
+        check_desc(&ctx, &parse_params("w", &fx.work)).expect("the work side too");
     }
 
     /// A URL-form trailer passes when its ID resolves in the other
@@ -604,9 +607,9 @@ mod tests {
     fn a_url_form_trailer_is_valid_when_it_names_the_repo_and_its_id_resolves() {
         let fx = Fixture::new("vdesc-url");
         let ctx = Context::load().expect("load user config");
-        let mut a = parse(&["vc-x1", "validate-desc", "-r", "@", "-s", "w"]).expect("parses");
+        let mut a = parse(&["vc-x1", "check", "desc", "-r", "@", "-s", "w"]).expect("parses");
         a.repo = Some(fx.work.clone());
-        let params = ValidateDescParams::try_from(&a).expect("params");
+        let params = CheckDescParams::try_from(&a).expect("params");
         let url = "https://example.com/o/r.agent-session";
         let agent_at = chid(&fx.bot, "@");
         let describe = |value: &str| {
@@ -615,23 +618,23 @@ mod tests {
         };
 
         describe(&format!("{url}#{agent_at}"));
-        validate_desc(&ctx, &params).expect("a local origin: the ID alone is checked");
+        check_desc(&ctx, &params).expect("a local origin: the ID alone is checked");
 
         describe(&format!("{url}#zzzzzzzzzzzk"));
-        validate_desc(&ctx, &params).expect_err("the ID resolves to nothing");
+        check_desc(&ctx, &params).expect_err("the ID resolves to nothing");
 
         git_ok(
             &fx.bot,
             &["remote", "set-url", "origin", &format!("{url}.git")],
         );
         describe(&format!("{url}#{agent_at}"));
-        validate_desc(&ctx, &params).expect("it names the repo, canonically");
+        check_desc(&ctx, &params).expect("it names the repo, canonically");
 
         describe(&format!("https://example.com/o/other#{agent_at}"));
-        validate_desc(&ctx, &params).expect_err("it names another repo");
+        check_desc(&ctx, &params).expect_err("it names another repo");
 
         describe(&format!("/.claude/{agent_at}"));
-        validate_desc(&ctx, &params).expect("the published label stays valid");
+        check_desc(&ctx, &params).expect("the published label stays valid");
     }
 
     /// With no URL to stamp the path form names the directory, and it
@@ -640,9 +643,9 @@ mod tests {
     fn the_path_form_names_the_directory() {
         let fx = Fixture::new("vdesc-path");
         let ctx = Context::load().expect("load user config");
-        let mut a = parse(&["vc-x1", "validate-desc", "-r", "@", "-s", "w"]).expect("parses");
+        let mut a = parse(&["vc-x1", "check", "desc", "-r", "@", "-s", "w"]).expect("parses");
         a.repo = Some(fx.work.clone());
-        let params = ValidateDescParams::try_from(&a).expect("params");
+        let params = CheckDescParams::try_from(&a).expect("params");
         let dir = fx
             .bot
             .file_name()
@@ -650,6 +653,6 @@ mod tests {
             .expect("a directory name");
         let desc = format!("feat: x\n\nochid: /{dir}/{}\n", chid(&fx.bot, "@"));
         jj_ok(&fx.work, &["describe", "-m", &desc]);
-        validate_desc(&ctx, &params).expect("the directory's own name");
+        check_desc(&ctx, &params).expect("the directory's own name");
     }
 }

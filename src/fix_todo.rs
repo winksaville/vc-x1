@@ -4,7 +4,7 @@
 //!
 //! Dry-run by default: prints each changed entry's corrected
 //! line so the output *is* the result; `--no-dry-run` writes the
-//! file in place. The rewrite half of the `validate-todo` /
+//! file in place. The rewrite half of the `check todo` /
 //! `fix-todo` pair.
 
 use std::path::PathBuf;

@@ -89,15 +89,29 @@ The tasks move to `cargo xtask`, `cx` in wink's shell, and vc-x1 keeps repo mana
   commit and `clean` when `@` is empty, `dirty` when not, the facts vc-x1's build reads today.
 - A profile is Cargo's, `[profile.<name>]` in `Cargo.toml`, and its binary is in cargo's target
   directory, `debug` for `dev` and the profile's own name for any other.
-- vc-x1's `validate`, `build`, `run`, and `install` are refused, each naming its `cargo xtask`
-  task, and the `[validate]`, `[build]`, `[install]`, and `[profile.*]` tables are retired keys,
-  each reported by `check config` with the task that replaced it.
-- vc-x1's domain validators become `vc-x1 check <config|todo|desc|anchors|bot>`, the
-  `validate-<name>` commands refused naming their replacement.
+- vc-x1's `validate`, `build`, `run`, and `install` are deprecated, each still running with a
+  warning naming its `cargo xtask` task, and the `[validate]`, `[build]`, `[install]`, and
+  `[profile.*]` tables are deprecated keys, each a warning from `check config` naming the task
+  that replaced it, never a failure, so the family's sessions keep working until they migrate.
+- vc-x1's domain validators become `vc-x1 check <config|todo|desc|anchors|agent>`, the
+  `validate-<name>` commands deprecated, each still running with a warning naming its check.
+- A later cycle refuses what this one deprecates, once every member of the family says it has
+  migrated, the `## Waiting` entry **vc-x1 refuses its deprecated tasks and check names**.
 - `CONTRIBUTING.md > ## Tasks`, the README, and the agent-files name the tasks, the agent-files by
   task name, the project's command being `CONTRIBUTING.md`'s to say.
 - `vc-dr-apply`'s language skeletons stop writing `[validate]` and fill the `CONTRIBUTING.md`
   stub's tasks instead.
+- `xtask/` is portable to a practical level (wink, 2026-11-17): it copies verbatim into any Rust
+  workspace in jj or git, a virtual one with several binaries included, and every task works
+  there, the workspace's facts in its own `Cargo.toml` alone.
+  - The default binary is `[workspace.metadata.xtask] default-bin`, else the root package's
+    `default-run`, else the workspace's one bin target, xtask's own left out, else a refusal
+    listing them. `build`, `run`, and `install` take `--bin NAME` for any other.
+  - The validation lists are defaults a workspace overrides in `[workspace.metadata.xtask]`.
+  - The provenance variables are `XTASK_BUILD_COMMIT` and `XTASK_BUILD_STATE`, and a workspace
+    without jj gets git's `HEAD` with no warning.
+  - Out of scope, each a `## Todo` entry: Windows, whose running `.exe` cannot be renamed over,
+    and shells other than bash for `completions`.
 
 #### Acceptance check
 
@@ -108,11 +122,21 @@ On the closed tree, from the work-repo root:
   none, never `.unknown`, and `cargo xtask run -V` prints vc-x1's version.
 - `cargo xtask install --profile dev --dry-run` copies nothing, and `cargo xtask install --profile
   dev` leaves `~/.cargo/bin/vc-x1-dev` whose `-V` names the commit.
-- `vc-x1-dev validate`, `build`, `run`, and `install` each exit nonzero naming their `cargo xtask`
-  task, `vc-x1-dev validate-config` exits nonzero naming `check config`, and `vc-x1-dev check
-  config` passes on this workspace, its `.vc-config.md` holding none of the four tables.
-- `scripts/vc-dr-apply.sh --lang rust` into a scratch workspace writes no `[validate]` table, and
-  its `CONTRIBUTING.md > ## Tasks` names the commands.
+- `vc-x1-dev validate --fast`, `build`, `run`, and `install --dry-run` each warn naming their
+  `cargo xtask` task and still run, `vc-x1-dev validate-config` warns naming `check config` and
+  runs it, `vc-x1-dev validate-bot` is refused naming `check agent`, and `vc-x1-dev check config`
+  passes on this workspace, its `.vc-config.md` holding none of the four tables, and passes with a
+  warning per table on a config that holds them.
+- `xtask/` is portable: a scratch virtual workspace under `tmp/`, two binary packages named other
+  than vc-x1, `default-bin` naming one, xtask a member, and `.cargo/config.toml`'s alias, takes
+  `xtask/` copied byte for byte, and there `cargo xtask version`, `bump next`, `validate --fast`,
+  `build`, `run -- --version`, `run --bin <other> -- --version`, `install --profile dev --dir
+  tmp/bin`, and `completions cx` each succeed, the install leaving `<default>-dev`.
+  - With `default-bin` removed, `run` is refused naming both binaries.
+  - In a git repo with no jj, the build prints no warning and its binary carries git's `HEAD`.
+- `scripts/vc-dr-apply.sh --lang rust` into a scratch workspace writes no `[validate]` table, its
+  `CONTRIBUTING.md > ## Tasks` names the `cargo xtask` commands, and `cargo xtask validate --fast`
+  passes there.
 
 #### Deliberation
 
@@ -138,7 +162,39 @@ On the closed tree, from the work-repo root:
   `vc-x1 validate` and `vc-x1 install --profile dev` until the docs rung rewrites it, and this item
   is the bend's record: it covers this cycle's rungs and closing, and nothing else.
 - The family's message is written after the Land, its sha-link the landmark's, so the closing's
-  continuation notes name it.
+  continuation notes name it. It is one thread to iiac-perf, zc-ring-x1, io-uring-x1, and the
+  template, saying what each does in its own cycle: adopt agent-files `v0.3.1-16`, copy `xtask/`
+  if it is Rust, io-uring-x1's `xtask-lib` its own call, rewrite its `CONTRIBUTING.md > ## Tasks`,
+  `custom.md`, and `hooks.sh` mentions, drop the four tables, and reply.
+- `install` defaults to dev (wink, 2026-11-17), where `cargo install` defaults to release with
+  `--debug` for dev. Every task that builds then defaults alike, and the shared binary, plain
+  `vc-x1`, is replaced only by a deliberate `--release`, never by a flag forgotten. The Land's
+  install is `cargo xtask install --release`.
+- Deprecate now, refuse later (wink, 2026-11-17). Every member shares `~/.cargo/bin/vc-x1`, and
+  each one's agent-files, config, and hooks call `vc-x1 validate` or a `validate-*` check, so a
+  Land that refused them would stop the family's sessions mid-cycle the moment the release
+  installs. The old names run with a warning, the tables are warnings, and the refusal is a later
+  cycle, waiting on every member's reply.
+- Nested subcommands are allowed (wink, 2026-11-17). `check` is one command with a subcommand per
+  check, so each check's help is its own and `check -h` is their menu. The no-subcommands
+  constraint was never a rule, only a reason given in [rationale.md](agent-data/rationale.md) for
+  `cycle`'s stages being flags, "every `vc-x1` command is `command --options`", and `agent-files
+  copy` and `diff` already broke it. `cycle`'s stages stay flags for the reason that holds, that
+  they chain in one invocation, and the docs rung says so in place of the blanket claim: a group
+  of separate acts with their own flags is a command with subcommands, and stages that combine are
+  flags.
+- xtask is made portable in this cycle (wink, 2026-11-17), a rung inserted after the check rename.
+  io-uring-x1's `xtask-lib` is a second crate written so nothing in it is one workspace's, the
+  root found at runtime and the project's facts passed in, and the discipline is what matters,
+  since a path dependency is still a copy in every repo. vc-x1's xtask keeps one crate and its
+  `tasks/` directory, and gains the discipline, so `vc-dr-apply`'s Rust skeleton can ship it.
+- Portable to a practical level is a goal of the cycle (wink, 2026-11-17), its test a verbatim
+  copy into a scratch virtual workspace of two binaries, since a check that greps for a name
+  proves only that the name is gone. Several binaries are in scope, a declared default and
+  `--bin` for the others, wink's model, the refusal only for a workspace that declares none.
+  Windows and other shells are out, filed as Todo entries: the first wants the old `.exe` renamed
+  aside before the move and a Windows machine to test it, and the second a registration script
+  and a test per shell, clap's engine already serving them.
 
 #### Rungs
 
@@ -185,25 +241,86 @@ validation is the first by `cargo xtask validate`.
 
 ##### refactor: vc-x1's validators become vc-x1 check
 
-`validate-config`, `validate-todo`, `validate-desc`, `validate-anchors`, and `validate-bot` become
-`check config`, `check todo`, `check desc`, `check anchors`, and `check bot`, the old names refused
-naming the new.
+`validate-config`, `validate-todo`, `validate-desc`, `validate-anchors`, and `validate-agent` become
+`check config`, `check todo`, `check desc`, `check anchors`, and `check agent`, the old names
+deprecated, still running with a warning naming the new.
+
+* The five checks were top-level commands named `validate-<what>`, beside a `validate` that is the
+  work's, and now they are one `check` command with a subcommand each, a nested subcommand by
+  wink's call that `check -h` reads best as a menu.
+  - Each subcommand holds the args it held, its help moved unchanged, so the flags are the same and
+    only the words before them change. The agent-repo check is `check agent`, the Todo's `bot`
+    being its pre-0.80.0 name.
+  - `check --help` lists the five and names the old names.
+* The modules were `src/validate_<what>.rs`, and now they are `src/check/<what>.rs` under
+  `src/check/mod.rs`, which holds the subcommand enum, its dispatch, and the retired names, as
+  xtask's `tasks/` holds its tasks (wink, 2026-11-17).
+  - `validate_bot.rs` is `check/agent.rs`, so the last `bot` of the agent check goes.
+  - Each module's entry function and types follow, `check_desc`, `CheckDescArgs`, and
+    `CheckDescParams` for one, and the callers outside, `anchor_slug`'s and the description
+    checks in tests, name `crate::check::<what>`.
+* The old names are deprecated, not refused, so the family's sessions, whose agent-files and
+  configs call them, keep working on the shared `vc-x1` until they migrate (wink, 2026-11-17).
+  - Each is a hidden command taking its check's own args, which runs the check after the warning
+    "`<old>`: deprecated at 0.85.25, now `check <what>` (same flags), and refused in a later
+    release".
+  - `validate-bot`, refused since 0.80.0, stays refused, its fix-it now naming `check agent`.
+* The messages and labels the checks print, the completion and CLI tests, and the `none` language
+  skeleton's `validate.toml` say `check <what>`, and a note of history keeps the name it had
+  then.
+
+##### refactor: xtask names nothing of its project
+
+xtask's code names nothing of vc-x1, so `xtask/` is a verbatim copy between Rust workspaces, a
+virtual one with several binaries included, a workspace's own facts in its `Cargo.toml` alone.
+
+- The binary `build`, `run`, and `install` take is read, where it was `BIN = "vc-x1"`: `--bin NAME`,
+  else `[workspace.metadata.xtask] default-bin`, else the root package's `default-run`, a
+  `[package]` key a virtual workspace has no place for, else the one bin target `cargo metadata`
+  lists, xtask's own left out, else a refusal listing them.
+  - The build stays the workspace's default members, the binary picked after, so a switch between
+    it and `validate` recompiles nothing. A binary outside them is built by `--bin`.
+  - `install --bin foo --profile dev` installs `foo-dev`.
+  - `install` defaults to dev, as `build` and `run` do, so `cx install` installs `vc-x1-dev` and
+    the plain name, the binary every session uses, takes `--release`, its help saying it differs
+    from `cargo install`'s release default.
+  - `run`'s completion forward skips `--bin NAME` and asks the binary it names.
+  - The help names no binary, saying the workspace's.
+- The provenance variables become `XTASK_BUILD_COMMIT` and `XTASK_BUILD_STATE`, which a project's
+  `build.rs` reads or ignores, vc-x1's `build.rs` reading the new names.
+- The validation lists are defaults a project overrides in `[workspace.metadata.xtask]`, vc-x1's
+  `--include-ignored` among its own.
+- A workspace without jj gets no provenance and no warning, the build falling back to git's `HEAD`
+  as `build.rs` does.
+- `completions --help` says what a shell alias is, with `alias cx='cargo xtask'` and the typing it
+  saves.
 
 ##### feat: vc-x1 hands its tasks to cargo xtask
 
-vc-x1's `validate`, `build`, `run`, and `install` are refused naming their tasks, their code goes,
-the four tables become retired keys that `check config` reports, the Land's install hint names the
+vc-x1's `validate`, `build`, `run`, and `install` are deprecated, each still running with a
+warning naming its `cargo xtask` task, their code kept until the later cycle refuses them, the four
+tables become deprecated keys that `check config` warns of, the Land's install hint names the
 project's install task, and this workspace's `.vc-config.md` drops the tables.
 
 ##### docs: the tasks are named by CONTRIBUTING.md
 
 The README, `CONTRIBUTING.md > ## Tasks`, and the agent-files name the tasks and the `check`
 commands, the agent-files by task name, with the agent-files version bumped to `v0.3.1-16`.
+`rationale.md`'s reason for `cycle`'s stages being flags becomes that they chain in one
+invocation, in place of "every `vc-x1` command is `command --options`".
 
-##### feat: vc-dr-apply fills the CONTRIBUTING.md stub's tasks
+##### feat: vc-dr-apply ships xtask and fills the stub's tasks
 
-The language skeletons' `validate.toml` gives way to the tasks each fills into the
-`CONTRIBUTING.md` stub, so a new workspace's config carries no `[validate]`.
+A workspace `vc-dr-apply` makes is functional with no `vc-x1 validate`: the language skeletons'
+`validate.toml` gives way to the tasks each fills into the `CONTRIBUTING.md` stub, so a new
+workspace's config carries no `[validate]`, and `--lang rust` ships `xtask/` (wink, 2026-11-17).
+
+- `--lang rust` copies `xtask/` verbatim, adds it to `[workspace] members`, the table made when
+  there is none and the edit said, not made, when there is one, and writes the `.cargo/config.toml`
+  alias, the stub's tasks naming `cargo xtask`.
+- `c-cpp`, `python`, and `none` name their commands in the stub and ship no runner, the agent
+  running what `CONTRIBUTING.md` names, `none`'s being `vc-x1 check config` and `check
+  anchors`.
 
 ##### feat: the project's tasks move to cargo xtask closing
 
@@ -215,6 +332,15 @@ Important work that cannot start yet. Each entry names what it waits on, in a fo
 checked, and the rank it takes in `## Todo` once unblocked. Every opening checks each condition
 and promotes what is met ([Opening](AGENTS.md#opening)).
 
+- **vc-x1 refuses its deprecated tasks and check names.** (wink + agent, 2026-11-17, from **feat:
+  the project's tasks move to cargo xtask**) `vc-x1 validate`, `build`, `run`, and `install`, the
+  `validate-<what>` checks, and the `[validate]`, `[build]`, `[install]`, and `[profile.*]` tables
+  are deprecated, each warning and still working. Refuse each, naming its replacement, delete the
+  code behind the four commands, `validate.rs`, `build_cmd.rs`, `run_cmd.rs`, `install_cmd.rs`, and
+  `command_list.rs`, and make the tables `check config` findings.
+  - Waits on: every member of the family, iiac-perf, zc-ring-x1, io-uring-x1, and the template,
+    replying in the thread that announced the move that it has migrated.
+  - Place when unblocked: first.
 - **Retire the frozen history: `notes/chores/` and `notes/done.md`.** (wink, 2026-08-27) They
   are frozen and no longer grow, and the agent-repo transcript plus git history hold what they
   hold. Delete both in one cycle, after a sweep turns every link into them (Todo entries, the
@@ -311,6 +437,21 @@ the agent-files, so the fix is to ship it, not to drop the link.
   directory of files: cloning a template repo, or a project's own skeleton. Open, to be settled
   when a real project needs it.
 
+### validate-desc shows a note as part of its row
+
+(wink + agent, 2026-11-10) `validate-desc` prints a note, a remark on a commit whose verdict is
+still `ok`, as a row of its own before the verdict, keyed by the same change id, so one commit reads
+as two: `note qrsqqzlyzzsm the agent commit rnnmsmxwtzol is not on a remote yet` above `ok
+qrsqqzlyzzsm feat: no trunk, every target is named`. Notes are common now that a rung commits as a
+pair locally, its agent partner unpushed until a push.
+
+- A note belongs to its row. A succinct mark is wanted, a `*` on the verdict or the like, TBD, with
+  the text said once below the table or under `-v`. Another option is there is a column of "other"
+  information that could be several characters wide with single character info. 
+- The two kinds: an agent partner committed and not yet on a remote, and an older 8 or 32 character
+  `ochid:` naming one commit. README's status list names neither, the second documented only in
+  the code, and both are written up there.
+- Add a cid column next to the chid we have now
 ### feat: a cycle's state is recorded, and every end is durable
 
 (wink + agent, 2026-11-15 and 16, from the dead-end **fix: a cycle commit marks no rung current**,
@@ -619,21 +760,6 @@ its races and hand-off files costing more than housekeeping is worth.
   session's end 16 entries, 18 KB, mostly the records Claude Code writes after the agent stops.
 - The agent-files: At rest's "clean" is the work `@` alone, the agent `@` is never clean and
   carries forward, and rung 4's "push folds the journal while unpublished" goes.
-
-### validate-desc shows a note as part of its row
-
-(wink + agent, 2026-11-10) `validate-desc` prints a note, a remark on a commit whose verdict is
-still `ok`, as a row of its own before the verdict, keyed by the same change id, so one commit reads
-as two: `note qrsqqzlyzzsm the agent commit rnnmsmxwtzol is not on a remote yet` above `ok
-qrsqqzlyzzsm feat: no trunk, every target is named`. Notes are common now that a rung commits as a
-pair locally, its agent partner unpushed until a push.
-
-- A note belongs to its row. A succinct mark is wanted, a `*` on the verdict or the like, TBD, with
-  the text said once below the table or under `-v`. Another option is there is a column of "other"
-  information that could be several characters wide with single character info. 
-- The two kinds: an agent partner committed and not yet on a remote, and an older 8 or 32 character
-  `ochid:` naming one commit. README's status list names neither, the second documented only in
-  the code, and both are written up there.
 
 ### close, land, and push compose with testing, to re-deliberate
 
@@ -4593,6 +4719,24 @@ the same way. Whether to run it on `main` is decided after a trial on a clone.
 - A `lost`, `none`, or unresolvable trailer gets no `ocid:` and is left as it is, with no guessing:
   `fix-desc` proposes one agent commit for all of `0.62.0-*`'s 8-character ids, which looks wrong.
 - The engine is the one a cycle's trailers are updated by, the range being what differs.
+
+### xtask install works on Windows
+
+(wink + agent, 2026-11-17, from **feat: the project's tasks move to cargo xtask**) `cargo xtask
+install` copies the binary to a `.new` file and renames it over the old one, which a running copy
+survives on Linux and macOS. Windows refuses to overwrite or rename over a running `.exe`, so an
+install while the old binary runs fails there.
+
+- The known way: rename the old `foo.exe` aside to `foo.exe.old`, which Windows allows of a running
+  binary, move the new one in, and delete the `.old` at the next install.
+- It wants a Windows machine to test it, and none is at hand.
+
+### xtask completions for shells other than bash
+
+(wink + agent, 2026-11-17, from **feat: the project's tasks move to cargo xtask**) `cargo xtask
+completions` prints a bash function, clap's registration script calling `cargo xtask` in place of
+one binary. clap's engine already answers zsh, fish, elvish, and PowerShell, so each shell wants its
+own registration script and a test, and `completions` a `--shell` choosing one.
 
 ## Ideas
 

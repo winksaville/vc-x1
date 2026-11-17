@@ -810,7 +810,7 @@ pub(crate) fn cycle_bookmark(
             let todo = std::fs::read_to_string(&path)
                 .map_err(|e| format!("cycle {stage}: {}: {e}", path.display()))?;
             let title = record::cycle_title(&todo).map_err(|e| format!("cycle {stage}: {e}"))?;
-            crate::validate_anchors::anchor_slug(&title)
+            crate::check::anchors::anchor_slug(&title)
         }
     };
     if !jj::local_bookmark_exists(&r.work, &name)? {
@@ -1282,7 +1282,7 @@ fn land_closed(
     let source = match closed.or_else(|| l.running.bookmark.clone()) {
         Some(named) => named,
         None => {
-            let slug = cycle.as_deref().map(crate::validate_anchors::anchor_slug);
+            let slug = cycle.as_deref().map(crate::check::anchors::anchor_slug);
             match slug {
                 Some(slug) if jj::local_bookmark_exists(work, &slug)? => slug,
                 _ => crate::land::default_source(work, &l.dest)?,
@@ -1503,7 +1503,7 @@ fn push(ctx: &mut Context, p: &PushCycle) -> Result<(), Box<dyn std::error::Erro
             .map(|c| {
                 r.bookmark
                     .clone()
-                    .unwrap_or_else(|| crate::validate_anchors::anchor_slug(&c))
+                    .unwrap_or_else(|| crate::check::anchors::anchor_slug(&c))
             })
             .filter(|b| jj::local_bookmark_exists(work, b).unwrap_or(false)),
     };
@@ -1533,7 +1533,7 @@ fn push(ctx: &mut Context, p: &PushCycle) -> Result<(), Box<dyn std::error::Erro
             remote.get(b.as_str()) != local.as_ref()
         })
         .collect();
-    let slug = crate::validate_anchors::anchor_slug(&cycle);
+    let slug = crate::check::anchors::anchor_slug(&cycle);
     let stale = remote.contains_key(&slug);
     match ahead.as_slice() {
         [] if !stale => {
@@ -1597,7 +1597,7 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let Ok(cycle) = record::cycle_title(&todo) else {
         out.push("cycle: none in progress".to_string());
         let closed = record::closed_title(&todo);
-        let slug = closed.as_deref().map(crate::validate_anchors::anchor_slug);
+        let slug = closed.as_deref().map(crate::check::anchors::anchor_slug);
         match (closed, slug) {
             (Some(c), Some(slug)) if jj::local_bookmark_exists(work, &slug)? => {
                 out.push(format!(

@@ -1,4 +1,4 @@
-//! Shared core for the `validate-todo` / `fix-todo` subcommands:
+//! Shared core for the `check todo` / `fix-todo` subcommands:
 //! parse `TODO.md`'s numbered sections and compute the
 //! renumber / re-indent plan.
 //!
@@ -92,7 +92,7 @@ pub fn entry_word(n: usize) -> &'static str {
 
 /// Build the `[line: ...]` tag for an entry: its line number,
 /// then what changed (`was N`, `indent A -> B`, or both). Used by
-/// `validate-todo` and `fix-todo` for the same per-entry line.
+/// `check todo` and `fix-todo` for the same per-entry line.
 pub fn change_tag(c: &Change) -> String {
     let mut parts: Vec<String> = Vec::new();
     if c.num_old != c.num_new {

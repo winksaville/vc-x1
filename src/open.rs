@@ -47,7 +47,7 @@ pub(crate) fn bookmark_name(named: Option<&str>, title: Option<&str>) -> Result<
     let title = title.ok_or("cycle --open: --title or --bookmark names the bookmark")?;
     crate::commit::refuse_suffixed(title, "cycle --open --title")
         .map_err(|e| e.replacen("commit ", "", 1))?;
-    let slug = crate::validate_anchors::anchor_slug(title.trim_end());
+    let slug = crate::check::anchors::anchor_slug(title.trim_end());
     if slug.trim_matches(['-', '_']).is_empty() {
         return Err(format!(
             "cycle --open: the title '{title}' has no letters or digits to name the bookmark: name it, \

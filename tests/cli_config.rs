@@ -1,6 +1,6 @@
 //! CLI subprocess tests for `config`: pin the annotated-schema
 //! print, the positional target (side keywords / explicit path),
-//! and `validate-config`'s unknown-key check.
+//! and `check config`'s unknown-key check.
 
 mod common;
 
@@ -83,7 +83,7 @@ fn cli_config_user_path() {
     assert!(stdout.contains("[repos]"), "got: {stdout}");
 }
 
-/// `validate-config` against a clean single-repo workspace (a
+/// `check config` against a clean single-repo workspace (a
 /// valid `[agent-session].col-width`) exits 0: the work side checks
 /// out and the absent bot side is skipped with a note.
 #[test]
@@ -94,7 +94,7 @@ fn cli_config_validate_clean() {
         "[repos]\nwork = \".\"\n\n[agent-session]\ncol-width = 40\n",
     )
     .expect("write vc-config");
-    let out = run_ok(fx.cmd().current_dir(&fx.base).arg("validate-config"));
+    let out = run_ok(fx.cmd().current_dir(&fx.base).args(["check", "config"]));
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("0 problem(s) found"), "got: {stdout}");
     assert!(
@@ -104,7 +104,7 @@ fn cli_config_validate_clean() {
     assert!(stdout.contains("no bot repo configured"), "got: {stdout}");
 }
 
-/// `validate-config` against a workspace config with typo'd keys
+/// `check config` against a workspace config with typo'd keys
 /// exits non-zero and names each unknown key.
 #[test]
 fn cli_config_validate_unknown() {
@@ -115,13 +115,13 @@ fn cli_config_validate_unknown() {
          40\n\n[agent-session]\nresult-line = 3\n",
     )
     .expect("write vc-config");
-    let out = run_err(fx.cmd().current_dir(&fx.base).arg("validate-config"));
+    let out = run_err(fx.cmd().current_dir(&fx.base).args(["check", "config"]));
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("agent-session.col-widht"), "got: {stderr}");
     assert!(stderr.contains("2 problem(s) found"), "got: {stderr}");
 }
 
-/// `validate-config <path>` against a user config using the
+/// `check config <path>` against a user config using the
 /// dynamic `repo.category.<cat>` family exits 0: a path target
 /// validates against the whole schema, and the placeholder matches
 /// the concrete `remote` segment.
@@ -139,7 +139,7 @@ fn cli_config_validate_dynamic_ok() {
     let out = run_ok(
         fx.cmd()
             .current_dir(&fx.base)
-            .arg("validate-config")
+            .args(["check", "config"])
             .arg("--file")
             .arg(&user_cfg),
     );
@@ -160,5 +160,5 @@ fn cli_config_validate_flag_retired() {
             .arg("--validate"),
     );
     let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(stderr.contains("validate-config"), "got: {stderr}");
+    assert!(stderr.contains("check config"), "got: {stderr}");
 }

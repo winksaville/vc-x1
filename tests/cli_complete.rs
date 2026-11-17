@@ -47,9 +47,9 @@ fn path_arguments_complete() {
         (&["init", "--target", "x", "--config", "no"], "notes.md"),
         (&["init", "--target", "x", "--test-repo", "sr"], "src/"),
         (&["config", "--file", "no"], "notes.md"),
-        (&["validate-config", "--file", "no"], "notes.md"),
+        (&["check", "config", "--file", "no"], "notes.md"),
         // Already a `PathBuf`, so it completed before the hints.
-        (&["validate-anchors", "--file", "no"], "notes.md"),
+        (&["check", "anchors", "--file", "no"], "notes.md"),
     ];
     for (args, want) in cases {
         let got = complete(&fx, &dir, args);

@@ -9,7 +9,7 @@
 //!
 //! The resolvers hard-reject both via [`reject`]'s fix-it message.
 //! The other functions keep read-only bootstrap surfaces (clone,
-//! symlink, validate-desc / fix-desc explicit paths) working on
+//! symlink, check desc / fix-desc explicit paths) working on
 //! unmigrated repos.
 //!
 //! **Retirement plan:** once every workspace is migrated to the

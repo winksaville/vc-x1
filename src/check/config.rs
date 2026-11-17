@@ -1,4 +1,4 @@
-//! The `validate-config` subcommand: check a workspace's config
+//! The `check config` subcommand: check a workspace's config
 //! files against the schema, their own links, and the structural
 //! key every instance config carries.
 //!
@@ -11,7 +11,7 @@
 //!   a dual workspace's two `[repos]` registries must resolve to the
 //!   same pair
 //! - the file's own `[[N]]` references and `#anchor` links resolve
-//!   ([`crate::validate_anchors`]), and a `vc-config.md#<anchor>`
+//!   ([`crate::check_anchors`]), and a `vc-config.md#<anchor>`
 //!   link names a real key section, which is a schema lookup since
 //!   build.rs derives those anchors from key paths
 //! - a side's config carries `repos.work`, the one `required` key
@@ -19,8 +19,8 @@
 //! Read-only, and exits non-zero when anything is found. Split out
 //! of `config --validate` at 0.80.6: `config` prints the schema,
 //! and checking a file against it is a different verb that belongs
-//! beside `validate-desc`, `validate-todo`, `validate-agent`, and
-//! `validate-anchors`.
+//! beside `check desc`, `check todo`, `check agent`, and
+//! `check anchors`.
 
 use std::collections::HashMap;
 use std::error::Error;
@@ -37,59 +37,59 @@ use crate::desc_helpers::VC_CONFIG_FILE;
 use crate::options_flags::scope::Side;
 use crate::subcommand::SubcommandRunner;
 
-/// Clap-derived args for `validate-config`.
+/// Clap-derived args for `check config`.
 #[derive(Args, Debug)]
-pub struct ValidateConfigArgs {
+pub struct CheckConfigArgs {
     /// What to check: a side's config, both by default, or a file
     #[command(flatten)]
     pub target: ConfigTargetArgs,
 }
 
-/// Inputs to the validate-config op, flat, owned, clap-free.
-pub struct ValidateConfigParams {
+/// Inputs to the check config op, flat, owned, clap-free.
+pub struct CheckConfigParams {
     pub target: ConfigTarget,
 }
 
-impl SubcommandRunner for ValidateConfigArgs {
-    type Params = ValidateConfigParams;
+impl SubcommandRunner for CheckConfigArgs {
+    type Params = CheckConfigParams;
 
     /// Resolve the target, refusing the retired positional.
     fn to_params(&self) -> Result<Self::Params, String> {
-        Ok(ValidateConfigParams {
-            target: self.target.target("validate-config")?,
+        Ok(CheckConfigParams {
+            target: self.target.target("check config")?,
         })
     }
 
-    /// Run the `validate_config` op.
+    /// Run the `check_config` op.
     fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
-        validate_config(ctx, params)
+        check_config(ctx, params)
     }
 }
 
-/// Run the `validate-config` subcommand.
+/// Run the `check config` subcommand.
 ///
 /// `ctx` is unused: the check reads config files and neither the
 /// user config nor the `--log` path applies. It is present for the
 /// uniform subcommand-layer signature.
-pub fn validate_config(
+pub fn check_config(
     _ctx: &Context,
-    params: &ValidateConfigParams,
+    params: &CheckConfigParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("validate-config: enter");
+    debug!("check config: enter");
     let root = find_workspace_root();
     let c = validate(params, root.as_deref())?;
     // The counts are the summary's point: they separate a pass that
     // checked something from one that had nothing to check.
     info!(
-        "validate-config: {} file(s), {} key(s) and {} link(s) checked, {} required key(s), \
+        "check config: {} file(s), {} key(s) and {} link(s) checked, {} required key(s), \
          {} problem(s) found",
         c.files, c.keys, c.links, c.required, c.findings
     );
     if c.findings > 0 {
-        debug!("validate-config: exit with findings");
-        Err(format!("validate-config: {} problem(s) found", c.findings).into())
+        debug!("check config: exit with findings");
+        Err(format!("check config: {} problem(s) found", c.findings).into())
     } else {
-        debug!("validate-config: exit");
+        debug!("check config: exit");
         Ok(())
     }
 }
@@ -296,7 +296,7 @@ fn agent_repo_suggestion(map: &HashMap<String, String>) -> Option<String> {
 /// schema documentation.
 ///
 /// The second half is why a config file gets more than
-/// `validate-anchors` gives any other file. Those links are
+/// `check anchors` gives any other file. Those links are
 /// generated from key paths, so "does this resolve" is a schema
 /// lookup rather than the markdown crawl the cross-file check
 /// deliberately leaves out.
@@ -305,7 +305,7 @@ fn validate_links(path: &Path, label: &str) -> Result<Counts, Box<dyn Error>> {
         .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
     let mut counts = Counts::default();
 
-    let report = crate::validate_anchors::analyze(&text);
+    let report = crate::check::anchors::analyze(&text);
     for site in &report.sites {
         trace!(
             "{label} ({}):{}: {}",
@@ -332,7 +332,7 @@ fn validate_links(path: &Path, label: &str) -> Result<Counts, Box<dyn Error>> {
         .iter()
         .filter_map(|k| k.reference.rsplit_once('#').map(|(_, a)| a))
         .collect();
-    for (file, slug, line) in crate::validate_anchors::cross_file_targets(&text) {
+    for (file, slug, line) in crate::check::anchors::cross_file_targets(&text) {
         if !file.ends_with("vc-config.md") {
             continue;
         }
@@ -385,7 +385,7 @@ fn is_bool(path: &str) -> bool {
 ///   report still lands.
 /// - A path target carries no side information, so it validates
 ///   against the whole schema (any home's keys accepted).
-fn validate(params: &ValidateConfigParams, root: Option<&Path>) -> Result<Counts, Box<dyn Error>> {
+fn validate(params: &CheckConfigParams, root: Option<&Path>) -> Result<Counts, Box<dyn Error>> {
     let mut counts = Counts::default();
     match &params.target {
         ConfigTarget::Scope(scope) => {
@@ -615,7 +615,7 @@ member = \"x\"
     #[test]
     fn validate_dual_workspace_clean() {
         let fx = Fixture::new("config-validate-clean");
-        let params = ValidateConfigParams {
+        let params = CheckConfigParams {
             target: ConfigTarget::Scope(Scope(vec![Side::Work, Side::Bot])),
         };
         let findings = validate(&params, Some(&fx.work))
@@ -631,7 +631,7 @@ member = \"x\"
             &fx.work.join(VC_CONFIG_MD),
             "\n[bogus-section]\nkey = \"v\"\n",
         );
-        let params = ValidateConfigParams {
+        let params = CheckConfigParams {
             target: ConfigTarget::Scope(Scope(vec![Side::Work, Side::Bot])),
         };
         let findings = validate(&params, Some(&fx.work))
@@ -651,7 +651,7 @@ member = \"x\"
             "\n[family]\nmember = \"x\"\n\n[validate]\nfast = \"cargo test\"\n",
         );
         append(&fx.bot.join(VC_CONFIG_MD), "\n[family]\nmember = \"x\"\n");
-        let params = ValidateConfigParams {
+        let params = CheckConfigParams {
             target: ConfigTarget::Scope(Scope(vec![Side::Work, Side::Bot])),
         };
         let findings = validate(&params, Some(&fx.work))
@@ -671,7 +671,7 @@ member = \"x\"
             "\n[agent-files.diff]\ndir = \"../peer\"\ncustom = true\n\n\
              [agent-files.copy]\ncustom = \"yes\"\n",
         );
-        let params = ValidateConfigParams {
+        let params = CheckConfigParams {
             target: ConfigTarget::Scope(Scope(vec![Side::Work])),
         };
         let findings = validate(&params, Some(&fx.work))
@@ -694,7 +694,7 @@ member = \"x\"
             "[repos]\nwork = \"..\"\nagent = \"../other\"\n",
         )
         .expect("rewrite bot config");
-        let params = ValidateConfigParams {
+        let params = CheckConfigParams {
             target: ConfigTarget::Scope(Scope(vec![Side::Work, Side::Bot])),
         };
         let findings = validate(&params, Some(&fx.work))
@@ -719,7 +719,7 @@ member = \"x\"
             "[workspace]\npath = \"/\"\nother-repo = \".claude\"\n",
         )
         .expect("write legacy config");
-        let params = ValidateConfigParams {
+        let params = CheckConfigParams {
             target: ConfigTarget::Scope(Scope(vec![Side::Work, Side::Bot])),
         };
         let findings = validate(&params, Some(&root)).expect("validate").findings;
@@ -730,7 +730,7 @@ member = \"x\"
     #[test]
     fn validate_single_repo_skips_bot_side() {
         let fx = FixturePor::new("config-validate-por");
-        let params = ValidateConfigParams {
+        let params = CheckConfigParams {
             target: ConfigTarget::Scope(Scope(vec![Side::Work, Side::Bot])),
         };
         let findings = validate(&params, Some(&fx.work))
@@ -741,7 +741,7 @@ member = \"x\"
 
     #[test]
     fn validate_outside_workspace_is_clean() {
-        let params = ValidateConfigParams {
+        let params = CheckConfigParams {
             target: ConfigTarget::Scope(Scope(vec![Side::Work, Side::Bot])),
         };
         let findings = validate(&params, None).expect("validate").findings;
@@ -753,7 +753,7 @@ member = \"x\"
         let fx = Fixture::new("config-validate-path");
         let path = fx.work.join(VC_CONFIG_MD);
         append(&path, "\n[bogus-section]\nkey = \"v\"\n");
-        let params = ValidateConfigParams {
+        let params = CheckConfigParams {
             target: ConfigTarget::Path(path),
         };
         let findings = validate(&params, Some(&fx.work))

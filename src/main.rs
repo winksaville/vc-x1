@@ -1,6 +1,7 @@
 mod agent_files;
 mod bot_session;
 mod build_cmd;
+mod check;
 mod chid;
 mod clone;
 mod command_list;
@@ -53,11 +54,6 @@ mod trailers;
 mod transcript;
 mod url;
 mod validate;
-mod validate_anchors;
-mod validate_bot;
-mod validate_config;
-mod validate_desc;
-mod validate_todo;
 mod version;
 
 use std::path::Path;
@@ -395,41 +391,48 @@ pub(crate) enum Commands {
     #[command(hide = true)]
     RunDev(run_cmd::RunDevArgs),
 
-    /// Check the agent repo is published (main matches main@origin)
+    /// Check the workspace: its config, records, descriptions, and agent repo
     #[command(
-        name = "validate-agent",
-        long_about = "Check the agent repo is published (main matches main@origin).\n\n\
-        At rest the agent repo's `main` always matches `main@origin`: the\n\
-        bookmark only moves inside a push / squash-push run, which\n\
-        publishes it in the same invocation. A mismatch means an earlier\n\
-        publish was lost. Read-only and cheap (two jj lookups; no cargo\n\
-        steps); also verifies main's remote refs are tracked. Exits\n\
-        non-zero on any finding and fixes nothing: resolve with\n\
-        `vc-x1 squash-push -s a`."
+        long_about = "Check the workspace, read-only, exiting non-zero on a finding.\n\n\
+        `check config` its config files, `check anchors` a markdown file's\n\
+        own links, `check todo` a todo file's numbering, `check desc` the\n\
+        commit descriptions' trailers, and `check agent` that the agent\n\
+        repo is published. They were `validate-config`, `validate-anchors`,\n\
+        `validate-todo`, `validate-desc`, and `validate-agent` before\n\
+        0.85.25, names that still run, deprecated, each warning with its\n\
+        check, and a later release refuses."
     )]
-    ValidateBot(validate_bot::ValidateBotArgs),
+    Check(check::CheckArgs),
 
-    /// Rejected pre-0.80.0 name of `validate-agent`: prints the fix-it
-    /// and exits non-zero, for any flags.
-    #[command(name = "validate-bot", hide = true, disable_help_flag = true)]
-    ValidateBotOld {
-        /// Swallowed so the fix-it shows for any invocation.
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true, num_args = 0..)]
-        rest: Vec<String>,
-    },
+    /// Deprecated: `validate-agent`, now `check agent`, run with a
+    /// warning naming it
+    #[command(name = "validate-agent", hide = true)]
+    ValidateAgentDeprecated(check::agent::CheckAgentArgs),
 
-    /// Validate commit descriptions against the other repo
-    #[command(
-        long_about = "Validate commit descriptions against the other repo.\n\n\
-        Output columns: STATUS  CHANGEID  TITLE  [DETAILS]\n\n\
-        Status labels:\n  \
-          ok   : ochid trailer is valid\n  \
-          err  : ochid has issues (wrong prefix, wrong length, ID not found), or\n         \
-          an orepo names the wrong repo\n  \
-          note : ok, with something worth saying, an agent commit not yet pushed\n  \
-          miss : no ochid trailer; shows match from other repo if found"
-    )]
-    ValidateDesc(validate_desc::ValidateDescArgs),
+    /// Retired: `validate-bot`, the pre-0.80.0 `validate-agent`, refused
+    /// naming `check agent`
+    #[command(name = "validate-bot", hide = true)]
+    ValidateBotOld(check::RetiredArgs),
+
+    /// Deprecated: `validate-desc`, now `check desc`, run with a
+    /// warning naming it
+    #[command(name = "validate-desc", hide = true)]
+    ValidateDescDeprecated(check::desc::CheckDescArgs),
+
+    /// Deprecated: `validate-config`, now `check config`, run with a
+    /// warning naming it
+    #[command(name = "validate-config", hide = true)]
+    ValidateConfigDeprecated(check::config::CheckConfigArgs),
+
+    /// Deprecated: `validate-anchors`, now `check anchors`, run with a
+    /// warning naming it
+    #[command(name = "validate-anchors", hide = true)]
+    ValidateAnchorsDeprecated(check::anchors::CheckAnchorsArgs),
+
+    /// Deprecated: `validate-todo`, now `check todo`, run with a
+    /// warning naming it
+    #[command(name = "validate-todo", hide = true)]
+    ValidateTodoDeprecated(check::todo::CheckTodoArgs),
 
     /// Fix commit descriptions against the other repo (dry-run by default)
     #[command(long_about = "Fix commit descriptions against the other repo.\n\n\
@@ -444,35 +447,6 @@ pub(crate) enum Commands {
           skip  : skipped (no ochid, no match, or max-fixes reached)\n  \
           err   : ID not found and no --fallback provided")]
     FixDesc(fix_desc::FixDescArgs),
-
-    /// Check the workspace's config files
-    #[command(long_about = "Check a workspace's config files.\n\n\
-        Verifies every key is one the schema declares for that side,\n\
-        the legacy schema is rejected, a dual workspace's two [repos]\n\
-        registries agree, the file's own links resolve, and a side's\n\
-        config carries `repos.work`. Read-only; exits non-zero when\n\
-        anything is found. Was `config --validate` before 0.80.6.")]
-    ValidateConfig(validate_config::ValidateConfigArgs),
-
-    /// Check a markdown record's own anchors and references
-    #[command(long_about = "Check a markdown file's same-file links.\n\n\
-        Verifies every `](#slug)` link and `[N]: #slug` definition\n\
-        resolves to a heading in the same file, every `[[N]]` citation\n\
-        has a definition and every definition is cited, and no two\n\
-        headings slug to one anchor. Cross-file targets are skipped.\n\
-        Read-only; exits non-zero when anything is found. With no\n\
-        FILE, checks every `.md` in the workspace.")]
-    ValidateAnchors(validate_anchors::ValidateAnchorsArgs),
-
-    /// Check todo-file entry numbering and indent
-    #[command(
-        long_about = "Check a todo file's `## Todo` and `## Bugs` entry numbering.\n\n\
-        Verifies each section is numbered 1..N in document order and\n\
-        that continuation-line indent matches the number-prefix width.\n\
-        Read-only; exits non-zero if any entry needs fixing: use\n\
-        `fix-todo` to rewrite."
-    )]
-    ValidateTodo(validate_todo::ValidateTodoArgs),
 
     /// Renumber todo-file entries (dry-run by default)
     #[command(
@@ -916,6 +890,12 @@ fn bm_track_one(repo: &Path, bookmark: &str, remote: &str) -> Result<bool, Strin
     jj::has_tracked_remote(repo, bookmark, remote).map_err(|e| e.to_string())
 }
 
+/// Refuse a retired command name, `fixit` saying what replaced it.
+fn retired(fixit: String) -> ExitCode {
+    error!("{fixit}");
+    ExitCode::FAILURE
+}
+
 fn main() -> ExitCode {
     run_cmd::forward_completion();
     CompleteEnv::with_factory(cli_with_banner).complete();
@@ -1053,19 +1033,29 @@ fn main() -> ExitCode {
         Commands::InstallDev(args) => args.dispatch(&mut ctx),
         Commands::Run(args) => run_cmd::dispatch(run_cmd::RunParams::try_from(&args)),
         Commands::RunDev(args) => run_cmd::dispatch(run_cmd::RunParams::try_from(&args)),
-        Commands::ValidateBot(args) => args.dispatch(&mut ctx),
-        Commands::ValidateBotOld { .. } => {
-            error!(
-                "validate-bot: pre-0.80.0 name. The agent side is `agent`, so the \
-                 subcommand is `validate-agent` (same flags)."
-            );
-            ExitCode::FAILURE
+        Commands::Check(args) => args.dispatch(&mut ctx),
+        Commands::ValidateBotOld(_) => retired(check::retired_name("validate-bot", "agent")),
+        Commands::ValidateAgentDeprecated(args) => {
+            check::deprecated_name("validate-agent", "agent");
+            args.dispatch(&mut ctx)
         }
-        Commands::ValidateDesc(args) => args.dispatch(&mut ctx),
+        Commands::ValidateDescDeprecated(args) => {
+            check::deprecated_name("validate-desc", "desc");
+            args.dispatch(&mut ctx)
+        }
+        Commands::ValidateConfigDeprecated(args) => {
+            check::deprecated_name("validate-config", "config");
+            args.dispatch(&mut ctx)
+        }
+        Commands::ValidateAnchorsDeprecated(args) => {
+            check::deprecated_name("validate-anchors", "anchors");
+            args.dispatch(&mut ctx)
+        }
+        Commands::ValidateTodoDeprecated(args) => {
+            check::deprecated_name("validate-todo", "todo");
+            args.dispatch(&mut ctx)
+        }
         Commands::FixDesc(args) => args.dispatch(&mut ctx),
-        Commands::ValidateConfig(args) => args.dispatch(&mut ctx),
-        Commands::ValidateAnchors(args) => args.dispatch(&mut ctx),
-        Commands::ValidateTodo(args) => args.dispatch(&mut ctx),
         Commands::FixTodo(args) => args.dispatch(&mut ctx),
         Commands::Clone(args) => args.dispatch(&mut ctx),
         Commands::Init(args) => args.dispatch(&mut ctx),

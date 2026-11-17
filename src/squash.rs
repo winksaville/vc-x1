@@ -715,7 +715,7 @@ mod tests {
             "{agent_desc}"
         );
 
-        let check = crate::validate_desc::ValidateDescParams {
+        let check = crate::check::desc::CheckDescParams {
             revision: "@-".to_string(),
             limit: None,
             repos: vec![
@@ -725,7 +725,7 @@ mod tests {
             other_repo: None,
             id_len: crate::desc_helpers::DEFAULT_ID_LEN,
         };
-        crate::validate_desc::validate_desc(&test_ctx(), &check).expect("both directions valid");
+        crate::check::desc::check_desc(&test_ctx(), &check).expect("both directions valid");
     }
 
     /// A work commit published on a topic bookmark is a draft: the fix

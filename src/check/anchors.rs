@@ -1,4 +1,4 @@
-//! The `validate-anchors` subcommand: check a markdown record's
+//! The `check anchors` subcommand: check a markdown record's
 //! own links, so a dead anchor is found by a command rather than
 //! by a reader.
 //!
@@ -30,9 +30,9 @@ use log::{debug, info, trace, warn};
 use crate::context::Context;
 use crate::subcommand::SubcommandRunner;
 
-/// Clap-derived args for `validate-anchors`.
+/// Clap-derived args for `check anchors`.
 #[derive(Args, Debug)]
-pub struct ValidateAnchorsArgs {
+pub struct CheckAnchorsArgs {
     /// Retired: the files, now `--file` each, refused naming it.
     #[arg(value_name = "RETIRED", hide = true)]
     pub retired: Vec<String>,
@@ -44,39 +44,39 @@ pub struct ValidateAnchorsArgs {
     pub files: Vec<PathBuf>,
 }
 
-/// Inputs to the validate-anchors op, flat, owned, clap-free.
-pub struct ValidateAnchorsParams {
+/// Inputs to the check anchors op, flat, owned, clap-free.
+pub struct CheckAnchorsParams {
     pub files: Vec<PathBuf>,
 }
 
-impl From<&ValidateAnchorsArgs> for ValidateAnchorsParams {
+impl From<&CheckAnchorsArgs> for CheckAnchorsParams {
     /// Convert clap-derived args into the flat params (total).
-    fn from(a: &ValidateAnchorsArgs) -> Self {
+    fn from(a: &CheckAnchorsArgs) -> Self {
         Self {
             files: a.files.clone(),
         }
     }
 }
 
-impl SubcommandRunner for ValidateAnchorsArgs {
-    type Params = ValidateAnchorsParams;
+impl SubcommandRunner for CheckAnchorsArgs {
+    type Params = CheckAnchorsParams;
 
     /// Refuse the retired positionals, naming `--file` once per file,
-    /// else delegate to the `From<&ValidateAnchorsArgs>` impl.
+    /// else delegate to the `From<&CheckAnchorsArgs>` impl.
     fn to_params(&self) -> Result<Self::Params, String> {
         if !self.retired.is_empty() {
             return Err(crate::options_flags::retired_positional::refusal(
-                "validate-anchors",
+                "check anchors",
                 &self.retired.join(" --file "),
                 "--file",
             ));
         }
-        Ok(ValidateAnchorsParams::from(self))
+        Ok(CheckAnchorsParams::from(self))
     }
 
-    /// Run the `validate_anchors` op.
+    /// Run the `check_anchors` op.
     fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
-        validate_anchors(ctx, params)
+        check_anchors(ctx, params)
     }
 }
 
@@ -513,17 +513,17 @@ fn default_files(root: &Path) -> Vec<PathBuf> {
     out
 }
 
-/// Run the `validate-anchors` subcommand: check each file's own
+/// Run the `check anchors` subcommand: check each file's own
 /// links and report every finding, erroring when any was found.
 ///
 /// `ctx` is unused: the check reads plain files and neither the
 /// user config nor the `--log` path applies. It is present for the
 /// uniform subcommand-layer signature.
-pub fn validate_anchors(
+pub fn check_anchors(
     _ctx: &Context,
-    params: &ValidateAnchorsParams,
+    params: &CheckAnchorsParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("validate-anchors: enter");
+    debug!("check anchors: enter");
     let files = if params.files.is_empty() {
         let root = crate::common::find_workspace_root()
             .ok_or("not inside a workspace: name the files to check")?;
@@ -571,15 +571,15 @@ pub fn validate_anchors(
     // that checked something from one that had nothing to check.
     let checked = total.anchors_checked + total.refs_cited;
     info!(
-        "validate-anchors: {n} {word}, {checked} link(s) checked, {} failed, {} cross-file \
+        "check anchors: {n} {word}, {checked} link(s) checked, {} failed, {} cross-file \
          skipped, {} heading(s)",
         findings, total.anchors_cross_file, total.headings
     );
     if findings == 0 {
-        debug!("validate-anchors: exit");
+        debug!("check anchors: exit");
         Ok(())
     } else {
-        debug!("validate-anchors: exit with findings");
+        debug!("check anchors: exit with findings");
         Err(format!("{findings} anchor problem(s) found").into())
     }
 }

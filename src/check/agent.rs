@@ -1,4 +1,4 @@
-//! The `validate-agent` subcommand: read-only check that the agent
+//! The `check agent` subcommand: read-only check that the agent
 //! repo is in its expected at-rest state.
 //!
 //! - `main` must match `main@origin`: the bookmark only moves
@@ -31,26 +31,26 @@ const BOT_BOOKMARK: &str = "main";
 /// Read-only. Exits non-zero on a mismatch. Fixes nothing, resolve
 /// with `vc-x1 squash-push -s a`.
 #[derive(Args, Debug)]
-pub struct ValidateBotArgs {
+pub struct CheckAgentArgs {
     /// Path to the bot repo [default: from repos.agent, else .claude]
     #[arg(short = 'R', long)]
     pub repo: Option<PathBuf>,
 }
 
-/// Per-invocation validate-agent inputs: the clap-free shape the op
+/// Per-invocation check agent inputs: the clap-free shape the op
 /// works against.
 #[derive(Debug)]
-pub struct ValidateBotParams {
+pub struct CheckAgentParams {
     pub repo: PathBuf,
 }
 
-impl TryFrom<&ValidateBotArgs> for ValidateBotParams {
+impl TryFrom<&CheckAgentArgs> for CheckAgentParams {
     type Error = String;
 
     /// Resolve `-R` (default: the workspace config's bot dir, else
     /// `.claude`) and canonicalize it (early, visible failure on a
     /// bad path).
-    fn try_from(a: &ValidateBotArgs) -> Result<Self, String> {
+    fn try_from(a: &CheckAgentArgs) -> Result<Self, String> {
         let raw = match &a.repo {
             Some(p) => p.clone(),
             None => crate::common::find_workspace_root()
@@ -59,33 +59,33 @@ impl TryFrom<&ValidateBotArgs> for ValidateBotParams {
         };
         let repo = std::fs::canonicalize(&raw)
             .map_err(|e| format!("cannot resolve repo path '{}': {e}", raw.display()))?;
-        Ok(ValidateBotParams { repo })
+        Ok(CheckAgentParams { repo })
     }
 }
 
-impl SubcommandRunner for ValidateBotArgs {
-    type Params = ValidateBotParams;
+impl SubcommandRunner for CheckAgentArgs {
+    type Params = CheckAgentParams;
 
-    /// Delegate to the `TryFrom<&ValidateBotArgs>` impl above.
+    /// Delegate to the `TryFrom<&CheckAgentArgs>` impl above.
     fn to_params(&self) -> Result<Self::Params, String> {
-        ValidateBotParams::try_from(self)
+        CheckAgentParams::try_from(self)
     }
 
-    /// Run the `validate-agent` op (`ctx` unused: the op is fully
+    /// Run the `check agent` op (`ctx` unused: the op is fully
     /// parameterized by `Params`).
     fn run(_ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
-        validate_bot(params)
+        check_agent(params)
     }
 }
 
-/// Run the `validate-agent` op: tracking check, then the published
+/// Run the `check agent` op: tracking check, then the published
 /// invariant. Report the in-sync state on success.
-pub fn validate_bot(params: &ValidateBotParams) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("validate-agent: entry params={params:?}");
+pub fn check_agent(params: &CheckAgentParams) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("check agent: entry params={params:?}");
     let repo_str = params.repo.to_string_lossy();
     crate::common::verify_tracking(&params.repo, BOT_BOOKMARK)?;
     crate::common::verify_bot_published(&params.repo, BOT_BOOKMARK)?;
-    info!("validate-agent: '{repo_str}' {BOT_BOOKMARK} is published at origin");
+    info!("check agent: '{repo_str}' {BOT_BOOKMARK} is published at origin");
     Ok(())
 }
 
@@ -99,11 +99,13 @@ mod tests {
     use crate::{Cli, Commands};
     use clap::Parser;
 
-    fn parse(args: &[&str]) -> ValidateBotArgs {
+    fn parse(args: &[&str]) -> CheckAgentArgs {
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
-            Some(Commands::ValidateBot(a)) => a,
-            _ => panic!("expected ValidateBot"),
+            Some(Commands::Check(crate::check::CheckArgs {
+                what: crate::check::CheckCommand::Agent(a),
+            })) => a,
+            _ => panic!("expected check agent"),
         }
     }
 
@@ -119,19 +121,19 @@ mod tests {
     fn no_args_defaults() {
         // `-R` absent parses to None. The default resolves at
         // params time (workspace config's bot dir, else .claude).
-        let args = parse(&["vc-x1", "validate-agent"]);
+        let args = parse(&["vc-x1", "check", "agent"]);
         assert_eq!(args.repo, None);
     }
 
     #[test]
     fn long_repo_flag() {
-        let args = parse(&["vc-x1", "validate-agent", "--repo", "some/dir"]);
+        let args = parse(&["vc-x1", "check", "agent", "--repo", "some/dir"]);
         assert_eq!(args.repo, Some(PathBuf::from("some/dir")));
     }
 
     #[test]
     fn unknown_opt() {
-        let err = Cli::try_parse_from(["vc-x1", "validate-agent", "--bogus"])
+        let err = Cli::try_parse_from(["vc-x1", "check", "agent", "--bogus"])
             .unwrap_err()
             .to_string();
         assert!(err.contains("--bogus"));
@@ -139,10 +141,10 @@ mod tests {
 
     #[test]
     fn try_from_bad_path_errors() {
-        let args = ValidateBotArgs {
+        let args = CheckAgentArgs {
             repo: Some(PathBuf::from("/nonexistent/vc-x1-validate-agent")),
         };
-        let err = ValidateBotParams::try_from(&args).unwrap_err();
+        let err = CheckAgentParams::try_from(&args).unwrap_err();
         assert!(err.contains("cannot resolve repo path"), "got: {err}");
     }
 
@@ -185,22 +187,22 @@ mod tests {
     }
 
     #[test]
-    fn validate_bot_ok_on_fresh_fixture() {
+    fn check_agent_ok_on_fresh_fixture() {
         let fx = Fixture::new("vb-ok");
-        let params = ValidateBotParams {
+        let params = CheckAgentParams {
             repo: fx.bot.clone(),
         };
-        validate_bot(&params).expect("fresh fixture should validate");
+        check_agent(&params).expect("fresh fixture should validate");
     }
 
     #[test]
-    fn validate_bot_errors_on_unpushed_move() {
+    fn check_agent_errors_on_unpushed_move() {
         let fx = Fixture::new("vb-err");
         move_main_unpushed(&fx.bot);
-        let params = ValidateBotParams {
+        let params = CheckAgentParams {
             repo: fx.bot.clone(),
         };
-        let err = validate_bot(&params).unwrap_err().to_string();
+        let err = check_agent(&params).unwrap_err().to_string();
         assert!(err.contains("is not published"), "got: {err}");
         assert!(err.contains("squash-push"), "got: {err}");
     }
