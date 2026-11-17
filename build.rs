@@ -1,13 +1,20 @@
-//! Export the resolved `jj-lib` version as `JJ_LIB_VERSION` and
-//! generate the config schema from the `vc-config.md` prototype.
+//! vc-x1's build script, three jobs before the crate compiles:
+//!
+//! - Generate the config schema from the `vc-config.md` prototype,
+//!   `$OUT_DIR/config_schema_gen.rs`, so the documented keys are the
+//!   schema (`generate_config_schema`).
+//! - Compile in the commit the build is made from and its state, the
+//!   banner's build metadata (`emit_build_commit`).
+//! - Export the resolved `jj-lib` version as `JJ_LIB_VERSION`.
 //!
 //! jj-lib exports no version constant of its own, so the only
 //! statement of what this binary links against is the resolved
 //! version in `Cargo.lock`:
 //!
 //! - the lock is read from `$CARGO_MANIFEST_DIR` directly, not by
-//!   walking ancestors: we are not a workspace, and a walk can
-//!   bind a sibling project's lock, which is worse than failing.
+//!   walking ancestors: vc-x1 is the workspace's root package, so the
+//!   workspace's lock is beside its `Cargo.toml`, and a walk can bind
+//!   a sibling project's lock, which is worse than failing.
 //! - a missing or jj-lib-less lock fails the build rather than
 //!   emitting an "unknown" that would later be reported as fact.
 
@@ -404,9 +411,9 @@ fn generate_config_schema(manifest_dir: &str) {
 /// to it, `clean`, `dirty`, or `unknown`, which `src/version.rs`
 /// compiles in.
 ///
-/// - From `VC_X1_BUILD_COMMIT` and `VC_X1_BUILD_STATE` when set, which
-///   `vc-x1 build`, `build-dev`, and `validate` pass with the facts read
-///   through jj.
+/// - From `XTASK_BUILD_COMMIT` and `XTASK_BUILD_STATE` when set, which
+///   every `cargo xtask` task that runs cargo passes with the facts read
+///   through jj, as the deprecated `vc-x1 build` and `validate` do.
 /// - Else from git's `HEAD`, which in a jj colocated repo is `@-`, so
 ///   a hand-typed `cargo build` or `cargo install` carries the commit
 ///   too, with `VC_X1_STATE=unknown`: whether `@` holds edits is a jj
@@ -418,14 +425,14 @@ fn generate_config_schema(manifest_dir: &str) {
 /// so the compiled-in commit follows `HEAD`. A file that does not
 /// exist is never named, since cargo would rerun on every build.
 fn emit_build_commit(manifest_dir: &str) {
-    println!("cargo::rerun-if-env-changed=VC_X1_BUILD_COMMIT");
-    println!("cargo::rerun-if-env-changed=VC_X1_BUILD_STATE");
-    let passed = std::env::var("VC_X1_BUILD_COMMIT")
+    println!("cargo::rerun-if-env-changed=XTASK_BUILD_COMMIT");
+    println!("cargo::rerun-if-env-changed=XTASK_BUILD_STATE");
+    let passed = std::env::var("XTASK_BUILD_COMMIT")
         .ok()
         .filter(|c| git_head::is_commit_id(c));
     let (commit, state) = match passed {
         Some(commit) => {
-            let state = match std::env::var("VC_X1_BUILD_STATE").as_deref() {
+            let state = match std::env::var("XTASK_BUILD_STATE").as_deref() {
                 Ok("clean") => "clean",
                 Ok("dirty") => "dirty",
                 _ => "unknown",

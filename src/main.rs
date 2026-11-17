@@ -301,8 +301,8 @@ pub(crate) enum Commands {
         such as {profile.flags}, filling a word per item, and checks it left\n\
         the profile's `bin`, the binary the config says the build leaves.\n\
         The commands see the commit `@-` and the state of the source code,\n\
-        clean when `@` was empty and dirty when not, as VC_X1_BUILD_COMMIT\n\
-        and VC_X1_BUILD_STATE, as validate's do, so vc-x1's\n\
+        clean when `@` was empty and dirty when not, as XTASK_BUILD_COMMIT\n\
+        and XTASK_BUILD_STATE, as validate's do, so vc-x1's\n\
         own banner carries the commit. Cargo decides what to rebuild, so a\n\
         build with nothing changed is quick. A build is run by `vc-x1 run`\n\
         and copied into the install directory by `vc-x1 install`, which run\n\

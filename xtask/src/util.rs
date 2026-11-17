@@ -1,12 +1,14 @@
 //! What the tasks share: spawning a process, the workspace root,
-//! cargo, and where a profile's build leaves the binary.
+//! cargo, and the flags that choose a profile and a binary.
 //!
 //! - A profile is Cargo's, `[profile.<name>]` in `Cargo.toml`, `dev`
 //!   and `release` built in. Its binary is in cargo's target directory,
 //!   `debug` for `dev` and `test`, `release` for `bench`, and the
 //!   profile's own name for any other, so no config names it.
 //! - [`ProfileArgs`] is the `--release` and `--profile NAME` pair a task
-//!   flattens into its own `Args`, each task giving its default.
+//!   flattens into its own `Args`, each task giving its default, and
+//!   [`BinArgs`] the `--bin NAME` choosing one of the workspace's
+//!   binaries.
 
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
@@ -17,14 +19,12 @@ use toml_edit::DocumentMut;
 
 use crate::provenance::Provenance;
 
-/// The binary the tasks build, run, and install.
-pub const BIN: &str = "vc-x1";
-
 /// A process to spawn.
 ///
-/// The root's clippy.toml bans spawning for `vc-x1`, which goes through
-/// jj-lib. A project task running cargo, jj, or the binary it built is
-/// the exception, and this is the one site.
+/// A workspace's clippy.toml may ban spawning, as one whose binary goes
+/// through a library for its version control does. A task running
+/// cargo, jj, or the binary it built is the exception, and this is the
+/// one site.
 #[allow(clippy::disallowed_methods)]
 pub fn command(program: impl AsRef<OsStr>) -> Command {
     Command::new(program)
@@ -50,6 +50,20 @@ pub fn cargo() -> OsString {
 pub fn cargo_at(root: &Path, provenance: Option<&Provenance>) -> Command {
     let mut cmd = command(cargo());
     cmd.current_dir(root);
+    if let Some(p) = provenance {
+        p.set_env(&mut cmd);
+    }
+    cmd
+}
+
+/// A command from `root` of `words`, the first the program, `cargo`
+/// the cargo running the task, with the provenance in its environment.
+pub fn command_at(root: &Path, provenance: Option<&Provenance>, words: &[String]) -> Command {
+    let mut cmd = match words.first().map(String::as_str) {
+        Some("cargo") | None => command(cargo()),
+        Some(program) => command(program),
+    };
+    cmd.args(words.iter().skip(1)).current_dir(root);
     if let Some(p) = provenance {
         p.set_env(&mut cmd);
     }
@@ -83,6 +97,26 @@ impl ProfileArgs {
     /// The profile named, else `default`.
     pub fn name(&self, default: &str) -> String {
         profile_of(self.release, self.profile.as_deref(), default)
+    }
+}
+
+/// The binary flag of the tasks that build.
+#[derive(clap::Args, Debug)]
+pub struct BinArgs {
+    /// One of the workspace's binaries by name, else its default
+    #[arg(long, value_name = "NAME", add = ArgValueCandidates::new(bin_candidates))]
+    pub bin: Option<String>,
+}
+
+/// What `--bin` completes to: the workspace's binaries.
+fn bin_candidates() -> Vec<CompletionCandidate> {
+    match crate::workspace::Workspace::read(&root()) {
+        Ok(ws) => ws
+            .bins
+            .into_iter()
+            .map(|b| CompletionCandidate::new(b.name))
+            .collect(),
+        Err(_) => Vec::new(),
     }
 }
 
@@ -120,41 +154,6 @@ pub fn profile_dir(profile: &str) -> &str {
         "bench" => "release",
         name => name,
     }
-}
-
-/// Cargo's target directory for the workspace at `root`, as `cargo
-/// metadata` says, so a `target-dir` configured anywhere is followed.
-fn target_dir(root: &Path) -> Result<PathBuf, String> {
-    let out = command(cargo())
-        .current_dir(root)
-        .args([
-            "metadata",
-            "--format-version",
-            "1",
-            "--no-deps",
-            "--offline",
-        ])
-        .output()
-        .map_err(|e| format!("cargo metadata did not run: {e}"))?;
-    if !out.status.success() {
-        return Err(format!(
-            "cargo metadata failed: {}",
-            String::from_utf8_lossy(&out.stderr).trim()
-        ));
-    }
-    let meta: serde_json::Value = serde_json::from_slice(&out.stdout)
-        .map_err(|e| format!("cargo metadata printed no JSON: {e}"))?;
-    match meta.get("target_directory").and_then(|d| d.as_str()) {
-        Some(dir) => Ok(PathBuf::from(dir)),
-        None => Err("cargo metadata named no target_directory".to_string()),
-    }
-}
-
-/// Where the build of `profile` leaves the binary.
-pub fn binary(root: &Path, profile: &str) -> Result<PathBuf, String> {
-    Ok(target_dir(root)?
-        .join(profile_dir(profile))
-        .join(format!("{BIN}{}", std::env::consts::EXE_SUFFIX)))
 }
 
 #[cfg(test)]

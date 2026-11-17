@@ -1,13 +1,17 @@
-//! The build's provenance, `VC_X1_BUILD_COMMIT` and
-//! `VC_X1_BUILD_STATE`, read through `jj`: `@-`'s commit, and `clean`
+//! The build's provenance, `XTASK_BUILD_COMMIT` and
+//! `XTASK_BUILD_STATE`, read through `jj`: `@-`'s commit, and `clean`
 //! when `@` is empty, `dirty` when not.
 //!
-//! vc-x1's `build.rs` compiles them into its banner,
-//! `0.85.25+<commit>.dirty`, and reruns when they change, so every task
-//! that runs cargo sets the same values and none recompiles for
-//! another. A provenance that cannot be read is a warning, and the
-//! build carries git's `HEAD` and `.unknown`, as a plain `cargo build`
-//! does.
+//! A workspace's `build.rs` may read them, to compile
+//! `<version>+<commit>.dirty` into a banner, say, rerunning when they
+//! change, so every task that runs cargo sets the same values and none
+//! recompiles for another. A workspace that reads them not is
+//! untouched.
+//!
+//! - A workspace with no jj repo, or a machine with no `jj`, has none,
+//!   quietly, its `build.rs` left to read git's `HEAD` itself.
+//! - A jj repo whose provenance cannot be read is a warning, and the
+//!   build carries none.
 
 use std::path::Path;
 use std::process::Command;
@@ -15,10 +19,10 @@ use std::process::Command;
 use crate::util::command;
 
 /// The variable carrying the build's commit to cargo.
-const COMMIT_VAR: &str = "VC_X1_BUILD_COMMIT";
+pub const COMMIT_VAR: &str = "XTASK_BUILD_COMMIT";
 
 /// The variable carrying the state of the source code being compiled.
-const STATE_VAR: &str = "VC_X1_BUILD_STATE";
+pub const STATE_VAR: &str = "XTASK_BUILD_STATE";
 
 /// The template `jj log` reads the provenance with: the state, then
 /// `@`'s parents.
@@ -35,9 +39,12 @@ pub struct Provenance {
 }
 
 impl Provenance {
-    /// Read the provenance of the work repo at `root`, or warn and
-    /// carry none.
+    /// Read the provenance of the work repo at `root`, none with no jj
+    /// repo or no `jj`, and a warning with none when jj fails.
     pub fn read(root: &Path) -> Option<Provenance> {
+        if !root.join(".jj").is_dir() {
+            return None;
+        }
         let out = command("jj")
             .arg("-R")
             .arg(root)
@@ -58,6 +65,7 @@ impl Provenance {
                 "jj failed: {}",
                 String::from_utf8_lossy(&out.stderr).trim()
             )),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return None,
             Err(e) => Err(format!("jj did not run: {e}")),
         };
         match read {

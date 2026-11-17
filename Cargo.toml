@@ -1,6 +1,6 @@
 [package]
 name = "vc-x1"
-version = "0.85.25-2"
+version = "0.85.25-3"
 edition = "2024"
 default-run = "vc-x1"
 
@@ -17,6 +17,16 @@ default-run = "vc-x1"
 [workspace]
 members = [".", "xtask"]
 default-members = [".", "xtask"]
+
+# What `cargo xtask` takes from this workspace, its code naming nothing
+# of it. The validation is the default's with `--include-ignored`, so
+# the fixture tests run too. The binary is `default-run`'s, above.
+[workspace.metadata.xtask]
+validate = [
+  ["cargo", "fmt"],
+  ["cargo", "clippy", "--all-targets", "--", "-D", "warnings"],
+  ["cargo", "test", "--", "--include-ignored"],
+]
 
 [lints.clippy]
 # The process-spawn ban: `Command::new` is disallowed via

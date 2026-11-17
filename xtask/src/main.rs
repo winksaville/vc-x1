@@ -1,8 +1,9 @@
-//! `cargo xtask`: the project's own tasks, outside `vc-x1`, run by the
-//! alias in `.cargo/config.toml`.
+//! `cargo xtask`: the workspace's own tasks, run by the alias in
+//! `.cargo/config.toml`, naming nothing of the workspace, so `xtask/`
+//! copies verbatim into any Rust workspace.
 //!
 //! - [`tasks`]: the tasks, one module each, and how to add one.
-//! - [`util`] and [`provenance`]: what the tasks share.
+//! - [`util`], [`provenance`], and [`workspace`]: what the tasks share.
 //!
 //! This file parses the arguments and hands them to the task, and a
 //! new task never changes it.
@@ -15,6 +16,7 @@ use clap_complete::CompleteEnv;
 mod provenance;
 mod tasks;
 mod util;
+mod workspace;
 
 use tasks::{Task, dispatch};
 
@@ -137,9 +139,19 @@ mod tests {
         );
         assert_eq!(run(&["xtask", "run"]), ("dev".into(), vec![]));
         assert!(Cli::try_parse_from(["xtask", "run", "--release", "--profile", "x"]).is_err());
+        match Cli::try_parse_from(["xtask", "run", "--bin", "tool", "st", "--bin"])
+            .unwrap()
+            .task
+        {
+            Task::Run(a) => {
+                assert_eq!(a.bin.bin.as_deref(), Some("tool"));
+                assert_eq!(a.args, ["st", "--bin"], "a later --bin is the binary's");
+            }
+            other => panic!("expected run, got {other:?}"),
+        }
     }
 
-    /// Build and install take a profile, install's default the release.
+    /// Build and install take a profile, dev by default, and a binary.
     #[test]
     fn build_and_install_take_a_profile() {
         let parse = |args: &[&str]| Cli::try_parse_from(args).unwrap().task;
@@ -157,14 +169,17 @@ mod tests {
             "d",
         ]) {
             Task::Install(a) => {
-                assert_eq!(a.profile.name("release"), "dev");
+                assert_eq!(a.profile.name("dev"), "dev");
                 assert_eq!(a.dir, Some(std::path::PathBuf::from("d")));
                 assert!(a.dry_run);
             }
             other => panic!("{other:?}"),
         }
         match parse(&["xtask", "install"]) {
-            Task::Install(a) => assert_eq!(a.profile.name("release"), "release"),
+            Task::Install(a) => {
+                assert_eq!(a.profile.name("dev"), "dev");
+                assert_eq!(a.bin.bin, None);
+            }
             other => panic!("{other:?}"),
         }
         assert!(matches!(

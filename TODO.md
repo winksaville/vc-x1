@@ -101,6 +101,9 @@ The tasks move to `cargo xtask`, `cx` in wink's shell, and vc-x1 keeps repo mana
   task name, the project's command being `CONTRIBUTING.md`'s to say.
 - `vc-dr-apply`'s language skeletons stop writing `[validate]` and fill the `CONTRIBUTING.md`
   stub's tasks instead.
+- `vc-x1 xtask copy` and `diff` put `xtask/` in a Rust workspace, new or adopting, and update it,
+  the manifest's member and the cargo alias edited in place, and `vc-dr-apply --lang rust` runs
+  the copy.
 - `xtask/` is portable to a practical level (wink, 2026-11-17): it copies verbatim into any Rust
   workspace in jj or git, a virtual one with several binaries included, and every task works
   there, the workspace's facts in its own `Cargo.toml` alone.
@@ -134,6 +137,11 @@ On the closed tree, from the work-repo root:
   tmp/bin`, and `completions cx` each succeed, the install leaving `<default>-dev`.
   - With `default-bin` removed, `run` is refused naming both binaries.
   - In a git repo with no jj, the build prints no warning and its binary carries git's `HEAD`.
+- `vc-x1-dev xtask copy --from .` into scratch workspaces under `tmp/`: a single package becomes a
+  workspace of it and `xtask`, a root-package and a virtual workspace gain the member, each
+  manifest's comments kept, and `cargo xtask validate --fast` passes in each. `xtask diff` then
+  names nothing, and a copy from a source whose xtask version is newer replaces it, reporting both
+  versions.
 - `scripts/vc-dr-apply.sh --lang rust` into a scratch workspace writes no `[validate]` table, its
   `CONTRIBUTING.md > ## Tasks` names the `cargo xtask` commands, and `cargo xtask validate --fast`
   passes there.
@@ -163,8 +171,8 @@ On the closed tree, from the work-repo root:
   is the bend's record: it covers this cycle's rungs and closing, and nothing else.
 - The family's message is written after the Land, its sha-link the landmark's, so the closing's
   continuation notes name it. It is one thread to iiac-perf, zc-ring-x1, io-uring-x1, and the
-  template, saying what each does in its own cycle: adopt agent-files `v0.3.1-16`, copy `xtask/`
-  if it is Rust, io-uring-x1's `xtask-lib` its own call, rewrite its `CONTRIBUTING.md > ## Tasks`,
+  template, saying what each does in its own cycle: adopt agent-files `v0.3.1-16`, run `vc-x1
+  xtask copy` if it is Rust, io-uring-x1's `xtask-lib` its own call, rewrite its `CONTRIBUTING.md > ## Tasks`,
   `custom.md`, and `hooks.sh` mentions, drop the four tables, and reply.
 - `install` defaults to dev (wink, 2026-11-17), where `cargo install` defaults to release with
   `--debug` for dev. Every task that builds then defaults alike, and the shared binary, plain
@@ -195,6 +203,15 @@ On the closed tree, from the work-repo root:
   Windows and other shells are out, filed as Todo entries: the first wants the old `.exe` renamed
   aside before the move and a Windows machine to test it, and the second a registration script
   and a test per shell, clap's engine already serving them.
+- `xtask/` reaches a workspace by `vc-x1 xtask copy` (wink, 2026-11-18), the rung once titled
+  **feat: vc-dr-apply ships xtask and fills the stub's tasks** widened, since a new workspace, an
+  adoption, and an update are three starting points of one act. The wiring is a line of TOML, so
+  the tool makes it rather than printing it, in Rust, where `toml_edit` keeps the manifest's
+  layout and the script's bash could not. No config makes the edit unnecessary, since Cargo takes
+  a member only from the manifest, and the one layout needing none, xtask outside the workspace by
+  `--manifest-path`, gives up `fmt`, `clippy`, `test`, and rust-analyzer's view of it. A template
+  repo of the shapes was set aside: the agent-files have no maintainer and no template repository,
+  a clone serves only a new workspace, and its copies of `xtask/` would drift.
 
 #### Rungs
 
@@ -295,6 +312,36 @@ virtual one with several binaries included, a workspace's own facts in its `Carg
 - `completions --help` says what a shell alias is, with `alias cx='cargo xtask'` and the typing it
   saves.
 
+* xtask named its project in three constants, `BIN = "vc-x1"` and the two `VC_X1_BUILD_*`
+  variables, and in its help and comments, and now it learns the workspace at runtime, in
+  `xtask/src/workspace.rs`.
+  - `Workspace::read` takes `cargo metadata`: the target directory, each member's bin targets and
+    whether it is a default member, the root package's `default-run`, and `[workspace.metadata.xtask]`
+    as the top-level `metadata`.
+  - `Workspace::bin` chooses by `--bin`, `default-bin`, `default-run`, then the one binary, and
+    refuses naming every binary when none is chosen, or when a name chosen is none of them.
+  - The build stays a plain `cargo build` of the default members, a binary outside them adding
+    `--bin`.
+* `validate`'s lists were cargo arguments in code, and now they are whole commands, `cargo` the
+  running cargo, from `[workspace.metadata.xtask] validate` and `validate-fast`, else defaults of
+  `cargo fmt`, clippy, and `cargo test`. vc-x1's root `Cargo.toml` gives its own, with
+  `--include-ignored`.
+* The provenance variables are `XTASK_BUILD_COMMIT` and `XTASK_BUILD_STATE`, which vc-x1's
+  `build.rs` and its deprecated `build` now use too. No `.jj` directory, or no `jj` on the PATH,
+  means no provenance and no warning.
+  - `build.rs`'s header names its three jobs, the schema, the commit, and jj-lib's version, and
+    reads the lock beside its `Cargo.toml` because vc-x1 is the workspace's root package, where
+    it said vc-x1 was no workspace. Moving vc-x1 into a virtual workspace is the Todo entry
+    **vc-x1 moves into a virtual workspace**.
+* `version` and `bump` found only `[package] version`, and now a virtual workspace's
+  `[workspace.package] version` too, which the scratch workspace showed was needed.
+* `install` defaults to dev, its help saying where `cargo install` differs, and `run`'s
+  completion forward skips `--bin NAME` and asks the binary it names.
+* The rung's test copied `xtask/` byte for byte into a scratch virtual workspace, two binaries and
+  `default-bin`, in git with no jj, where every task passed, `install` left `app-dev`, `run`
+  without `default-bin` was refused naming both binaries, and no provenance warning was printed.
+  `rg 'vc-x1|VC_X1' xtask` finds nothing.
+
 ##### feat: vc-x1 hands its tasks to cargo xtask
 
 vc-x1's `validate`, `build`, `run`, and `install` are deprecated, each still running with a
@@ -302,25 +349,46 @@ warning naming its `cargo xtask` task, their code kept until the later cycle ref
 tables become deprecated keys that `check config` warns of, the Land's install hint names the
 project's install task, and this workspace's `.vc-config.md` drops the tables.
 
+##### feat: vc-x1 xtask copy and diff
+
+One command puts `xtask/` in a Rust workspace or brings it up to date, as `agent-files copy` and
+`diff` do the set, so a new workspace, an adoption, and an update are one code path (wink,
+2026-11-18). A workspace `vc-dr-apply` makes is functional with no `vc-x1 validate`.
+
+- `vc-x1 xtask copy [--from DIR] [--rev REV] [--dry-run] [--force]` takes `xtask/` from a source
+  adopter, its working copy or `REV`, the default source read from `.vc-config.md` as
+  `[agent-files.copy] dir` is. With no `xtask/` it copies it in and wires it, and with one it
+  replaces it.
+- The wiring is edited, never left to the user, by `toml_edit`, which keeps comments and layout: a
+  single package gains `[workspace] members = [".", "xtask"]`, a workspace gains `"xtask"` in
+  `members` unless a glob covers it, and `.cargo/config.toml` is made or gains `[alias] xtask`. A
+  workspace whose `exclude` names `xtask`, or a package inside a parent workspace, is refused,
+  naming why.
+- xtask has its own version, `xtask/Cargo.toml`'s, always written there, never inherited, from
+  `0.1.0`, so `bump` never moves it, and `copy` reports the old and the new. It refuses a source
+  older than the copy in place, or one whose files differ at the same version, a local change,
+  unless `--force`.
+- `vc-x1 xtask diff [--from DIR] [--rev REV]` names the files a copy would change and the wiring it
+  would add.
+- `xtask/` stays verbatim: a project's own tasks are commands in `[workspace.metadata.xtask]
+  tasks`, run as `cargo xtask <name>` and completed with the rest, as `validate`'s lists are, and
+  the tasks module's doc points there.
+- `copy` prints what it does not decide: the shell alias line, and, in a virtual workspace of
+  several binaries with none declared, that `default-bin` is the project's to name.
+- `vc-dr-apply`: the language skeletons' `validate.toml` gives way to the tasks each fills into
+  the `CONTRIBUTING.md` stub, so a new workspace's config carries no `[validate]`. `--lang rust`
+  lays down its single package, then runs `vc-x1 xtask copy` from the same source and revision.
+  `c-cpp`, `python`, and `none` name their commands in the stub and ship no runner, the agent
+  running what `CONTRIBUTING.md` names, `none`'s being `vc-x1 check config` and `check anchors`.
+- Its test makes the scratch port test permanent: a new single package, an adoption into a
+  root-package and into a virtual workspace, and an update, each running the tasks after.
+
 ##### docs: the tasks are named by CONTRIBUTING.md
 
-The README, `CONTRIBUTING.md > ## Tasks`, and the agent-files name the tasks and the `check`
-commands, the agent-files by task name, with the agent-files version bumped to `v0.3.1-16`.
+The README, `CONTRIBUTING.md > ## Tasks`, and the agent-files name the tasks, the `check`
+commands, and `xtask copy` and `diff`, the agent-files by task name, with the agent-files version bumped to `v0.3.1-16`.
 `rationale.md`'s reason for `cycle`'s stages being flags becomes that they chain in one
 invocation, in place of "every `vc-x1` command is `command --options`".
-
-##### feat: vc-dr-apply ships xtask and fills the stub's tasks
-
-A workspace `vc-dr-apply` makes is functional with no `vc-x1 validate`: the language skeletons'
-`validate.toml` gives way to the tasks each fills into the `CONTRIBUTING.md` stub, so a new
-workspace's config carries no `[validate]`, and `--lang rust` ships `xtask/` (wink, 2026-11-17).
-
-- `--lang rust` copies `xtask/` verbatim, adds it to `[workspace] members`, the table made when
-  there is none and the edit said, not made, when there is one, and writes the `.cargo/config.toml`
-  alias, the stub's tasks naming `cargo xtask`.
-- `c-cpp`, `python`, and `none` name their commands in the stub and ship no runner, the agent
-  running what `CONTRIBUTING.md` names, `none`'s being `vc-x1 check config` and `check
-  anchors`.
 
 ##### feat: the project's tasks move to cargo xtask closing
 
@@ -413,6 +481,9 @@ the agent-files, so the fix is to ship it, not to drop the link.
   adopters. Two ways to start a workspace is acceptable for now, and not for long: `init` takes
   on what `vc-dr-apply` does and the script retires. Whether `agent-files copy` folds in too is
   settled then.
+  - `vc-x1 xtask copy` (2026-11-18, **feat: the project's tasks move to cargo xtask**) is the
+    first of the script's jobs moved into Rust, `--lang rust` calling it, so `init` takes it on
+    with the rest.
 - **The skeleton is part of the agent-files.** `TODO.md`, `zTOC.md`, `CONTRIBUTING.md`, and
   `notes/`'s `README.md`, `bugs.md`, and `todo-backlog.md` are required and shaped by the
   agent-files, their content each project's, and they live in `scripts/vc-dr-apply-base/` beside
@@ -4720,6 +4791,27 @@ the same way. Whether to run it on `main` is decided after a trial on a clone.
   `fix-desc` proposes one agent commit for all of `0.62.0-*`'s 8-character ids, which looks wrong.
 - The engine is the one a cycle's trailers are updated by, the range being what differs.
 
+### vc-x1 moves into a virtual workspace
+
+(wink + agent, 2026-11-17, from **feat: the project's tasks move to cargo xtask**) vc-x1's root
+`Cargo.toml` is both the vc-x1 package and the workspace, a root package in Cargo's terms, so
+`src/`, `tests/`, and `build.rs` sit at the top beside `xtask/`, the docs, and the agent-files. A
+virtual workspace, a root `Cargo.toml` of `[workspace]` alone, would put vc-x1 in a member
+directory of its own, the root holding only what is the workspace's.
+
+- First, whether jj's annotate follows renames. `lookup` resolves a line through blame, and we
+  think annotate does not follow a rename, so every moved line would blame to the move and
+  `lookup` lose its history across it. That answer decides whether the move is worth its cost.
+- What moves with it: `build.rs` reads `vc-config.md` and `Cargo.lock` from its own directory on
+  purpose, the lock never found by a walk, so both are moved or found another way. The `[test]
+  fixtures` path, the CLI tests' paths, and the `src/...` links in the README, `notes/`, and the
+  agent-files change, the frozen history's staying as they are.
+- The root package's keys find new homes: `default-run` becomes `[workspace.metadata.xtask]
+  default-bin`, and the version-of-record `[workspace.package] version`, which `cargo xtask`
+  already reads.
+- A root package beside member crates is a common shape, cargo's own repository and ripgrep among
+  its users, so this is tidiness, not a fix.
+
 ### xtask install works on Windows
 
 (wink + agent, 2026-11-17, from **feat: the project's tasks move to cargo xtask**) `cargo xtask
@@ -4737,6 +4829,19 @@ install while the old binary runs fails there.
 completions` prints a bash function, clap's registration script calling `cargo xtask` in place of
 one binary. clap's engine already answers zsh, fish, elvish, and PowerShell, so each shell wants its
 own registration script and a test, and `completions` a `--shell` choosing one.
+
+### check anchors passes on vc-x1's own tree
+
+(wink + agent, 2026-11-18, from **feat: the project's tasks move to cargo xtask**) `vc-x1 check
+anchors` fails on this workspace with 4 problems, none from that cycle, and no validation runs it,
+so nothing noticed.
+
+- `.fixtures/dr-1/TODO.md:7`, a duplicate `#todo` heading. `.fixtures/` is gitignored, a test's
+  leftover, so the fix is likely that `check anchors` skips what the repo ignores, not an edit.
+- `notes/design-cli/por-dual-parity-audit.md`: a duplicate `#summary` at 489, first at 295, and
+  `[1]` at 1194 defined but never cited.
+- `vc-config-model.md:194`: `[30]` defined but never cited.
+- Once it passes, whether `[workspace.metadata.xtask] validate` runs it, so it stays passing.
 
 ## Ideas
 

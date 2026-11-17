@@ -3,8 +3,8 @@
 //! asking the xtask of the repo the shell is in.
 //!
 //! The arguments are clap's, whose completion engine answers when
-//! `COMPLETE` is set, as `vc-x1`'s does, and `run`'s arguments are the
-//! binary's to complete ([`super::run::forward_completion`]).
+//! `COMPLETE` is set, and `run`'s arguments are the binary's to
+//! complete ([`super::run::forward_completion`]).
 
 use std::process::ExitCode;
 
@@ -13,17 +13,24 @@ use std::process::ExitCode;
 #[command(
     about = "Print a bash function that completes `cargo xtask` and its aliases",
     long_about = "\
-        Print a bash function that completes `cargo xtask`, and each NAME, a\n\
-        shell alias for it such as `cx`. It holds no task names: on each tab\n\
-        it asks the xtask of the repo the shell is in, so one copy in a\n\
-        shell's startup file serves every repo whose xtask answers this way.\n\n\
-        `cargo xtask <tab>` reaches it through cargo's own bash completion,\n\
-        which hands a subcommand it does not know to the completion\n\
-        registered for `cargo-<name>`, and needs bash-completion 2.12 or\n\
-        later. A NAME is completed directly.\n\n\
-        Save it once and source that file, the function being the same in\n\
-        every repo:\n\
-        \x20 cargo xtask completions cx > ~/.config/cargo-xtask-completion.bash"
+        Print a bash function that completes `cargo xtask`, and each NAME.\n\n\
+        A NAME is a shell alias for `cargo xtask`: a short word bash replaces\n\
+        with `cargo xtask` before it runs the line, defined once in\n\
+        ~/.bashrc:\n\n\
+        \x20 alias cx='cargo xtask'\n\n\
+        Then every task is shorter to type, and completes the same:\n\n\
+        \x20 cargo xtask validate --fast          cx validate --fast\n\
+        \x20 cargo xtask run st -sb               cx run st -sb\n\
+        \x20 cargo xtask install --release        cx install --release\n\n\
+        The function holds no task names: on each tab it asks the xtask of\n\
+        the repo the shell is in, so one copy serves every repo whose xtask\n\
+        answers this way. `cargo xtask <tab>` reaches it through cargo's own\n\
+        bash completion, which hands a subcommand it does not know to the\n\
+        completion registered for `cargo-<name>`, and needs bash-completion\n\
+        2.12 or later. A NAME is completed directly.\n\n\
+        Save it once and source it from ~/.bashrc:\n\n\
+        \x20 cargo xtask completions cx > ~/.config/cargo-xtask-completion.bash\n\
+        \x20 echo 'source ~/.config/cargo-xtask-completion.bash' >> ~/.bashrc"
 )]
 pub struct Args {
     /// A shell alias for `cargo xtask`, completed as it is

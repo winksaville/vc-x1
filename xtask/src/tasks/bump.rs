@@ -10,7 +10,7 @@ use std::process::ExitCode;
 use clap_complete::engine::{ArgValueCandidates, CompletionCandidate};
 use toml_edit::{DocumentMut, value};
 
-use super::version::{manifest, read, version_in};
+use super::version::{manifest, read, version_in, version_path};
 use crate::util::{cargo_at, root, status};
 
 /// The task's arguments.
@@ -123,18 +123,18 @@ fn bumped(current: &str, bump: &Bump) -> Result<String, String> {
     }
 }
 
-/// A manifest's text with the package version set to `version`, the
-/// rest as it was, comments and layout included.
+/// A manifest's text with the version-of-record, by [`version_path`],
+/// set to `version`, the rest as it was, comments and layout included.
 fn with_version(manifest: &str, version: &str) -> Result<String, String> {
     let mut doc: DocumentMut = manifest
         .parse()
         .map_err(|e| format!("Cargo.toml does not parse: {e}"))?;
-    let package = doc
-        .get_mut("package")
-        .ok_or_else(|| "Cargo.toml has no `[package]`".to_string())?;
-    let slot = package
-        .get_mut("version")
-        .ok_or_else(|| "Cargo.toml has no `[package] version`".to_string())?;
+    let path = version_path(&doc)?;
+    let mut table = doc.as_item_mut();
+    for key in path {
+        table = &mut table[key];
+    }
+    let slot = &mut table["version"];
     // The decor, a trailing comment on the line among it, stays.
     let decor = slot.as_value().map(|v| v.decor().clone());
     *slot = value(version);
@@ -181,7 +181,7 @@ mod tests {
     fn the_manifest_keeps_its_comments_and_layout() {
         let manifest = "\
 [package]
-name = \"vc-x1\"
+name = \"app\"
 version = \"0.85.22-8\" # the version-of-record
 edition = \"2024\"
 
@@ -195,5 +195,11 @@ rand = \"0.10\"
         let new = with_version(manifest, "0.85.22-9").unwrap();
         assert_eq!(new, manifest.replace("0.85.22-8", "0.85.22-9"));
         assert!(with_version("[workspace]\n", "1.0.0").is_err());
+        let virtual_ws =
+            "[workspace]\nmembers = [\"a\"]\n\n[workspace.package]\nversion = \"0.4.0\"\n";
+        assert_eq!(
+            with_version(virtual_ws, "0.4.1-0").unwrap(),
+            virtual_ws.replace("0.4.0", "0.4.1-0")
+        );
     }
 }
