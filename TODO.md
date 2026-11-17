@@ -155,6 +155,34 @@ xtask gains `validate`, `build`, `run`, and `install`, with the provenance read 
 profile taken by its Cargo name, beside vc-x1's own commands, which still work, so this rung's
 validation is the first by `cargo xtask validate`.
 
+* xtask's tasks were one file, so where a new one goes was not obvious, and each is now a module
+  of its own under `xtask/src/tasks/`, the directory naming what is a task (wink, 2026-11-17).
+  - A task's module holds its `Args`, clap's, its help in `#[command(about, long_about)]`, and
+    its `run`, which prints what it says and returns the exit code. `tasks/mod.rs` holds the
+    `Task` enum and the dispatch, and its module doc lists the three edits a new task takes, all
+    in that directory, so `main.rs`, the parse and the hand-off, never changes for one.
+  - What the tasks share stays in `src/`, `util.rs`, spawning, the root, cargo, and the profile,
+    and `provenance.rs`. One directory is enough, and none is named `lib`, which reads as a
+    library target. `version` and `bump`, and `completions`, moved out of `main.rs` unchanged.
+* The work's tasks were vc-x1's, configured by four `.vc-config.md` tables, and now they are
+  xtask's code, `tasks/validate.rs`, `build.rs`, `run.rs`, and `install.rs`.
+  - `validate [--fast]` holds the lists `[validate]` held, each a cargo invocation.
+  - `build`, `run`, and `install` take `--release` or `--profile NAME`, completed from `dev`,
+    `release`, and `Cargo.toml`'s `[profile.*]`, `build` and `run` defaulting to dev and
+    `install` to release.
+  - The binary's path is cargo's target directory, read from `cargo metadata`, then the profile's
+    directory, `debug` for `dev`, so no config names it.
+  - `install` copies to `$CARGO_HOME/bin` or `~/.cargo/bin` as `vc-x1` for release and
+    `vc-x1-<name>` otherwise, a `.new` file renamed into place, then prints the copy's `-V`.
+* The provenance was read through jj-lib, and xtask reads it by spawning `jj log -r @` for the
+  state and `@`'s one parent, a merge `@` a warning and no provenance.
+* `run` parses as `cargo run` does: `trailing_var_arg` with hyphen values, and no help flag, so
+  `cx run st -sb`, `cx run -V`, and `cx run --help` all reach vc-x1. Its arguments complete by
+  vc-x1's own completion, the plan of `vc-x1 run`'s forward with `--release` and `--profile` as
+  the flags it skips.
+* xtask gains `serde_json` for `cargo metadata`'s output. `Cargo.toml`'s `default-run = "vc-x1"`,
+  wink's, so a plain `cargo run` picks the binary, rode in the opening, made while it was planned.
+
 ##### refactor: vc-x1's validators become vc-x1 check
 
 `validate-config`, `validate-todo`, `validate-desc`, `validate-anchors`, and `validate-bot` become
