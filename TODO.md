@@ -35,7 +35,151 @@ A cycle's record has one home at a time, and while the cycle runs this is it. Th
 the specimen in [cycle-model.md](agent-data/cycle-model.md), and the rules are in [The In Progress
 block](agent-data/notes.md#the-in-progress-block).
 
-_No cycle currently in progress._
+### feat: the project's tasks move to cargo xtask
+
+#### Problem
+
+(wink + agent, 2026-11-16) Validate, build, test, run, and install are the work's, a C project's
+nothing like a Rust one's, and none of them is repo management, so they leave vc-x1 for the
+project's own `cargo xtask`, which already bumps the version. Before **feat: a cycle's state is
+recorded, and every end is durable**, by wink's call, sooner rather than later.
+
+- **xtask gains the tasks**: `validate [--fast]`, `build`, `run`, and `install [--profile dev]`,
+  the build's provenance, `VC_X1_BUILD_COMMIT` and `VC_X1_BUILD_STATE`, made by spawning `jj`,
+  which xtask may since it is not vc-x1.
+- **The profiles are Cargo's** (wink, 2026-11-16): a profile is a `Cargo.toml` `[profile.<name>]`,
+  `dev` and `release` built in and any other, a soak's release candidate, declared there with
+  `inherits`, and `.vc-config.md`'s `[profile.*]` tables go. xtask takes a profile by its Cargo
+  name and keeps nothing beside it.
+  - The `cargo` key is the name itself, and the binary's path is cargo's to say, `target/<profile
+    dir>/<name>` from `cargo metadata`, `dev`'s directory being `debug`.
+  - We think the install suffix is a rule, not a setting: `release` installs as `vc-x1` and every
+    other profile as `vc-x1-<name>`, so `dev` keeps `vc-x1-dev`.
+- **vc-x1 drops them**: its `validate`, `build`, `run`, and `install` and the `[validate]`,
+  `[build]`, `[install]`, and `[profile.*]` tables go, each command refused with a pointer to
+  `cargo xtask`, and the README's [Workspace config tables](README.md#workspace-config-tables)
+  with them.
+- **Who names them**: `CONTRIBUTING.md > ## Tasks`'s command column, its pointer to the config
+  tables, and the agent-files' per-rung flow and `[validate]` sentence, rewritten to task names.
+- **The family**: `vc-dr-apply`'s language skeleton stops writing `[validate]` and fills the
+  `CONTRIBUTING.md` stub's tasks, the stub itself shipped by **docs: CONTRIBUTING.md names the
+  project's tasks**, and a message tells the other projects.
+- Open: whether vc-x1's domain validators, the checks of its own config and records, are renamed
+  `vc-x1 check`.
+
+#### Solution
+
+The tasks move to `cargo xtask`, `cx` in wink's shell, and vc-x1 keeps repo management alone.
+
+- `cargo xtask validate [--fast]`: the lists `[validate]` held, `cargo fmt`, `cargo clippy
+  --all-targets -- -D warnings`, and `cargo test -- --include-ignored`, or `cargo test --bins`
+  for `--fast`, written in xtask, run with the build's provenance in the environment.
+- `cargo xtask build [--release | --profile NAME]`: `cargo build --profile NAME --locked` with the
+  provenance, dev by default.
+- `cargo xtask run [--release | --profile NAME] [ARGS]...`: `cargo run --profile NAME --bin vc-x1`
+  with the provenance, dev by default, parsed as `cargo run` is, its own flags first and the
+  binary's from the first word that is not one, so `cx run st -sb` needs no `--`. It has no `-h`
+  or `-V` of its own, `cx help run` its help, so `cx run -V` is vc-x1's. The words after it
+  complete by the binary's own completion, as `vc-x1 run`'s did.
+- `cargo xtask install [--release | --profile NAME] [--dir DIR] [--dry-run]`: the build, then the
+  binary copied to a temporary file beside its destination in `~/.cargo/bin` and renamed into
+  place, `vc-x1` for `release`, its default, and `vc-x1-<name>` for any other profile, so `cx
+  install --profile dev` keeps `vc-x1-dev`. It prints the installed binary's `-V`.
+- The provenance, `VC_X1_BUILD_COMMIT` and `VC_X1_BUILD_STATE`, is read by spawning `jj`, `@-`'s
+  commit and `clean` when `@` is empty, `dirty` when not, the facts vc-x1's build reads today.
+- A profile is Cargo's, `[profile.<name>]` in `Cargo.toml`, and its binary is in cargo's target
+  directory, `debug` for `dev` and the profile's own name for any other.
+- vc-x1's `validate`, `build`, `run`, and `install` are refused, each naming its `cargo xtask`
+  task, and the `[validate]`, `[build]`, `[install]`, and `[profile.*]` tables are retired keys,
+  each reported by `check config` with the task that replaced it.
+- vc-x1's domain validators become `vc-x1 check <config|todo|desc|anchors|bot>`, the
+  `validate-<name>` commands refused naming their replacement.
+- `CONTRIBUTING.md > ## Tasks`, the README, and the agent-files name the tasks, the agent-files by
+  task name, the project's command being `CONTRIBUTING.md`'s to say.
+- `vc-dr-apply`'s language skeletons stop writing `[validate]` and fill the `CONTRIBUTING.md`
+  stub's tasks instead.
+
+#### Acceptance check
+
+On the closed tree, from the work-repo root:
+
+- `cargo xtask validate` and `cargo xtask validate --fast` pass.
+- `cargo xtask run st -sb` prints a banner whose build metadata is a commit and `.dirty` or
+  none, never `.unknown`, and `cargo xtask run -V` prints vc-x1's version.
+- `cargo xtask install --profile dev --dry-run` copies nothing, and `cargo xtask install --profile
+  dev` leaves `~/.cargo/bin/vc-x1-dev` whose `-V` names the commit.
+- `vc-x1-dev validate`, `build`, `run`, and `install` each exit nonzero naming their `cargo xtask`
+  task, `vc-x1-dev validate-config` exits nonzero naming `check config`, and `vc-x1-dev check
+  config` passes on this workspace, its `.vc-config.md` holding none of the four tables.
+- `scripts/vc-dr-apply.sh --lang rust` into a scratch workspace writes no `[validate]` table, and
+  its `CONTRIBUTING.md > ## Tasks` names the commands.
+
+#### Deliberation
+
+- The dev build keeps its own name (wink, 2026-11-17). Neither the Cargo team nor rust-analyzer
+  installs a dev build under a second name: Cargo's contributor guide runs `cargo run` or
+  `target/debug/cargo` and never installs it, and rust-analyzer's `cargo xtask install --server`
+  overwrites its developer's copy. vc-x1 is the tool running the cycle that changes it, and other
+  sessions on the machine use the plain name, so overwriting is out. Running from `target/` gives
+  no stable copy, since every build replaces it under a review, so the suffix stays: `cx run` for
+  the inner loop inside the tree, and `vc-x1-dev`, installed, for a review and anywhere else.
+- `cx run` is `cargo run` with the provenance (wink, 2026-11-17). Plain `cargo run` works, with
+  `default-run = "vc-x1"`, wink's addition, but its banner says `.unknown`, and `build.rs` reruns
+  when the variables change, so alternating it with a task that sets them recompiles vc-x1 at each
+  switch. Dev is its default, as `cargo run`'s, where `vc-x1 run`'s was release.
+- Lean ports (wink, 2026-11-17): install loses the report of whether its commit is `main` and
+  `main@origin`, and run loses its warning on a stale binary, since `cx run` always builds first.
+  Run keeps its completion forwarding, `cx run <TAB>` being typed all the time.
+- The `check` rename is in this cycle (wink, 2026-11-17), settling the Todo's open question.
+- The retired tables are findings, not parse errors, so an adopter's config that still has them
+  says what replaced them.
+- Validation is `cargo xtask validate` from the first work rung on, and a rung's dev install
+  `cargo xtask install --profile dev`, by wink's approval of this plan. The per-rung flow names
+  `vc-x1 validate` and `vc-x1 install --profile dev` until the docs rung rewrites it, and this item
+  is the bend's record: it covers this cycle's rungs and closing, and nothing else.
+- The family's message is written after the Land, its sha-link the landmark's, so the closing's
+  continuation notes name it.
+
+#### Rungs
+
+The rung subsections, in the ladder's order. The ladder itself is in `zTOC.md > ## Ladder`.
+
+##### feat: the project's tasks move to cargo xtask opening
+
+The cycle's first commit, carrying its plan: the bookmark, the last cycle's record deleted, and the
+Todo entry moved into this block.
+
+##### feat: cargo xtask runs the project's tasks
+
+xtask gains `validate`, `build`, `run`, and `install`, with the provenance read through `jj` and a
+profile taken by its Cargo name, beside vc-x1's own commands, which still work, so this rung's
+validation is the first by `cargo xtask validate`.
+
+##### refactor: vc-x1's validators become vc-x1 check
+
+`validate-config`, `validate-todo`, `validate-desc`, `validate-anchors`, and `validate-bot` become
+`check config`, `check todo`, `check desc`, `check anchors`, and `check bot`, the old names refused
+naming the new.
+
+##### feat: vc-x1 hands its tasks to cargo xtask
+
+vc-x1's `validate`, `build`, `run`, and `install` are refused naming their tasks, their code goes,
+the four tables become retired keys that `check config` reports, the Land's install hint names the
+project's install task, and this workspace's `.vc-config.md` drops the tables.
+
+##### docs: the tasks are named by CONTRIBUTING.md
+
+The README, `CONTRIBUTING.md > ## Tasks`, and the agent-files name the tasks and the `check`
+commands, the agent-files by task name, with the agent-files version bumped to `v0.3.1-16`.
+
+##### feat: vc-dr-apply fills the CONTRIBUTING.md stub's tasks
+
+The language skeletons' `validate.toml` gives way to the tasks each fills into the
+`CONTRIBUTING.md` stub, so a new workspace's config carries no `[validate]`.
+
+##### feat: the project's tasks move to cargo xtask closing
+
+Closing out the cycle.
 
 ## Waiting
 
@@ -101,36 +245,6 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 `###` heading, so a citation is a link to its anchor. Long-tail entries live in
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
-
-### feat: the project's tasks move to cargo xtask
-
-(wink + agent, 2026-11-16) Validate, build, test, run, and install are the work's, a C project's
-nothing like a Rust one's, and none of them is repo management, so they leave vc-x1 for the
-project's own `cargo xtask`, which already bumps the version. Before **feat: a cycle's state is
-recorded, and every end is durable**, by wink's call, sooner rather than later.
-
-- **xtask gains the tasks**: `validate [--fast]`, `build`, `run`, and `install [--profile dev]`,
-  the build's provenance, `VC_X1_BUILD_COMMIT` and `VC_X1_BUILD_STATE`, made by spawning `jj`,
-  which xtask may since it is not vc-x1.
-- **The profiles are Cargo's** (wink, 2026-11-16): a profile is a `Cargo.toml` `[profile.<name>]`,
-  `dev` and `release` built in and any other, a soak's release candidate, declared there with
-  `inherits`, and `.vc-config.md`'s `[profile.*]` tables go. xtask takes a profile by its Cargo
-  name and keeps nothing beside it.
-  - The `cargo` key is the name itself, and the binary's path is cargo's to say, `target/<profile
-    dir>/<name>` from `cargo metadata`, `dev`'s directory being `debug`.
-  - We think the install suffix is a rule, not a setting: `release` installs as `vc-x1` and every
-    other profile as `vc-x1-<name>`, so `dev` keeps `vc-x1-dev`.
-- **vc-x1 drops them**: its `validate`, `build`, `run`, and `install` and the `[validate]`,
-  `[build]`, `[install]`, and `[profile.*]` tables go, each command refused with a pointer to
-  `cargo xtask`, and the README's [Workspace config tables](README.md#workspace-config-tables)
-  with them.
-- **Who names them**: `CONTRIBUTING.md > ## Tasks`'s command column, its pointer to the config
-  tables, and the agent-files' per-rung flow and `[validate]` sentence, rewritten to task names.
-- **The family**: `vc-dr-apply`'s language skeleton stops writing `[validate]` and fills the
-  `CONTRIBUTING.md` stub's tasks, the stub itself shipped by **docs: CONTRIBUTING.md names the
-  project's tasks**, and a message tells the other projects.
-- Open: whether vc-x1's domain validators, the checks of its own config and records, are renamed
-  `vc-x1 check`.
 
 ### Initialization leaves no bad link
 
@@ -4566,63 +4680,6 @@ own directory) are separate traversals over the same three values today, and fou
 
 The last cycle's finished record, moved here whole by its closing commit and deleted by the next
 opening ([Cycle-record](AGENTS.md#cycle-record)).
-
-### docs: CONTRIBUTING.md names the project's tasks
-
-#### Problem
-
-What this project asks of whoever works in it has two homes, and neither is right. The agent-files
-are every adopter's, so they cannot name vc-x1's commands, and `custom.md` is gitignored, one
-machine's. So the commands that print long output, the messaging protocol, and which agent-files
-draft we carry were in `custom.md`, and a clone on fwlaptop had none of them, its session unable to
-send a message. The commands themselves were a table in the README, whose reader wants to install
-and use vc-x1, not change it.
-
-#### Solution
-
-A committed `CONTRIBUTING.md`, the project's layer, which every clone carries.
-
-- `## Tasks`: the commands a cycle uses, in its order, each named, with what it does and when it
-  runs. The README's table moves here. `custom.md`'s list of commands with long output goes, the
-  Long output rule's validation, build, and test runs and unbounded logs and diffs covering it.
-- `## Agents`: what an agent here reads beyond the agent-files, the draft we carry and the
-  messaging protocol, with how a clone gets the messages repo.
-- The README's `## Build and install` keeps installing and using vc-x1 and links to the tasks.
-- `custom.md` keeps what is local alone, the standing permission for the messages Fetch. It is
-  gitignored, so the commit does not carry that edit: it is named here.
-- The agent-files, the draft `v0.3.1-15`: `CONTRIBUTING.md` is required beside `TODO.md` and
-  `zTOC.md`, its `## Tasks` and `## Agents` fixed, so the agent-files link it. The acquaint reads
-  its `## Agents` after `custom.md`, and `## custom.md` says what is not local goes there, its why
-  in `rationale.md`.
-- `vc-dr-apply`'s base skeleton starts one, the two headings with a placeholder row, its `zTOC.md`
-  lists it, and its `custom.md` is the local layer.
-
-#### Acceptance check
-
-- In a fresh clone of the landed `main`, with no `custom.md`, `CONTRIBUTING.md` names the messages
-  repo and its protocol, and `AGENTS.md`'s acquaint links it. `vc-x1 validate` passes. Run at the
-  closing on its tree, `custom.md` gitignored and so not carried: passed.
-- A workspace made by `vc-x1 init --repo local=...` and given the working copy's set by
-  `vc-dr-apply.sh` has no bad link: `vc-x1 validate-anchors` for links within a file, and a script
-  for links across files and their anchors, which `validate-anchors` skips. Run at the rung: 23
-  files, 96 links within a file and 180 across, none bad, the script shown to catch a missing file
-  and a missing anchor.
-
-#### Deliberation
-
-- A single-step cycle, not the first rung of the task move: the project's content is committed at
-  once, a clone gets it without waiting for a ladder to land, and the task move then changes the
-  command column alone.
-- `CONTRIBUTING.md` is the conventional name, found by a person without an agent as readily as by
-  one, which `.vc-config.md`, repo management's, or a `vc-config.work.md` would not be.
-- Its `## Agents` is the project's layer over the agent-files, and `custom.md`, local, over both,
-  so one machine can still depart from what the project says.
-- The agent-files first named `CONTRIBUTING.md` conditionally, "when there is one", and the review
-  made it required, since a link to an optional file is broken wherever the file is missing. So
-  `vc-dr-apply` ships a stub now, and the task move fills its rows.
-- Left for **feat: the project's tasks move to cargo xtask**, filed by this cycle: the per-rung
-  flow's `vc-x1 validate` and `install --profile dev`, and the `[validate]` table the Cycle
-  protocol names, rewritten to task names once the tasks are xtask's.
 
 # References
 
