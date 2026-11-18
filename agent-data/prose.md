@@ -137,8 +137,13 @@ rung's subsection in the record holds the full account, so the breakdown is writ
 - **The problem**, and it defines any word the title assumes. It is *this commit's*, never the
   cycle's: a body whose problem outruns what the diff resolves is describing something larger than
   the commit.
-- **The solution**, opening "Solution:", ending with the pointer to the record where it is at that
-  commit, "See details in TODO.md." No bullets, so a `--body` flag cannot mistake it for an option.
+- **The solution**, opening "Solution:". No bullets, so a `--body` flag cannot mistake it for an
+  option.
+- **The pointer**, a paragraph of its own, two lines, to the record where it is at that commit:
+  `See details in TODO.md:` and the heading exactly as written in `TODO.md`, with no quotes and no
+  period, never wrapped, `##### <rung title>` for a work rung, its subsection holding the full
+  account, and `### <cycle title>` for a bookend and a single-step cycle
+  ([why](rationale.md#commit-description)).
 - **A bookend body is a pointer**: an opening or closing commit resolves no problem of its own, so
   its body names the cycle by its title, "Opens the cycle ..." or "Closes the cycle ...", with the
   same pointer after it.

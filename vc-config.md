@@ -624,7 +624,8 @@ example = "version = "
 
 The body `vc-x1 cycle --commit` writes on a cycle's opening commit, its first, when `--body` is
 left out, `{title}` filled with the cycle title read from `TODO.md`. Absent, the body names the
-cycle and points at its record. Owned by the work side because the cycle's commits are the work
+cycle. Either way the pointer to its record follows, a paragraph of its own, `See details in
+TODO.md:` and the cycle's heading. Owned by the work side because the cycle's commits are the work
 repo's.
 
 ```toml
@@ -633,14 +634,15 @@ homes = ["workspace-code"]
 kind = "str"
 doc = "The opening commit's default body, `{title}` the cycle title"
 used-by = "vc-x1 cycle --commit"
-example = "Opens the cycle {title}. See details in TODO.md."
+example = "Opens the cycle {title}."
 ```
 
 ## closing.body
 
 The body `vc-x1 cycle --close` writes on a ladder's closing commit when `--body` is left out,
-`{title}` filled with the cycle title read from `TODO.md`. Absent, the body names the cycle and
-points at its record. A single-step cycle's one commit holds the work, so it gives `--body`, and
+`{title}` filled with the cycle title read from `TODO.md`. Absent, the body names the cycle. Either
+way the pointer to its record follows, a paragraph of its own, `See details in TODO.md:` and the
+cycle's heading. A single-step cycle's one commit holds the work, so it gives `--body`, and
 gets this one only by `--default-body`. Owned by the work side because the cycle's commits are the
 work repo's.
 
@@ -650,7 +652,7 @@ homes = ["workspace-code"]
 kind = "str"
 doc = "The closing commit's default body, `{title}` the cycle title"
 used-by = "vc-x1 cycle --close"
-example = "Closes the cycle {title}. See details in TODO.md."
+example = "Closes the cycle {title}."
 ```
 
 ## test.fixtures

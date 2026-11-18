@@ -178,8 +178,8 @@ before it and silence after ([At rest](../AGENTS.md#at-rest)):
    session, by `vc-x1 squash-push -s b` ([At rest](../AGENTS.md#at-rest)).
 4. Remote bookmark: `vc-x1 delete-bookmark -s w --bookmark <bookmark> --skip local`, when the topic
    was ever pushed.
-5. Install: `vc-x1 build`, a `vc-x1 run -- -V` smoke check, and `vc-x1 install`, so the plain name
-   is replaced only by what is on the target.
+5. Install: the install task's release build, its `-V` the smoke check, so the plain name is
+   replaced only by what is on the target ([Tasks](../CONTRIBUTING.md#tasks)).
 
 - `cycle --land` onto another cycle's bookmark, a stack of cycles landing together, is the command
   and not the sequence: nothing is installed, and the cycle is permanent only when the stack lands
@@ -270,7 +270,7 @@ commit:
 
 1. `jj new -R .`: a fresh empty `@`.
 2. Do the commit's work.
-3. `vc-x1 validate --fast` (the `[validate] fast` table). Non-negotiable.
+3. Validate fast, the task [CONTRIBUTING.md](../CONTRIBUTING.md#tasks) names. Non-negotiable.
 4. `jj describe -m "..." -R .`: a scratch working title. This first-time authoring is the one
    permitted describe.
 

@@ -105,8 +105,8 @@ When other projects, or this cycle's own later rungs, run the built artifact whi
 under active development, the dev build installs under a separate name, so a mid-cycle install never
 clobbers the binary consumers are running. The package keeps its plain name throughout a cycle.
 
-- **Name**: the `[profile.<name>]` table's `suffix` in `.vc-config.md`, `-dev` for the dev profile,
-  so `vc-x1 install --profile dev` installs `<name>-dev` beside `<name>`.
+- **Name**: `<name>-dev`, installed by the project's install task beside `<name>`, the task
+  [CONTRIBUTING.md > ## Tasks](../CONTRIBUTING.md#tasks) names.
 - **When**: before a rung's review, from the working copy, so the review runs the code under review,
   and again after its commit, so the next rung runs the committed tree ([The per-rung
   flow](../AGENTS.md#the-per-rung-flow)).
@@ -116,10 +116,10 @@ clobbers the binary consumers are running. The package keeps its plain name thro
   agent-files may describe what only the dev build does. Otherwise the session runs the plain name,
   since a dev build no newer is one an earlier cycle left behind
   ([why](rationale.md#tools-the-session-runs)).
-- **Promotion**: plain `<name>` updates only at Land, by `vc-x1 install`, from what is on the
-  target.
-- **Which binary**: `vc-x1 install` with no `--profile` is the release build, so a dev binary
-  installs itself only with `--profile dev`.
+- **Promotion**: plain `<name>` updates only at Land, by the install task's release build, from
+  what is on the target.
+- **Which binary**: the install task names the build it installs, so the release build, the one
+  replacing plain `<name>`, is installed only by asking for it, never by a flag forgotten.
 
 ## Unique per commit (preference, not requirement)
 

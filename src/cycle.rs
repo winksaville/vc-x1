@@ -604,19 +604,27 @@ pub fn cycle(ctx: &mut Context, params: &CycleParams) -> Result<(), Box<dyn std:
 }
 
 /// The opening's body when none is given: `[opening] body` in the
-/// config, its `{title}` the cycle title, else a body naming the
-/// cycle and pointing at its record.
+/// config, its `{title}` the cycle title, else a sentence naming the
+/// cycle, then the pointer to its record, [`with_pointer`].
 fn opening_body(repo: &std::path::Path, cycle: &str) -> Result<String, Box<dyn std::error::Error>> {
     let configured = crate::config_md::load(repo)?
         .and_then(|cfg| crate::toml_simple::toml_get(&cfg.map, "opening.body").cloned());
     let body = match configured {
         Some(body) => body,
-        None => format!(
-            "Opens the cycle \"{{title}}\". See details in {}.",
-            crate::commit::RECORD
-        ),
+        None => "Opens the cycle \"{title}\".".to_string(),
     };
-    Ok(body.replace("{title}", cycle))
+    Ok(with_pointer(&body.replace("{title}", cycle), cycle))
+}
+
+/// A bookend's body with the pointer to the cycle's record, its own
+/// paragraph, two lines, the second the cycle's heading exactly as
+/// written in the record, so a search finds it at any commit.
+fn with_pointer(body: &str, cycle: &str) -> String {
+    format!(
+        "{}\n\nSee details in {}:\n### {cycle}",
+        body.trim_end(),
+        crate::commit::RECORD
+    )
 }
 
 /// The params of the commit a stage makes, `vc-x1 commit`'s: the pair
@@ -933,19 +941,16 @@ fn open(ctx: &mut Context, o: &OpenCycle) -> Result<(), Box<dyn std::error::Erro
 }
 
 /// A closing's body when none is given: `[closing] body` in the
-/// config, its `{title}` the cycle title, else a body naming the
-/// cycle and pointing at its record.
+/// config, its `{title}` the cycle title, else a sentence naming the
+/// cycle, then the pointer to its record, [`with_pointer`].
 fn closing_body(repo: &std::path::Path, cycle: &str) -> Result<String, Box<dyn std::error::Error>> {
     let configured = crate::config_md::load(repo)?
         .and_then(|cfg| crate::toml_simple::toml_get(&cfg.map, "closing.body").cloned());
     let body = match configured {
         Some(body) => body,
-        None => format!(
-            "Closes the cycle \"{{title}}\". See details in {}.",
-            crate::commit::RECORD
-        ),
+        None => "Closes the cycle \"{title}\".".to_string(),
     };
-    Ok(body.replace("{title}", cycle))
+    Ok(with_pointer(&body.replace("{title}", cycle), cycle))
 }
 
 /// The closing commit's parents when they are not the work `@`'s own:
@@ -1997,8 +2002,8 @@ mod tests {
         let desc = description(&fx.work, "@-");
         assert!(
             desc.starts_with(
-                "feat: a cycle opening\n\nOpens the cycle \"feat: a cycle\". See details in \
-                 TODO.md.\n"
+                "feat: a cycle opening\n\nOpens the cycle \"feat: a cycle\".\n\nSee details in \
+                 TODO.md:\n### feat: a cycle\n"
             ),
             "{desc}"
         );
@@ -2397,7 +2402,9 @@ mod tests {
         );
         let desc = description(&fx.work, "@-");
         assert!(
-            desc.contains("Closes the cycle \"feat: a cycle\". See details in TODO.md."),
+            desc.contains(
+                "Closes the cycle \"feat: a cycle\".\n\nSee details in TODO.md:\n### feat: a cycle\n"
+            ),
             "{desc}"
         );
         let todo = file_at(&fx.work, "@-", "TODO.md");

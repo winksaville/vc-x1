@@ -170,12 +170,13 @@ On the closed tree, from the work-repo root:
   `cargo xtask install --profile dev`, by wink's approval of this plan. The per-rung flow names
   `vc-x1 validate` and `vc-x1 install --profile dev` until the docs rung rewrites it, and this item
   is the bend's record: it covers this cycle's rungs and closing, and nothing else.
-- The family's message is written after the Land, its sha-link the landmark's, so the closing's
-  continuation notes name it. It is one thread to iiac-perf, zc-ring-x1, io-uring-x1, and the
-  template, saying what each does in its own cycle: adopt agent-files `v0.3.1-16`, run `vc-x1
-  xtask copy` if it is Rust, io-uring-x1's `xtask-lib` its own call, rewrite its
-  `CONTRIBUTING.md > ## Tasks`, `custom.md`, and `hooks.sh` mentions, drop the four tables, and
-  reply.
+- The family's message waits for the next cycle, the formal `agent-files(proposal): v0.3.1`
+  (wink, 2026-11-18), so the family gets one thread, not one for `v0.3.1-16` and another for the
+  bare version, and this cycle's continuation notes say so. The thread, to iiac-perf, zc-ring-x1,
+  io-uring-x1, and the template, says what each does in its own cycle: adopt agent-files
+  `v0.3.1`, run `vc-x1 xtask copy` if it is Rust, io-uring-x1's `xtask-lib` its own call, rewrite
+  its `CONTRIBUTING.md > ## Tasks`, `custom.md`, and `hooks.sh` mentions, drop the four tables,
+  and reply. The deprecations keep the family's sessions working until then.
 - `install` defaults to dev (wink, 2026-11-17), where `cargo install` defaults to release with
   `--debug` for dev. Every task that builds then defaults alike, and the shared binary, plain
   `vc-x1`, is replaced only by a deliberate `--release`, never by a flag forgotten. The Land's
@@ -467,6 +468,28 @@ change with them, each in use from 2026-11-18 on, before the rung writes it:
   `commit-model.md`'s specimens show it, and its rationale says that git's message editor strips
   a line starting with `#`, so a message reworded through git loses it, where jj keeps it.
 
+What the rung did:
+
+- The agent-files cite the tasks by name, validate, validate fast, and install, the commands
+  `CONTRIBUTING.md`'s Tasks gives: `AGENTS.md`'s cycle protocol and per-rung flow, `jj.md`'s Land
+  and local ladders, and `versioning.md`'s dev artifact name, where the install task names the
+  build it installs, so the release one replaces plain `<name>` only when asked for.
+- Step 5 names the three words and step 7 ends by the word, the turn stopping or the next rung
+  beginning, and `rationale.md` gives the why of both rules and of the tasks named, not commanded.
+- Commit-body form gains the pointer as its own item, `commit-model.md`'s specimens show it, and
+  `vc-x1 cycle` appends it, `### <cycle title>`, to every opening and closing body it writes,
+  configured or built in, so a config cannot drop it. The schema's dialect has no `\n`, so the
+  configured body is the sentence alone, and this workspace's `[opening]` and `[closing]` bodies,
+  the old form, are dropped for the built-in ones.
+- `rationale.md`'s flags-not-subcommands reason is the chaining, `check` the example of the other
+  kind, `notes.md`'s zTOC format names the todo list link, `cycle-model.md` says `check config`,
+  and the hooks' guard cases name `cargo xtask validate`.
+- `CONTRIBUTING.md`'s Tasks table is `cargo xtask`'s, release install a row of its own, and its
+  agent-files line `v0.3.1-16`. The README's Build and install is xtask's, the five task sections
+  one deprecation section, the `validate-*` sections `check <name>` under a `check` overview, the
+  config tables' four retired ones one bullet, and `xtask` gains a section.
+- The agent-files version is `v0.3.1-16`.
+
 ##### feat: the project's tasks move to cargo xtask closing
 
 Closing out the cycle.
@@ -589,6 +612,57 @@ the agent-files, so the fix is to ship it, not to drop the link.
   project so far Rust and a test or toy, and what a real project starts from is likely more than a
   directory of files: cloning a template repo, or a project's own skeleton. Open, to be settled
   when a real project needs it.
+
+### Durable messaging between projects
+
+(wink, 2026-11-16) The family's members message through a shared git repo, `../vc-x1-messages`, and
+a repo is a poor carrier for it. A clone of vc-x1 on fwlaptop had no `custom.md`, which is
+gitignored, so its session never learned the protocol and could not send. Messaging has nothing to
+do with repo management either, so neither `.vc-config.md`'s `[family]` nor `custom.md` is its home.
+
+- What the repo costs:
+  - One clone on one machine: thread and line ids are minted under that clone's `owner` mutex, so a
+    second clone can mint the same ones, caught only by a rejected push (its README's What is not
+    here).
+  - Every member needs the repo cloned at the path its config names, and the instructions to use
+    it, before it can read or send.
+  - A line is final only once pushed, and the commit and push are hand steps, so lines sit
+    uncommitted in one working copy, `m-12` to `m-14` today.
+  - Nothing new is seen without a fetch, and nothing tells the addressed member.
+- What is wanted: a message, once sent, is durable and visible from every machine and every
+  member's session with no per-machine setup beyond credentials. Its id is one no two senders can
+  both mint, and the pending query, what is addressed to a member and not yet answered, is kept.
+- Candidates, to weigh, we think:
+  - Member-scoped ids in the repo, `m-<member>-<n>`, the change its README names, keeping the repo
+    and dropping the mutex.
+  - A hosted tracker, a family repo's GitHub issues or discussions, read and written by `gh`, the
+    server allocating ids and keeping the history, at the cost of a network dependency and the
+    content living on GitHub.
+  - Claude Code's own messaging between sessions, which reaches live sessions on one machine and is
+    not durable, so a notifier at most.
+- The instructions to take part live in a committed file, so a fresh clone has them.
+- The direction (wink, 2026-11-18): no shared local repo. Every member keeps its own clone in its
+  workspace's `tmp-durable/messages`, so it scales to any number of members and machines, and the
+  protocol, the messages repo's `README.md`, changes to fit, proposed in a thread and taken up by
+  each member.
+  - Member-owned files and ids: a member writes only its own files, a thread
+    `threads/<member>-<n>` and its own lines in each thread, `m-<tid>/<member>.md`, appended, a
+    reader merging them by time. No two members write one file, so a rebase never conflicts, an
+    id is final when written, and the `owner` mutex and the "No second machine" limit go.
+  - Sync is plain git on the member's clone: Fetch a `git pull --rebase`, Publish a commit and a
+    push, a rejected push pulled, rebased, and pushed again.
+  - The clone needs no history, `git clone --depth 1`, since a session reads the current tree and
+    a rebase needs only its own base, the history staying on the remote. Plain git, not jj, its
+    shallow support being the older.
+  - `tmp-durable/` is gitignored, reproducible by a clone, and kept, so the clone is never
+    snapshotted by jj and a missing one is cloned again. Its path is a convention, not a config
+    key, and the remote's URL is in `CONTRIBUTING.md > ## Agents`, committed, so a fresh clone of
+    the work-repo has both, as this entry asks, and **The family leaves the committed config** loses
+    `[family] messages`.
+  - The Fetch then touches the member's own clone alone, so its standing permission in
+    `custom.md` is no longer needed and `custom.md` keeps only what is local.
+  - Migration: each member pushes what it has, clones into `tmp-durable/`, keeps the ids already
+    minted, and mints member-scoped ones from then on.
 
 ### cycle --commit writes the body's pointer
 
@@ -818,35 +892,6 @@ pushed ref keeps. One cycle, its rungs below, wink's "we'll see how it goes".
     closing rung says what today's dead-end path taught. `m-13` and `m-14` are told when it lands.
   - Out of it, each its own entry: **feat: a short form for ending a cycle**, **feat: a cycle takes
     an added bookmark**, and **A parked head is durable and continues on any machine**.
-
-### Durable messaging between projects
-
-(wink, 2026-11-16) The family's members message through a shared git repo, `../vc-x1-messages`, and
-a repo is a poor carrier for it. A clone of vc-x1 on fwlaptop had no `custom.md`, which is
-gitignored, so its session never learned the protocol and could not send. Messaging has nothing to
-do with repo management either, so neither `.vc-config.md`'s `[family]` nor `custom.md` is its home.
-
-- What the repo costs:
-  - One clone on one machine: thread and line ids are minted under that clone's `owner` mutex, so a
-    second clone can mint the same ones, caught only by a rejected push (its README's What is not
-    here).
-  - Every member needs the repo cloned at the path its config names, and the instructions to use
-    it, before it can read or send.
-  - A line is final only once pushed, and the commit and push are hand steps, so lines sit
-    uncommitted in one working copy, `m-12` to `m-14` today.
-  - Nothing new is seen without a fetch, and nothing tells the addressed member.
-- What is wanted: a message, once sent, is durable and visible from every machine and every
-  member's session with no per-machine setup beyond credentials. Its id is one no two senders can
-  both mint, and the pending query, what is addressed to a member and not yet answered, is kept.
-- Candidates, to weigh, we think:
-  - Member-scoped ids in the repo, `m-<member>-<n>`, the change its README names, keeping the repo
-    and dropping the mutex.
-  - A hosted tracker, a family repo's GitHub issues or discussions, read and written by `gh`, the
-    server allocating ids and keeping the history, at the cost of a network dependency and the
-    content living on GitHub.
-  - Claude Code's own messaging between sessions, which reaches live sessions on one machine and is
-    not durable, so a notifier at most.
-- The instructions to take part live in a committed file, so a fresh clone has them.
 
 ### feat: agent-files-size should exclude custom.md
 
@@ -1489,6 +1534,25 @@ takes the active version and offers language skeletons** makes the working copy 
 in **New repos start from an adopter's rules**, and **feat: the ladder lives in zTOC.md alone** adds
 **The ladder lives in zTOC.md alone**, the one draft spanning those rungs by wink's call
 (2026-11-04). The entry stays the proposal.
+
+Gathered for the formal proposal (wink + agent, 2026-11-18), the draft at `v0.3.1-15`: the cycle
+after **feat: the project's tasks move to cargo xtask** proposes `v0.3.1` to the family, bare, its
+version the set's, and writes into this entry, each as a `####` change with its why:
+
+- From **feat: the project's tasks move to cargo xtask**, its docs rung's `v0.3.1-16`: the tasks
+  named by `CONTRIBUTING.md` and cited by name, `check` in place of `validate-*`, the review's
+  word saying what follows the commit, the body's pointer as the heading's own line, nested
+  subcommands allowed with `cycle`'s stages flags for chaining, and `zTOC.md`'s TOC linking the
+  todo list.
+- **agent-files(proposal): dry runs interleave**, the dry-run convention into `code.md`.
+- **agent-files(proposal): vc-x1 is the interface, jj the engine**, the rule **jj, not git**
+  becoming vc-x1 in a cycle, a reach for raw jj a vc-x1 gap.
+- **A cycle should dogfood its own changes continuously**, every rung running `vc-x1-dev`.
+
+Left for a later proposal: **Initialization leaves no bad link**, the skeleton moving into the
+set, **Durable messaging between projects**, the family's protocol and not the set's, and **The
+family leaves the committed config**, **init and clone take --custom**, and **Every repo's
+.gitignore ignores .claude**, each shaped by those two.
 
 #### Never rename
 

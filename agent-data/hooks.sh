@@ -99,17 +99,17 @@ install() {
 guard_cases() {
   cat <<'EOF'
 deny|false; echo rc=$?
-deny|vc-x1-dev install --profile dev 2>&1 | tail -4; echo rc=${PIPESTATUS[0]}
+deny|vc-x1-dev check config 2>&1 | tail -4; echo rc=${PIPESTATUS[0]}
 deny|cargo test 2>&1 | tail -3
 deny|cargo test | tail -3; exit ${PIPESTATUS[0]}
-deny|cd /home/me/vc-x1; vc-x1 validate | grep FAILED
+deny|cd /home/me/vc-x1; cargo xtask validate | grep FAILED
 deny|tmp/candidate/vc-x1 land -s b --dry-run | head
 allow|jq -n 1 | grep 1
 allow|cargo --version || { rc=$?; echo failed=$rc; exit $rc; }
 allow|set -o pipefail; cargo test 2>&1 | tail -3
 allow|cd /home/me/vc-x1; jq . f.json | grep x
 allow|cargo test -- --include-ignored
-allow|vc-x1 validate
+allow|cargo xtask validate
 allow|echo done
 EOF
 }

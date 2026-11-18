@@ -149,14 +149,14 @@ The `[opening]` table
 - body: The opening commit's default body, `{title}` the cycle title [[29]]
 ```toml
 [opening]
-body = "Opens the cycle {title}. See details in TODO.md."
+body = "Opens the cycle {title}."
 ```
 
 The `[closing]` table
 - body: The closing commit's default body, `{title}` the cycle title [[30]]
 ```toml
 [closing]
-body = "Closes the cycle {title}. See details in TODO.md."
+body = "Closes the cycle {title}."
 ```
 
 The `[test]` table

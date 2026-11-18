@@ -175,7 +175,8 @@ in a listing. Its sections, in this order:
   and by every cycle commit, and kept by the closing commit, so the landmark's tree holds the
   finished ladder beside its `## Closed`. Its grammar is strict: each rung a left-margin `- `
   line, and the tool refuses to rewrite a ladder holding any other line but a blank one.
-- `## The TOC`: one link per file worth knowing, with what it holds, `TODO.md` first.
+- `## The TOC`: one link per file worth knowing, with what it holds, `TODO.md` first, its line
+  linking the todo list as well, `[todo list](TODO.md#todo)`, so the Todos are one step away.
 
 Its links are inline, so it has no `# References`.
 

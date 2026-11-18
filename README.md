@@ -8,13 +8,16 @@
   - [Shell completion](#shell-completion)
   - [status](#status)
   - [agent-files](#agent-files)
-  - [validate-desc](#validate-desc)
+  - [xtask](#xtask)
+  - [check](#check)
+  - [check desc](#check-desc)
   - [fix-desc](#fix-desc)
-  - [validate-todo](#validate-todo)
+  - [check todo](#check-todo)
   - [fix-todo](#fix-todo)
-  - [validate-anchors](#validate-anchors)
-  - [validate-config](#validate-config)
-  - [validate-agent](#validate-agent)
+  - [check anchors](#check-anchors)
+  - [check config](#check-config)
+  - [check agent](#check-agent)
+  - [Deprecated: the task commands](#deprecated-the-task-commands)
   - [config](#config)
   - [clone](#clone)
   - [init](#init)
@@ -74,58 +77,36 @@ A few naming conventions this project keeps, to avoid ambiguous jargon:
 
 ## Build and install
 
-vc-x1 is not a build system. The config says what the steps are, the build and install commands
-and where the binaries land, and vc-x1 runs them in order and checks their results: it builds
-before it runs or installs, reports what it is about to copy, refuses only a copy that would be
-wrong, and never lets one profile's install replace another's. Cargo, not vc-x1, decides what to
-rebuild.
+A plain Rust crate, one binary, `vc-x1`, named by the manifest's `[package].name`, which never
+changes. Its tasks, the build, the run, the install, and the validation, are the workspace's own
+`cargo xtask`, the `xtask/` package beside it, which needs nothing installed ([CONTRIBUTING.md >
+## Tasks](CONTRIBUTING.md#tasks)):
 
-A plain Rust crate: `cargo build` and `cargo test` of one binary, `vc-x1`, named by the
-manifest's `[package].name`, which never changes. A build is chosen by a named profile, a
-`[profile.<name>]` table in `.vc-config.md`, and `--profile NAME` on `build`, `run`, and `install`
-picks one, else `[build] default-profile`, else `release`. The `[build] commands` list is one
-build for every profile, a plain `cargo build --profile {profile.cargo} --locked` leaving its
-binary in `target/`, off the PATH, so nothing a cycle builds replaces the `vc-x1` on the PATH until
-the cycle lands. It is `--locked`, so every profile compiles the same dependencies, the ones
-`Cargo.lock` commits. This workspace defines two profiles:
+```bash
+cargo xtask install            # the dev build, as ~/.cargo/bin/vc-x1-dev
+cargo xtask install --release  # the release build, as ~/.cargo/bin/vc-x1
+cargo xtask run st -sb         # build the dev binary, then run `vc-x1 st -sb`
+cargo xtask validate           # fmt, clippy, and every test
+```
 
-- Dev: `vc-x1 build --profile dev` runs `cargo build --profile dev --locked`, leaving the rung's
-  debug binary at `target/debug/vc-x1`. After a validation it reuses the test build, so it costs
-  under a second, and `vc-x1 run --profile dev` runs it first, so what runs is always the current
-  code.
-- Release: `vc-x1 build`, the default profile, runs `cargo build --profile release --locked`,
-  leaving the release build at `target/release/vc-x1`, its `-V` naming the commit it was built
-  from ([build](#build)).
-- Install: at a cycle's Land, `vc-x1 install` runs the release build, which cargo skips when
-  nothing changed, then copies it into `~/.cargo/bin`, the `[install] dir`, after reporting what
-  it is copying ([install](#install)).
-- Install --profile dev: mid-cycle, `vc-x1 install --profile dev` runs the dev build, then copies
-  it into `~/.cargo/bin` as `vc-x1-dev`, the profile's `suffix` appended, beside the landed
-  `vc-x1`, so the cycle's code can be tried from any directory
-  ([install --profile](#install---profile)). Any other profile, a soak's release candidate among
-  them, installs the same way under its own suffix.
+- Every build carries the commit it was built from, read from jj, so `vc-x1 -V` names it, with
+  `.dirty` when the working copy held changes.
+- A profile is Cargo's own, `[profile.<name>]` in `Cargo.toml`, `dev` by default and `--release`
+  for the release one. The installed name is the binary's for `release` and `<binary>-<profile>`
+  for any other, so a cycle's dev build sits beside the landed `vc-x1` and never replaces it.
+- The install copies to a temporary file beside its destination and renames it into place, so a
+  running copy keeps the old code, and prints the installed binary's `-V`.
+- `cargo install --path . --locked` works too, a plain release install without the commit.
 
-Where each build leaves its binary is the config's to say, each profile's `bin`: vc-x1 never
-works it out from cargo or the package's name.
+`target/debug/vc-x1 -V` names the exact rung, since the version-of-record carries the cycle's
+suffix (`0.85.6-1`), and the binary banners the name it was invoked as (`argv[0]`), so a copy or a
+symlink self-reports truthfully.
 
-The commands in the order a cycle uses them, a rung's loop first and Land after, are the
-project's tasks, in [CONTRIBUTING.md](CONTRIBUTING.md#tasks).
-
-`validate` checks the source and makes no build of any profile. `run` and `install`, whatever the
-profile, build first, as `cargo run` does, and cargo rebuilds only what changed, so the binary
-`run` smoke-tests is the one `install` copies.
-
-- `target/debug/vc-x1 -V` names the exact rung, since the version-of-record carries the cycle's
-  suffix (`0.85.6-1`), and the binary banners the name it was invoked as (`argv[0]`), so a copy
-  or a symlink self-reports truthfully.
-- Before 2026-10-20 a cycle renamed the package to `vc-x1-dev` instead, guarded by `build.rs`
-  (the single-name convention, 0.78.3, design record in `notes/chores/chores-16.md`). The rename
-  and the guard are gone: a build script cannot see an install's root, and building off the PATH
-  makes the rename unnecessary.
-
-The first install, and any install when the `vc-x1` on the PATH is too old to have `install`, is
-made from the source: `cargo run --locked -- install` builds the dev binary and has it build the
-release and install it, report and all.
+vc-x1's own `validate`, `build`, `run`, and `install`, which ran the `.vc-config.md` tables of
+those names, are deprecated since 0.85.25: each still runs, warning and naming its `cargo xtask`
+task, and a later release refuses them
+([Deprecated: the task commands](#deprecated-the-task-commands)).
+Another Rust workspace gets the same tasks by `vc-x1 xtask copy` ([xtask](#xtask)).
 
 vc-x1 links jj-lib and refuses to run when the installed `jj`'s version disagrees with it
 (override per invocation with `--allow-jj-mismatch`, and see `vc-x1 version`).
@@ -140,16 +121,14 @@ vc-x1 show [-r REVISION] [-n COMMITS]  # Show commit details and diff summary
 vc-x1 status [-s SCOPE] [-R PATH]          # Working-copy status by scope, w|a|b|p, and the clean verdict (alias st)
 vc-x1 lookup [-s S] --line FILE:LINE     # The other repo's window for a line in this one
 vc-x1 agent-session --file F [OPTS]      # Display a session transcript as a conversation
-vc-x1 validate-desc [OPTS]                 # Validate commit descriptions
+vc-x1 check desc [OPTS]                   # Check commit descriptions' trailers
 vc-x1 fix-desc [OPTS]                     # Fix commit descriptions (dry-run default)
-vc-x1 validate-todo [--file F]            # Check todo-file entry numbering
+vc-x1 check todo [--file F]               # Check todo-file entry numbering
 vc-x1 fix-todo [--file F]                 # Renumber todo file (dry-run default)
-vc-x1 validate [--fast] [OPTS]            # Run the workspace's configured validation commands
-vc-x1 build [--profile P] [OPTS]          # Build a profile, release by default, off the PATH
-vc-x1 install [--profile P] [OPTS]        # Build, then copy into the install directory
-vc-x1 run [--profile P] [OPTS] [-- ARGS]  # Build, then run the binary with ARGS
-vc-x1 validate-agent [OPTS]               # Check the agent repo is published
-vc-x1 config [OPTS]                       # Print / validate settable config keys
+vc-x1 check config [OPTS]                 # Check the config files against the schema
+vc-x1 check anchors [OPTS]                # Check a markdown file's own links
+vc-x1 check agent [OPTS]                  # Check the agent repo is published
+vc-x1 config [OPTS]                       # Print the settable config keys
 vc-x1 clone --from URL [--name N] [OPTS]  # Clone a project, dual or with -s por plain
 vc-x1 init --target T [OPTS]              # Create a project, dual or with -s por plain
 vc-x1 symlink [--target P] [OPTS]         # Create Claude Code project symlink
@@ -167,6 +146,8 @@ vc-x1 agent-files version                  # Print the workspace's agent-files s
 vc-x1 agent-files diff [--from A] [--to B]  # Name the set files that differ between two copies of the set
 vc-x1 agent-files copy [--from S] [--to D]  # Make DST's set a copy of SRC's, uncommitted
 vc-x1 agent-files size [--dir DIR]         # Count the set's lines, and slide the table that records them
+vc-x1 xtask diff [--from S] [--to D]       # Name what a copy of xtask/ would change
+vc-x1 xtask copy [--from S] [--to D]       # Copy xtask/ into a Rust workspace, or bring it up to date
 vc-x1 --version                            # Print version, with the workspace's agent-files version
 vc-x1 --help                           # Print help
 ```
@@ -187,9 +168,6 @@ The same names mean the same thing everywhere:
 | `-n, --commits` | How many commits a read command shows |
 | `--bookmark` | A bookmark's name, the one to move or a new one to create |
 | `--file`, `--dir` | A file or a directory a command reads |
-| `--profile` | A build profile, a `[profile.<name>]` table, on `build`, `install`, and `run` |
-
-The one exception is `run`'s trailing arguments, which are the built binary's, not vc-x1's.
 
 A positional a command once took is kept hidden and refused, naming the flag that replaced it with
 the value in place, so a stale doc or a habit is told its own fix:
@@ -199,9 +177,7 @@ $ vc-x1 push -s b @-
 error: push: the positional is retired, every argument is a flag: `-r @-`
 ```
 
-`build-dev`, `install-dev`, and `run-dev`, and the retired `--dev` flag, are refused the same way,
-naming `build --profile dev`, `install --profile dev`, and `run --profile dev`, and `init --por`
-and `clone --por` name `--scope por`.
+`init --por` and `clone --por` are refused the same way, naming `--scope por`.
 
 ### jj version gate
 
@@ -414,7 +390,7 @@ Scopes: `w`=work, `a`=agent, `b`=both, `p`=por.
 | Command | Scopes | Why the subset |
 |---|---|---|
 | `sync`, `squash`, `squash-push`, `push`, `status`, `move-bookmark`, `delete-bookmark` | `w a b p` | |
-| `validate-desc` | `w a b` | a plain repo has no other repo to check its descriptions against |
+| `check desc` | `w a b` | a plain repo has no other repo to check its descriptions against |
 | `commit` | `w a b p` | `a` refused with a REV, and on an agent `@` paired to a work commit |
 | `cycle` | `w b p` | required with `--commit`, `--close`, and `--land` and refused with the other stages, `w` refused with `--land`, which could publish trailers naming agent commits left unpublished |
 | `merge` | `w p` | the agent repo never holds a merge |
@@ -630,6 +606,35 @@ custom.md                       project layer, not compared (-c compares it)
 3 of 4 differ
 ```
 
+### xtask
+
+`vc-x1 xtask copy` puts a project's `xtask/`, its `cargo xtask` tasks, into a Rust workspace or
+brings it up to date, as `agent-files copy` does the set, and `xtask diff` names what a copy would
+change, exiting non-zero when that is anything. The source is `--from DIR`, a directory holding
+`xtask/`, else `[xtask] dir`, and the target `--to DIR`, else this workspace.
+
+```bash
+vc-x1 xtask diff --from ../vc-x1           # what a copy would change here
+vc-x1 xtask copy --from ../vc-x1 --dry-run # the plan, nothing written
+vc-x1 xtask copy --from ../vc-x1           # copy, wire, and leave it uncommitted
+```
+
+- The wiring is edited in place, the files keeping their comments and layout: `xtask` added to the
+  root `Cargo.toml`'s `[workspace] members`, a single package becoming a workspace of it and
+  xtask, and the `cargo xtask` alias added to `.cargo/config.toml`. A directory with no
+  `Cargo.toml`, a repo fresh from `vc-x1 init`, gets a workspace of xtask alone with a version for
+  `bump`, and `.gitignore` gains `/target` when nothing ignores it.
+- xtask's own version, `xtask/Cargo.toml`'s, decides: a newer source replaces the copy, deletions
+  included, an older one is refused, and files that differ at the same version are a local
+  change, refused, `--force` taking either.
+- A project's own tasks are declared, not written into `xtask/`: a name and its commands in
+  `Cargo.toml`'s `[workspace.metadata.xtask.tasks]`, `docs = [["cargo", "doc", "--no-deps"]]` run
+  as `cargo xtask docs`, so `xtask/` stays a copy a newer one replaces.
+- A specific version is a source tree at its commit, given as `--from`: `jj -R SRC workspace add
+  -r REV DIR`, or `git -C SRC archive REV xtask | tar -x -C DIR`.
+- A working copy that already changes `xtask/` is refused, so the copy's changes are the only ones
+  there, and nothing is committed.
+
 ### agent-session
 
 Display a Claude Code session transcript (`.claude/<uuid>.jsonl`) as a readable conversation. The
@@ -740,7 +745,17 @@ vc-x1 agent-session --raw --lines 42,1 --file F
 vc-x1 agent-session --per-line --lines 40,5 --file F
 ```
 
-### validate-desc
+### check
+
+`vc-x1 check <config|todo|desc|anchors|agent>`, each a read-only check of the workspace that exits
+non-zero on a finding: its config files, a todo file's numbering, the commit descriptions'
+trailers, a markdown file's own links, and the agent repo's at-rest state. `vc-x1 check -h` lists
+them, and each has its own help. They were `validate-config`, `validate-todo`, `validate-desc`,
+`validate-anchors`, and `validate-agent` before 0.85.25, names that still run, deprecated, each
+warning with its new name, and that a later release refuses. The work's validation, its formatter,
+lints, and tests, is the project's own task ([Build and install](#build-and-install)).
+
+### check desc
 
 Read-only scan of commit descriptions against the other repo. `-s` is required and says whose
 commits are checked: `w` the work repo's against the agent repo, `a` the reverse, `b` both
@@ -762,13 +777,13 @@ the URLs, so a private repo's link is not told apart from a broken one.
 
 ```
 # Both directions, all ancestors of @ on each side
-vc-x1 validate-desc -s b @..
+vc-x1 check desc -s b @..
 
 # The work repo's commits against an explicit other repo
-vc-x1 validate-desc -s w --other-repo .claude @..
+vc-x1 check desc -s w --other-repo .claude @..
 
 # The agent repo's commits, a specific range
-vc-x1 validate-desc -s a -r @.. -n 20
+vc-x1 check desc -s a -r @.. -n 20
 ```
 
 Use `--help` for the full status label legend.
@@ -807,7 +822,7 @@ vc-x1 fix-desc -r @.. --fallback /.claude/lost
 
 Use `--help` for the full status label legend.
 
-### validate-todo
+### check todo
 
 Check that the `## Todo` and `## Bugs` sections of a todo file are numbered `1..N` in document
 order, with continuation-line indent matching each entry's number-prefix width. Read-only, and exits
@@ -815,10 +830,10 @@ non-zero if any entry needs fixing.
 
 ```
 # Check TODO.md (the default)
-vc-x1 validate-todo
+vc-x1 check todo
 
 # Check a specific file
-vc-x1 validate-todo --file path/to/todo.md
+vc-x1 check todo --file path/to/todo.md
 ```
 
 Each flagged entry prints its corrected first line and a `[line: ...]` tag: the entry's line number
@@ -845,7 +860,7 @@ vc-x1 fix-todo --file path/to/todo.md
 |------|-------------|
 | `--no-dry-run` | Write the renumbered file in place [default: dry-run] |
 
-### validate-anchors
+### check anchors
 
 Check a markdown record's own links, so a dead anchor is found by a command rather than by a
 reader. Three checks, all within one file:
@@ -861,22 +876,22 @@ slugging another file. Read-only, and exits non-zero when anything is found.
 
 ```
 # Every markdown record in the workspace
-vc-x1 validate-anchors
+vc-x1 check anchors
 
 # Specific files, which is also how the frozen history is checked,
 # since notes/chores/ and notes/done.md are out of the default set
-vc-x1 validate-anchors --file TODO.md --file notes/bugs.md
+vc-x1 check anchors --file TODO.md --file notes/bugs.md
 
 # -v adds per-file counts, -vv a line per site (every link with how
 # it resolved, every heading with the slug it produced)
-vc-x1 -vv validate-anchors TODO.md
+vc-x1 -vv check anchors TODO.md
 ```
 
 The summary counts links rather than files, so a pass says how much it covered and the cross-file
 tally names what it did not:
 
 ```
-validate-anchors: 40 files, 220 link(s) checked, 8 failed, 220 cross-file skipped, 511 heading(s)
+check anchors: 40 files, 220 link(s) checked, 8 failed, 220 cross-file skipped, 511 heading(s)
 ```
 
 A failing target names the nearest heading in the file when one is close enough to be worth
@@ -887,281 +902,7 @@ lowercase, drop every character that is not alphanumeric, a hyphen, or an unders
 remaining space to one hyphen. Adjacent spaces are not collapsed, so `a + b` becomes `a--b` while
 `a: b` becomes `a-b`.
 
-### validate
-
-Run the workspace's configured validation commands: the work side's `[validate] full` table, or
-`fast` with `--fast` (see [Workspace config tables](#workspace-config-tables)). Each element is
-one command, split on whitespace with no shell in between, run in order from the work repo root
-and printed before it runs. The first non-zero exit stops the run, naming the command, its
-status, and where in the table it stopped, and `validate` exits non-zero. An empty or missing
-table is an error, not a pass: nothing to run is not a validation. `-R DIR` names a workspace
-other than the one containing the current directory.
-
-```
-# The per-commit validation, from anywhere in the workspace
-vc-x1 validate
-
-# The quick check between pushes
-vc-x1 validate --fast
-
-# Another workspace
-vc-x1 validate -R ../other-project
-```
-
-Sample output, with a failing table (`["true", "false", "touch never"]`):
-
-```
-validate: [1/3] true
-validate: [2/3] false
-error: validate: `false` failed (exit 1), stopping at 2/3 of validate.full
-```
-
-| Option | Description |
-|--------|-------------|
-| `--fast` | Run the `validate.fast` table instead of `validate.full` |
-| `-R, --repo <DIR>` | Workspace to validate [default: the one containing the current directory] |
-
-### build
-
-Build the chosen profile by the work side's `[build]` table and the profile's `[profile.<name>]`
-table (see [Workspace config tables](#workspace-config-tables)). The profile is `--profile NAME`,
-else `[build] default-profile`, else `release`, and a name with no `[profile.<name>]` table is
-refused, naming the profiles the config defines. The list runs as [validate](#validate)'s do: each
-element one command, split on whitespace with no shell in between, run in order from the work repo
-root, the first failure stopping the run. It does not touch the PATH, which is `vc-x1 install`'s.
-
-- `[build] commands` is one list for every profile, each `{profile.<property>}` in it filled from
-  the chosen profile, here `cargo build --profile {profile.cargo} --locked`. The build prints
-  `build: profile <name>` first and then checks it left the profile's `bin`.
-- `vc-x1 build` builds the release, the default, and `vc-x1 build --profile dev` the dev build,
-  `--profile` choosing the build as it does for `run` and `install`. The old `build-dev` and
-  `build --dev` are refused, naming `build --profile dev`.
-- A profile's `cargo` property, the `Cargo.toml` profile it builds, is the encouraged form, so
-  cargo owns the flags and the target directory. A build named by flags uses a `flags` list
-  instead, `["--release"]` or `[]`, filled as `{profile.flags}`, one word per item and none when
-  the list is empty, and any other property is the list's to fill as `{profile.<property>}`.
-- It does not track whether its binary is out of date: cargo does, rebuilding only what changed,
-  so a build with nothing changed is quick and leaves the binary as it was.
-- The build runs its list with two variables added to the environment,
-  `VC_X1_BUILD_COMMIT`, the full commit id of `@-`, and `VC_X1_BUILD_STATE`, `clean` or `dirty`,
-  so an artifact that compiles them in can say what it was built from wherever it is copied.
-  `validate` passes the same two, so the test build it leaves has the same values and
-  `build --profile dev` reuses it rather than recompiling. vc-x1 compiles them in, as semver build
-  metadata in its banner, and as a `build` line in `vc-x1 version`:
-
-  ```
-  $ target/release/vc-x1 -V
-  vc-x1 0.85.7+d70cf9ecdfd9 (agent-files v0.3.0)
-  ```
-
-  `.dirty` follows the commit when `@` was not empty. A build neither command made, a
-  hand-typed `cargo build` or `cargo install`, takes the commit from git's `HEAD`, which in a jj
-  colocated repo is `@-`, and follows it with `.unknown`, since whether `@` held edits is a jj
-  question its build script cannot ask. A build with no `.git` to read, a source package's,
-  carries no metadata.
-- Nothing is checked first, so a release may be built from a cycle's bookmark to try the release
-  profile.
-
-A custom `Cargo.toml` profile is one more table, its `bin` where cargo leaves it, and
-`vc-x1 build --profile lto` builds it:
-
-```toml
-[profile.lto]
-cargo = "release-lto"             # a [profile.release-lto] in Cargo.toml
-bin = "target/release-lto/vc-x1"
-suffix = "-lto"                   # installed as vc-x1-lto, beside the release
-```
-
-```
-# Build the release, the default profile, from the workspace containing the current directory
-vc-x1 build
-
-# Build the dev build without running it
-vc-x1 build --profile dev
-
-# Print the release build's list, and run nothing
-vc-x1 build --dry-run
-```
-
-| Option | Description |
-|--------|-------------|
-| `--profile <NAME>` | Build the profile `NAME`, a `[profile.<NAME>]` table [default: `[build] default-profile`, else release] |
-| `--dry-run` | Print the list, and run nothing |
-| `-R, --repo <DIR>` | Workspace to build from [default: the one containing the current directory] |
-
-### install
-
-Build the chosen profile if it is out of date, then copy it into the install directory, the release
-at a cycle's Land. The profile is chosen as [build](#build)'s is, and `install` first runs
-`[build] commands` exactly as `build` does. Cargo rebuilds only what changed, so with nothing
-changed the binary already tested is the one copied, and a missing or stale one is built rather
-than refused. It then copies the profile's `bin`, `target/release/vc-x1` here for the release, into
-the one directory `[install] dir` names, `~/.cargo/bin` here, under the same file name with the
-profile's `suffix` appended, empty when absent. `$PATH` is not searched: the directory being on it
-is what puts the copy on the PATH. `~` in the directory expands against your home, so the committed
-value fits every machine. The copy is a temporary file renamed into place, so a running copy of the
-old binary is undisturbed and a failed copy leaves it as it was.
-
-`[install] commands`, a command list in `[build] commands`' shape, runs in place of the copy for
-every profile when present, after the same build, report, and refusals, so a project that installs
-some other way, a signed copy or one to another machine, says how. The elements run with no shell,
-each split on whitespace, and then each word's placeholders are filled: `{profile.<property>}` from
-the chosen profile, `{profile.bin}` and `{profile.suffix}` among them, and `{install.dir}`,
-resolved for the run, `~` expanded and `--dir` applied. A value with spaces stays one word, and
-any other `{name}` is an error before anything runs. The list names every path it writes, the file
-name and suffix included, and a script takes the values as arguments,
-`sh scripts/sign.sh {profile.bin} {install.dir}`. This workspace's list is the copy written out,
-so the config says what `install` does:
-
-```toml
-[install]
-dir = "~/.cargo/bin"
-commands = [
-  "cp {profile.bin} {install.dir}/vc-x1{profile.suffix}.new",
-  "mv {install.dir}/vc-x1{profile.suffix}.new {install.dir}/vc-x1{profile.suffix}",
-]
-```
-
-The rename is what makes it safe over a running binary, since a `cp` onto a running executable
-fails. A failed `cp` leaves the `.new` file behind, which the next install overwrites, where the
-built-in copy removes its own. The log shows each command with its placeholders filled.
-
-It first reports what it is copying, from the binary's own `-V`:
-
-- the version, noting a suffixed (pre-release) one and a manifest version that differs
-- the commit, and whether it is `main` and `main@origin`
-- the state, `clean`, `dirty`, or `unknown`
-
-A binary whose `-V` carries no commit, another project's that does not compile the build
-variables in, is reported as `commit unknown` and `state unknown`.
-
-The report refuses nothing. Which builds may be installed is the release process's call, not the
-tool's: here a cycle's Land runs `install` on `main` after the push, and a project releasing from
-a branch or a tag makes it differently. `install` refuses only when the copy itself would be
-wrong, listing every reason: no binary at the profile's `bin` after the build, a binary whose `-V`
-will not run, or a missing install directory. Without a list, a copy whose installed name is
-another profile's in the same directory, the same file name and suffix, is refused before the
-build, so a second profile with no suffix never replaces the release. A list writes where it says,
-so it names the suffix itself, as this workspace's does.
-
-`--dry-run` builds and reports, and copies nothing, and runs no list. `--dir <DIR>` copies into
-`DIR` instead of `[install] dir` for the one run, so a test of `install` leaves the PATH alone, a
-relative `DIR` taken against the current directory. A workspace with no `[install] dir`, and no
-`--dir`, has nothing to install, and `install` says so before building anything.
-
-```
-# At Land, on main after the push: build and smoke-test, then install, its build a no-op
-vc-x1 build
-vc-x1 run -- -V
-vc-x1 install
-
-# Testing install itself: the copy goes to tmp/bin, and ~/.cargo/bin is untouched
-mkdir -p tmp/bin
-cargo run --locked -- install --dir tmp/bin
-```
-
-The report, run on a cycle's bookmark with edits in `@`, then the list:
-
-```
-install: '/home/me/proj/target/release/vc-x1' -> list `install.commands`
-install:   version 0.85.7-6, a suffixed (pre-release) version
-install:   commit 82e97636b7f6, not `main`
-install:   state dirty
-install: [1/2] cp /home/me/proj/target/release/vc-x1 /home/me/.cargo/bin/vc-x1.new
-install: [2/2] mv /home/me/.cargo/bin/vc-x1.new /home/me/.cargo/bin/vc-x1
-install: 2 command(s) passed (install.commands)
-```
-
-The build's own lines come first, `build: profile release`, then
-`build: [1/1] cargo build --profile release --locked` and the rest.
-Without a list the first line names the destination, `-> '/home/me/.cargo/bin/vc-x1'`, and the
-copy ends `install: copied`. A dry run stops after the report and says so, running and copying
-nothing.
-
-| Option | Description |
-|--------|-------------|
-| `--profile <NAME>` | Build and install the profile `NAME`, its `suffix` appended to the file name [default: `[build] default-profile`, else release] |
-| `--dry-run` | Build and report, and copy nothing |
-| `--dir <DIR>` | Copy into `DIR` instead of `[install] dir`, for this run |
-| `-R, --repo <DIR>` | Workspace to install from [default: the one containing the current directory] |
-
-### install --profile
-
-Any profile installs as the release does, its `suffix` appended to the file name, so builds of
-several profiles sit side by side on the PATH. `vc-x1 install --profile dev` runs the dev build,
-then copies `target/debug/vc-x1` into `~/.cargo/bin` as `vc-x1-dev`. The landed `vc-x1` and the
-cycle's `vc-x1-dev` then sit side by side, so the dev build can be tried from any directory,
-another project's included, where `vc-x1 run --profile dev` would run that project's dev build
-instead. The report, the refusals, the copy, the list, `--dry-run`, and `--dir` are
-[install](#install)'s, the binary being the profile's. The old `install-dev` and `install --dev`
-are refused, naming `install --profile dev`.
-
-```
-# Mid-cycle: put the rung's code on the PATH as vc-x1-dev, and try it in another project
-vc-x1 install --profile dev
-cd ../other-project
-vc-x1-dev status
-```
-
-A soak, a release candidate installed under another name for a period of use beside the landed
-binary, is just another profile, here the release build installed as `vc-x1-rc`:
-
-```toml
-[profile.rc]
-cargo = "release"
-bin = "target/release/vc-x1"
-suffix = "-rc"
-```
-
-```
-# Install the cycle's release build as vc-x1-rc, leaving the landed vc-x1 in place
-vc-x1 install --profile rc
-```
-
-### run
-
-Build the chosen profile, then run its binary with the given arguments, as `cargo run` builds
-before it runs. The profile is chosen as [build](#build)'s is: `vc-x1 run` runs `[build] commands`
-exactly as `build` does for the release, then the release's `bin`, and `vc-x1 run --profile dev`
-builds the dev profile, then runs `target/debug/vc-x1`, so what runs is always the current code.
-It does not touch the PATH, so a build is tried before [install](#install) copies it. `--profile`
-comes before the arguments, which are the binary's, and the old `run-dev` and `run --dev` are
-refused, naming `run --profile dev`.
-
-- The arguments go to the binary untouched. One that starts with `-` comes after `--`, as with
-  `cargo run`, since vc-x1's own flags are read first: `vc-x1 run -V` prints vc-x1's banner,
-  and `vc-x1 run -- -V` runs the release's `-V`.
-- The binary runs in the current directory, with the terminal, and its exit code is vc-x1's, so
-  a failing run fails the same way.
-- Before it runs, its `-V` is read, and a version other than the manifest's is a warning naming
-  the profile's `bin`: the build passed but left an older binary where the config says. A binary
-  whose `-V` prints no version, another project's, is run without the check.
-- `--dry-run` prints the build's list and the command, and runs nothing.
-- Completion is the binary's own: `vc-x1 run --profile dev <words><TAB>` asks the dev build, in
-  clap's completion mode, to complete `<words>`, so in iiac-perf
-  `vc-x1 run --profile dev run <TAB>` offers its benches. The binary is asked as it stands, never
-  built, and one that is not there, or answers nothing, offers nothing. A binary built with clap's
-  dynamic completion answers; another offers nothing.
-
-```
-# The smoke check before install: build the release and print its version
-vc-x1 run -- -V
-
-# Try the rung's code: build the dev build and run its status
-vc-x1 run --profile dev status -s b
-
-# See what would run
-vc-x1 run --profile dev --dry-run status -s b
-```
-
-| Option | Description |
-|--------|-------------|
-| `--profile <NAME>` | Build and run the profile `NAME`, given before the arguments [default: `[build] default-profile`, else release] |
-| `--dry-run` | Print the build's list and the command, and run nothing |
-| `-R, --repo <DIR>` | Workspace to run from [default: the one containing the current directory] |
-| `[ARGS]...` | Arguments for the binary, after `--` when the first starts with `-` |
-
-### validate-agent
+### check agent
 
 Check the agent repo is in its expected at-rest state: `main` matching `main@origin`, with its remote
 refs tracked. At rest the two always match, because the bookmark only moves inside a `push` /
@@ -1171,10 +912,10 @@ finding and fixes nothing. Resolve with `vc-x1 squash-push -s a`.
 
 ```
 # Check ./.claude (run from the project root)
-vc-x1 validate-agent
+vc-x1 check agent
 
 # Explicit bot-repo path
-vc-x1 validate-agent -R path/to/.claude
+vc-x1 check agent -R path/to/.claude
 ```
 
 | Flag | Description |
@@ -1184,6 +925,22 @@ vc-x1 validate-agent -R path/to/.claude
 `vc-x1 squash-push` reports the condition and proceeds, since publishing is its job. `vc-x1 push` no
 longer checks it: a bot repo that hasn't been squash-pushed yet isn't a broken state, and the next
 push publishes it anyway.
+
+### Deprecated: the task commands
+
+`validate`, `build`, `run`, and `install` ran the work's tasks from `.vc-config.md`'s `[validate]`,
+`[build]`, `[install]`, and `[profile.*]` tables. The tasks are the project's own since 0.85.25,
+`cargo xtask <task>` in a Rust workspace with xtask, else what its [CONTRIBUTING.md >
+## Tasks](CONTRIBUTING.md#tasks) names. Each command still runs, hidden from `vc-x1 -h`, and
+warns first:
+
+```text
+warn: Deprecated `vc-x1 build`: use `cargo xtask build` or `cx build` instead
+```
+
+`vc-x1 check config` warns once for each of the four tables a config still holds, never failing on
+it, and a later release refuses the commands and the tables, once every member of the family has
+moved ([Workspace config tables](#workspace-config-tables)).
 
 ### config
 
@@ -1198,7 +955,7 @@ from what the code actually reads.
 - `[TARGET]`: `work`, `agent`, `work,agent` (default), or an explicit config-file path.
   - a keyword resolves against the surrounding workspace's config files and filters to that
     side's keys: `agent` prints the `[agent-session]` and `[repos]` keys the agent repo's config
-    may hold, `work` adds `[family]` and `[validate]`, and `work,agent` prints both sides, one
+    may hold, `work` adds `[family]` and `[xtask]`, and `work,agent` prints both sides, one
     block each, under a header naming the file it resolved to
   - anything else is taken as a path to a config file. A path carries no side information, so
     in print mode it gets the whole schema for every home (the user-tier keys included) with the
@@ -1206,8 +963,8 @@ from what the code actually reads.
     has no keyword and is reached only this way
   - the old `bot` keywords are rejected with the `agent` spelling as the fix-it (0.80.0)
 
-Checking a config file against the schema is [`validate-config`](#validate-config), a separate
-subcommand since 0.80.6. `config` prints, `validate-config` checks, and the two take the same
+Checking a config file against the schema is [`check config`](#check-config), a separate
+subcommand since 0.80.6. `config` prints, `check config` checks, and the two take the same
 `[TARGET]`.
 
 A short sample of the printed schema (workspace home):
@@ -1252,8 +1009,8 @@ vc-x1 config -s work
 # keyword, reach it by path)
 vc-x1 config --file ~/.config/vc-x1/config.toml
 
-# Check a config file: see validate-config
-vc-x1 validate-config
+# Check a config file: see check config
+vc-x1 check config
 ```
 
 | Flag | Description |
@@ -1262,9 +1019,9 @@ vc-x1 validate-config
 | `--file <PATH>` | A config file by path, the user config's one spelling, exclusive with `-s` |
 
 The old `[TARGET]` positional is refused, naming `-s` for a side keyword and `--file` for a path.
-`validate-config` takes the same two flags.
+`check config` takes the same two flags.
 
-### validate-config
+### check config
 
 Check the workspace's config files. `config` prints the schema, and this checks a file against it,
 which is why the two are separate subcommands. Four checks:
@@ -1281,22 +1038,22 @@ which is why the two are separate subcommands. Four checks:
 
 ```
 # Both sides of the surrounding workspace
-vc-x1 validate-config
+vc-x1 check config
 
 # One side, or one explicit file
-vc-x1 validate-config -s work
-vc-x1 validate-config --file ../other/.vc-config.md
+vc-x1 check config -s work
+vc-x1 check config --file ../other/.vc-config.md
 
 # -v adds per-file counts, -vv a line per site (every key, every
 # link, every required key, with how each resolved)
-vc-x1 -vv validate-config
+vc-x1 -vv check config
 ```
 
 The summary counts what was checked, so a pass says how much it covered rather than only that it
 passed:
 
 ```
-validate-config: 2 file(s), 9 key(s) and 18 link(s) checked, 2 required key(s), 0 problem(s) found
+check config: 2 file(s), 9 key(s) and 18 link(s) checked, 2 required key(s), 0 problem(s) found
 ```
 
 This is an opt-in strict check, since a normal config load ignores unknown keys for
@@ -1358,8 +1115,7 @@ default = 68
 
 ### Workspace config tables
 
-A work-side `.vc-config.md` holds up to eight tables, and a `[profile.<name>]` table per build
-profile:
+A work-side `.vc-config.md` holds these tables, each optional but `[repos]`:
 
 - `[repos]`: the two repos' local paths, written by `init`. The one table the agent repo's config
   carries too.
@@ -1371,23 +1127,16 @@ profile:
     appended to the work repo's name (`.claude` gives `<name>.claude`), any other is used whole.
 - `[family]` (0.80.0): the agent-file family this repo belongs to, which was prose in the project
   layer before.
-- `[validate]` (0.80.0): the commands that validate this repo, also prose in the project layer
-  before.
-- `[build]` (0.85.7): `commands`, the build for every profile, and `default-profile`, the profile
-  `build`, `run`, and `install` use when `--profile` is left out, else `release`
-  ([Build and install](#build-and-install)).
-- `[install]` (0.85.7): `dir`, where `install` copies every profile's binary, `~` expanded, and
-  `commands`, an optional list run in place of the copy.
-- `[profile.<name>]` (0.85.15): one table per profile `--profile` chooses among, its `cargo`, the
-  `Cargo.toml` profile, or `flags`, its `bin`, required, its `suffix`, and any other property the
-  lists fill as `{profile.<property>}`. The nine per-build keys before them, `[build]` `release`,
-  `dev`, `release-bin`, and `dev-bin` and `[install]` `release`, `dev`, `release-dir`, `dev-dir`,
-  and `dev-suffix`, are retired: `validate-config` reports each with its replacement, and the
-  commands refuse a config still on the old form, naming the profile form.
+- `[validate]` (0.80.0), `[build]` and `[install]` (0.85.7), and `[profile.<name>]` (0.85.15): the
+  work's validation, build, and install, which vc-x1's `validate`, `build`, `run`, and `install`
+  ran. Deprecated since 0.85.25, the tasks being the project's own `cargo xtask`: `check config`
+  warns once for each table a config holds, never failing on it, and a later release refuses them
+  ([Deprecated: the task commands](#deprecated-the-task-commands)).
 - `[agent-files.diff]` and `[agent-files.copy]` (0.83.0): the defaults for the `agent-files`
   commands' `DIR` operand and `--custom` choice.
+- `[xtask]` (0.85.25): `dir`, the default `--from` for `xtask copy` and `diff` ([xtask](#xtask)).
 
-All but `[repos]` are work side only: `validate-config` reports them unknown in the agent repo's
+All but `[repos]` are work side only: `check config` reports them unknown in the agent repo's
 config.
 
 ````markdown
@@ -1410,42 +1159,6 @@ messages = "../vc-x1-messages"    # the family's notification repo
 ```
 
 ```toml
-[validate]
-full = [                          # the per-commit validation, in order, one command per element
-  "cargo fmt",
-  "cargo clippy --all-targets -- -D warnings",
-  "cargo test",
-]
-fast = ["cargo test --bins"]      # the subset a ladder rung runs
-```
-
-```toml
-[build]
-commands = ["cargo build --profile {profile.cargo} --locked"]  # the build for every profile
-default-profile = "release"       # used when --profile is left out, release when absent
-```
-
-```toml
-[install]
-dir = "~/.cargo/bin"              # where install copies every profile's binary
-commands = [                      # the install, the copy written out
-  "cp {profile.bin} {install.dir}/vc-x1{profile.suffix}.new",
-  "mv {install.dir}/vc-x1{profile.suffix}.new {install.dir}/vc-x1{profile.suffix}",
-]
-```
-
-```toml
-[profile.release]
-cargo = "release"                 # the Cargo.toml profile, filled as {profile.cargo}
-bin = "target/release/vc-x1"      # its binary, run by run, copied by install
-
-[profile.dev]
-cargo = "dev"
-bin = "target/debug/vc-x1"
-suffix = "-dev"                   # installed as vc-x1-dev, beside vc-x1
-```
-
-```toml
 [agent-files.diff]
 dir = "../iiac-perf"              # default DIR for agent-files diff, else family.template
 custom = true                     # compare custom.md too, as -c/--custom would
@@ -1454,26 +1167,28 @@ custom = true                     # compare custom.md too, as -c/--custom would
 dir = "../vc-x1-template/work"    # default DIR for agent-files copy, else family.template
 custom = false                    # never copy custom.md unless -c/--custom
 ```
+
+```toml
+[xtask]
+dir = "../vc-x1"                  # default --from for xtask copy and diff
+```
 ````
 
-The `custom` keys are `bool` keys, a bare `true` or `false`: `validate-config` reports a quoted
+The `custom` keys are `bool` keys, a bare `true` or `false`: `check config` reports a quoted
 or other value as a finding by shape, and the commands refuse a config that holds one. A `dir`
 is relative to the config file's directory, and absent, the command falls back to
 `family.template`. The flags win over the table for one run: `-c`/`--custom` turns custom.md
 on, `--no-custom` turns it off, and a `DIR` operand replaces `dir`.
 
-The `[validate]` lists are `str-list` keys: a TOML array of strings, one element per invocation,
-on one line or spread to the closing `]`. Each element is one command whose exit status is
-checked, so a command with its own spaces and dashes is one quoted string.
-[`vc-x1 validate`](#validate) (and `--fast`) runs them, `validate-config` checks the tables'
-keys and shapes, and `config -s work` prints the schema with every key's example:
+`check config` checks the tables' keys and shapes, and `config -s work` prints the schema with
+every key's example:
 
 ```
-vc-x1 validate-config                              # both sides
-vc-x1 validate-config -s work                      # the work side only
-vc-x1 validate-config -s agent                     # the agent side only
-vc-x1 validate-config --file .claude/.vc-config.md # a specific file, checked against every home
-vc-x1 config -s work                    # the work side's schema, [family], [validate], [agent-files.*]
+vc-x1 check config                              # both sides
+vc-x1 check config -s work                      # the work side only
+vc-x1 check config -s agent                     # the agent side only
+vc-x1 check config --file .claude/.vc-config.md # a specific file, checked against every home
+vc-x1 config -s work                    # the work side's schema, [family], [agent-files.*], [xtask]
 vc-x1 config -s agent                   # the agent side's schema
 vc-x1 config --file .claude/.vc-config.md # the whole schema, labelled with the path
 ```
@@ -1948,7 +1663,7 @@ Behavior notes:
   reaches the prompt.
 - With an empty `@` but work still to do, it skips the squash and still pushes.
 - If the bookmark doesn't match `<bookmark>@origin` at start (an earlier publish was lost, see
-  [validate-agent](#validate-agent)), it says so and proceeds: publishing is its job.
+  [check agent](#check-agent)), it says so and proceeds: publishing is its job.
 - As [`push`](#push)'s `squash-push-bot` stage it says nothing and asks nothing. Every line above is
   addressed to a person, and mid-push there is neither a person to read them nor a settled state
   worth describing: the mismatch is normal there, since push's `bookmark-set` just moved the
@@ -2098,7 +1813,7 @@ with the workspace as it was, the first naming the two files a cycle needs. `--n
 `--bookmark` without `--title` get the bookmark alone, a branch that `--commit` and `--close`
 will not take, since they read the cycle from its record. Nothing
 is committed or pushed, and the version is the project's to bump: the tool never writes it. A
-reference definition only `## Closed` cited is left, for `validate-anchors` to name. `-R` is
+reference definition only `## Closed` cited is left, for `check anchors` to name. `-R` is
 optional and says where, a workspace or a plain repo.
 
 `--ladder` makes the ladder in `zTOC.md` from the rung headings of the cycle in progress, the
@@ -2232,18 +1947,19 @@ bookmark at the tip beside the cycle's is kept either way, since it may be one y
 
 Closing and landing as two invocations leaves a pause to test in. A Land only fast-forwards, so
 the destination becomes the closing commit itself, its id and its tree, and the release build of
-the committed source, installed off the PATH by `install --dir`, is the binary that ships:
+the committed source, installed off the PATH by `cargo xtask install --release --dir`, is the
+binary that ships:
 
 ```bash
 vc-x1 cycle --close -s b --multi-step --trapezoid main  # the closing, main unmoved
 mkdir -p tmp/candidate                     # install --dir takes a directory that exists
-vc-x1 install --dir tmp/candidate          # its release build, the plain name, off the PATH
+cargo xtask install --release --dir tmp/candidate  # its release build, the plain name, off the PATH
 tmp/candidate/vc-x1 -V                     # the closing's commit, clean
 # ... the final testing, with tmp/candidate/vc-x1 ...
 tmp/candidate/vc-x1 cycle --land main -s b --dry-run   # the steps it would take
 tmp/candidate/vc-x1 cycle --land main -s b --push      # the tree tested, landed and published
-tmp/candidate/vc-x1 install                # now on main, it installs itself under the plain name
-cmp tmp/candidate/vc-x1 ~/.cargo/bin/vc-x1 # the binary tested is the one installed
+cargo xtask install --release              # now on main, the same build under the plain name
+cmp tmp/candidate/vc-x1 ~/.cargo/bin/vc-x1  # the binary tested is the one installed
 ```
 
 The plain `vc-x1` on the PATH is left to what is on `main` until the Land, so whatever relies on it
@@ -2671,7 +2387,7 @@ Older history keeps its `ocid:` and `pcid:` lines, which named SHAs. Any restamp
 instead.
 
 Earlier forms stay valid: `ochid: /.claude/<id>` and `ochid: /<id>`, where `/` is the workspace root and
-`/.claude` always means the agent repo, and `ochid: <repo-url>#<id>`. `validate-desc` reports a URL form
+`/.claude` always means the agent repo, and `ochid: <repo-url>#<id>`. `check desc` reports a URL form
 naming another repo, and `fix-desc` reports it without rewriting it, since a renamed repo would
 otherwise have all its history rewritten. [`trailers --update`](#trailers) moves commits to today's form.
 
@@ -2941,7 +2657,7 @@ three things, and it pays to know which is which.
 
 - **The ban is config.** `clippy.toml` lists `std::process::Command::new` under
   `disallowed-methods`, and `Cargo.toml` sets that lint to deny, so a bare call anywhere fails
-  `cargo clippy`, which `vc-x1 validate` runs.
+  `cargo clippy`, which `cargo xtask validate` runs.
 - **An exception is an attribute.** Clippy has no way to list permitted sites, so the only grant
   is `#[allow(clippy::disallowed_methods)]` on the call itself, with a comment naming the entry
   it claims. Ten sites carry one today.

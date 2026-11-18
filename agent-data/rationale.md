@@ -176,8 +176,9 @@ lands because its commits are named by agent-repo trailers, and landing keeps ev
 that was a merge or a rewrite in place, moved the record, landed, pushed, and described an older
 commit, and most of the flow's surprises were in how those flags combined. `cycle --open`,
 `--commit`, `--close`, and `--land` take the cycle's acts out of it, flags and not subcommands
-because every `vc-x1` command is `command --options`, and the opening is the first commit, seen
-and not flagged, since `--open` and `--opening` differed by three letters and meant two things.
+because they chain in one invocation, `cycle --close --land main` for one, where a group of
+separate acts, each with its own flags, is a command with subcommands, `check config` and `check
+desc` for two (wink, 2026-11-17). The opening is the first commit, seen and not flagged, since `--open` and `--opening` differed by three letters and meant two things.
 
 **Every cycle has an opening and a closing** (wink, 2026-11-11), and in a single-step cycle the
 closing is squashed into the opening, so there is one flow and the shape picks the commits.
@@ -295,6 +296,16 @@ while another test read it.
 **The work-review stop carries no description** because a description beside the work review
 collapses two stops into one and describes work the review may still change.
 
+**The approving word says what follows the commit** (wink, 2026-11-18) because "continue" and "go"
+were both approval and nothing said whether the next rung began, so an agent read the word as
+leave to go on while the user wanted to stop and look at the commit, the ladder, and the Todos.
+"commit" stops after it, the deliberate pause, and "go" or "continue" carries on, the streamlined
+run, so the user picks the pace at each rung with no extra question.
+
+**The flow names tasks, not commands** (wink, 2026-11-16): validation, the build, and the install
+are the work's, a C project's nothing like a Rust one's, so the agent-files say validate and
+install and `CONTRIBUTING.md`'s Tasks says how, the project's commands its own.
+
 **The `(done)` flip waits for "done" to be true** because before it the user may still reject or
 reshape the work the marker would claim.
 
@@ -340,6 +351,14 @@ No version in title or body because a version is stable only once it lands, and 
 can renumber it. No file list because the diff is the mechanical record. No deliberation because the
 cycle-record, todo, and the session the `ochid:` trailer names hold that, each reachable from the
 commit by construction.
+
+**The pointer is the heading's own line** (wink, 2026-11-18, from zc-ring-x1) because `TODO.md`
+is long, and a line number goes stale at its next edit and an anchor gains a suffix when a heading
+repeats, where the heading's text is found by a search at any commit, the block in `## In
+Progress` or `## Closed`. On a line of its own, unquoted and unwrapped, it is copied whole and
+searched as is, and its `#`s land the search on the heading, not the ladder or the title, which
+repeat its words. A message reworded through git's editor loses it, since git strips a line opening
+with `#` there, where jj keeps it.
 
 No top-level `-` and a pointer body for bookends because the earlier form was read wrong by its own
 author twice in one day (2026-08-22): an opening's body restated the cycle's problem and then hung
