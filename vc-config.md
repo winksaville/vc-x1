@@ -363,6 +363,21 @@ used-by = "agent-files copy --custom"
 default = false
 ```
 
+## xtask.dir
+
+The directory `vc-x1 xtask copy` and `xtask diff` take `xtask/` from when no `--from` is given: a
+directory holding `xtask/`, an adopter's work repo, relative to the config file's directory. Absent,
+the commands need `--from`.
+
+```toml
+[xtask.dir]
+homes = ["workspace-code"]
+kind = "str"
+doc = "Default --from for xtask copy and diff: a directory holding xtask/"
+used-by = "xtask copy, xtask diff"
+example = "../vc-x1"
+```
+
 ## squash-push.yes
 
 Whether `vc-x1 squash-push` acts without asking once its precheck has found work. True is today's
@@ -381,6 +396,10 @@ default = true
 ```
 
 ## validate.full
+
+Deprecated at 0.85.25, with the rest of `[validate]`: the project's own task replaces it, `cargo
+xtask validate`, its lists in `Cargo.toml`'s `[workspace.metadata.xtask]` in a workspace with xtask,
+`vc-x1 check config` warns of it, and a later release refuses it.
 
 The full validation: the commands the per-commit checklist runs before a push, in order, each
 element one invocation whose exit status is checked, stopping at the first failure. Owned by the
@@ -411,6 +430,9 @@ example = ["cargo test --bins"]
 ```
 
 ## build.commands
+
+Deprecated at 0.85.25, with the rest of `[build]`: the project's own task replaces it, `cargo xtask
+build` in a workspace with xtask, `vc-x1 check config` warns of it, and a later release refuses it.
 
 The build, for every profile: the commands that build the chosen profile, in order, each element
 one invocation whose exit status is checked, `{profile.<property>}` filled from the profile
@@ -450,6 +472,10 @@ default = "release"
 
 ## install.dir
 
+Deprecated at 0.85.25, with the rest of `[install]`: the project's own task replaces it, `cargo
+xtask install` in a workspace with xtask, `vc-x1 check config` warns of it, and a later release
+refuses it.
+
 The one directory `vc-x1 install` copies the chosen profile's binary into, `~` expanded, so the
 committed value fits every machine, and `--dir` replaces it for one run. `$PATH` is not searched.
 Filled as `{install.dir}` in [install.commands](#installcommands).
@@ -483,6 +509,10 @@ example = ["cp {profile.bin} {install.dir}/vc-x1{profile.suffix}.new", "mv {inst
 ```
 
 ## profile.\<name\>.cargo
+
+Deprecated at 0.85.25, with the rest of `[profile.*]`: the project's own task replaces it, Cargo's
+own `[profile.<name>]` in `Cargo.toml`, chosen by `cargo xtask build --profile NAME` in a workspace
+with xtask, `vc-x1 check config` warns of it, and a later release refuses it.
 
 The profile in `Cargo.toml` this profile builds, `dev`, `release`, or any custom one, filled as
 `{profile.cargo}`, the encouraged form of [build.commands](#buildcommands). A profile is a
@@ -594,7 +624,8 @@ example = "version = "
 
 The body `vc-x1 cycle --commit` writes on a cycle's opening commit, its first, when `--body` is
 left out, `{title}` filled with the cycle title read from `TODO.md`. Absent, the body names the
-cycle and points at its record. Owned by the work side because the cycle's commits are the work
+cycle. Either way the pointer to its record follows, a paragraph of its own, `See details in
+TODO.md:` and the cycle's heading. Owned by the work side because the cycle's commits are the work
 repo's.
 
 ```toml
@@ -603,14 +634,15 @@ homes = ["workspace-code"]
 kind = "str"
 doc = "The opening commit's default body, `{title}` the cycle title"
 used-by = "vc-x1 cycle --commit"
-example = "Opens the cycle {title}. See details in TODO.md."
+example = "Opens the cycle {title}."
 ```
 
 ## closing.body
 
 The body `vc-x1 cycle --close` writes on a ladder's closing commit when `--body` is left out,
-`{title}` filled with the cycle title read from `TODO.md`. Absent, the body names the cycle and
-points at its record. A single-step cycle's one commit holds the work, so it gives `--body`, and
+`{title}` filled with the cycle title read from `TODO.md`. Absent, the body names the cycle. Either
+way the pointer to its record follows, a paragraph of its own, `See details in TODO.md:` and the
+cycle's heading. A single-step cycle's one commit holds the work, so it gives `--body`, and
 gets this one only by `--default-body`. Owned by the work side because the cycle's commits are the
 work repo's.
 
@@ -620,7 +652,7 @@ homes = ["workspace-code"]
 kind = "str"
 doc = "The closing commit's default body, `{title}` the cycle title"
 used-by = "vc-x1 cycle --close"
-example = "Closes the cycle {title}. See details in TODO.md."
+example = "Closes the cycle {title}."
 ```
 
 ## test.fixtures

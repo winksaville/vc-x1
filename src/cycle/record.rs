@@ -12,8 +12,8 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::check::anchors::anchor_slug;
 use crate::commit::{NONE_IN_PROGRESS, RECORD, section};
-use crate::validate_anchors::anchor_slug;
 
 /// The ladder's file, beside the record.
 pub(crate) const LADDER_FILE: &str = "zTOC.md";

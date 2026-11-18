@@ -37,7 +37,7 @@ use crate::jj::session::home_dir;
 /// The full commit id this binary was built from, `None` for a build
 /// with no git checkout to read, a source package's.
 ///
-/// `build.rs` takes it from `VC_X1_BUILD_COMMIT`, which `vc-x1 build`,
+/// `build.rs` takes it from `XTASK_BUILD_COMMIT`, which `vc-x1 build`,
 /// for every profile, and `validate` pass, else from git's `HEAD`, and
 /// reruns when either changes.
 pub fn build_commit() -> Option<&'static str> {

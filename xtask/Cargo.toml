@@ -1,19 +1,29 @@
 [package]
 name = "xtask"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2024"
 publish = false
 
-# The project's own tasks, run by `cargo xtask <task>`, the alias in
-# `.cargo/config.toml`. Outside `vc-x1`, which knows nothing of the
-# work: the version and its bump are the project's.
+# The workspace's own tasks, run by `cargo xtask <task>`, the alias in
+# `.cargo/config.toml`. Its code names nothing of the workspace, whose
+# facts are its root Cargo.toml's, so this directory copies verbatim
+# into any Rust workspace, by `vc-x1 xtask copy`.
+#
+# The version is xtask's own, never the workspace's: written here and
+# never `version.workspace = true`, so the workspace's bump leaves it,
+# and raised whenever a file in `xtask/` changes, so a copy can tell a
+# newer xtask from an older one and from a local change.
 
 [dependencies]
-# The argument parser and its completion engine, at the versions
-# `vc-x1` uses, so `cargo xtask <tab>` asks this binary for its tasks.
-clap = { version = "4.6", features = ["derive", "wrap_help"] }
+# The argument parser and its completion engine, so `cargo xtask <tab>`
+# asks this binary for its tasks, `string` so a declared task's name,
+# read at run time, names a subcommand.
+clap = { version = "4.6", features = ["derive", "wrap_help", "string"] }
 clap_complete = { version = "4.6", features = ["unstable-dynamic"] }
 # The crate cargo's own `cargo add` edits a manifest with: it keeps
 # the comments, the layout, and the key order, and changes the one
-# value. At the version jj-lib already brings into the lock file.
+# value.
 toml_edit = "0.25"
+# `cargo metadata`'s JSON: the target directory, the binaries, and the
+# workspace's `[workspace.metadata.xtask]`.
+serde_json = "1"

@@ -64,6 +64,15 @@ pub fn vc_x1() -> Command {
     Command::new(env!(concat!("CARGO_BIN_EXE_", env!("CARGO_PKG_NAME"))))
 }
 
+/// Build a `Command` invoking the cargo running the tests, for a test
+/// that builds a scratch workspace, `CARGO` naming it.
+pub fn cargo() -> Command {
+    // Register entry 4 (clippy.toml): a test helper, here building
+    // a scratch workspace that `vc-x1 xtask copy` made.
+    #[allow(clippy::disallowed_methods)]
+    Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into())) // OK: outside cargo, the PATH's
+}
+
 /// Run `cmd`, panicking with stdout/stderr if it does not exit 0.
 pub fn run_ok(cmd: &mut Command) -> Output {
     let out = cmd.output().expect("spawn vc-x1");

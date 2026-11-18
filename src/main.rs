@@ -1,6 +1,7 @@
 mod agent_files;
 mod bot_session;
 mod build_cmd;
+mod check;
 mod chid;
 mod clone;
 mod command_list;
@@ -13,6 +14,7 @@ mod config_schema;
 mod context;
 mod cycle;
 mod delete_bookmark;
+mod deprecated;
 mod desc;
 mod desc_helpers;
 mod fix_desc;
@@ -53,12 +55,8 @@ mod trailers;
 mod transcript;
 mod url;
 mod validate;
-mod validate_anchors;
-mod validate_bot;
-mod validate_config;
-mod validate_desc;
-mod validate_todo;
 mod version;
+mod xtask_cmd;
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -203,6 +201,9 @@ pub(crate) enum Commands {
     #[command(name = "agent-files")]
     AgentFiles(agent_files::AgentFilesArgs),
 
+    /// A project's xtask/: copy it into a Rust workspace, or bring it up to date
+    Xtask(xtask_cmd::XtaskArgs),
+
     /// Print vc-x1, jj-lib, and jj-data versions
     #[command(
         long_about = "Print every version that describes this run: vc-x1's own,\n\
@@ -284,19 +285,28 @@ pub(crate) enum Commands {
         rest: Vec<String>,
     },
 
-    /// Run the workspace's configured validation commands
-    #[command(long_about = "Run the workspace's configured validation commands.\n\n\
+    /// Deprecated, now `cargo xtask validate`: run the configured validation commands
+    #[command(
+        hide = true,
+        long_about = "Run the workspace's configured validation commands.\n\n\
+        Deprecated at 0.85.25: the project's own task replaces it, `cargo xtask validate`\n\
+        in a workspace with xtask, and a later release refuses it.\n\n\
         Reads `[validate] full` (or `fast` with --fast) from the work\n\
         side's config and runs each element as one command, in order,\n\
         from the work repo root, printing each before it runs. The\n\
         first failure stops the run, naming the command and its exit\n\
         status, and the subcommand exits non-zero. An empty or missing\n\
         table is an error, not a pass. See `vc-x1 config -s work` for the\n\
-        table's shape.")]
+        table's shape."
+    )]
     Validate(validate::ValidateArgs),
 
-    /// Build the chosen profile, off the PATH
-    #[command(long_about = "Build the chosen profile, off the PATH.\n\n\
+    /// Deprecated, now `cargo xtask build`: build the chosen profile, off the PATH
+    #[command(
+        hide = true,
+        long_about = "Build the chosen profile, off the PATH.\n\n\
+        Deprecated at 0.85.25: the project's own task replaces it, `cargo xtask build`\n\
+        in a workspace with xtask, and a later release refuses it.\n\n\
         A profile is a `[profile.<NAME>]` table, chosen by --profile NAME,\n\
         else `[build] default-profile`, else release. Runs `[build] commands`\n\
         from the work repo root, here\n\
@@ -305,8 +315,8 @@ pub(crate) enum Commands {
         such as {profile.flags}, filling a word per item, and checks it left\n\
         the profile's `bin`, the binary the config says the build leaves.\n\
         The commands see the commit `@-` and the state of the source code,\n\
-        clean when `@` was empty and dirty when not, as VC_X1_BUILD_COMMIT\n\
-        and VC_X1_BUILD_STATE, as validate's do, so vc-x1's\n\
+        clean when `@` was empty and dirty when not, as XTASK_BUILD_COMMIT\n\
+        and XTASK_BUILD_STATE, as validate's do, so vc-x1's\n\
         own banner carries the commit. Cargo decides what to rebuild, so a\n\
         build with nothing changed is quick. A build is run by `vc-x1 run`\n\
         and copied into the install directory by `vc-x1 install`, which run\n\
@@ -319,17 +329,21 @@ pub(crate) enum Commands {
         --profile dev builds this workspace's dev profile, leaving\n\
         `target/debug/vc-x1`. After a validation it reuses the test build,\n\
         so it takes under a second. The old `build-dev` and `build --dev`\n\
-        are refused, naming `build --profile dev`.")]
+        are refused, naming `build --profile dev`."
+    )]
     Build(build_cmd::BuildArgs),
 
     /// Retired: `build-dev`, now `build --profile dev`, refused naming it
     #[command(hide = true)]
     BuildDev(build_cmd::BuildDevArgs),
 
-    /// Build the chosen profile if out of date, then copy it into the install directory
+    /// Deprecated, now `cargo xtask install`: build, then copy into the install directory
     #[command(
+        hide = true,
         long_about = "Build the chosen profile if out of date, then copy it into the install\n\
         directory.\n\n\
+        Deprecated at 0.85.25: the project's own task replaces it, `cargo xtask install`\n\
+        in a workspace with xtask, and a later release refuses it.\n\n\
         The profile is --profile NAME, else `[build] default-profile`, else\n\
         release. It first runs `[build] commands`, exactly as `vc-x1 build`\n\
         does. Cargo rebuilds only what changed, so with nothing changed\n\
@@ -369,9 +383,12 @@ pub(crate) enum Commands {
     #[command(hide = true)]
     InstallDev(install_cmd::InstallDevArgs),
 
-    /// Build the chosen profile, then run it with the given arguments
+    /// Deprecated, now `cargo xtask run`: build the chosen profile, then run it
     #[command(
+        hide = true,
         long_about = "Build the chosen profile, then run it with the given arguments.\n\n\
+        Deprecated at 0.85.25: the project's own task replaces it, `cargo xtask run`\n\
+        in a workspace with xtask, and a later release refuses it.\n\n\
         The profile is --profile NAME, given before the arguments, else\n\
         `[build] default-profile`, else release. It first runs\n\
         `[build] commands`, exactly as `vc-x1 build` does, then runs the\n\
@@ -395,41 +412,48 @@ pub(crate) enum Commands {
     #[command(hide = true)]
     RunDev(run_cmd::RunDevArgs),
 
-    /// Check the agent repo is published (main matches main@origin)
+    /// Check the workspace: its config, records, descriptions, and agent repo
     #[command(
-        name = "validate-agent",
-        long_about = "Check the agent repo is published (main matches main@origin).\n\n\
-        At rest the agent repo's `main` always matches `main@origin`: the\n\
-        bookmark only moves inside a push / squash-push run, which\n\
-        publishes it in the same invocation. A mismatch means an earlier\n\
-        publish was lost. Read-only and cheap (two jj lookups; no cargo\n\
-        steps); also verifies main's remote refs are tracked. Exits\n\
-        non-zero on any finding and fixes nothing: resolve with\n\
-        `vc-x1 squash-push -s a`."
+        long_about = "Check the workspace, read-only, exiting non-zero on a finding.\n\n\
+        `check config` its config files, `check anchors` a markdown file's\n\
+        own links, `check todo` a todo file's numbering, `check desc` the\n\
+        commit descriptions' trailers, and `check agent` that the agent\n\
+        repo is published. They were `validate-config`, `validate-anchors`,\n\
+        `validate-todo`, `validate-desc`, and `validate-agent` before\n\
+        0.85.25, names that still run, deprecated, each warning with its\n\
+        check, and a later release refuses."
     )]
-    ValidateBot(validate_bot::ValidateBotArgs),
+    Check(check::CheckArgs),
 
-    /// Rejected pre-0.80.0 name of `validate-agent`: prints the fix-it
-    /// and exits non-zero, for any flags.
-    #[command(name = "validate-bot", hide = true, disable_help_flag = true)]
-    ValidateBotOld {
-        /// Swallowed so the fix-it shows for any invocation.
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true, num_args = 0..)]
-        rest: Vec<String>,
-    },
+    /// Deprecated: `validate-agent`, now `check agent`, run with a
+    /// warning naming it
+    #[command(name = "validate-agent", hide = true)]
+    ValidateAgentDeprecated(check::agent::CheckAgentArgs),
 
-    /// Validate commit descriptions against the other repo
-    #[command(
-        long_about = "Validate commit descriptions against the other repo.\n\n\
-        Output columns: STATUS  CHANGEID  TITLE  [DETAILS]\n\n\
-        Status labels:\n  \
-          ok   : ochid trailer is valid\n  \
-          err  : ochid has issues (wrong prefix, wrong length, ID not found), or\n         \
-          an orepo names the wrong repo\n  \
-          note : ok, with something worth saying, an agent commit not yet pushed\n  \
-          miss : no ochid trailer; shows match from other repo if found"
-    )]
-    ValidateDesc(validate_desc::ValidateDescArgs),
+    /// Retired: `validate-bot`, the pre-0.80.0 `validate-agent`, refused
+    /// naming `check agent`
+    #[command(name = "validate-bot", hide = true)]
+    ValidateBotOld(check::RetiredArgs),
+
+    /// Deprecated: `validate-desc`, now `check desc`, run with a
+    /// warning naming it
+    #[command(name = "validate-desc", hide = true)]
+    ValidateDescDeprecated(check::desc::CheckDescArgs),
+
+    /// Deprecated: `validate-config`, now `check config`, run with a
+    /// warning naming it
+    #[command(name = "validate-config", hide = true)]
+    ValidateConfigDeprecated(check::config::CheckConfigArgs),
+
+    /// Deprecated: `validate-anchors`, now `check anchors`, run with a
+    /// warning naming it
+    #[command(name = "validate-anchors", hide = true)]
+    ValidateAnchorsDeprecated(check::anchors::CheckAnchorsArgs),
+
+    /// Deprecated: `validate-todo`, now `check todo`, run with a
+    /// warning naming it
+    #[command(name = "validate-todo", hide = true)]
+    ValidateTodoDeprecated(check::todo::CheckTodoArgs),
 
     /// Fix commit descriptions against the other repo (dry-run by default)
     #[command(long_about = "Fix commit descriptions against the other repo.\n\n\
@@ -444,35 +468,6 @@ pub(crate) enum Commands {
           skip  : skipped (no ochid, no match, or max-fixes reached)\n  \
           err   : ID not found and no --fallback provided")]
     FixDesc(fix_desc::FixDescArgs),
-
-    /// Check the workspace's config files
-    #[command(long_about = "Check a workspace's config files.\n\n\
-        Verifies every key is one the schema declares for that side,\n\
-        the legacy schema is rejected, a dual workspace's two [repos]\n\
-        registries agree, the file's own links resolve, and a side's\n\
-        config carries `repos.work`. Read-only; exits non-zero when\n\
-        anything is found. Was `config --validate` before 0.80.6.")]
-    ValidateConfig(validate_config::ValidateConfigArgs),
-
-    /// Check a markdown record's own anchors and references
-    #[command(long_about = "Check a markdown file's same-file links.\n\n\
-        Verifies every `](#slug)` link and `[N]: #slug` definition\n\
-        resolves to a heading in the same file, every `[[N]]` citation\n\
-        has a definition and every definition is cited, and no two\n\
-        headings slug to one anchor. Cross-file targets are skipped.\n\
-        Read-only; exits non-zero when anything is found. With no\n\
-        FILE, checks every `.md` in the workspace.")]
-    ValidateAnchors(validate_anchors::ValidateAnchorsArgs),
-
-    /// Check todo-file entry numbering and indent
-    #[command(
-        long_about = "Check a todo file's `## Todo` and `## Bugs` entry numbering.\n\n\
-        Verifies each section is numbered 1..N in document order and\n\
-        that continuation-line indent matches the number-prefix width.\n\
-        Read-only; exits non-zero if any entry needs fixing: use\n\
-        `fix-todo` to rewrite."
-    )]
-    ValidateTodo(validate_todo::ValidateTodoArgs),
 
     /// Renumber todo-file entries (dry-run by default)
     #[command(
@@ -916,6 +911,12 @@ fn bm_track_one(repo: &Path, bookmark: &str, remote: &str) -> Result<bool, Strin
     jj::has_tracked_remote(repo, bookmark, remote).map_err(|e| e.to_string())
 }
 
+/// Refuse a retired command name, `fixit` saying what replaced it.
+fn retired(fixit: String) -> ExitCode {
+    error!("{fixit}");
+    ExitCode::FAILURE
+}
+
 fn main() -> ExitCode {
     run_cmd::forward_completion();
     CompleteEnv::with_factory(cli_with_banner).complete();
@@ -1017,6 +1018,9 @@ fn main() -> ExitCode {
     // Reads a directory listing, never a repo, and must answer in a
     // plain old repo too, so it runs after the gate and before
     // `Context::load`.
+    if let Commands::Xtask(args) = &cmd {
+        return args.run();
+    }
     if let Commands::AgentFiles(args) = &cmd {
         return args.run();
     }
@@ -1031,7 +1035,7 @@ fn main() -> ExitCode {
 
     match cmd {
         // Handled above, before `Context::load`.
-        Commands::Version | Commands::AgentFiles(_) => ExitCode::SUCCESS,
+        Commands::Version | Commands::AgentFiles(_) | Commands::Xtask(_) => ExitCode::SUCCESS,
         Commands::Chid(args) => args.dispatch(&mut ctx),
         Commands::Desc(args) => args.dispatch(&mut ctx),
         Commands::List(args) => args.dispatch(&mut ctx),
@@ -1046,26 +1050,48 @@ fn main() -> ExitCode {
             );
             ExitCode::FAILURE
         }
-        Commands::Validate(args) => args.dispatch(&mut ctx),
-        Commands::Build(args) => args.dispatch(&mut ctx),
-        Commands::BuildDev(args) => args.dispatch(&mut ctx),
-        Commands::Install(args) => args.dispatch(&mut ctx),
-        Commands::InstallDev(args) => args.dispatch(&mut ctx),
-        Commands::Run(args) => run_cmd::dispatch(run_cmd::RunParams::try_from(&args)),
-        Commands::RunDev(args) => run_cmd::dispatch(run_cmd::RunParams::try_from(&args)),
-        Commands::ValidateBot(args) => args.dispatch(&mut ctx),
-        Commands::ValidateBotOld { .. } => {
-            error!(
-                "validate-bot: pre-0.80.0 name. The agent side is `agent`, so the \
-                 subcommand is `validate-agent` (same flags)."
-            );
-            ExitCode::FAILURE
+        Commands::Validate(args) => {
+            deprecated::warn_task("validate");
+            args.dispatch(&mut ctx)
         }
-        Commands::ValidateDesc(args) => args.dispatch(&mut ctx),
+        Commands::Build(args) => {
+            deprecated::warn_task("build");
+            args.dispatch(&mut ctx)
+        }
+        Commands::BuildDev(args) => args.dispatch(&mut ctx),
+        Commands::Install(args) => {
+            deprecated::warn_task("install");
+            args.dispatch(&mut ctx)
+        }
+        Commands::InstallDev(args) => args.dispatch(&mut ctx),
+        Commands::Run(args) => {
+            deprecated::warn_task("run");
+            run_cmd::dispatch(run_cmd::RunParams::try_from(&args))
+        }
+        Commands::RunDev(args) => run_cmd::dispatch(run_cmd::RunParams::try_from(&args)),
+        Commands::Check(args) => args.dispatch(&mut ctx),
+        Commands::ValidateBotOld(_) => retired(check::retired_name("validate-bot", "agent")),
+        Commands::ValidateAgentDeprecated(args) => {
+            check::deprecated_name("validate-agent", "agent");
+            args.dispatch(&mut ctx)
+        }
+        Commands::ValidateDescDeprecated(args) => {
+            check::deprecated_name("validate-desc", "desc");
+            args.dispatch(&mut ctx)
+        }
+        Commands::ValidateConfigDeprecated(args) => {
+            check::deprecated_name("validate-config", "config");
+            args.dispatch(&mut ctx)
+        }
+        Commands::ValidateAnchorsDeprecated(args) => {
+            check::deprecated_name("validate-anchors", "anchors");
+            args.dispatch(&mut ctx)
+        }
+        Commands::ValidateTodoDeprecated(args) => {
+            check::deprecated_name("validate-todo", "todo");
+            args.dispatch(&mut ctx)
+        }
         Commands::FixDesc(args) => args.dispatch(&mut ctx),
-        Commands::ValidateConfig(args) => args.dispatch(&mut ctx),
-        Commands::ValidateAnchors(args) => args.dispatch(&mut ctx),
-        Commands::ValidateTodo(args) => args.dispatch(&mut ctx),
         Commands::FixTodo(args) => args.dispatch(&mut ctx),
         Commands::Clone(args) => args.dispatch(&mut ctx),
         Commands::Init(args) => args.dispatch(&mut ctx),

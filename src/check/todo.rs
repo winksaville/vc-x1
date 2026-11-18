@@ -1,10 +1,10 @@
-//! The `validate-todo` subcommand: check that the `## Todo` and
+//! The `check todo` subcommand: check that the `## Todo` and
 //! `## Bugs` sections of a todo file are numbered `1..N` in
 //! document order, with continuation-line indent matching each
 //! entry's number-prefix width.
 //!
 //! Read-only diagnostic; exits non-zero if any entry needs
-//! fixing. The check half of the `validate-todo` / `fix-todo`
+//! fixing. The check half of the `check todo` / `fix-todo`
 //! pair: `fix-todo` is the rewrite.
 
 use std::path::PathBuf;
@@ -16,9 +16,9 @@ use crate::context::Context;
 use crate::subcommand::SubcommandRunner;
 use crate::todo_helpers::{self, Section, TODO_FILE};
 
-/// Clap-derived args for `validate-todo`.
+/// Clap-derived args for `check todo`.
 #[derive(Args, Debug)]
-pub struct ValidateTodoArgs {
+pub struct CheckTodoArgs {
     /// Retired: the file, now `--file`, refused naming it.
     #[arg(value_name = "RETIRED", hide = true)]
     pub retired: Option<String>,
@@ -28,61 +28,61 @@ pub struct ValidateTodoArgs {
     pub file: PathBuf,
 }
 
-/// Inputs to the validate-todo op, flat, owned, clap-free.
+/// Inputs to the check todo op, flat, owned, clap-free.
 ///
-/// Mirrors `ValidateTodoArgs`: the `--file` path.
-pub struct ValidateTodoParams {
+/// Mirrors `CheckTodoArgs`: the `--file` path.
+pub struct CheckTodoParams {
     pub file: PathBuf,
 }
 
-impl From<&ValidateTodoArgs> for ValidateTodoParams {
-    /// Convert clap-derived `ValidateTodoArgs` into the flat
-    /// `ValidateTodoParams` (total, the single field copies over).
-    fn from(a: &ValidateTodoArgs) -> Self {
+impl From<&CheckTodoArgs> for CheckTodoParams {
+    /// Convert clap-derived `CheckTodoArgs` into the flat
+    /// `CheckTodoParams` (total, the single field copies over).
+    fn from(a: &CheckTodoArgs) -> Self {
         Self {
             file: a.file.clone(),
         }
     }
 }
 
-impl SubcommandRunner for ValidateTodoArgs {
-    type Params = ValidateTodoParams;
+impl SubcommandRunner for CheckTodoArgs {
+    type Params = CheckTodoParams;
 
-    /// Delegate to the `From<&ValidateTodoArgs>` impl (total).
+    /// Delegate to the `From<&CheckTodoArgs>` impl (total).
     fn to_params(&self) -> Result<Self::Params, String> {
         if let Some(value) = &self.retired {
             return Err(crate::options_flags::retired_positional::refusal(
-                "validate-todo",
+                "check todo",
                 value,
                 "--file",
             ));
         }
-        Ok(ValidateTodoParams::from(self))
+        Ok(CheckTodoParams::from(self))
     }
 
-    /// Run the `validate_todo` op.
+    /// Run the `check_todo` op.
     fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
-        validate_todo(ctx, params)
+        check_todo(ctx, params)
     }
 }
 
-/// Run the `validate-todo` subcommand: scan the todo file and
+/// Run the `check todo` subcommand: scan the todo file and
 /// report each `## Todo` / `## Bugs` entry whose number or
 /// continuation indent is off; errors if any are found.
 ///
-/// `ctx` is unused: validate-todo reads a plain file and neither
+/// `ctx` is unused: check todo reads a plain file and neither
 /// the user config nor the `--log` path applies; it's present for
 /// the uniform subcommand-layer signature.
-pub fn validate_todo(
+pub fn check_todo(
     _ctx: &Context,
-    params: &ValidateTodoParams,
+    params: &CheckTodoParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("validate-todo: enter");
+    debug!("check todo: enter");
     let content = std::fs::read_to_string(&params.file)
         .map_err(|e| format!("cannot read {}: {e}", params.file.display()))?;
     let analysis = todo_helpers::analyze(&content);
 
-    info!("validate-todo: {}", params.file.display());
+    info!("check todo: {}", params.file.display());
 
     let mut last_section: Option<Section> = None;
     for c in &analysis.changes {
@@ -104,7 +104,7 @@ pub fn validate_todo(
             analysis.todo_count,
             analysis.bugs_count
         );
-        debug!("validate-todo: exit");
+        debug!("check todo: exit");
         Ok(())
     } else {
         info!(
@@ -113,7 +113,7 @@ pub fn validate_todo(
             analysis.todo_count,
             analysis.bugs_count
         );
-        debug!("validate-todo: exit with issues");
+        debug!("check todo: exit with issues");
         Err(format!(
             "{n} todo {} to fix, run `vc-x1 fix-todo`",
             todo_helpers::entry_word(n)

@@ -193,8 +193,9 @@ for.
 ## Cycle protocol
 
 How a [cycle](#terminology) runs ([why](agent-data/rationale.md#cycle-protocol)). Its record is
-`TODO.md > ## In Progress` and nothing else ([Cycle-record](#cycle-record)). The `.vc-config.md`
-`[validate]` table defines the commands that validate the work-repo.
+`TODO.md > ## In Progress` and nothing else ([Cycle-record](#cycle-record)). The project's tasks,
+validate, install, and the rest, are the commands [CONTRIBUTING.md > ## Tasks](CONTRIBUTING.md#tasks)
+names, cited here by the task's name.
 
 ### Cycles run on a bookmark
 
@@ -327,17 +328,19 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)). `v
    ask](#stop-and-ask)).
 3. Rung subsection: write what this rung changed, conceptually, into its subsection under `####
    Rungs`.
-4. Validate: `vc-x1 validate` before every review, doc-only commits included. The full run rewrites
-   files (`cargo fmt`), so use `--fast` while a review iterates. A failure is read and its cause
-   named before validation runs again, and a failure that does not repeat is a finding, reported
-   and given a Todo entry. A rung that changes the artifact then installs the working copy's dev
-   build, `vc-x1 install --profile dev`, so the review runs the code under review, and again after
-   each review fix ([Dev artifact name](agent-data/versioning.md#dev-artifact-name)). A rung has
-   its own test and no more, the acceptance check being the closing's.
+4. Validate: the validate task before every review, doc-only commits included. The full run may
+   rewrite files, a formatter's, so use validate fast while a review iterates. A failure is read
+   and its cause named before validation runs again, and a failure that does not repeat is a
+   finding, reported and given a Todo entry. A rung that changes the artifact then runs the
+   install task for the working copy's dev build, so the review runs the code under review, and
+   again after each review fix ([Dev artifact name](agent-data/versioning.md#dev-artifact-name)).
+   A rung has its own test and no more, the acceptance check being the closing's.
 5. Work review: stop before writing any description and say "please review", as its own message
    with no title or body. The review is of the working-copy diff ([jj
-   basics](agent-data/jj.md#jj-basics)). Iterate over steps 2 through 5 until the user approves
-   with "continue" or "go".
+   basics](agent-data/jj.md#jj-basics)). Iterate over steps 2 through 5 until the user approves,
+   and the word approving says what follows the commit: "commit" commits and stops, so the user
+   reviews the commit, the ladder, and the Todos and says what is next, and "go" or "continue"
+   commits and starts the next rung.
 6. Describe: write the description in [Commit-body form](agent-data/prose.md#commit-body-form),
    read from the file first with its specimen, [commit-model.md](agent-data/commit-model.md)
    ([Commit description](#commit-description)). A local description can still be changed before
@@ -350,6 +353,7 @@ immediately before acting ([why](agent-data/rationale.md#the-per-rung-flow)). `v
    [Close-out](#close-out)). A rung that
    changes the artifact then installs its dev build again, so the next rung runs the committed
    code, not the working copy's ([Dev artifact name](agent-data/versioning.md#dev-artifact-name)).
+   Then, by step 5's word, the turn stops or the next rung begins at its step 0.
 
 ### Committing vs pushing
 
@@ -486,7 +490,7 @@ does all of it in its one commit, step 5 aside ([Cycle shape](#cycle-shape)):
 
 A rung that wants incremental review runs as a local ladder: a chain of jj commits that never leaves
 the machine and collapses into the rung before the cycle continues, each validated with
-`vc-x1 validate --fast` ([Local ladders](agent-data/jj.md#local-ladders),
+validate fast ([Local ladders](agent-data/jj.md#local-ladders),
 [why](agent-data/rationale.md#local-ladders)).
 
 [cbt]: agent-data/prose.md#conventional-commit-shape-ladder--commit

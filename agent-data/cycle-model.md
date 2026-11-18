@@ -39,13 +39,13 @@ call alike.
 #### Acceptance check
 
 `cargo test` passes with a new test that loads a config from a fixture file without touching `main`,
-and `vc-x1 validate-config` reports the same findings as before the move.
+and `vc-x1 check config` reports the same findings as before the move.
 
 #### Deliberation
 
 - One work rung, not two: the parser and the loader were going to be split first and moved second,
   but the move is what forces the split, so doing them together is fewer edits.
-- The acceptance check compares `validate-config`'s output rather than asserting on internals, so a
+- The acceptance check compares `check config`'s output rather than asserting on internals, so a
   later rename inside the module does not invalidate it.
 
 #### Rungs
@@ -83,7 +83,7 @@ without a file on disk.
   - `config/parser.rs` takes text and returns the schema, so a test hands it a string and never
     touches the filesystem.
     - the error type stays shared for now, since splitting it would change the messages
-      `validate-config` prints and the acceptance check compares them
+      `check config` prints and the acceptance check compares them
 * `main` still reaches into the parse result by field.
   - `main` calls `config::load` and receives the schema, so the field access moves behind the module
     boundary and the CLI no longer knows the file's shape.

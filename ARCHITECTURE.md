@@ -140,8 +140,9 @@ per-subcommand refactor status):
 `XxxArgs` (`#[derive(Args)]`, composing `options_flags/` leaves
 where one exists) and the entrypoint `pub fn x(...)`. Modules:
 `chid`, `desc` (+ `desc_helpers`), `list`, `show`,
-`validate_desc`, `fix_desc`, `validate_todo` / `fix_todo`
-(+ `todo_helpers`), `validate_bot`, `clone`, `init`
+`check` (`check/{agent,anchors,config,desc,todo}`), `fix_desc`,
+`fix_todo` (+ `todo_helpers`), `xtask_cmd` (+ `xtask_cmd/wiring`),
+`deprecated`, `clone`, `init`
 (+ `init/params`), `symlink`, `sync`,
 `squash_push`, `push`,
 `config_cmd`, `bot_session` (+ `transcript`), `lookup`. Which ones have ported to `(ctx, params)` and which

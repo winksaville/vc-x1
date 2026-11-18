@@ -19,7 +19,7 @@
 //! - Where a build leaves its binary is the profile's to say, `bin`:
 //!   vc-x1 never works it out from cargo or the package's name.
 //! - The commands run with the build's [`Provenance`] in the
-//!   environment, `VC_X1_BUILD_COMMIT` and `VC_X1_BUILD_STATE`, as
+//!   environment, `XTASK_BUILD_COMMIT` and `XTASK_BUILD_STATE`, as
 //!   `validate` does, so every build of a run sees the same values and
 //!   none recompiles for another. An artifact that compiles them in
 //!   can say what it was built from wherever it is copied. vc-x1 does,
@@ -46,11 +46,11 @@ use crate::subcommand::SubcommandRunner;
 use crate::version::SourceState;
 
 /// The variable carrying the build's commit to its commands.
-pub const BUILD_COMMIT_VAR: &str = "VC_X1_BUILD_COMMIT";
+pub const BUILD_COMMIT_VAR: &str = "XTASK_BUILD_COMMIT";
 
 /// The variable carrying `state`, the state of the source code being
 /// compiled, `clean` or `dirty`.
-pub const BUILD_STATE_VAR: &str = "VC_X1_BUILD_STATE";
+pub const BUILD_STATE_VAR: &str = "XTASK_BUILD_STATE";
 
 /// The key of the build's command list, shared by every profile.
 pub const BUILD_COMMANDS_KEY: &str = "build.commands";
@@ -60,7 +60,7 @@ pub const BUILD_COMMANDS_KEY: &str = "build.commands";
 /// `[build]` lists and binaries were one pair per build, release and
 /// dev, and every build is now a `[profile.<name>]` table filling the
 /// one `[build] commands`; the `[install]` lists and directories went
-/// the same way, to `[install] commands` and `dir`. `validate-config`
+/// the same way, to `[install] commands` and `dir`. `check config`
 /// reports each one found with its replacement, and `build`, `run`,
 /// and `install` refuse a config that holds one in place of its
 /// replacement.
@@ -155,7 +155,7 @@ pub fn refuse_retired(
         "{}: no `{key}`, and {held} {verb} retired: every build is a profile now, \
          `[build] commands` filled from a `[profile.<name>]` table per build, its `cargo`, \
          `bin`, and `suffix`, and the install is `[install] dir` and, optionally, \
-         `[install] commands` (`vc-x1 validate-config` names each retired key's replacement)",
+         `[install] commands` (`vc-x1 check config` names each retired key's replacement)",
         path.display()
     ))
 }
@@ -853,7 +853,7 @@ release = [\"cargo build --release\"]
             "{e}"
         );
         assert!(e.contains("[profile.<name>]"), "{e}");
-        assert!(e.contains("`vc-x1 validate-config`"), "{e}");
+        assert!(e.contains("`vc-x1 check config`"), "{e}");
         let Err(e) = crate::run_cmd::run_params(None, Some(&root), &[], false) else {
             panic!("run refuses the retired keys");
         };

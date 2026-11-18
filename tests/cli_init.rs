@@ -247,11 +247,11 @@ fn cli_init_existing_target_refusals() {
     assert!(!work.join(".jj").exists(), "nothing written");
 }
 
-/// A workspace init makes passes `validate-desc` on both sides, its
+/// A workspace init makes passes `check desc` on both sides, its
 /// agent directory named anything: the trailers carry the sides'
 /// labels, `/.claude` for the agent side, never the directory's name.
 #[test]
-fn cli_init_trailers_pass_validate_desc() {
+fn cli_init_trailers_pass_check_desc() {
     let fx = CliFixture::new("init-trailers-valid");
     let local = format!("--repo=local={}", fx.base.display());
 
@@ -283,7 +283,7 @@ fn cli_init_trailers_pass_validate_desc() {
     for work in [&fresh, &adopted] {
         run_ok(
             fx.cmd()
-                .args(["validate-desc", "-r", "@-", "-s", "b", "-R"])
+                .args(["check", "desc", "-r", "@-", "-s", "b", "-R"])
                 .arg(work),
         );
     }

@@ -181,7 +181,7 @@ fn push_completes_a_pair_made_in_two_steps() {
     );
     assert_eq!(cid(&fx.bot, "main@origin"), cid(&fx.bot, "main"));
 
-    let check = crate::validate_desc::ValidateDescParams {
+    let check = crate::check::desc::CheckDescParams {
         revision: "main".to_string(),
         limit: None,
         repos: vec![
@@ -191,7 +191,7 @@ fn push_completes_a_pair_made_in_two_steps() {
         other_repo: None,
         id_len: crate::desc_helpers::DEFAULT_ID_LEN,
     };
-    crate::validate_desc::validate_desc(&test_ctx(), &check).expect("both directions valid");
+    crate::check::desc::check_desc(&test_ctx(), &check).expect("both directions valid");
 }
 
 /// New work in the work `@` is the next rung's: push publishes the

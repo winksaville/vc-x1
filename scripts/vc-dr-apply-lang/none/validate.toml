@@ -1,3 +1,0 @@
-[validate]
-full = ["vc-x1 validate-config", "vc-x1 validate-anchors"]
-fast = ["vc-x1 validate-config"]

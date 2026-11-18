@@ -703,7 +703,7 @@ pub fn bookmark_publish_state(
 /// Verify the bot repo's `bookmark` is published at origin.
 ///
 /// Error-raising wrapper over [`bookmark_publish_state`], used by
-/// `validate-agent` and push preflight. Fixes nothing (decided
+/// `check agent` and push preflight. Fixes nothing (decided
 /// 2026-07-15: no automatic fixing): the error names the
 /// `vc-x1 squash-push` resolution and the caller stops.
 pub fn verify_bot_published(
@@ -752,7 +752,7 @@ pub fn resolve_repo_path(cfg_dir: &Path, value: &str) -> PathBuf {
 /// config's own directory names the side. Falls back to the
 /// legacy location rule ([`legacy_is_bot_dir`]) so read-only
 /// surfaces that bypass the resolvers' legacy rejection (explicit
-/// `--other-repo` paths in validate-desc / fix-desc) still see a
+/// `--other-repo` paths in check desc / fix-desc) still see a
 /// legacy bot dir as the bot side. Paths are canonicalized so
 /// relative forms and symlinked tempdirs compare correctly, and
 /// anything unreadable is "not the bot side".
@@ -937,7 +937,7 @@ pub fn scope_to_repos(
 /// workspace, or `None` when the workspace has no bot side.
 ///
 /// The side-aware prelude for commands that scan whichever repo
-/// they are pointed at (validate-desc / fix-desc): the workspace
+/// they are pointed at (check desc / fix-desc): the workspace
 /// root is found *from* `repo` rather than assumed to be it, the
 /// coherence preflight runs against that root, and the answer is
 /// the far side: the bot repo when `repo` sits on the work side,

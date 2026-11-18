@@ -91,14 +91,14 @@ fn cli_version_gate_stops_every_subcommand() {
     run_err(
         fx.cmd()
             .env("PATH", &path)
-            .arg("validate-todo")
+            .args(["check", "todo"])
             .args(["--file", "TODO.md"]),
     );
     run_ok(
         fx.cmd()
             .env("PATH", &path)
             .arg("--allow-jj-mismatch")
-            .arg("validate-todo")
+            .args(["check", "todo"])
             .args(["--file", "TODO.md"]),
     );
 
@@ -185,15 +185,18 @@ fn cli_help_lists_init() {
     );
 }
 
-/// The pre-0.80.0 `validate-bot` name is rejected with the fix-it,
-/// for any flags, rather than aliased.
+/// The pre-0.80.0 `validate-bot` name, later `validate-agent`, is
+/// rejected with the fix-it naming `check agent`, for any flags,
+/// rather than aliased.
 #[test]
 fn cli_validate_bot_old_name_rejected() {
     let fx = CliFixture::new("validate-bot-old-name");
     let out = run_err(fx.cmd().arg("validate-bot").arg("-R").arg("x"));
     let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(stderr.contains("pre-0.80.0"), "got: {stderr}");
-    assert!(stderr.contains("`validate-agent`"), "got: {stderr}");
+    assert!(
+        stderr.contains("Retired `vc-x1 validate-bot`: use `vc-x1 check agent` instead"),
+        "got: {stderr}"
+    );
 }
 
 /// The banner and the report carry the workspace's agent-files set

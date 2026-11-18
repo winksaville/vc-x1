@@ -71,16 +71,23 @@ dir = "../vc-x1-template/work"
 custom = false
 ```
 
+The `[xtask]` table
+- dir: Default --from for xtask copy and diff: a directory holding xtask/ [[14]]
+```toml
+[xtask]
+dir = "../vc-x1"
+```
+
 The `[squash-push]` table
-- yes: Default for squash-push: act without asking once the precheck found work [[14]]
+- yes: Default for squash-push: act without asking once the precheck found work [[15]]
 ```toml
 [squash-push]
 yes = true
 ```
 
 The `[validate]` table
-- full: Full validation, in order, one invocation per element, run by `vc-x1 validate` [[15]]
-- fast: Fast validation, in order, one invocation per element, run by `vc-x1 validate --fast` [[16]]
+- full: Full validation, in order, one invocation per element, run by `vc-x1 validate` [[16]]
+- fast: Fast validation, in order, one invocation per element, run by `vc-x1 validate --fast` [[17]]
 ```toml
 [validate]
 full = [
@@ -93,8 +100,8 @@ fast = ["cargo test --bins"]
 
 The `[build]` table
 - commands: The build for every profile, in order, `{profile.<property>}` filled from the chosen
-  profile [[17]]
-- default-profile: The profile used when --profile is left out [[18]]
+  profile [[18]]
+- default-profile: The profile used when --profile is left out [[19]]
 ```toml
 [build]
 commands = ["cargo build --profile {profile.cargo} --locked"]
@@ -102,8 +109,8 @@ default-profile = "release"
 ```
 
 The `[install]` table
-- dir: Where `vc-x1 install` copies the chosen profile's binary, `~` expanded [[19]]
-- commands: Optional, the install for every profile, run in place of the built-in copy [[20]]
+- dir: Where `vc-x1 install` copies the chosen profile's binary, `~` expanded [[20]]
+- commands: Optional, the install for every profile, run in place of the built-in copy [[21]]
 ```toml
 [install]
 dir = "~/.cargo/bin"
@@ -114,12 +121,12 @@ commands = [
 ```
 
 The `[profile.<name>]` table
-- cargo: The Cargo.toml profile this profile builds, filled as {profile.cargo} [[21]]
-- flags: The build's flags, filled as {profile.flags}, one word per item [[22]]
+- cargo: The Cargo.toml profile this profile builds, filled as {profile.cargo} [[22]]
+- flags: The build's flags, filled as {profile.flags}, one word per item [[23]]
 - bin: The binary the profile's build leaves, run by `vc-x1 run` and copied by `vc-x1 install`
-  [[23]]
-- suffix: Appended to the installed binary's file name, empty when absent [[24]]
-- <property>: Any other property of a profile, filled as {profile.<property>} [[25]]
+  [[24]]
+- suffix: Appended to the installed binary's file name, empty when absent [[25]]
+- <property>: Any other property of a profile, filled as {profile.<property>} [[26]]
 ```toml
 [profile.<name>]
 cargo = "release"
@@ -130,8 +137,8 @@ suffix = "-dev"
 ```
 
 The `[version]` table
-- file: The file holding the version, whose change a work commit is checked for [[26]]
-- pattern: What the version's line starts with, in `version.file` [[27]]
+- file: The file holding the version, whose change a work commit is checked for [[27]]
+- pattern: What the version's line starts with, in `version.file` [[28]]
 ```toml
 [version]
 file = "Cargo.toml"
@@ -139,22 +146,22 @@ pattern = "version = "
 ```
 
 The `[opening]` table
-- body: The opening commit's default body, `{title}` the cycle title [[28]]
+- body: The opening commit's default body, `{title}` the cycle title [[29]]
 ```toml
 [opening]
-body = "Opens the cycle {title}. See details in TODO.md."
+body = "Opens the cycle {title}."
 ```
 
 The `[closing]` table
-- body: The closing commit's default body, `{title}` the cycle title [[29]]
+- body: The closing commit's default body, `{title}` the cycle title [[30]]
 ```toml
 [closing]
-body = "Closes the cycle {title}. See details in TODO.md."
+body = "Closes the cycle {title}."
 ```
 
 The `[test]` table
 - fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
-  test` [[30]]
+  test` [[31]]
 ```toml
 [test]
 fixtures = ".fixtures"
@@ -175,20 +182,21 @@ fixtures = ".fixtures"
 [11]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filesdiffcustom
 [12]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filescopydir
 [13]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#agent-filescopycustom
-[14]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#squash-pushyes
-[15]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefull
-[16]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefast
-[17]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#buildcommands
-[18]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#builddefault-profile
-[19]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdir
-[20]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installcommands
-[21]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamecargo
-[22]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenameflags
-[23]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamebin
-[24]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamesuffix
-[25]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenameproperty
-[26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#versionfile
-[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#versionpattern
-[28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#openingbody
-[29]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
-[30]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
+[14]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#xtaskdir
+[15]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#squash-pushyes
+[16]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefull
+[17]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#validatefast
+[18]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#buildcommands
+[19]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#builddefault-profile
+[20]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installdir
+[21]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#installcommands
+[22]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamecargo
+[23]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenameflags
+[24]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamebin
+[25]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenamesuffix
+[26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenameproperty
+[27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#versionfile
+[28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#versionpattern
+[29]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#openingbody
+[30]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
+[31]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures

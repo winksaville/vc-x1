@@ -1,0 +1,3 @@
+| bump | sets the version in `CMakeLists.txt`'s `project({name} VERSION X.Y.Z ...)` ([Suffix scheme](agent-data/versioning.md#suffix-scheme)) | first, at each commit of a cycle | edit `CMakeLists.txt` |
+| validate | configures, formats, builds, and runs every test | before each review, and before every commit | `cmake -S . -B build -DCMAKE_COMPILE_WARNING_AS_ERROR=ON`, then `cmake --build build --target format`, `cmake --build build`, and `ctest --test-dir build --output-on-failure --no-tests=error` |
+| validate fast | builds and runs the tests | while a review iterates | `cmake --build build`, then `ctest --test-dir build --no-tests=error` |

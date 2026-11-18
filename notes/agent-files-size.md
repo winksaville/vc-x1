@@ -63,17 +63,17 @@ landings before the set was versioned relative to the first version (`- v0.1.0` 
 its own row above. A cell in angle brackets, `<543>`, is a file the total leaves out, shown so a
 reader sees what it costs, and an empty cell is a file that was not in the set that landing.
 
-| File | docs: CONTRIBUTING.md names the project's tasks | fix: a cycle commit marks no rung current | feat: improve vc-x1 cycle flow |
+| File | feat: the project's tasks move to cargo xtask | docs: CONTRIBUTING.md names the project's tasks | fix: a cycle commit marks no rung current |
 |---|---:|---:|---:|
-| AGENTS.md | 586 | 570 | 570 |
-| custom.md | 10 | 24 | 24 |
+| AGENTS.md | 590 | 586 | 570 |
+| custom.md | 10 | 10 | 24 |
 | agent-data/code.md | 90 | 90 | 90 |
-| agent-data/commit-model.md | 35 | 35 | 35 |
+| agent-data/commit-model.md | 41 | 35 | 35 |
 | agent-data/cycle-model.md | 141 | 141 | 141 |
-| agent-data/jj.md | 337 | 337 | 332 |
-| agent-data/notes.md | 191 | 191 | 191 |
-| agent-data/prose.md | 384 | 384 | 384 |
-| agent-data/rationale.md | <818> | <800> | <800> |
+| agent-data/jj.md | 337 | 337 | 337 |
+| agent-data/notes.md | 192 | 191 | 191 |
+| agent-data/prose.md | 389 | 384 | 384 |
+| agent-data/rationale.md | <837> | <818> | <800> |
 | agent-data/session-lock.md | 43 | 43 | 43 |
 | agent-data/versioning.md | 201 | 201 | 201 |
-| total | 2018 | 2016 | 2011 |
+| total | 2034 | 2018 | 2016 |

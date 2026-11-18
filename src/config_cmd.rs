@@ -63,7 +63,7 @@ pub(crate) fn parse_target(s: &str) -> Result<ConfigTarget, String> {
 }
 
 /// The config file(s) a command reads, shared by `config` and
-/// `validate-config`: `-s` for a side or both, `--file` for a path,
+/// `check config`: `-s` for a side or both, `--file` for a path,
 /// the two exclusive, both sides when neither, and the retired
 /// positional kept hidden to be refused.
 #[derive(Args, Debug)]
@@ -119,7 +119,7 @@ pub struct ConfigArgs {
     #[command(flatten)]
     pub target: ConfigTargetArgs,
 
-    /// Retired at 0.80.6: the check is `vc-x1 validate-config`,
+    /// Retired at 0.80.6: the check is `vc-x1 check config`,
     /// which takes the same target. Kept as a hidden flag so the
     /// old spelling gets a fix-it rather than clap's "unexpected
     /// argument".
@@ -273,7 +273,7 @@ fn print_schema(params: &ConfigParams, root: Option<&Path>) {
 pub fn config(_ctx: &Context, params: &ConfigParams) -> Result<(), Box<dyn std::error::Error>> {
     if params.validate {
         return Err(
-            "--validate: retired at 0.80.6. The check is `vc-x1 validate-config`, \
+            "--validate: retired at 0.80.6. The check is `vc-x1 check config`, \
                     which takes the same target."
                 .into(),
         );

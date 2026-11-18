@@ -1357,7 +1357,7 @@ mod tests {
 
     /// `-s b` makes the pair: each commit keeps its working copy's
     /// change id, carries the title and body, and names the other
-    /// in its trailer, so the pair passes validate-desc in both
+    /// in its trailer, so the pair passes check desc in both
     /// directions with nothing pushed.
     #[test]
     fn both_makes_the_pair_with_trailers_naming_each_other() {
@@ -1402,7 +1402,7 @@ mod tests {
             "true"
         );
 
-        let check = crate::validate_desc::ValidateDescParams {
+        let check = crate::check::desc::CheckDescParams {
             revision: "@-".to_string(),
             limit: None,
             repos: vec![
@@ -1412,7 +1412,7 @@ mod tests {
             other_repo: None,
             id_len: crate::desc_helpers::DEFAULT_ID_LEN,
         };
-        crate::validate_desc::validate_desc(&test_ctx(), &check).expect("the pair validates");
+        crate::check::desc::check_desc(&test_ctx(), &check).expect("the pair validates");
 
         // The line's bookmark advanced to the work commit, locally,
         // and origin's is still the commit below the pair.

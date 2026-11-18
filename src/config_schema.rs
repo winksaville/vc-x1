@@ -399,7 +399,7 @@ mod tests {
 
     /// The build and install tables are work-side only and hold the
     /// profile form alone: the per-build keys they held before the
-    /// profiles are retired from the schema, and validate-config names
+    /// profiles are retired from the schema, and check config names
     /// each one's replacement.
     #[test]
     fn build_table() {

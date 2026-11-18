@@ -1,21 +1,35 @@
 [package]
 name = "vc-x1"
-version = "0.85.24"
+version = "0.85.25"
 edition = "2024"
+default-run = "vc-x1"
 
 # The package name is the installed binary's name and never
-# changes: a cycle's validation installs under its own root,
-# `--root tmp/dev` in `.vc-config.md`'s `[validate]` lists, so a
-# dev build (a suffixed version) never replaces the stable
-# `vc-x1` on the PATH. The promotion is the plain `cargo install`
-# from `main`. Before 2026-10-20 a cycle renamed the package to
-# `vc-x1-dev` instead, guarded by build.rs (chores-16, 0.78.3).
+# changes: a cycle's dev build installs beside it as `vc-x1-dev`,
+# `cargo xtask install`, so it never replaces the stable `vc-x1` on
+# the PATH, which `cargo xtask install --release` installs at Land.
+# Before 2026-10-20 a cycle renamed the package to `vc-x1-dev`
+# instead, guarded by build.rs (chores-16, 0.78.3).
 
 # The workspace: `vc-x1` itself and `xtask`, the project's own tasks
 # (`cargo xtask bump next`), both built, tested, and linted by default.
 [workspace]
 members = [".", "xtask"]
 default-members = [".", "xtask"]
+
+# What `cargo xtask` takes from this workspace, its code naming nothing
+# of it. The validation is the default's with `--include-ignored`, so
+# the fixture tests run too. The fast one is the default's, `cargo test
+# --bins` alone (wink, 2026-10-20): a plain `cargo test` measured the
+# same 8 s as the full list, so the only fast worth having skips fmt,
+# clippy, and the integration tests, and a rung's review still runs the
+# full one. The binary is `default-run`'s, above.
+[workspace.metadata.xtask]
+validate = [
+  ["cargo", "fmt"],
+  ["cargo", "clippy", "--all-targets", "--", "-D", "warnings"],
+  ["cargo", "test", "--", "--include-ignored"],
+]
 
 [lints.clippy]
 # The process-spawn ban: `Command::new` is disallowed via
@@ -49,6 +63,10 @@ serde_json = "1"
 # The terminal's width, for wrapping an error or a warning to it. At the
 # version clap's `wrap_help` already brings into the lock file.
 terminal_size = "0.4"
+# `xtask copy`'s edits of a workspace's `Cargo.toml` and
+# `.cargo/config.toml`, keeping their comments and layout, at the
+# version xtask's own `bump` already brings into the lock file.
+toml_edit = "0.25"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
