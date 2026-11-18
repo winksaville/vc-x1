@@ -193,8 +193,10 @@ fn cli_validate_bot_old_name_rejected() {
     let fx = CliFixture::new("validate-bot-old-name");
     let out = run_err(fx.cmd().arg("validate-bot").arg("-R").arg("x"));
     let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(stderr.contains("validate-bot: retired"), "got: {stderr}");
-    assert!(stderr.contains("`check agent`"), "got: {stderr}");
+    assert!(
+        stderr.contains("Retired `vc-x1 validate-bot`: use `vc-x1 check agent` instead"),
+        "got: {stderr}"
+    );
 }
 
 /// The banner and the report carry the workspace's agent-files set

@@ -382,6 +382,10 @@ default = true
 
 ## validate.full
 
+Deprecated at 0.85.25, with the rest of `[validate]`: the project's own task replaces it, `cargo
+xtask validate`, its lists in `Cargo.toml`'s `[workspace.metadata.xtask]` in a workspace with xtask,
+`vc-x1 check config` warns of it, and a later release refuses it.
+
 The full validation: the commands the per-commit checklist runs before a push, in order, each
 element one invocation whose exit status is checked, stopping at the first failure. Owned by the
 work side because it validates the artifact. `vc-x1 validate` runs it. It checks the source and
@@ -411,6 +415,9 @@ example = ["cargo test --bins"]
 ```
 
 ## build.commands
+
+Deprecated at 0.85.25, with the rest of `[build]`: the project's own task replaces it, `cargo xtask
+build` in a workspace with xtask, `vc-x1 check config` warns of it, and a later release refuses it.
 
 The build, for every profile: the commands that build the chosen profile, in order, each element
 one invocation whose exit status is checked, `{profile.<property>}` filled from the profile
@@ -450,6 +457,10 @@ default = "release"
 
 ## install.dir
 
+Deprecated at 0.85.25, with the rest of `[install]`: the project's own task replaces it, `cargo
+xtask install` in a workspace with xtask, `vc-x1 check config` warns of it, and a later release
+refuses it.
+
 The one directory `vc-x1 install` copies the chosen profile's binary into, `~` expanded, so the
 committed value fits every machine, and `--dir` replaces it for one run. `$PATH` is not searched.
 Filled as `{install.dir}` in [install.commands](#installcommands).
@@ -483,6 +494,10 @@ example = ["cp {profile.bin} {install.dir}/vc-x1{profile.suffix}.new", "mv {inst
 ```
 
 ## profile.\<name\>.cargo
+
+Deprecated at 0.85.25, with the rest of `[profile.*]`: the project's own task replaces it, Cargo's
+own `[profile.<name>]` in `Cargo.toml`, chosen by `cargo xtask build --profile NAME` in a workspace
+with xtask, `vc-x1 check config` warns of it, and a later release refuses it.
 
 The profile in `Cargo.toml` this profile builds, `dev`, `release`, or any custom one, filled as
 `{profile.cargo}`, the encouraged form of [build.commands](#buildcommands). A profile is a

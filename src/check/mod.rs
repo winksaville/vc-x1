@@ -113,18 +113,16 @@ pub struct RetiredArgs {
     pub rest: Vec<String>,
 }
 
-/// The fix-it for a retired check name, `old`, now `check <new>`.
+/// The fix-it for a retired check name, `old`, now `check <new>`,
+/// its flags unchanged.
 pub fn retired_name(old: &str, new: &str) -> String {
-    format!("{old}: retired, now `check {new}` (same flags)")
+    format!("Retired `vc-x1 {old}`: use `vc-x1 check {new}` instead")
 }
 
 /// The warning for a deprecated check name, `old`, now `check <new>`,
-/// which still runs.
+/// its flags unchanged, which still runs.
 pub fn deprecation(old: &str, new: &str) -> String {
-    format!(
-        "{old}: deprecated at 0.85.25, now `check {new}` (same flags), and refused in a later \
-         release"
-    )
+    format!("Deprecated `vc-x1 {old}`: use `vc-x1 check {new}` instead")
 }
 
 /// Warn that `old` is deprecated, before the check it names runs.
@@ -136,17 +134,17 @@ pub fn deprecated_name(old: &str, new: &str) {
 mod tests {
     use super::*;
 
-    /// The fix-it and the warning name the old command and the new,
-    /// flags unchanged, the warning that a later release refuses it.
+    /// The fix-it and the warning name the old command and the new.
     #[test]
     fn a_retired_or_deprecated_name_names_its_check() {
         assert_eq!(
             retired_name("validate-bot", "agent"),
-            "validate-bot: retired, now `check agent` (same flags)"
+            "Retired `vc-x1 validate-bot`: use `vc-x1 check agent` instead"
         );
-        let warning = deprecation("validate-config", "config");
-        assert!(warning.starts_with("validate-config: deprecated at 0.85.25, now `check config`"));
-        assert!(warning.ends_with("refused in a later release"), "{warning}");
+        assert_eq!(
+            deprecation("validate-config", "config"),
+            "Deprecated `vc-x1 validate-config`: use `vc-x1 check config` instead"
+        );
     }
 
     /// `validate-bot` parses, whatever flags follow, to its refusal,

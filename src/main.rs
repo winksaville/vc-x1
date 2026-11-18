@@ -14,6 +14,7 @@ mod config_schema;
 mod context;
 mod cycle;
 mod delete_bookmark;
+mod deprecated;
 mod desc;
 mod desc_helpers;
 mod fix_desc;
@@ -280,19 +281,28 @@ pub(crate) enum Commands {
         rest: Vec<String>,
     },
 
-    /// Run the workspace's configured validation commands
-    #[command(long_about = "Run the workspace's configured validation commands.\n\n\
+    /// Deprecated, now `cargo xtask validate`: run the configured validation commands
+    #[command(
+        hide = true,
+        long_about = "Run the workspace's configured validation commands.\n\n\
+        Deprecated at 0.85.25: the project's own task replaces it, `cargo xtask validate`\n\
+        in a workspace with xtask, and a later release refuses it.\n\n\
         Reads `[validate] full` (or `fast` with --fast) from the work\n\
         side's config and runs each element as one command, in order,\n\
         from the work repo root, printing each before it runs. The\n\
         first failure stops the run, naming the command and its exit\n\
         status, and the subcommand exits non-zero. An empty or missing\n\
         table is an error, not a pass. See `vc-x1 config -s work` for the\n\
-        table's shape.")]
+        table's shape."
+    )]
     Validate(validate::ValidateArgs),
 
-    /// Build the chosen profile, off the PATH
-    #[command(long_about = "Build the chosen profile, off the PATH.\n\n\
+    /// Deprecated, now `cargo xtask build`: build the chosen profile, off the PATH
+    #[command(
+        hide = true,
+        long_about = "Build the chosen profile, off the PATH.\n\n\
+        Deprecated at 0.85.25: the project's own task replaces it, `cargo xtask build`\n\
+        in a workspace with xtask, and a later release refuses it.\n\n\
         A profile is a `[profile.<NAME>]` table, chosen by --profile NAME,\n\
         else `[build] default-profile`, else release. Runs `[build] commands`\n\
         from the work repo root, here\n\
@@ -315,17 +325,21 @@ pub(crate) enum Commands {
         --profile dev builds this workspace's dev profile, leaving\n\
         `target/debug/vc-x1`. After a validation it reuses the test build,\n\
         so it takes under a second. The old `build-dev` and `build --dev`\n\
-        are refused, naming `build --profile dev`.")]
+        are refused, naming `build --profile dev`."
+    )]
     Build(build_cmd::BuildArgs),
 
     /// Retired: `build-dev`, now `build --profile dev`, refused naming it
     #[command(hide = true)]
     BuildDev(build_cmd::BuildDevArgs),
 
-    /// Build the chosen profile if out of date, then copy it into the install directory
+    /// Deprecated, now `cargo xtask install`: build, then copy into the install directory
     #[command(
+        hide = true,
         long_about = "Build the chosen profile if out of date, then copy it into the install\n\
         directory.\n\n\
+        Deprecated at 0.85.25: the project's own task replaces it, `cargo xtask install`\n\
+        in a workspace with xtask, and a later release refuses it.\n\n\
         The profile is --profile NAME, else `[build] default-profile`, else\n\
         release. It first runs `[build] commands`, exactly as `vc-x1 build`\n\
         does. Cargo rebuilds only what changed, so with nothing changed\n\
@@ -365,9 +379,12 @@ pub(crate) enum Commands {
     #[command(hide = true)]
     InstallDev(install_cmd::InstallDevArgs),
 
-    /// Build the chosen profile, then run it with the given arguments
+    /// Deprecated, now `cargo xtask run`: build the chosen profile, then run it
     #[command(
+        hide = true,
         long_about = "Build the chosen profile, then run it with the given arguments.\n\n\
+        Deprecated at 0.85.25: the project's own task replaces it, `cargo xtask run`\n\
+        in a workspace with xtask, and a later release refuses it.\n\n\
         The profile is --profile NAME, given before the arguments, else\n\
         `[build] default-profile`, else release. It first runs\n\
         `[build] commands`, exactly as `vc-x1 build` does, then runs the\n\
@@ -1026,12 +1043,24 @@ fn main() -> ExitCode {
             );
             ExitCode::FAILURE
         }
-        Commands::Validate(args) => args.dispatch(&mut ctx),
-        Commands::Build(args) => args.dispatch(&mut ctx),
+        Commands::Validate(args) => {
+            deprecated::warn_task("validate");
+            args.dispatch(&mut ctx)
+        }
+        Commands::Build(args) => {
+            deprecated::warn_task("build");
+            args.dispatch(&mut ctx)
+        }
         Commands::BuildDev(args) => args.dispatch(&mut ctx),
-        Commands::Install(args) => args.dispatch(&mut ctx),
+        Commands::Install(args) => {
+            deprecated::warn_task("install");
+            args.dispatch(&mut ctx)
+        }
         Commands::InstallDev(args) => args.dispatch(&mut ctx),
-        Commands::Run(args) => run_cmd::dispatch(run_cmd::RunParams::try_from(&args)),
+        Commands::Run(args) => {
+            deprecated::warn_task("run");
+            run_cmd::dispatch(run_cmd::RunParams::try_from(&args))
+        }
         Commands::RunDev(args) => run_cmd::dispatch(run_cmd::RunParams::try_from(&args)),
         Commands::Check(args) => args.dispatch(&mut ctx),
         Commands::ValidateBotOld(_) => retired(check::retired_name("validate-bot", "agent")),

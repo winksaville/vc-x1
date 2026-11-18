@@ -392,6 +392,11 @@ fn render_optional_keys_block() -> String {
         if key.path.starts_with("repos.") || key.path.starts_with("remote.") {
             continue;
         }
+        // A deprecated table, the project's tasks now, is not offered
+        // to a new workspace.
+        if crate::deprecated::table_of(key.path).is_some() {
+            continue;
+        }
         if !key
             .homes
             .iter()

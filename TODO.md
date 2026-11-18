@@ -126,7 +126,8 @@ On the closed tree, from the work-repo root:
 - `cargo xtask install --profile dev --dry-run` copies nothing, and `cargo xtask install --profile
   dev` leaves `~/.cargo/bin/vc-x1-dev` whose `-V` names the commit.
 - `vc-x1-dev validate --fast`, `build`, `run`, and `install --dry-run` each warn naming their
-  `cargo xtask` task and still run, `vc-x1-dev validate-config` warns naming `check config` and
+  `cargo xtask` task and still run, here failing for the tables this workspace dropped and on a
+  config that holds them as before, `vc-x1-dev validate-config` warns naming `check config` and
   runs it, `vc-x1-dev validate-bot` is refused naming `check agent`, and `vc-x1-dev check config`
   passes on this workspace, its `.vc-config.md` holding none of the four tables, and passes with a
   warning per table on a config that holds them.
@@ -172,8 +173,9 @@ On the closed tree, from the work-repo root:
 - The family's message is written after the Land, its sha-link the landmark's, so the closing's
   continuation notes name it. It is one thread to iiac-perf, zc-ring-x1, io-uring-x1, and the
   template, saying what each does in its own cycle: adopt agent-files `v0.3.1-16`, run `vc-x1
-  xtask copy` if it is Rust, io-uring-x1's `xtask-lib` its own call, rewrite its `CONTRIBUTING.md > ## Tasks`,
-  `custom.md`, and `hooks.sh` mentions, drop the four tables, and reply.
+  xtask copy` if it is Rust, io-uring-x1's `xtask-lib` its own call, rewrite its
+  `CONTRIBUTING.md > ## Tasks`, `custom.md`, and `hooks.sh` mentions, drop the four tables, and
+  reply.
 - `install` defaults to dev (wink, 2026-11-17), where `cargo install` defaults to release with
   `--debug` for dev. Every task that builds then defaults alike, and the shared binary, plain
   `vc-x1`, is replaced only by a deliberate `--release`, never by a flag forgotten. The Land's
@@ -349,6 +351,27 @@ warning naming its `cargo xtask` task, their code kept until the later cycle ref
 tables become deprecated keys that `check config` warns of, the Land's install hint names the
 project's install task, and this workspace's `.vc-config.md` drops the tables.
 
+- The four commands are hidden from `vc-x1 -h`, as the deprecated check names are, and each warns
+  before it runs, wink's wording (2026-11-18): "Deprecated `vc-x1 validate`: use `cargo xtask
+  validate` or `cx validate` instead". Their long help opens with the deprecation.
+- Every deprecation and the one retirement say it in that form, for consistency (wink,
+  2026-11-18): "Deprecated `[build]`: use `cargo xtask build` instead", "Deprecated `vc-x1
+  validate-config`: use `vc-x1 check config` instead", and "Retired `vc-x1 validate-bot`: use
+  `vc-x1 check agent` instead", the release and the refusal to come left to the docs.
+  `src/deprecated.rs` holds the tasks' and the tables' sentences.
+- `check config` warns once per deprecated table present, `[validate]`, `[build]`, `[install]`,
+  and `[profile.*]`, the profiles being one, each naming what replaced it, counted in the summary
+  as deprecated tables and never a finding. A key in one is still checked as before, so a retired
+  `[build]` key stays a finding.
+- `init` no longer offers the four tables' keys among a new config's commented ones, and
+  `vc-config.md` opens each table's first key section with its deprecation.
+- The Land's install hint is `cargo xtask install --release` where the workspace has
+  `xtask/Cargo.toml`, the deprecated `vc-x1 install` where only the config has an `[install]` or
+  a `[build]`, and nothing otherwise.
+- This workspace's `.vc-config.md` drops the four tables for a sentence pointing at
+  `CONTRIBUTING.md`'s Tasks, and the reason the fast list is `cargo test --bins` alone moves to
+  the comment over `[workspace.metadata.xtask]` in `Cargo.toml`, the list being xtask's default.
+
 ##### feat: vc-x1 xtask copy and diff
 
 One command puts `xtask/` in a Rust workspace or brings it up to date, as `agent-files copy` and
@@ -386,9 +409,21 @@ One command puts `xtask/` in a Rust workspace or brings it up to date, as `agent
 ##### docs: the tasks are named by CONTRIBUTING.md
 
 The README, `CONTRIBUTING.md > ## Tasks`, and the agent-files name the tasks, the `check`
-commands, and `xtask copy` and `diff`, the agent-files by task name, with the agent-files version bumped to `v0.3.1-16`.
-`rationale.md`'s reason for `cycle`'s stages being flags becomes that they chain in one
-invocation, in place of "every `vc-x1` command is `command --options`".
+commands, and `xtask copy` and `diff`, the agent-files by task name, with the agent-files version
+bumped to `v0.3.1-16`. `rationale.md`'s reason for `cycle`'s stages being flags becomes that they
+chain in one invocation, in place of "every `vc-x1` command is `command --options`". Two rules
+change with them, each in use from 2026-11-18 on, before the rung writes it:
+
+- The review's word says what follows the commit (wink, 2026-11-18): "commit" commits the rung,
+  installs its dev build, and stops, so the user reviews the commit, the ladder, and the Todos and
+  says what is next, and "go" or "continue" commits and starts the next rung. The per-rung flow's
+  step 5 names the three words, and step 7 what follows each.
+- The body's pointer names the heading (wink, 2026-11-18, from zc-ring-x1's last commit): "See
+  details in TODO.md" becomes `See details in TODO.md "##### <rung title>".` for a work rung, its
+  subsection holding the full account, and `"### <cycle title>"` for a bookend and a single-step
+  cycle, since `TODO.md` is long and the heading's text, unlike a line number or an anchor, is
+  found by a search at any commit, the block in `## In Progress` or `## Closed`. Commit-body form
+  and `commit-model.md`'s specimens show it.
 
 ##### feat: the project's tasks move to cargo xtask closing
 
@@ -467,6 +502,19 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 `###` heading, so a citation is a link to its anchor. Long-tail entries live in
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
+
+### cycle --commit writes the body's pointer
+
+(wink + agent, 2026-11-18, from **feat: the project's tasks move to cargo xtask**) A commit body
+ends `See details in TODO.md "##### <rung title>".`, or `"### <cycle title>"` for a bookend and a
+single-step cycle, and `cycle --commit` and `--close` know both titles, so the pointer is typed by
+hand where the tool could write it.
+
+- Either the tool appends the pointer when `--body` lacks one, or `check desc` reports a body
+  whose pointer names no heading of that commit's `TODO.md`. The first removes the typing, the
+  second also catches an old body.
+- A body is the agent's and the trailers the tool's, so a tool that writes into the body is a line
+  crossed, and which side of it the pointer is on is the deliberation's first question.
 
 ### Initialization leaves no bad link
 

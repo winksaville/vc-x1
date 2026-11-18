@@ -232,10 +232,15 @@ fn short(id: &str) -> String {
         .collect()
 }
 
-/// The install the Land's last line names, when the workspace's config
-/// has one: the artifact is the project's, so a workspace with no
-/// `[install]` is told nothing.
+/// The install the Land's last line names, the project's own task:
+/// `cargo xtask install --release` where the workspace carries xtask,
+/// else the deprecated `vc-x1 install` where its config still has an
+/// `[install]` or a `[build]`, and nothing in a workspace with
+/// neither, since the artifact is the project's.
 fn install_hint(repo: &Path) -> String {
+    if repo.join("xtask").join("Cargo.toml").is_file() {
+        return " `cargo xtask install --release` installs the artifact".to_string();
+    }
     let configured = crate::config_md::load(repo)
         .ok()
         .flatten()
@@ -245,7 +250,7 @@ fn install_hint(repo: &Path) -> String {
                 .any(|k| k.starts_with("install.") || k.starts_with("build."))
         });
     match configured {
-        true => " `vc-x1 install` installs the artifact".to_string(),
+        true => " `vc-x1 install`, deprecated, installs the artifact".to_string(),
         false => String::new(),
     }
 }
@@ -1223,8 +1228,10 @@ mod tests {
         assert_eq!(commit_id(&fx.work, "main"), moved, "main stays");
     }
 
-    /// The Land names `vc-x1 install` only where the workspace's config
-    /// has an install or a build, the artifact being the project's.
+    /// The Land names the project's install: xtask's where the
+    /// workspace carries it, the deprecated `vc-x1 install` where only
+    /// the config has an install or a build, and none in a workspace
+    /// with neither, the artifact being the project's.
     #[test]
     fn the_install_is_named_only_when_configured() {
         let fx = Fixture::new("land-install-hint");
@@ -1233,7 +1240,10 @@ mod tests {
         let mut cfg = fs::read_to_string(&path).expect("read the config");
         cfg.push_str("\n```toml\n[install]\ndir = \"~/.cargo/bin\"\n```\n");
         fs::write(&path, cfg).expect("write the config");
-        assert!(install_hint(&fx.work).contains("`vc-x1 install`"));
+        assert!(install_hint(&fx.work).contains("`vc-x1 install`, deprecated"));
+        fs::create_dir(fx.work.join("xtask")).expect("make xtask/");
+        fs::write(fx.work.join("xtask").join("Cargo.toml"), "").expect("write its manifest");
+        assert!(install_hint(&fx.work).contains("`cargo xtask install --release`"));
     }
 
     /// A fixture whose `@-` is a conflicted merge, the plan of a Land

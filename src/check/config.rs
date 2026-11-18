@@ -82,8 +82,8 @@ pub fn check_config(
     // checked something from one that had nothing to check.
     info!(
         "check config: {} file(s), {} key(s) and {} link(s) checked, {} required key(s), \
-         {} problem(s) found",
-        c.files, c.keys, c.links, c.required, c.findings
+         {} deprecated table(s), {} problem(s) found",
+        c.files, c.keys, c.links, c.required, c.deprecated, c.findings
     );
     if c.findings > 0 {
         debug!("check config: exit with findings");
@@ -136,6 +136,8 @@ pub struct Counts {
     pub links: usize,
     /// Required keys confirmed present.
     pub required: usize,
+    /// Deprecated tables present, each a warning and never a finding.
+    pub deprecated: usize,
     pub findings: usize,
 }
 
@@ -146,6 +148,7 @@ impl Counts {
         self.keys += other.keys;
         self.links += other.links;
         self.required += other.required;
+        self.deprecated += other.deprecated;
         self.findings += other.findings;
     }
 
@@ -164,6 +167,10 @@ impl Counts {
 /// - A key the profile form retired
 ///   ([`crate::build_cmd::RETIRED_KEYS`]) is reported with `warn!`,
 ///   naming it retired and the profile form that replaces it.
+/// - A table vc-x1 deprecated at 0.85.25 ([`crate::deprecated`]),
+///   `[validate]`, `[build]`, `[install]`, or `[profile.*]`, is one
+///   `warn!` naming what replaced it, counted and never a finding,
+///   its keys still checked as below.
 /// - Each other key not recognized by `key_known` is reported with
 ///   `warn!`, naming `label` and the key. Keys are checked in
 ///   sorted order for stable output.
@@ -191,8 +198,14 @@ fn validate_file(
         files: 1,
         ..Counts::default()
     };
+    let mut deprecated: Vec<&str> = Vec::new();
     for key in keys {
         counts.keys += 1;
+        if let Some(table) = crate::deprecated::table_of(key)
+            && !deprecated.contains(&table)
+        {
+            deprecated.push(table);
+        }
         // A retired key is named with its replacement, one finding,
         // in place of the generic unknown key the schema would make it.
         if let Some(retired) = crate::build_cmd::retired_key(key) {
@@ -225,6 +238,15 @@ fn validate_file(
         }
         trace!("{label} ({}): {key} is known", path.display());
     }
+
+    for table in &deprecated {
+        warn!(
+            "{label} ({}): {}",
+            path.display(),
+            crate::deprecated::table(table)
+        );
+    }
+    counts.deprecated = deprecated.len();
 
     if require_structural {
         for key in schema().iter().filter(|k| k.required && home_pred(k.homes)) {
@@ -582,6 +604,24 @@ member = \"x\"
                 "{msg}"
             );
         }
+        let _ = std::fs::remove_dir_all(path.parent().expect("temp dir"));
+    }
+
+    /// The four deprecated tables are counted once each, the two
+    /// profiles one `[profile.*]`, and none is a finding, so a config
+    /// that still holds them passes.
+    #[test]
+    fn deprecated_tables_are_counted_not_found() {
+        let body = "# c\n\n```toml\n[repos]\nwork = \".\"\n\
+                    [validate]\nfull = [\"cargo test\"]\nfast = [\"cargo test --bins\"]\n\
+                    [build]\ncommands = [\"cargo build\"]\n\
+                    [install]\ndir = \"~/.cargo/bin\"\n\
+                    [profile.dev]\ncargo = \"dev\"\nbin = \"target/debug/app\"\n\
+                    [profile.release]\ncargo = \"release\"\nbin = \"target/release/app\"\n```\n";
+        let path = config_file("config-deprecated", body);
+        let counts = validate_file(&path, "work config", in_work_side, true).expect("validate");
+        assert_eq!(counts.deprecated, 4, "validate, build, install, profile.*");
+        assert_eq!(counts.findings, 0, "a warning, never a finding");
         let _ = std::fs::remove_dir_all(path.parent().expect("temp dir"));
     }
 

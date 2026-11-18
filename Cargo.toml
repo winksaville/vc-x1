@@ -1,6 +1,6 @@
 [package]
 name = "vc-x1"
-version = "0.85.25-3"
+version = "0.85.25-4"
 edition = "2024"
 default-run = "vc-x1"
 
@@ -20,7 +20,11 @@ default-members = [".", "xtask"]
 
 # What `cargo xtask` takes from this workspace, its code naming nothing
 # of it. The validation is the default's with `--include-ignored`, so
-# the fixture tests run too. The binary is `default-run`'s, above.
+# the fixture tests run too. The fast one is the default's, `cargo test
+# --bins` alone (wink, 2026-10-20): a plain `cargo test` measured the
+# same 8 s as the full list, so the only fast worth having skips fmt,
+# clippy, and the integration tests, and a rung's review still runs the
+# full one. The binary is `default-run`'s, above.
 [workspace.metadata.xtask]
 validate = [
   ["cargo", "fmt"],
