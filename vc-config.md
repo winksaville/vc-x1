@@ -363,6 +363,21 @@ used-by = "agent-files copy --custom"
 default = false
 ```
 
+## xtask.dir
+
+The directory `vc-x1 xtask copy` and `xtask diff` take `xtask/` from when no `--from` is given: a
+directory holding `xtask/`, an adopter's work repo, relative to the config file's directory. Absent,
+the commands need `--from`.
+
+```toml
+[xtask.dir]
+homes = ["workspace-code"]
+kind = "str"
+doc = "Default --from for xtask copy and diff: a directory holding xtask/"
+used-by = "xtask copy, xtask diff"
+example = "../vc-x1"
+```
+
 ## squash-push.yes
 
 Whether `vc-x1 squash-push` acts without asking once its precheck has found work. True is today's

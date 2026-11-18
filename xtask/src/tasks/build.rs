@@ -44,14 +44,20 @@ pub fn run(args: &Args) -> Result<ExitCode, String> {
     Ok(ExitCode::SUCCESS)
 }
 
-/// The build's arguments to cargo, `--bin` for a binary a plain build
-/// leaves out.
+/// The build's arguments to cargo, `--package` and `--bin` for a
+/// binary a plain build leaves out, since `--bin` alone looks only in
+/// the default members.
 pub fn build_args(profile: &str, bin: &Bin) -> Vec<String> {
     let mut args: Vec<String> = ["build", "--profile", profile, "--locked"]
         .map(str::to_string)
         .to_vec();
     if !bin.default_member {
-        args.extend(["--bin".to_string(), bin.name.clone()]);
+        args.extend([
+            "--package".to_string(),
+            bin.package.clone(),
+            "--bin".to_string(),
+            bin.name.clone(),
+        ]);
     }
     args
 }
@@ -86,6 +92,7 @@ mod tests {
     fn the_build_is_the_profiles() {
         let member = Bin {
             name: "app".to_string(),
+            package: "app".to_string(),
             default_member: true,
         };
         assert_eq!(
@@ -94,11 +101,21 @@ mod tests {
         );
         let other = Bin {
             name: "tool".to_string(),
+            package: "tools".to_string(),
             default_member: false,
         };
         assert_eq!(
             build_args("release", &other),
-            ["build", "--profile", "release", "--locked", "--bin", "tool"]
+            [
+                "build",
+                "--profile",
+                "release",
+                "--locked",
+                "--package",
+                "tools",
+                "--bin",
+                "tool"
+            ]
         );
     }
 }

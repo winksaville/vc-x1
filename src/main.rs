@@ -56,6 +56,7 @@ mod transcript;
 mod url;
 mod validate;
 mod version;
+mod xtask_cmd;
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -199,6 +200,9 @@ pub(crate) enum Commands {
     /// The agent-files set: its version, and a diff against a copy of it
     #[command(name = "agent-files")]
     AgentFiles(agent_files::AgentFilesArgs),
+
+    /// A project's xtask/: copy it into a Rust workspace, or bring it up to date
+    Xtask(xtask_cmd::XtaskArgs),
 
     /// Print vc-x1, jj-lib, and jj-data versions
     #[command(
@@ -1014,6 +1018,9 @@ fn main() -> ExitCode {
     // Reads a directory listing, never a repo, and must answer in a
     // plain old repo too, so it runs after the gate and before
     // `Context::load`.
+    if let Commands::Xtask(args) = &cmd {
+        return args.run();
+    }
     if let Commands::AgentFiles(args) = &cmd {
         return args.run();
     }
@@ -1028,7 +1035,7 @@ fn main() -> ExitCode {
 
     match cmd {
         // Handled above, before `Context::load`.
-        Commands::Version | Commands::AgentFiles(_) => ExitCode::SUCCESS,
+        Commands::Version | Commands::AgentFiles(_) | Commands::Xtask(_) => ExitCode::SUCCESS,
         Commands::Chid(args) => args.dispatch(&mut ctx),
         Commands::Desc(args) => args.dispatch(&mut ctx),
         Commands::List(args) => args.dispatch(&mut ctx),

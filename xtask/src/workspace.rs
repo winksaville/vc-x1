@@ -9,11 +9,15 @@
 //!   - `validate` and `validate-fast`: the validation's commands, each
 //!     an array of words, `"cargo"` the cargo running the task, in
 //!     place of [`FULL`] and [`FAST`].
+//!   - `tasks`: the workspace's own tasks, each a name and its list of
+//!     commands in the same form, run as `cargo xtask <name>`, so a
+//!     project adds a task without changing `xtask/`.
 //! - The default binary is `--bin`, else `default-bin`, else the root
 //!   package's `default-run`, a `[package]` key a virtual workspace has
 //!   no place for, else the one bin target, xtask's own left out, else
 //!   none, refused naming them.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use crate::util::{cargo, command, profile_dir};
@@ -33,6 +37,8 @@ pub const FAST: &[&[&str]] = &[&["cargo", "test", "--bins"]];
 pub struct Bin {
     /// The target's name, the binary's file name.
     pub name: String,
+    /// Its package's name.
+    pub package: String,
     /// Whether its package is a default member, built by a plain
     /// `cargo build`.
     pub default_member: bool,
@@ -53,6 +59,9 @@ pub struct Workspace {
     pub validate: Option<Vec<Vec<String>>>,
     /// `[workspace.metadata.xtask] validate-fast`.
     pub validate_fast: Option<Vec<Vec<String>>>,
+    /// `[workspace.metadata.xtask.tasks]`, each task's commands by its
+    /// name.
+    pub tasks: BTreeMap<String, Vec<Vec<String>>>,
 }
 
 impl Workspace {
@@ -113,6 +122,8 @@ impl Workspace {
                 if let (true, Some(name)) = (is_bin, text(&target["name"])) {
                     bins.push(Bin {
                         name,
+                        // OK: cargo metadata names every package
+                        package: text(&package["name"]).unwrap_or_default(),
                         default_member,
                     });
                 }
@@ -126,6 +137,7 @@ impl Workspace {
             default_run,
             validate: commands(&settings["validate"], "validate")?,
             validate_fast: commands(&settings["validate-fast"], "validate-fast")?,
+            tasks: tasks(&settings["tasks"])?,
         })
     }
 
@@ -191,6 +203,27 @@ impl Workspace {
                 .collect(),
         }
     }
+}
+
+/// The workspace's own tasks, `[workspace.metadata.xtask.tasks]`, a
+/// table of names, each a list of commands. Absent is none.
+fn tasks(value: &serde_json::Value) -> Result<BTreeMap<String, Vec<Vec<String>>>, String> {
+    if value.is_null() {
+        return Ok(BTreeMap::new());
+    }
+    let table = value.as_object().ok_or(
+        "[workspace.metadata.xtask] tasks is not a table of tasks, each a name and its list of \
+         commands, such as docs = [[\"cargo\", \"doc\"]]",
+    )?;
+    let mut out = BTreeMap::new();
+    for (name, value) in table {
+        let key = format!("tasks.{name}");
+        let Some(lists) = commands(value, &key)? else {
+            return Err(format!("[workspace.metadata.xtask] {key} is empty"));
+        };
+        out.insert(name.clone(), lists);
+    }
+    Ok(out)
 }
 
 /// A list of commands in the settings, `key` naming it in an error:
@@ -368,5 +401,21 @@ mod tests {
             let e = ws(json!({ "validate-fast": bad })).unwrap_err();
             assert!(e.contains("validate-fast is not a list of commands"), "{e}");
         }
+    }
+
+    /// The workspace's own tasks are read by name, none when absent,
+    /// and a malformed one is refused naming it.
+    #[test]
+    fn the_workspaces_tasks_are_its_commands_by_name() {
+        let ws = |xtask| {
+            Workspace::from_metadata(&meta(&[("app", &["app"], None, true)], xtask), "xtask")
+        };
+        assert!(ws(json!(null)).unwrap().tasks.is_empty());
+        let given = ws(json!({"tasks": {"docs": [["cargo", "doc", "--no-deps"]]}})).unwrap();
+        assert_eq!(given.tasks["docs"], [["cargo", "doc", "--no-deps"]]);
+        let e = ws(json!({"tasks": {"docs": "cargo doc"}})).unwrap_err();
+        assert!(e.contains("tasks.docs is not a list of commands"), "{e}");
+        let e = ws(json!({"tasks": [["cargo", "doc"]]})).unwrap_err();
+        assert!(e.contains("tasks is not a table of tasks"), "{e}");
     }
 }

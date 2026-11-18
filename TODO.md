@@ -138,11 +138,11 @@ On the closed tree, from the work-repo root:
   tmp/bin`, and `completions cx` each succeed, the install leaving `<default>-dev`.
   - With `default-bin` removed, `run` is refused naming both binaries.
   - In a git repo with no jj, the build prints no warning and its binary carries git's `HEAD`.
-- `vc-x1-dev xtask copy --from .` into scratch workspaces under `tmp/`: a single package becomes a
-  workspace of it and `xtask`, a root-package and a virtual workspace gain the member, each
-  manifest's comments kept, and `cargo xtask validate --fast` passes in each. `xtask diff` then
-  names nothing, and a copy from a source whose xtask version is newer replaces it, reporting both
-  versions.
+- `tests/cli_xtask.rs`, `vc-x1 xtask copy --from .` into scratch workspaces: a single package
+  becomes a workspace of it and `xtask`, a root-package and a virtual workspace gain the member,
+  each manifest's comments kept, and the tasks run in each, a declared one included. `xtask diff`
+  then names nothing, a copy from a source whose xtask version is newer replaces it, reporting
+  both versions, and a local change is refused until `--force`.
 - `scripts/vc-dr-apply.sh --lang rust` into a scratch workspace writes no `[validate]` table, its
   `CONTRIBUTING.md > ## Tasks` names the `cargo xtask` commands, and `cargo xtask validate --fast`
   passes there.
@@ -378,10 +378,12 @@ One command puts `xtask/` in a Rust workspace or brings it up to date, as `agent
 `diff` do the set, so a new workspace, an adoption, and an update are one code path (wink,
 2026-11-18). A workspace `vc-dr-apply` makes is functional with no `vc-x1 validate`.
 
-- `vc-x1 xtask copy [--from DIR] [--rev REV] [--dry-run] [--force]` takes `xtask/` from a source
-  adopter, its working copy or `REV`, the default source read from `.vc-config.md` as
-  `[agent-files.copy] dir` is. With no `xtask/` it copies it in and wires it, and with one it
-  replaces it.
+- `vc-x1 xtask copy [--from DIR] [--to DIR] [--dry-run] [--force]` takes `xtask/` from a source
+  directory on disk, the default `.vc-config.md`'s `[xtask] dir`, one key for both commands
+  (wink, 2026-11-18). With no `xtask/` it copies it in and wires it, and with one it replaces it.
+  A specific version is a source tree at that commit, so `--rev` is dropped (wink, 2026-11-18)
+  and the help shows the two ways to make one, `jj workspace add -r REV` and `git archive REV
+  xtask`, which is what `vc-dr-apply` does.
 - The wiring is edited, never left to the user, by `toml_edit`, which keeps comments and layout: a
   single package gains `[workspace] members = [".", "xtask"]`, a workspace gains `"xtask"` in
   `members` unless a glob covers it, and `.cargo/config.toml` is made or gains `[alias] xtask`. A
@@ -391,7 +393,7 @@ One command puts `xtask/` in a Rust workspace or brings it up to date, as `agent
   `0.1.0`, so `bump` never moves it, and `copy` reports the old and the new. It refuses a source
   older than the copy in place, or one whose files differ at the same version, a local change,
   unless `--force`.
-- `vc-x1 xtask diff [--from DIR] [--rev REV]` names the files a copy would change and the wiring it
+- `vc-x1 xtask diff [--from DIR] [--to DIR]` names the files a copy would change and the wiring it
   would add.
 - `xtask/` stays verbatim: a project's own tasks are commands in `[workspace.metadata.xtask]
   tasks`, run as `cargo xtask <name>` and completed with the rest, as `validate`'s lists are, and
@@ -406,6 +408,42 @@ One command puts `xtask/` in a Rust workspace or brings it up to date, as `agent
 - Its test makes the scratch port test permanent: a new single package, an adoption into a
   root-package and into a virtual workspace, and an update, each running the tasks after.
 
+What the rung did, beside the intent:
+
+- `src/xtask_cmd.rs` holds the commands, the comparison by content, xtask's version, semver's
+  order with the pre-release before its release, and the verdict: new, up to date, newer, older,
+  or a local change. `src/xtask_cmd/wiring.rs` holds the edits, each from text to text, so its
+  tests need no disk. A multi-line `members` gets the new entry on a line of its own after what
+  trails the last one, a comment included, and a legacy `.cargo/config` takes the alias when it
+  is the only config. The working-copy guard covers `xtask/` alone, so `vc-dr-apply` can run the
+  copy over the files it has just written.
+- xtask's declared tasks are `[workspace.metadata.xtask.tasks]`, a name and its commands, run by
+  `tasks/declared.rs` through clap's external subcommand, the arguments after the name appended to
+  the last command. Completion and `-h` offer them, read through `cargo metadata`, which needs
+  clap's `string` feature for a name read at run time, and a declared name a built-in has is
+  refused. xtask's version is `0.1.0`, its manifest saying it is xtask's own and raised with any
+  change to `xtask/`.
+- The test found a bug in xtask's build: `--bin` alone looks only in the default members, so a
+  root-package workspace's other binary did not build. A binary outside them is now built with
+  `--package` and `--bin`.
+- `tests/cli_xtask.rs` is the test, ignored by a plain `cargo test` and run by the full
+  validation, its scratch workspaces under the test tmp root sharing one target directory. Its
+  cargo is `tests/common/mod.rs`'s `cargo()`, under the spawn register's entry 4.
+- `vc-dr-apply`'s language skeletons hold `tasks.md`, the rows of the stub's Tasks table, a
+  skeleton being a directory with one. A skeleton with a `Cargo.toml` gets the source's `xtask/`,
+  staged at the same revision by `git archive` and copied by `vc-x1 xtask copy`, `VC_X1` naming
+  the binary, so a run during a cycle takes `vc-x1-dev`.
+- A directory with no `Cargo.toml`, a repo fresh from `vc-x1 init`, gets one (wink, 2026-11-18,
+  "I'm a baby and I really don't like using shell scripts"): a virtual workspace of xtask alone
+  with `[workspace.package] version = "0.1.0"` for `version` and `bump`, and `.gitignore` gains
+  `/target` when no line ignores it, since jj snapshots what is not ignored and the first build
+  makes it. `agent-files copy --from` already fills such a repo with the set, so the two copies
+  are the script's work for a Rust project but the skeleton, which **Initialization leaves no bad
+  link** moves into `init`.
+- The schema gains `xtask.dir`, `vc-config-model.md` is made again from it, and the root
+  `Cargo.toml`'s comment on the installed name, which still described `--root tmp/dev` in the
+  retired `[validate]`, names `cargo xtask install`.
+
 ##### docs: the tasks are named by CONTRIBUTING.md
 
 The README, `CONTRIBUTING.md > ## Tasks`, and the agent-files name the tasks, the `check`
@@ -418,12 +456,16 @@ change with them, each in use from 2026-11-18 on, before the rung writes it:
   installs its dev build, and stops, so the user reviews the commit, the ladder, and the Todos and
   says what is next, and "go" or "continue" commits and starts the next rung. The per-rung flow's
   step 5 names the three words, and step 7 what follows each.
-- The body's pointer names the heading (wink, 2026-11-18, from zc-ring-x1's last commit): "See
-  details in TODO.md" becomes `See details in TODO.md "##### <rung title>".` for a work rung, its
-  subsection holding the full account, and `"### <cycle title>"` for a bookend and a single-step
-  cycle, since `TODO.md` is long and the heading's text, unlike a line number or an anchor, is
-  found by a search at any commit, the block in `## In Progress` or `## Closed`. Commit-body form
-  and `commit-model.md`'s specimens show it.
+- The body's pointer is the heading's own line (wink, 2026-11-18, from zc-ring-x1's last commit,
+  then refined): the body ends with a paragraph of its own, two lines, `See details in TODO.md:`
+  and the heading exactly as written in `TODO.md`, with no quotes and no period, `##### <rung
+  title>` for a work rung, its subsection holding the full account, and `### <cycle title>` for a
+  bookend and a single-step cycle. `TODO.md` is long, and the heading's line, unlike a line number
+  or an anchor, is found by a search at any commit, the block in `## In Progress` or `## Closed`.
+  It is copied as one line, so it is never wrapped, and the `#`s are what land a search on the
+  heading rather than the ladder or the title, which repeat its words. Commit-body form and
+  `commit-model.md`'s specimens show it, and its rationale says that git's message editor strips
+  a line starting with `#`, so a message reworded through git loses it, where jj keeps it.
 
 ##### feat: the project's tasks move to cargo xtask closing
 
@@ -503,19 +545,6 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### cycle --commit writes the body's pointer
-
-(wink + agent, 2026-11-18, from **feat: the project's tasks move to cargo xtask**) A commit body
-ends `See details in TODO.md "##### <rung title>".`, or `"### <cycle title>"` for a bookend and a
-single-step cycle, and `cycle --commit` and `--close` know both titles, so the pointer is typed by
-hand where the tool could write it.
-
-- Either the tool appends the pointer when `--body` lacks one, or `check desc` reports a body
-  whose pointer names no heading of that commit's `TODO.md`. The first removes the typing, the
-  second also catches an old body.
-- A body is the agent's and the trailers the tool's, so a tool that writes into the body is a line
-  crossed, and which side of it the pointer is on is the deliberation's first question.
-
 ### Initialization leaves no bad link
 
 (wink + agent, 2026-11-16, from **docs: CONTRIBUTING.md names the project's tasks**) A workspace an
@@ -529,9 +558,14 @@ the agent-files, so the fix is to ship it, not to drop the link.
   adopters. Two ways to start a workspace is acceptable for now, and not for long: `init` takes
   on what `vc-dr-apply` does and the script retires. Whether `agent-files copy` folds in too is
   settled then.
-  - `vc-x1 xtask copy` (2026-11-18, **feat: the project's tasks move to cargo xtask**) is the
-    first of the script's jobs moved into Rust, `--lang rust` calling it, so `init` takes it on
-    with the rest.
+  - Its building blocks (wink + agent, 2026-11-18): `vc-x1 agent-files copy --from` and `vc-x1
+    xtask copy --from` each work in a repo fresh from `init`, the second making it a workspace of
+    xtask alone, so `init --from DIR` is those two and the base skeleton, `TODO.md`, `zTOC.md`,
+    `CONTRIBUTING.md`, `notes/`, and `LICENSE-*`, with the agent repo's `README.md` and
+    `memory/MEMORY.md`, which only the script writes today. A flag on either copy for the other
+    was set aside: each set has its own version, `diff`, and update, and the one command belongs
+    to `init`. `xtask copy` is the first of the script's jobs moved into Rust, `--lang rust`
+    calling it, from **feat: the project's tasks move to cargo xtask**.
 - **The skeleton is part of the agent-files.** `TODO.md`, `zTOC.md`, `CONTRIBUTING.md`, and
   `notes/`'s `README.md`, `bugs.md`, and `todo-backlog.md` are required and shaped by the
   agent-files, their content each project's, and they live in `scripts/vc-dr-apply-base/` beside
@@ -556,6 +590,27 @@ the agent-files, so the fix is to ship it, not to drop the link.
   directory of files: cloning a template repo, or a project's own skeleton. Open, to be settled
   when a real project needs it.
 
+### cycle --commit writes the body's pointer
+
+(wink + agent, 2026-11-18, from **feat: the project's tasks move to cargo xtask**) A commit body
+ends in a two-line paragraph, "See details in TODO.md:" and then a searchable line, the section's
+heading exactly as written in `TODO.md`.
+
+```text
+See details in TODO.md:
+##### <rung title>
+```
+
+`### <cycle title>` in place of the rung's for a bookend and a single-step cycle. `cycle --commit`
+and `--close` know both titles, so the pointer is typed by hand where the tool could write it.
+
+- Either the tool appends the two lines when `--body` lacks them, or `check desc` reports a body
+  whose last paragraph is not the pointer or whose heading is no line of that commit's `TODO.md`.
+  The fixed shape makes both a whole-paragraph act, never an edit of the prose. The first removes
+  the typing, the second also catches an old body, the quoted form of the cycle that made this.
+- A body is the agent's and the trailers the tool's, so a tool that writes into the body is a line
+  crossed, and which side of it the pointer is on is the deliberation's first question.
+
 ### validate-desc shows a note as part of its row
 
 (wink + agent, 2026-11-10) `validate-desc` prints a note, a remark on a commit whose verdict is
@@ -571,6 +626,7 @@ pair locally, its agent partner unpushed until a push.
   `ochid:` naming one commit. README's status list names neither, the second documented only in
   the code, and both are written up there.
 - Add a cid column next to the chid we have now
+
 ### feat: a cycle's state is recorded, and every end is durable
 
 (wink + agent, 2026-11-15 and 16, from the dead-end **fix: a cycle commit marks no rung current**,

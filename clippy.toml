@@ -26,7 +26,9 @@
 #    tests' launcher spawning the built vc-x1 binary is this entry
 #    too: spawning the binary is what a CLI test is. So is
 #    tests/cli_fixture_builder.rs running the dr-1 fixture builder
-#    with that binary, which keeps the builder in step with it.
+#    with that binary, which keeps the builder in step with it. So
+#    is tests/common/mod.rs's `cargo()`, building the scratch
+#    workspaces tests/cli_xtask.rs copies xtask/ into.
 # 5. A configured command list (src/command_list.rs): runs the
 #    workspace's `[validate]` commands for validate, its `[build]`
 #    commands for build, `--dev` or not, and its optional `[install]`

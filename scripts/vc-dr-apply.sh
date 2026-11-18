@@ -30,8 +30,8 @@ Apply what SOURCE holds, one tree per repo, to the dual workspace DIR, made by `
   --skel DIR       the skeletons, a directory holding vc-dr-apply-base/ and vc-dr-apply-lang/,
                    as on disk [default: the source work repo's scripts/ at --rev, else this
                    script's own directory, symlinks resolved]
-  --lang NAME      also apply the language skeleton vc-dr-apply-lang/NAME/, its [validate]
-                   table appended to DIR's .vc-config.md; --lang alone lists them
+  --lang NAME      also apply the language skeleton vc-dr-apply-lang/NAME/, its tasks filled
+                   into CONTRIBUTING.md; --lang alone lists them
   --dry-run        print the plan and write nothing
 
 The default is the active version, the working copy with what it has not committed, so a test
@@ -46,10 +46,12 @@ and {module} it with each '-' an '_', in file contents and paths, and gitignore-
 .gitignore lines.
 
 A language skeleton, vc-dr-apply-lang/NAME/, holds the project's starting files, written like the
-others, and three files that are not: validate.toml, the [validate] table appended to
-.vc-config.md, refused when it has one already; gitignore-lines, more .gitignore lines; and
-replaces, the base skeleton's paths it supersedes, left out, version.toml when the build system
-holds the version. A new language is a new directory with a validate.toml.
+others, and three files that are not: tasks.md, the rows of CONTRIBUTING.md's Tasks table, in
+place of the stub's; gitignore-lines, more .gitignore lines; and replaces, the base skeleton's
+paths it supersedes, left out, version.toml when the build system holds the version. A new
+language is a new directory with a tasks.md. A skeleton with a Cargo.toml is a Rust workspace, and
+gets the source's xtask/ at the same revision, the project's tasks, by `vc-x1 xtask copy`, which
+adds its member and its `cargo xtask` alias. VC_X1 names the vc-x1 it runs [default: vc-x1].
 
 Both repos of DIR must have an empty `@`, so every write is a diff `jj restore` undoes. Each
 path is new, identical, or differs, judged on disk. New is written and identical skipped, and
@@ -59,6 +61,7 @@ EOF
 }
 
 script_dir=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
+vc_x1=${VC_X1:-vc-x1}
 to=.
 rev=@
 agent_rev=@
@@ -197,11 +200,11 @@ else
 fi
 langs_dir=$skel/vc-dr-apply-lang
 
-# The language skeletons, one per directory with a validate.toml.
+# The language skeletons, one per directory with a tasks.md.
 langs() {
     local d
     for d in "$langs_dir"/*/; do
-        if [[ -f $d/validate.toml ]]; then basename "$d"; fi
+        if [[ -f $d/tasks.md ]]; then basename "$d"; fi
     done
 }
 
@@ -214,7 +217,7 @@ fi
 lang_dir=
 if [[ -n $lang ]]; then
     lang_dir=$langs_dir/$lang
-    [[ -f $lang_dir/validate.toml ]] ||
+    [[ -f $lang_dir/tasks.md ]] ||
         die "no language skeleton '$lang' in $skel_from, the choices: $(langs | paste -sd ' ')"
 fi
 
@@ -264,7 +267,29 @@ if [[ -n $lang_dir ]]; then
         done <"$lang_dir/replaces"
     fi
     cp -R "$lang_dir/." "$stage/work/"
-    rm -f "$stage/work/validate.toml" "$stage/work/gitignore-lines" "$stage/work/replaces"
+    rm -f "$stage/work/tasks.md" "$stage/work/gitignore-lines" "$stage/work/replaces"
+    # The stub's Tasks rows give way to the skeleton's: the rows after the table's separator,
+    # up to the first line that is no row.
+    if [[ -f $stage/work/CONTRIBUTING.md ]]; then
+        awk -v rows="$lang_dir/tasks.md" '
+            skipping && /^\|/ { next }
+            skipping { skipping = 0 }
+            { print }
+            /^\|---/ && !done { while ((getline line < rows) > 0) print line; skipping = 1; done = 1 }
+        ' "$stage/work/CONTRIBUTING.md" >"$tmp/contributing" && mv "$tmp/contributing" "$stage/work/CONTRIBUTING.md"
+    fi
+fi
+
+# A Rust skeleton gets the source's xtask/, staged at the same revision, for `vc-x1 xtask copy`.
+xtask_src=
+if [[ -n $lang_dir && -f $lang_dir/Cargo.toml ]]; then
+    if in_commit "$src" "$sha" xtask/Cargo.toml; then
+        xtask_src=$tmp/xtask-src
+        mkdir -p "$xtask_src"
+        git -C "$src" archive "$sha" xtask | tar -x -C "$xtask_src"
+    else
+        echo "vc-dr-apply: the source has no xtask/ at ${sha:0:12}, so the $lang skeleton gets none"
+    fi
 fi
 module=${name//-/_}
 while IFS= read -r -d '' f; do
@@ -330,14 +355,9 @@ while IFS= read -r line; do
     ignore_add+=("$line")
 done < <(cat "$skel/vc-dr-apply-base/gitignore-lines" ${lang_dir:+"$lang_dir/gitignore-lines"} 2>/dev/null)
 
-# The [validate] table a language skeleton brings, refused when the config has one.
-validate_add=
-if [[ -n $lang_dir ]]; then
-    if grep -q '^\[validate\]' "$ws/.vc-config.md"; then
-        differs+=("work .vc-config.md (it has a [validate] table, so $lang's is not added)")
-    else
-        validate_add=$(cat "$lang_dir/validate.toml")
-    fi
+# xtask/ is `vc-x1 xtask copy`'s to bring, and to bring up to date when it is there.
+if [[ -n $xtask_src && -e $ws/xtask ]]; then
+    differs+=("work xtask/ (it exists: \`vc-x1 xtask copy\` brings it up to date)")
 fi
 
 echo "vc-dr-apply: from $src at $src_at, its agent repo at $agent_at"
@@ -347,7 +367,8 @@ for x in ${new[@]+"${new[@]}"}; do echo "  new       $x"; done
 for x in ${same[@]+"${same[@]}"}; do echo "  identical $x"; done
 for x in ${differs[@]+"${differs[@]}"}; do echo "  differs   $x"; done
 for x in ${ignore_add[@]+"${ignore_add[@]}"}; do echo "  ignore    work .gitignore + $x"; done
-[[ -z $validate_add ]] || echo "  config    work .vc-config.md + [validate], the $lang skeleton's"
+[[ -z $xtask_src ]] ||
+    echo "  xtask     work xtask/, its Cargo.toml member, and its cargo alias, by \`$vc_x1 xtask copy\`"
 
 if ((${#differs[@]})); then
     die "${#differs[@]} path(s) differ from what would be written, so nothing was written"
@@ -369,9 +390,9 @@ done
 if ((${#ignore_add[@]})); then
     printf '%s\n' "${ignore_add[@]}" >>"$ws/.gitignore"
 fi
-if [[ -n $validate_add ]]; then
-    printf '\nThe validation commands, from the %s language skeleton\n```toml\n%s\n```\n' \
-        "$lang" "$validate_add" >>"$ws/.vc-config.md"
+if [[ -n $xtask_src ]]; then
+    "$vc_x1" --no-banner xtask copy --from "$xtask_src" --to "$ws" ||
+        die "the files are written and \`$vc_x1 xtask copy\` failed: \`jj restore\` in $ws undoes it"
 fi
 
 echo "vc-dr-apply: applied, nothing committed. custom.md is written and gitignored, local."

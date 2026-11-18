@@ -32,8 +32,12 @@ fn main() -> ExitCode {
     // With `COMPLETE` set these answer a completion request and exit,
     // run's arguments by the binary it runs and the rest by clap.
     tasks::run::forward_completion(&util::root());
-    CompleteEnv::with_factory(Cli::command).complete();
-    match dispatch(&Cli::parse().task) {
+    CompleteEnv::with_factory(|| tasks::declared::with_declared(Cli::command())).complete();
+    let builtin: Vec<String> = Cli::command()
+        .get_subcommands()
+        .map(|c| c.get_name().to_string())
+        .collect();
+    match dispatch(&Cli::parse().task, &builtin) {
         Ok(code) => code,
         Err(e) => {
             eprintln!("xtask: {e}");
@@ -99,6 +103,10 @@ mod tests {
         assert!(help.contains("needs no `--`"), "{help}");
         assert!(parse(&["xtask", "bump"]).is_err(), "bump needs its word");
         assert!(parse(&["xtask"]).is_err(), "a task is required");
+        assert!(
+            matches!(parse(&["xtask", "docs", "--open"]), Ok(Task::Declared(w)) if w == ["docs", "--open"]),
+            "any other name is a declared task's, its arguments after it"
+        );
     }
 
     /// `run` parses as `cargo run` does: its own flags first, and the
