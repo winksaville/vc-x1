@@ -17,11 +17,12 @@ acquaint, acted on, and reset to `_None._` by the reader.
   bookmark, `feat-one-cycle-flow-plan-rungs-close`, is local, renamed by `jj bookmark rename`. The
   opening pair, reworked and retitled while local, is work `zkvzwtno` and agent `ktmznnnu`, nothing
   pushed.
-- Rung 1, **feat: vc-x1 rung next, stop and commit**, is in the work `@`, uncommitted and not
-  reviewed: the version bumped to `0.85.26-1` and the dead-end's `ruzplvtp` applied, which drops
-  `(current)` everywhere, a first step only. Its next step is the work its subsection names.
+- Rung 1, **feat: vc-x1 rung next, stop and commit**, is in the work `@`, `(current)` in
+  `zTOC.md`, its work done and validated, waiting on wink's review. It is committed by
+  `vc-x1-dev rung commit -s b --body "..."`, and the next rung started by `vc-x1-dev rung next
+  --ver 0.85.26-2`.
 - Run every cycle command by `vc-x1-dev`, installed from the working copy at `0.85.26-1`: the
-  installed `vc-x1` `0.85.25` writes and shows the next rung `(current)`, which this cycle removes.
+  installed `vc-x1` `0.85.25` has no `rung` and writes the next rung `(current)` into a commit.
   The bookmark is the title's slug, so no `--bookmark` is needed.
 - Findings to file as Todos, or fold into a rung: `vc-x1 sync -s b` reports "1 repo is up to date"
   for two; `cycle --ladder` refuses while a committed rung's title is being reworked, so a retitle
@@ -61,11 +62,14 @@ One flow for every cycle. `vc-x1 cycle plan` makes the bookmark and scaffolds th
 ladder, the version untouched. `vc-x1 rung next --ver <version>` marks the first rung not done
 `(current)` in the working copy and bumps the version by the command the config's `[version] bump`
 names, and `rung commit` commits it, `(done)` and none current, `rung stop` clearing the marker
-instead. A bare version on the opening makes the opening the whole cycle, its ladder one entry and
-its `rung commit` the single-step. Otherwise `rung next` reaches the closing like any rung, and
-`cycle close` commits it, or `cycle squash` makes the ladder one commit, the agent commits
-re-pointed to it. The stages are subcommands, `cycle plan|close|squash|land|push|status|ladder` and
-`rung next|stop|commit`, the old flags gone, and the agent-files say so.
+instead. A single-step comes in two styles. The simple one is one rung, the cycle title its one
+heading under `#### Rungs`, written by hand or by `rung next --ver` with a bare version on a
+scaffold holding only its bookends, and its `rung commit` is the single-step. The long one was
+planned as a ladder and needed one commit, and `cycle squash` makes it one, as it does any ladder,
+the agent commits re-pointed to it. Otherwise `rung next` reaches the closing like any rung, and
+`cycle close` commits it. The stages are subcommands, `cycle
+plan|close|squash|land|push|status|ladder` and `rung next|stop|commit`, the old flags gone, and the
+agent-files say so.
 
 #### Acceptance check
 
@@ -79,9 +83,14 @@ In a fresh `vc-x1 init` workspace, with the cycle's dev build:
 - `rung commit` with no rung current is refused, naming `rung next`, and on the closing rung,
   naming `cycle close` and `cycle squash`. `rung next` while a rung is current is refused, and
   `rung stop` clears the marker, the edits left alone.
-- A single-step, `cycle plan`, `rung next --ver X.Y.Z`, `rung commit --body`, leaves one commit
-  above `main` under the bare title, the record in `## Closed`, and the ladder `0 (done) <title>`.
-  A bare version on an opening whose plan has work rungs is refused.
+- A simple single-step, `cycle plan`, `rung next --ver X.Y.Z`, `rung commit --body`, leaves one
+  commit above `main` under the bare title, the record in `## Closed` without `#### Rungs`, and
+  the ladder `0 (done) <title>`, and `rung next` rewrote `TODO.md`'s two bookend headings into the
+  one `##### <title>`, the ladder showing it before the review. So does the same with the one
+  heading written by hand and a bare `rung next`, in a workspace with no `[version]`. A bare
+  version on a scaffold whose plan has work rungs is refused.
+- A long single-step, its opening and closing headings kept, `rung next`, the work, and `cycle
+  squash`, leaves the same one commit, as `cycle --close --single-step` does today.
 - A ladder closed by `cycle close --trapezoid main` is a merge of two. Closed by `cycle squash`
   instead, it is one commit under the bare title, whose `ochid:` names every agent commit of the
   cycle and each of which names it. `squash` is refused over a rung a target reaches, and without
@@ -122,16 +131,31 @@ In a fresh `vc-x1 init` workspace, with the cycle's dev build:
   - The bump is at the rung's start, not its commit: a bump at the commit changes `Cargo.toml` and
     `Cargo.lock` after the validate and the review, a tree no one validated.
   - `cycle plan` changes no version: the opening is reached by `rung next`, like every rung.
-- **A bare version makes a single-step** (wink, 2026-11-20): `rung next --ver X.Y.Z` on the opening,
-  the version without a suffix, makes the opening the whole cycle, the ladder rewritten to one
-  entry, the bare title, and its `rung commit`, its `--body` required, commits it as `cycle --close
-  --single-step` did, the record moved to `## Closed`. Under the [suffix
-  scheme](agent-data/versioning.md#suffix-scheme) a bare version is only ever a cycle's last commit,
-  so the version typed says the shape.
-  - Refused when the plan has work rungs, naming both ways on: remove the rungs, or give
-    `X.Y.Z-0`.
-  - `--single-step`, `--multi-step`, and the commit-count check go, the shape said by the version
-    or by the verb.
+- **A single-step is one rung, in two styles** (wink, 2026-11-20): a ladder's opening and closing
+  are bookends, and a single-step planned as one commit has none, so its ladder is the one real
+  rung. The long style, a cycle planned as a ladder that needed one commit, keeps its bookends,
+  which a squash folds away.
+  - The simple style's plan is one heading under `#### Rungs`, the cycle title itself, which the
+    ladder's grammar accepts beside the bookended form. `rung next` marks it current and `rung
+    commit`, its `--body` required, commits it as `cycle --close --single-step` did: the bare title,
+    the record moved to `## Closed` without `#### Rungs`, and the ladder `0 (done) <title>`. No
+    `cycle close`.
+  - The shortcut: `rung next --ver X.Y.Z`, a bare version, on a scaffold still holding only its
+    bookends, rewrites them in `TODO.md` into the one heading, the opening's text kept, so the
+    gospel shows the real rung before the review. Under the [suffix
+    scheme](agent-data/versioning.md#suffix-scheme) a bare version is only ever a cycle's last
+    commit, so it can say the shape. Refused when the plan has work rungs, naming both ways on:
+    remove them, or give `X.Y.Z-0`.
+  - Without `[version]` there is no version to give, and the one heading is written by hand, as in
+    wink's test workspace.
+  - The one rung's title is the cycle title, so the commit's title, the rung's, and the record's
+    `###` heading are one, and `git log --grep` finds it. A cycle whose work has a better name is
+    titled by it.
+  - The version stays on `rung next`, not `rung commit`: a bump at the commit changes the tree after
+    the validate and the review.
+  - Considered and replaced: the version alone choosing the shape, the headings left as bookends
+    and the ladder rewritten, which left the gospel showing an opening and a closing for a cycle
+    that has neither.
 - **`cycle squash` makes a ladder one commit** (wink, 2026-11-20): the work rungs squashed into the
   opening, whose change id jj keeps, under the bare title, the record moved to `## Closed` as a
   single-step's.
@@ -148,6 +172,9 @@ In a fresh `vc-x1 init` workspace, with the cycle's dev build:
     of `main`, which another machine's clone would diverge from.
   - The rule **A ladder lands as a trapezoid, never squashed** gives way, its reason, the lost
     change ids, answered by the re-point.
+  - It takes the long single-step too, a branch of the opening alone or none, so `cycle close`'s
+    `--single-step` and `--multi-step` and the commit-count check go with it, `close` always a
+    ladder's closing and the shape said by the headings or by the verb.
 - **The stages are subcommands** (wink, 2026-11-19): `cycle
   plan|close|squash|land|push|status|ladder` and `rung next|stop|commit`, a cycle's acts and a
   rung's each a command of their own.
@@ -178,10 +205,30 @@ writing it `(done)` and none current, refused with no rung current and on the cl
 --ladder` keeps a `(current)` it finds and makes none, and `cycle --status` shows the current
 rung or names the next. Its agent-files half, the set-aside `nruymrqm`'s, joins the docs rung.
 
-- Its first step is the dead-end's reverted rung **fix: the ladder marks done rungs only**,
-  `ruzplvtp`, applied as it was, its hunks only offset, and the version it names as the last to
-  write `(current)` on a commit moved to `0.85.26`.
-- `scripts/cycle-rehearsal.sh` expected `(current)` twice, which that rung had missed.
+- Its first step was the dead-end's reverted rung **fix: the ladder marks done rungs only**,
+  `ruzplvtp`, applied as it was, so no commit writes `(current)`, and
+  `scripts/cycle-rehearsal.sh` stopped expecting it twice. Its "a `vc-x1` before 0.85.26" reading
+  of an old `(current)` went with the rung: the marker is read again, as the working copy's.
+- The ladder knows the rung started: `ladder_of` takes it and writes `- N (current)`, a marker on
+  a done rung or on no rung dropped as a finding, and `current_of` reads it back from `zTOC.md`.
+  Every commit, `cycle --commit`, `--close`, and `rung commit`, plans its ladder with none current.
+- `cycle --close` is refused while a rung other than the closing is current, so a rung is never
+  left in flight, the opening excepted for `--single-step`, whose one commit it is, and `cycle
+  --open` now says `rung next --ver` starts the opening.
+- `cycle --ladder` needs no bookmark before a commit (wink, 2026-11-20): `TODO.md` is the ladder's
+  source, so with the bookmark not made the ladder is made with no rung done, refused only when
+  the ladder there has a rung done, which it would lose. Found by wink's hand-made test workspace,
+  whose record had no bookmark.
+- `rung commit` names itself in what it says, the shared commit code taking the command's label,
+  so its refusals and progress read `rung commit:`, not `cycle --commit:`, also found by wink's
+  test.
+- `rung` is a command with subcommands in `src/cycle/rung.rs`, a child of `cycle`, so its
+  `commit` is `cycle --commit`'s own code. Running the bump is a new spawn site, register entry 8
+  in `clippy.toml`, its words split at whitespace with no shell, run from the workspace root.
+- `version.bump` is in `vc-config.md`'s schema, the regenerated `vc-config-model.md`, and this
+  workspace's `.vc-config.md`. README's `cycle` section shows the marker and gains `### rung`.
+- Tried on this cycle: `vc-x1-dev rung next --ver 0.85.26-1` ran the bump, a no-op here, and
+  marked this rung `(current)`, which the commit of this rung writes `(done)`.
 
 ##### feat: cycle stages are subcommands
 
@@ -190,12 +237,14 @@ its own and a later stage chained as a flag, `cycle close --land main --push` an
 --push`. `cycle --open` becomes `cycle plan`, `cycle --commit` goes to `rung commit`, the old stage
 flags go, and the rehearsal, README, and tests name the subcommands.
 
-##### feat: a bare version makes a single-step
+##### feat: a single-step is one rung
 
-`rung next --ver X.Y.Z` on the opening rewrites the ladder to one entry under the bare title, and
-`rung commit --body` commits it as the single-step, the record moved to `## Closed`, refused when
-the plan has work rungs. `cycle close`'s `--single-step` and `--multi-step` and the commit-count
-check go.
+The ladder's grammar accepts a plan of one heading, the cycle title, the simple single-step: `rung
+next` marks it current, and `rung commit --body` commits it under the bare title, the record moved
+to `## Closed` without `#### Rungs` and the ladder `0 (done) <title>`. `rung next --ver X.Y.Z`, a
+bare version, on a scaffold holding only its bookends rewrites them in `TODO.md` into that one
+heading, the opening's text kept, and is refused when the plan has work rungs. The long style,
+bookends kept, stays `cycle --close --single-step` until `cycle squash` replaces it.
 
 ##### feat: cycle squash makes one commit
 
@@ -203,7 +252,9 @@ check go.
 rewriting each agent commit's `ochid:` to it, and stamps the work commit's `ochid:` with every
 agent commit, the record moved to `## Closed` and the ladder one entry. Refused over a work rung a
 target reaches, and without `--yes` over an agent commit `main@origin` reaches, with `--land` and
-`--push` chained as on `close`.
+`--push` chained as on `close`. It takes the long single-step, a branch of the opening alone or
+none, so `cycle close`'s `--single-step` and `--multi-step` and the commit-count check go here,
+`close` always a ladder's closing.
 
 ##### docs: one cycle flow
 

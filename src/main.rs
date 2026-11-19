@@ -749,14 +749,16 @@ pub(crate) enum Commands {
         --ladder makes the ladder in zTOC.md from the rung headings, the\n\
         `##### ` headings under `#### Rungs` of the cycle in progress in\n\
         TODO.md, in their order, so a rung is written once. Each line is\n\
-        numbered by its position and its marker computed: `(done)` when a\n\
-        commit of the rung's title is on the cycle's branch, `(current)` the\n\
-        first without one. Refused, with nothing edited: a commit on the\n\
+        marked `(done)` and numbered by its position when a commit of the\n\
+        rung's title is on the cycle's branch, a rung `rung next` started is\n\
+        kept `(current)`, and every other rung is its link alone. No marker\n\
+        is made here. Refused, with nothing edited: a commit on the\n\
         branch that is no rung's, a rung written twice, a ladder not opened\n\
         and closed by the cycle title plus \" opening\" and \" closing\", and\n\
         a line of the ladder there that is no rung by its grammar. The\n\
         branch is the commits the cycle's bookmark reaches that no other\n\
-        local bookmark does, the bookmark the title's slug or --bookmark's.\n\n\
+        local bookmark does, the bookmark the title's slug or --bookmark's,\n\
+        and before the bookmark is made the ladder has no rung done.\n\n\
         --commit commits the working copies as a rung of the cycle in\n\
         progress, by the code `vc-x1 commit` runs, so a dual workspace gets\n\
         the pair, each half stamped with the other's change id. A cycle's\n\
@@ -817,6 +819,18 @@ pub(crate) enum Commands {
         before anything is written, and --same-version commits it as it is.\n\n\
         -R is optional and says where, a workspace or a plain repo.")]
     Cycle(cycle::CycleArgs),
+
+    /// Run a rung's acts: start the next, leave it, or commit it
+    #[command(
+        long_about = "A rung's acts, each a subcommand: `next` starts the next rung,\n\
+        the first not done, marking it `(current)` in the working copy's\n\
+        zTOC.md and with --ver setting the version by the config's\n\
+        `[version] bump`, `stop` clears the marker, and `commit` commits\n\
+        it, the ladder it carries marking it `(done)` and none current.\n\
+        The marker is the working copy's alone, so no commit's tree claims\n\
+        a rung not yet begun."
+    )]
+    Rung(cycle::rung::RungArgs),
 
     /// Retired: `land`, now `cycle --land`, refused naming it.
     #[command(name = "land", hide = true, disable_help_flag = true)]
@@ -1114,6 +1128,7 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
         Commands::Cycle(args) => args.dispatch(&mut ctx),
+        Commands::Rung(args) => args.dispatch(&mut ctx),
         Commands::LandOld { .. } => {
             error!(
                 "land: retired, a cycle's acts being `vc-x1 cycle`'s: `vc-x1 cycle --land \

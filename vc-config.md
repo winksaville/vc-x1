@@ -593,7 +593,8 @@ example = "value"
 The file that holds the project's version, relative to the config file's directory, for the check
 `vc-x1 commit` and `vc-x1 cycle` make of a work commit: one that changes no line of this file
 starting with `version.pattern` is refused, and `--same-version` commits it as it is. The tool
-reads the line and never writes it, the version and its bump being the project's. Both keys or
+reads the line and never writes it, the version and its bump being the project's, which
+`version.bump` names. Both keys or
 neither: without them nothing is checked. Owned by the work side because the version is the
 artifact's.
 
@@ -618,6 +619,23 @@ kind = "str"
 doc = "What the version's line starts with, in `version.file`"
 used-by = "vc-x1 commit, vc-x1 cycle --commit and --close"
 example = "version = "
+```
+
+## version.bump
+
+The command `vc-x1 rung next --ver <VERSION>` runs to set the project's version, from the config
+file's directory, its words split at whitespace, no shell between, and `{ver}` in them replaced by
+the version given. The project's own tool still writes the version, `vc-x1` invoking it, so the
+rule that the version is the project's holds. Without it `--ver` is refused, and the version is
+bumped by hand.
+
+```toml
+[version.bump]
+homes = ["workspace-code"]
+kind = "str"
+doc = "The command that sets the version, `{ver}` the version given"
+used-by = "vc-x1 rung next --ver"
+example = "cargo xtask bump {ver}"
 ```
 
 ## opening.body

@@ -1805,14 +1805,16 @@ no bookmark, being on `main` alone, and nothing is pushed. The record:
   as `--title` is moved into an `## In Progress` scaffold: the title, the item headings, the
   entry's text under Problem, and the opening and closing rung subsections. No entry of that title
   is an empty scaffold, and says so.
-- In `zTOC.md`, the ladder is replaced with the opening, current, and the closing.
+- In `zTOC.md`, the ladder is replaced with the opening and the closing, neither marked, the
+  opening started by [`rung next`](#rung).
 
 Everything is planned before anything is made, so a cycle in progress, a workspace with no
 `TODO.md` or `zTOC.md`, a `TODO.md` with no `## In Progress`, and a name in use are each refused
 with the workspace as it was, the first naming the two files a cycle needs. `--no-record` and
 `--bookmark` without `--title` get the bookmark alone, a branch that `--commit` and `--close`
 will not take, since they read the cycle from its record. Nothing
-is committed or pushed, and the version is the project's to bump: the tool never writes it. A
+is committed or pushed, and the version is the project's to bump, by hand or by `rung next --ver`.
+A
 reference definition only `## Closed` cited is left, for `check anchors` to name. `-R` is
 optional and says where, a workspace or a plain repo.
 
@@ -1826,19 +1828,23 @@ heading, and its line and its marker are made:
 - [feat: a cycle closing](TODO.md#feat-a-cycle-closing)
 ```
 
-A rung is `(done)` when a commit of its title is on the cycle's branch and `(current)` when it is
-the first without one, each numbered by its position, and a rung not started is its link alone. A
-single-step cycle, its one commit under the bare cycle title, is one unlinked rung. The branch is
-the commits the cycle's bookmark reaches, and those above it up to the work `@-`, that no other
-local bookmark reaches, so no destination is named. The bookmark is the slug of the title in `##
-In Progress`, or `--bookmark`'s.
+A rung is `(done)`, numbered by its position, when a commit of its title is on the cycle's branch,
+and `(current)`, numbered too, when [`rung next`](#rung) started it and no commit has ended it.
+Every other rung is its link alone. The `(current)` marker is the working copy's: `--ladder` keeps
+one it finds and makes none, and a commit writes its rung `(done)` and none current, so no
+commit's tree claims work not yet begun. A single-step cycle, its one commit under the bare cycle
+title, is one unlinked rung. The branch is the commits the cycle's bookmark reaches, and those
+above it up to the work `@-`, that no other local bookmark reaches, so no destination is named.
+The bookmark is the slug of the title in `## In Progress`, or `--bookmark`'s. `TODO.md` is the
+ladder's source, so a cycle whose bookmark is not made yet still gets its ladder, no rung done,
+and is refused only when the ladder there has a rung done, which it would lose.
 
 The grammar is strict, and each of these is refused with nothing edited: a commit on the branch
 whose title is no rung's, so an unplanned rung gets its heading before its commit, a rung written
 twice, a ladder whose first rung is not the cycle title plus " opening" or whose last is not it
 plus " closing", and a line of the ladder already there that is not a rung, a left-margin `- `
-with a number and marker or neither and a link whose slug is its title's. A done rung below the
-current one is a warning. `--dry-run` prints the ladder and writes none.
+with a number and marker or neither and a link whose slug is its title's. A done rung below one
+not done is a warning. `--dry-run` prints the ladder and writes none.
 
 `--commit` commits the working copies as a rung of the cycle in progress, by the code
 [`commit`](#commit) runs, so a dual workspace gets the pair, each half stamped with the other's
@@ -1850,8 +1856,9 @@ change id, and a plain repo one commit with no trailer.
   its place.
 - Any other commit is a work rung, which gives `--title`, a rung heading under `#### Rungs` not yet
   committed, and `--body`, the text or `@PATH`.
-- The ladder is rewritten first, the rung done and the next current, so `zTOC.md` at the commit
-  shows the cycle as of it, and it is put back when the commit is not made.
+- The ladder is rewritten first, the rung done and none current, so `zTOC.md` at the commit
+  shows the cycle as of it, and it is put back when the commit is not made. `rung commit` is the
+  same commit, its title the current rung's.
 - The cycle's bookmark is the one advanced, the slug of the title in `## In Progress` or
   `--bookmark`'s, so no other bookmark on the line moves.
 
@@ -1974,24 +1981,27 @@ bookmark: feat-a-cycle, on the work @-
 commits: 2 on the branch, 1 not pushed
 work @: holds changes
 ladder:
-  - 0 (done) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)
-  - 1 (done) [feat: one rung](TODO.md#feat-one-rung)
-  - 2 (current) [feat: a cycle closing](TODO.md#feat-a-cycle-closing)
-next: `cycle --close -s <SCOPE> --multi-step` makes the closing, `--trapezoid <BOOKMARK>` a merge
+  - 0 (done) feat: a cycle opening
+  - 1 (done) feat: one rung
+  - 2 (current) feat: a cycle closing
+next: 'feat: a cycle closing' is started: `cycle --close -s <SCOPE> --multi-step` makes it, `--trapezoid <BOOKMARK>` a merge
 ```
 
-The ladder is the one the rung headings and the commits make, with a note when `zTOC.md`'s
-differs, and `next` is the stage the cycle is at: the opening, the current rung by its title, the
-closing, or the Land of a cycle closed and not yet landed. What another stage would refuse, a
+The ladder is the one the rung headings, the commits, and the rung marked `(current)` make, with a
+note when `zTOC.md`'s differs, and `next` is the stage the cycle is at: the rung started and how
+it is committed, the next rung by its title, `rung next` starting it, or the Land of a cycle
+closed and not yet landed. What another stage would refuse, a
 commit that is no rung's among them, is said and refuses nothing here.
 
 The version is the project's, and no stage writes it. A project that wants a rung's bump checked
-names the file that holds its version and what the version's line starts with:
+names the file that holds its version and what the version's line starts with, and the command
+that sets it, which [`rung next --ver`](#rung) runs:
 
 ```toml
 [version]
 file = "Cargo.toml"
 pattern = 'version = '
+bump = "cargo xtask bump {ver}"
 ```
 
 `--commit` and `--close`, and [`commit`](#commit) for a work commit, then refuse a commit that
@@ -2029,6 +2039,33 @@ local remotes and no cargo project under `~/tmp/cycle-rehearsal`, runs two singl
 a ladder through these flags, open to Land, checks what each command left, and tries each way
 back from a fault found after a closing, naming the ones the tool refuses. `VC` names the binary,
 `vc-x1-dev` by default.
+
+### rung
+
+A rung's acts, each a subcommand, beside [`cycle`](#cycle)'s stages: a rung is started, then
+ended by its commit, and a commit starts nothing.
+
+```bash
+vc-x1 rung next --ver 0.86.0-1      # set the version, then mark the next rung (current)
+vc-x1 rung stop                     # leave it: the marker cleared, the edits kept
+vc-x1 rung commit -s b --body "..." # commit it, (done), none current
+```
+
+- `next` marks the first rung not done `(current)` in the working copy's `zTOC.md`, refused while
+  a rung is current and when every rung is committed. With `--ver` it first runs the config's
+  `[version] bump`, `{ver}` the version given, from the workspace root, so the dev build under
+  review carries the rung's version, and a bump that fails marks nothing. Without `bump` in the
+  config `--ver` is refused, and the version is bumped by hand.
+- `stop` clears the marker, the work `@` left as it is.
+- `commit` commits the working copies as the current rung, by `cycle --commit`'s code, its title
+  the rung's, the opening's body defaulted and a work rung's given by `--body`. The ladder it
+  carries marks the rung `(done)` and none current. Refused with no rung current, naming `next`,
+  and on the closing, which `cycle --close` makes. `-s`, `--push`, and `--same-version` are
+  `cycle --commit`'s.
+
+`cycle --close` is refused while a rung other than the closing is current, so a rung is never
+left in flight. `--bookmark` names the cycle's bookmark when it is not the title's slug, and `-R`
+says where.
 
 ### trailers
 

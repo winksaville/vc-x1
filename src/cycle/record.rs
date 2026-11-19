@@ -243,7 +243,7 @@ fn rung_link(title: &str) -> String {
 }
 
 /// `zTOC.md`'s text with the ladder of a cycle just opened in place of
-/// the last cycle's: the opening, current, and the closing. Refused
+/// the last cycle's: the opening and the closing, neither marked. Refused
 /// when there is no `## Ladder`.
 pub(crate) fn opened_ladder(text: &str, title: &str) -> Result<String, String> {
     let title = title.trim();
@@ -252,7 +252,7 @@ pub(crate) fn opened_ladder(text: &str, title: &str) -> Result<String, String> {
     // were, so the grammar is not asked of them.
     let ladder = section(text, LADDER)
         .ok_or_else(|| format!("{LADDER_FILE} has no `{LADDER}` to write the cycle's ladder in"))?;
-    let made = ladder_of(title, &rungs, &[])?;
+    let made = ladder_of(title, &rungs, &[], None)?;
     Ok(with_content(text, ladder, |_| true, &made.lines.join("\n")))
 }
 
@@ -317,20 +317,26 @@ pub(crate) struct Ladder {
 }
 
 /// The ladder of the cycle `cycle`, a line per rung in `rungs`' order,
-/// `commits` being the titles of the commits on its branch. A rung is
-/// `(done)` when a commit has its title, `(current)` when it is the
-/// first without one, each numbered by its position, and a rung not
-/// started is its link alone. A single-step cycle, its one commit
-/// under the bare cycle title, is one unlinked rung.
+/// `commits` being the titles of the commits on its branch and
+/// `current` the rung started and not yet committed. A rung is
+/// `(done)`, numbered by its position, when a commit has its title, the
+/// current rung `(current)`, numbered too, and every other rung is its
+/// link alone. The marker `(current)` is the working copy's, written by
+/// `rung next` and never by a commit, so no commit's tree claims work
+/// not yet begun. A single-step cycle, its one commit under the bare
+/// cycle title, is one unlinked rung.
 ///
 /// Refused: a title written twice, a ladder not opened by the cycle
 /// title plus " opening" or not closed by it plus " closing", and a
 /// commit whose title is no rung's, each naming what it found. A done
-/// rung below the current one is a finding, the ladder still made.
+/// rung below the first rung not done is a finding, the ladder still
+/// made, and so is a `current` that is done or no rung, its marker
+/// dropped.
 pub(crate) fn ladder_of(
     cycle: &str,
     rungs: &[String],
     commits: &[String],
+    current: Option<&str>,
 ) -> Result<Ladder, String> {
     for (i, r) in rungs.iter().enumerate() {
         if rungs[..i].contains(r) {
@@ -383,24 +389,38 @@ pub(crate) fn ladder_of(
             findings: Vec::new(),
         });
     }
-    let current = rungs.iter().position(|r| !commits.contains(r));
+    let next = rungs.iter().position(|r| !commits.contains(r));
     let mut findings = Vec::new();
+    let current = current.filter(|c| {
+        let started = rungs.iter().any(|r| r == c) && !commits.iter().any(|r| r == c);
+        if !started {
+            findings.push(format!(
+                "the rung marked (current), '{c}', is {}, so the marker is dropped",
+                if rungs.iter().any(|r| r == c) {
+                    "done"
+                } else {
+                    "no rung under `#### Rungs`"
+                }
+            ));
+        }
+        started
+    });
     let lines = rungs
         .iter()
         .enumerate()
         .map(|(i, r)| {
             let link = rung_link(r);
             if commits.contains(r) {
-                if let Some(c) = current
-                    && c < i
+                if let Some(n) = next
+                    && n < i
                 {
                     findings.push(format!(
-                        "the rung '{r}' is done and is below the current one, '{}'",
-                        rungs[c]
+                        "the rung '{r}' is done and is below '{}', a rung not done",
+                        rungs[n]
                     ));
                 }
                 format!("- {i} (done) {link}")
-            } else if current == Some(i) {
+            } else if current == Some(r.as_str()) {
                 format!("- {i} (current) {link}")
             } else {
                 format!("- {link}")
@@ -411,7 +431,7 @@ pub(crate) fn ladder_of(
 }
 
 /// A ladder line with its link reduced to the title it shows,
-/// `- 1 (current) [feat: x](TODO.md#feat-x)` to `- 1 (current) feat: x`,
+/// `- 1 (done) [feat: x](TODO.md#feat-x)` to `- 1 (done) feat: x`,
 /// for a terminal, where the link cannot be followed.
 pub(crate) fn unlinked(line: &str) -> String {
     let Some(open) = line.find('[') else {
@@ -426,35 +446,68 @@ pub(crate) fn unlinked(line: &str) -> String {
     format!("{}{}", &line[..open], &line[open + 1..close])
 }
 
-/// Whether `line`, a left-margin bullet, is a rung by the ladder's
-/// grammar: `- `, then optionally a number and `(current)` or `(done)`,
-/// then the title, linked to its slug in the record or, for a
-/// single-step cycle, bare.
-fn is_rung(line: &str) -> bool {
-    let Some(rest) = line.strip_prefix("- ") else {
-        return false;
-    };
+/// A ladder line's parts by the ladder's grammar: its number and
+/// marker, `(done)` or `(current)`, when it has them, and its title,
+/// `None` when the line is no rung.
+fn rung_parts(line: &str) -> Option<(Option<&str>, &str)> {
+    let rest = line.strip_prefix("- ")?;
     let digits = rest.len() - rest.trim_start_matches(|c: char| c.is_ascii_digit()).len();
-    let rest = match digits {
-        0 => rest,
+    let (marker, rest) = match digits {
+        0 => (None, rest),
         _ => {
             let after = &rest[digits..];
-            match after
-                .strip_prefix(" (current) ")
-                .or_else(|| after.strip_prefix(" (done) "))
-            {
-                Some(title) => title,
-                None => return false,
-            }
+            ["current", "done"].into_iter().find_map(|m| {
+                after
+                    .strip_prefix(&format!(" ({m}) "))
+                    .map(|title| (Some(m), title))
+            })?
         }
     };
     match rest.strip_prefix('[') {
         Some(linked) => linked
             .split_once(&format!("]({RECORD}#"))
             .and_then(|(title, slug)| Some((title, slug.strip_suffix(')')?)))
-            .is_some_and(|(title, slug)| !title.is_empty() && slug == anchor_slug(title)),
-        None => !rest.trim().is_empty() && rest == rest.trim() && !rest.contains("]("),
+            .filter(|(title, slug)| !title.is_empty() && *slug == anchor_slug(title))
+            .map(|(title, _)| (marker, title)),
+        None => (!rest.trim().is_empty() && rest == rest.trim() && !rest.contains("]("))
+            .then_some((marker, rest)),
     }
+}
+
+/// The rung marked `(current)` in `zTOC.md`'s `text`, the one started
+/// and not yet committed, `None` when no line of the ladder is.
+pub(crate) fn current_of(text: &str) -> Option<String> {
+    let (start, end) = section(text, LADDER)?;
+    text[start..end]
+        .lines()
+        .filter_map(rung_parts)
+        .find_map(|(marker, title)| (marker == Some("current")).then(|| title.to_string()))
+}
+
+/// Whether the ladder in `zTOC.md`'s `text` has a rung marked `(done)`.
+pub(crate) fn has_done(text: &str) -> bool {
+    section(text, LADDER).is_some_and(|(start, end)| {
+        text[start..end]
+            .lines()
+            .filter_map(rung_parts)
+            .any(|(marker, _)| marker == Some("done"))
+    })
+}
+
+/// The rung marked `(current)` in the workspace at `root`, read from
+/// its `zTOC.md`.
+pub(crate) fn current_rung(root: &Path) -> Result<Option<String>, String> {
+    let p = root.join(LADDER_FILE);
+    let text = std::fs::read_to_string(&p).map_err(|e| format!("{}: {e}", p.display()))?;
+    Ok(current_of(&text))
+}
+
+/// Whether `line`, a left-margin bullet, is a rung by the ladder's
+/// grammar: `- `, then optionally a number and `(done)` or
+/// `(current)`, then the title, linked to its slug in the record or,
+/// for a single-step cycle, bare.
+fn is_rung(line: &str) -> bool {
+    rung_parts(line).is_some()
 }
 
 /// `zTOC.md`'s text with `lines` as its ladder. Refused, with nothing
@@ -473,7 +526,7 @@ pub(crate) fn written_ladder(text: &str, lines: &[String]) -> Result<String, Str
     if !misfits.is_empty() {
         return Err(format!(
             "{LADDER_FILE}'s `{LADDER}` holds {} that a rung's grammar does not fit, `- [N \
-             (current|done)] [<title>]({RECORD}#<slug>)`, so nothing is edited:\n{}",
+             (done|current)] [<title>]({RECORD}#<slug>)`, so nothing is edited:\n{}",
             if misfits.len() == 1 {
                 "a line".to_string()
             } else {
@@ -487,8 +540,9 @@ pub(crate) fn written_ladder(text: &str, lines: &[String]) -> Result<String, Str
 
 /// The cycle's ladder planned from the workspace at `root`: the cycle
 /// title and the rung headings read from `TODO.md`, `commits` the
-/// titles on the branch, and `zTOC.md`'s new text, `None` when the
-/// ladder there is as made already.
+/// titles on the branch, `current` the rung marked `(current)`, and
+/// `zTOC.md`'s new text, `None` when the ladder there is as made
+/// already.
 #[derive(Debug)]
 pub(crate) struct LadderPlan {
     pub ladder: Ladder,
@@ -496,13 +550,17 @@ pub(crate) struct LadderPlan {
 }
 
 /// Plan the ladder, reading both files and writing neither.
-pub(crate) fn plan_ladder(root: &Path, commits: &[String]) -> Result<LadderPlan, String> {
+pub(crate) fn plan_ladder(
+    root: &Path,
+    commits: &[String],
+    current: Option<&str>,
+) -> Result<LadderPlan, String> {
     let read = |name: &str| {
         let p = root.join(name);
         std::fs::read_to_string(&p).map_err(|e| format!("{}: {e}", p.display()))
     };
     let todo = read(RECORD)?;
-    let ladder = ladder_of(&cycle_title(&todo)?, &rung_titles(&todo)?, commits)?;
+    let ladder = ladder_of(&cycle_title(&todo)?, &rung_titles(&todo)?, commits, current)?;
     let old = read(LADDER_FILE)?;
     let text = written_ladder(&old, &ladder.lines)?;
     let edit = (text != old).then(|| FileEdit {
@@ -737,8 +795,8 @@ The last cycle's record.
         assert!(did.iter().any(|d| d.contains("no `## Closed`")), "{did:?}");
     }
 
-    /// The ladder is replaced with the opening, current, and the
-    /// closing, each linked by its title's slug, and `## The TOC` stays.
+    /// The ladder is replaced with the opening and the closing, neither
+    /// marked, each linked by its title's slug, and `## The TOC` stays.
     #[test]
     fn open_replaces_the_ladder() {
         let new = opened_ladder(ZTOC, "feat: a cycle").expect("ladder");
@@ -749,7 +807,7 @@ The last cycle's record.
 
 ## Ladder
 
-- 0 (current) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)
+- [feat: a cycle opening](TODO.md#feat-a-cycle-opening)
 - [feat: a cycle closing](TODO.md#feat-a-cycle-closing)
 
 ## The TOC
@@ -805,14 +863,15 @@ The last cycle's record.
         t.iter().map(|s| s.to_string()).collect()
     }
 
-    /// A rung with a commit is done, the first without one is current,
-    /// each numbered by its position, and the rest are links alone.
+    /// A rung with a commit is done, numbered by its position, and the
+    /// rest are links alone, none marked current.
     #[test]
     fn the_markers_are_computed_from_the_commits() {
         let made = ladder_of(
             "feat: c",
             &rungs(),
             &titles(&["feat: c opening", "feat: one"]),
+            None,
         )
         .expect("made");
         assert_eq!(
@@ -820,24 +879,34 @@ The last cycle's record.
             [
                 "- 0 (done) [feat: c opening](TODO.md#feat-c-opening)",
                 "- 1 (done) [feat: one](TODO.md#feat-one)",
-                "- 2 (current) [feat: two](TODO.md#feat-two)",
+                "- [feat: two](TODO.md#feat-two)",
                 "- [feat: c closing](TODO.md#feat-c-closing)",
             ]
         );
         assert!(made.findings.is_empty());
 
-        let all = ladder_of("feat: c", &rungs(), &rungs()).expect("made");
+        let all = ladder_of("feat: c", &rungs(), &rungs(), None).expect("made");
         assert!(all.lines.iter().all(|l| l.contains("(done)")), "{all:?}");
 
         let made = ladder_of(
             "feat: c",
             &rungs(),
             &titles(&["feat: c opening", "feat: two"]),
+            None,
         )
         .expect("made");
-        assert_eq!(made.lines[1], "- 1 (current) [feat: one](TODO.md#feat-one)");
+        assert_eq!(made.lines[1], "- [feat: one](TODO.md#feat-one)");
         assert_eq!(made.lines[2], "- 2 (done) [feat: two](TODO.md#feat-two)");
-        assert_eq!(made.findings.len(), 1, "{:?}", made.findings);
+        assert_eq!(
+            made.findings,
+            ["the rung 'feat: two' is done and is below 'feat: one', a rung not done"]
+        );
+        let none = ladder_of("feat: c", &rungs(), &[], None).expect("made");
+        assert!(
+            none.lines.iter().all(|l| l.starts_with("- [")),
+            "{:?}",
+            none.lines
+        );
     }
 
     /// A single-step cycle's one commit, under the bare title, is one
@@ -845,9 +914,15 @@ The last cycle's record.
     #[test]
     fn a_single_step_cycle_is_one_unlinked_rung() {
         let two = titles(&["feat: c opening", "feat: c closing"]);
-        let made = ladder_of("feat: c", &two, &titles(&["feat: c"])).expect("made");
+        let made = ladder_of("feat: c", &two, &titles(&["feat: c"]), None).expect("made");
         assert_eq!(made.lines, ["- 0 (done) feat: c"]);
-        let err = ladder_of("feat: c", &two, &titles(&["feat: c", "feat: c opening"])).unwrap_err();
+        let err = ladder_of(
+            "feat: c",
+            &two,
+            &titles(&["feat: c", "feat: c opening"]),
+            None,
+        )
+        .unwrap_err();
         assert!(err.contains("single-step"), "{err}");
     }
 
@@ -855,31 +930,88 @@ The last cycle's record.
     /// without its bookends are refused, each named.
     #[test]
     fn a_ladder_that_does_not_fit_the_record_is_refused() {
-        let err = ladder_of("feat: c", &rungs(), &titles(&["feat: c opening", "wip"])).unwrap_err();
+        let err = ladder_of(
+            "feat: c",
+            &rungs(),
+            &titles(&["feat: c opening", "wip"]),
+            None,
+        )
+        .unwrap_err();
         assert!(err.contains("'wip'") && err.contains("no rung"), "{err}");
         let mut twice = rungs();
         twice.insert(2, "feat: one".into());
-        let err = ladder_of("feat: c", &twice, &[]).unwrap_err();
+        let err = ladder_of("feat: c", &twice, &[], None).unwrap_err();
         assert!(err.contains("written twice"), "{err}");
-        let err = ladder_of("feat: c", &rungs()[1..], &[]).unwrap_err();
+        let err = ladder_of("feat: c", &rungs()[1..], &[], None).unwrap_err();
         assert!(err.contains("opening"), "{err}");
-        let err = ladder_of("feat: c", &rungs()[..3], &[]).unwrap_err();
+        let err = ladder_of("feat: c", &rungs()[..3], &[], None).unwrap_err();
         assert!(err.contains("closing"), "{err}");
+    }
+
+    /// The rung started is marked `(current)`, numbered, and one done
+    /// or no rung keeps no marker, said as a finding.
+    #[test]
+    fn the_current_rung_is_marked_until_it_is_done() {
+        let opened = titles(&["feat: c opening"]);
+        let made = ladder_of("feat: c", &rungs(), &opened, Some("feat: one")).expect("made");
+        assert_eq!(
+            made.lines[..3],
+            [
+                "- 0 (done) [feat: c opening](TODO.md#feat-c-opening)",
+                "- 1 (current) [feat: one](TODO.md#feat-one)",
+                "- [feat: two](TODO.md#feat-two)",
+            ]
+        );
+        assert!(made.findings.is_empty(), "{:?}", made.findings);
+
+        let none = ladder_of("feat: c", &rungs(), &[], Some("feat: c opening")).expect("made");
+        assert_eq!(
+            none.lines[0],
+            "- 0 (current) [feat: c opening](TODO.md#feat-c-opening)"
+        );
+
+        let done = ladder_of("feat: c", &rungs(), &opened, Some("feat: c opening")).expect("made");
+        assert!(
+            !done.lines.iter().any(|l| l.contains("(current)")),
+            "{done:?}"
+        );
+        assert_eq!(
+            done.findings,
+            ["the rung marked (current), 'feat: c opening', is done, so the marker is dropped"]
+        );
+        let gone = ladder_of("feat: c", &rungs(), &opened, Some("feat: renamed")).expect("made");
+        assert!(gone.findings[0].contains("no rung"), "{gone:?}");
+    }
+
+    /// The current rung is read back from the ladder, linked or bare,
+    /// and a ladder with none has none.
+    #[test]
+    fn the_current_rung_is_read_from_the_ladder() {
+        let marked = ZTOC.replace(
+            "- 0 (done) chore: the last cycle",
+            "- 0 (done) [feat: c opening](TODO.md#feat-c-opening)\n\
+             - 1 (current) [feat: one](TODO.md#feat-one)",
+        );
+        assert_eq!(current_of(&marked).as_deref(), Some("feat: one"));
+        assert_eq!(current_of(ZTOC), None);
+        let bare = ZTOC.replace("- 0 (done) chore", "- 0 (current) chore");
+        assert_eq!(current_of(&bare).as_deref(), Some("chore: the last cycle"));
     }
 
     /// A link is reduced to its title, and an unlinked line is as it was.
     #[test]
     fn a_ladder_line_unlinked() {
         assert_eq!(
-            unlinked("- 1 (current) [feat: one](TODO.md#feat-one)"),
-            "- 1 (current) feat: one"
+            unlinked("- 1 (done) [feat: one](TODO.md#feat-one)"),
+            "- 1 (done) feat: one"
         );
         assert_eq!(unlinked("- [feat: two](TODO.md#feat-two)"), "- feat: two");
         assert_eq!(unlinked("- 0 (done) feat: x"), "- 0 (done) feat: x");
     }
 
     /// The grammar: a rung is a left-margin bullet, numbered and
-    /// marked or neither, its link's slug the title's.
+    /// marked `(done)` or `(current)` or neither, its link's slug the
+    /// title's.
     #[test]
     fn the_ladders_grammar() {
         for fits in [
@@ -988,16 +1120,24 @@ _None._
         );
     }
 
-    /// A ladder is written over one whose lines fit, and a line that
-    /// does not is named with nothing edited.
+    /// A ladder is written over one whose lines fit, a `(current)` line
+    /// among them, and a line that does not is named with nothing
+    /// edited.
     #[test]
     fn a_ladder_is_written_over_one_that_fits() {
-        let lines = titles(&["- 0 (current) [feat: c opening](TODO.md#feat-c-opening)"]);
+        let lines = titles(&["- 0 (done) [feat: c opening](TODO.md#feat-c-opening)"]);
         let new = written_ladder(ZTOC, &lines).expect("written");
         assert!(
-            new.contains("## Ladder\n\n- 0 (current) [feat: c opening]"),
+            new.contains("## Ladder\n\n- 0 (done) [feat: c opening]"),
             "{new}"
         );
+        let older = ZTOC.replace(
+            "- 0 (done) chore: the last cycle",
+            "- 0 (done) [feat: c opening](TODO.md#feat-c-opening)\n\
+             - 1 (current) [feat: one](TODO.md#feat-one)",
+        );
+        let new = written_ladder(&older, &lines).expect("a ladder with a current rung fits");
+        assert!(!new.contains("(current)"), "{new}");
         assert!(new.contains("\n\n## The TOC\n"), "{new}");
         let skeleton = ZTOC.replace("- 0 (done) chore: the last cycle", "_None._");
         written_ladder(&skeleton, &lines).expect("the skeleton fits");

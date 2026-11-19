@@ -139,21 +139,23 @@ suffix = "-dev"
 The `[version]` table
 - file: The file holding the version, whose change a work commit is checked for [[27]]
 - pattern: What the version's line starts with, in `version.file` [[28]]
+- bump: The command that sets the version, `{ver}` the version given [[29]]
 ```toml
 [version]
 file = "Cargo.toml"
 pattern = "version = "
+bump = "cargo xtask bump {ver}"
 ```
 
 The `[opening]` table
-- body: The opening commit's default body, `{title}` the cycle title [[29]]
+- body: The opening commit's default body, `{title}` the cycle title [[30]]
 ```toml
 [opening]
 body = "Opens the cycle {title}."
 ```
 
 The `[closing]` table
-- body: The closing commit's default body, `{title}` the cycle title [[30]]
+- body: The closing commit's default body, `{title}` the cycle title [[31]]
 ```toml
 [closing]
 body = "Closes the cycle {title}."
@@ -161,7 +163,7 @@ body = "Closes the cycle {title}."
 
 The `[test]` table
 - fixtures: Directory of the acceptance-test fixtures, one dual workspace per name, read by `cargo
-  test` [[31]]
+  test` [[32]]
 ```toml
 [test]
 fixtures = ".fixtures"
@@ -197,6 +199,7 @@ fixtures = ".fixtures"
 [26]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#profilenameproperty
 [27]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#versionfile
 [28]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#versionpattern
-[29]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#openingbody
-[30]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
-[31]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures
+[29]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#versionbump
+[30]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#openingbody
+[31]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#closingbody
+[32]: https://github.com/winksaville/vc-x1/blob/HEAD/vc-config.md#testfixtures

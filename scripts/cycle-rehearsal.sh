@@ -162,7 +162,7 @@ run "$VC" cycle --open --title "feat: one commit"
 check "open made the bookmark" "$(bookmarks)" "feat-one-commit main "
 check_has "open wrote the scaffold" "$(cat TODO.md)" "### feat: one commit"
 check "open wrote the ladder" "$(ladder | head -1)" \
-    "- 0 (current) [feat: one commit opening](TODO.md#feat-one-commit-opening)"
+    "- [feat: one commit opening](TODO.md#feat-one-commit-opening)"
 echo "one" >work.txt
 run "$VC" cycle --close -s b --single-step --body "The problem.
 
@@ -203,9 +203,9 @@ echo "first" >first.txt
 run "$VC" cycle --commit -s b --title "feat: the first rung" --body "Why.
 
 Solution: how."
-check "the first rung is done and the second current" "$(ladder | sed -n 2,3p)" \
+check "the first rung is done and the second unmarked" "$(ladder | sed -n 2,3p)" \
     "- 1 (done) [feat: the first rung](TODO.md#feat-the-first-rung)
-- 2 (current) [feat: the second rung](TODO.md#feat-the-second-rung)"
+- [feat: the second rung](TODO.md#feat-the-second-rung)"
 echo "stray" >stray.txt
 tries "a commit whose title is no rung's" \
     "$VC" cycle --commit -s b --title "feat: unplanned" --body "b"
