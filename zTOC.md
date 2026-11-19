@@ -4,14 +4,13 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 
 ## Ladder
 
-- 0 (done) [feat: the project's tasks move to cargo xtask opening](TODO.md#feat-the-projects-tasks-move-to-cargo-xtask-opening)
-- 1 (done) [feat: cargo xtask runs the project's tasks](TODO.md#feat-cargo-xtask-runs-the-projects-tasks)
-- 2 (done) [refactor: vc-x1's validators become vc-x1 check](TODO.md#refactor-vc-x1s-validators-become-vc-x1-check)
-- 3 (done) [refactor: xtask names nothing of its project](TODO.md#refactor-xtask-names-nothing-of-its-project)
-- 4 (done) [feat: vc-x1 hands its tasks to cargo xtask](TODO.md#feat-vc-x1-hands-its-tasks-to-cargo-xtask)
-- 5 (done) [feat: vc-x1 xtask copy and diff](TODO.md#feat-vc-x1-xtask-copy-and-diff)
-- 6 (done) [docs: the tasks are named by CONTRIBUTING.md](TODO.md#docs-the-tasks-are-named-by-contributingmd)
-- 7 (done) [feat: the project's tasks move to cargo xtask closing](TODO.md#feat-the-projects-tasks-move-to-cargo-xtask-closing)
+- 0 (done) [feat: one cycle flow, plan, rungs, close opening](TODO.md#feat-one-cycle-flow-plan-rungs-close-opening)
+- [feat: vc-x1 rung next, stop and commit](TODO.md#feat-vc-x1-rung-next-stop-and-commit)
+- [feat: cycle stages are subcommands](TODO.md#feat-cycle-stages-are-subcommands)
+- [feat: a bare version makes a single-step](TODO.md#feat-a-bare-version-makes-a-single-step)
+- [feat: cycle squash makes one commit](TODO.md#feat-cycle-squash-makes-one-commit)
+- [docs: one cycle flow](TODO.md#docs-one-cycle-flow)
+- [feat: one cycle flow, plan, rungs, close closing](TODO.md#feat-one-cycle-flow-plan-rungs-close-closing)
 
 ## The TOC
 
