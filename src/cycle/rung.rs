@@ -8,6 +8,11 @@
 //!   shares, its title the rung's, the ladder it carries marking it
 //!   `(done)` and none current.
 //!
+//! A single-step's plan is one heading, the cycle title, its one rung,
+//! which `next --ver` with a bare version makes of a plan of only its
+//! bookends, and `commit` makes the cycle's one commit by `cycle
+//! close --single-step`'s code.
+//!
 //! The marker lives in the working copy alone: a commit ends its rung
 //! and starts none, so no commit's tree claims work not yet begun.
 
@@ -39,7 +44,10 @@ pub enum RungCommand {
         in the working copy's zTOC.md, refused while a rung is current.\n\
         With --ver, set the version first, by the command the config's\n\
         `[version] bump` names, `{ver}` the version given, so the dev\n\
-        build under review carries it. No commit is made."
+        build under review carries it. A bare version, X.Y.Z, before the\n\
+        opening makes the cycle one commit: a plan of only its bookends\n\
+        becomes the one heading, the cycle title, in TODO.md, and a plan\n\
+        with work rungs is refused. No commit is made."
     )]
     Next(NextArgs),
 
@@ -59,7 +67,9 @@ pub enum RungCommand {
         publishes the rung on the cycle's bookmark, a draft. With `[version]\n\
         file` and `pattern` in the config, a commit that changes no line of\n\
         the file starting with the pattern is refused, and --same-version\n\
-        commits it as it is. The closing is `cycle close`'s. Refused with\n\
+        commits it as it is. A single-step's one rung, the cycle title,\n\
+        gives --body and is the cycle's one commit, the record moved to\n\
+        `## Closed` in it. The closing is `cycle close`'s. Refused with\n\
         no rung current."
     )]
     Commit(CommitArgs),
@@ -245,11 +255,56 @@ fn next(r: &Running, ver: Option<&str>) -> Result<(), Box<dyn std::error::Error>
         )
         .into());
     }
-    let Some(rung) = s.rungs.iter().find(|r| !s.commits.contains(r)).cloned() else {
+    let Some(mut rung) = s.rungs.iter().find(|r| !s.commits.contains(r)).cloned() else {
         return Err("rung next: every rung is committed, so there is none to start".into());
+    };
+    // A bare version is only ever a cycle's last commit, so before the
+    // opening it says the cycle is one commit: a plan of only its
+    // bookends becomes the one heading, and one with work rungs is
+    // refused.
+    let one = match ver {
+        Some(v) if is_bare(v) && s.commits.is_empty() => {
+            if record::is_one_rung(&s.cycle, &s.rungs) {
+                None
+            } else if s.rungs.len() == 2 {
+                let path = r.work.join(crate::commit::RECORD);
+                let todo = std::fs::read_to_string(&path)
+                    .map_err(|e| format!("rung next: {}: {e}", path.display()))?;
+                let text = record::one_rung_record(&todo, &s.cycle)
+                    .map_err(|e| format!("rung next: {e}"))?;
+                Some((path, text))
+            } else {
+                return Err(format!(
+                    "rung next --ver {v}: a bare version is a cycle's last commit, and before the \
+                     opening it makes the cycle one commit, but the plan has {} work rung{}: give \
+                     {v}-0 for the opening, or remove the work rungs to make it a single-step",
+                    s.rungs.len() - 2,
+                    if s.rungs.len() == 3 { "" } else { "s" }
+                )
+                .into());
+            }
+        }
+        _ => None,
     };
     if let Some(ver) = ver {
         bump(&r.work, ver, r.dry_run)?;
+    }
+    if let Some((path, text)) = &one {
+        rung = s.cycle.clone();
+        if r.dry_run {
+            info!(
+                "rung next: [dry-run] make the bookends in {} the one heading '{rung}', the cycle \
+                 one commit",
+                crate::commit::RECORD
+            );
+            info!("rung next: [dry-run] '{rung}' is current");
+            return Ok(());
+        }
+        std::fs::write(path, text).map_err(|e| format!("rung next: {}: {e}", path.display()))?;
+        info!(
+            "rung next: the bookends in {} are the one heading '{rung}', the cycle one commit",
+            crate::commit::RECORD
+        );
     }
     write_ladder(r, &s, Some(&rung), "next")?;
     info!(
@@ -257,6 +312,12 @@ fn next(r: &Running, ver: Option<&str>) -> Result<(), Box<dyn std::error::Error>
         if r.dry_run { "[dry-run] " } else { "" }
     );
     Ok(())
+}
+
+/// Whether `ver` is a bare version, `X.Y.Z` with no suffix, a cycle's
+/// last commit under the suffix scheme.
+fn is_bare(ver: &str) -> bool {
+    !ver.contains('-')
 }
 
 /// `rung stop`: clear the `(current)` marker, the edits left alone.
@@ -292,6 +353,34 @@ fn commit(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::error::E
             "rung commit: '{rung}' is the cycle's closing, which `cycle close` makes"
         )
         .into());
+    }
+    // The simple single-step's one rung is the cycle's one commit, made
+    // as `cycle close --single-step` makes it, the record closed in it.
+    if record::is_one_rung(&s.cycle, &s.rungs) {
+        if c.body.is_none() {
+            return Err(format!(
+                "rung commit: '{rung}' is the cycle's one commit, which holds the work, so it \
+                 gives --body, its problem and solution"
+            )
+            .into());
+        }
+        let one = super::CloseCycle {
+            rung: CommitRung {
+                running: c.running.clone(),
+                agent: c.agent.clone(),
+                title: None,
+                body: c.body.clone(),
+                push: c.push,
+                same_version: c.same_version,
+            },
+            heads: Vec::new(),
+            trapezoid: None,
+            default_body: false,
+            dead_end: false,
+            single_step: true,
+            land: None,
+        };
+        return super::close(ctx, &one, "rung commit");
     }
     let c = CommitRung {
         running: Running {

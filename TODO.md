@@ -17,12 +17,13 @@ acquaint, acted on, and reset to `_None._` by the reader.
   bookmark, `feat-one-cycle-flow-plan-rungs-close`, is local, renamed by `jj bookmark rename`. The
   opening pair, reworked and retitled while local, is work `zkvzwtno` and agent `ktmznnnu`, nothing
   pushed.
-- Rung 1, **feat: vc-x1 rung next, stop and commit**, is committed, work `pmqspyxw` and agent
-  `ytzxxqlr`, and rung 2, **feat: cycle stages are subcommands**, work `knxrkytt` and agent
-  `nnsouwvt`, all local. Rung 3, **feat: init writes the record's files**, inserted by wink
-  after rung 2, is in the work `@`, `(current)` in `zTOC.md`, at `0.85.26-3`, its work done and
-  validated, waiting on wink's review. It is committed by `vc-x1-dev rung commit -s b --body
-  "..."`, and the next rung started by `vc-x1-dev rung next --ver 0.85.26-4`.
+- Rungs 1 to 3 are committed, all local: **feat: vc-x1 rung next, stop and commit**, work
+  `pmqspyxw` and agent `ytzxxqlr`, **feat: cycle stages are subcommands**, work `knxrkytt` and
+  agent `nnsouwvt`, and **feat: init writes the record's files**, inserted by wink, work
+  `qpwrrxwr` and agent `wypwkqvo`. Rung 4, **feat: a single-step is one rung**, is in the work
+  `@`, `(current)` in `zTOC.md`, at `0.85.26-4`, its work done and validated, waiting on wink's
+  review. It is committed by `vc-x1-dev rung commit -s b --body "..."`, and the next rung started
+  by `vc-x1-dev rung next --ver 0.85.26-5`.
 - Run every cycle command by `vc-x1-dev`, installed from the working copy: the installed `vc-x1`
   `0.85.25` has no `rung` and no stage subcommands, and writes the next rung `(current)` into a
   commit. The bookmark is the title's slug, so no `--bookmark` is needed.
@@ -287,7 +288,42 @@ next` marks it current, and `rung commit --body` commits it under the bare title
 to `## Closed` without `#### Rungs` and the ladder `0 (done) <title>`. `rung next --ver X.Y.Z`, a
 bare version, on a scaffold holding only its bookends rewrites them in `TODO.md` into that one
 heading, the opening's text kept, and is refused when the plan has work rungs. The long style,
-bookends kept, stays `cycle --close --single-step` until `cycle squash` replaces it.
+bookends kept, stays `cycle close --single-step` until `cycle squash` replaces it.
+
+- `ladder_of` takes a plan of the one heading, `is_one_rung`, beside the bookended form, its
+  line unlinked whether planned, current, or done, since the heading's anchor is the `###` cycle
+  heading's own. A plan of another lone heading is refused, naming both forms.
+- `one_rung_record` is the rewrite: the opening's heading renamed to the cycle title, its text
+  kept, and the closing's subsection removed to the next heading. `rung next` plans it before the
+  bump, so a refusal changes nothing, and writes it after, then marks the one rung current.
+- The shortcut runs only before the opening, the branch holding no commit: a bare version is also
+  a ladder's closing, which `rung next` reaches the usual way.
+- `rung commit` on the one rung refuses a missing `--body`, then makes the commit by `cycle
+  close`'s single-step code, which now takes the command's label, so its messages read `rung
+  commit:`. `cycle close --single-step` also takes the one rung started, as it takes the opening.
+- `cycle status` names the one rung, and with the bookends alone says a bare `--ver` makes the
+  cycle one commit.
+- The rehearsal gains a fourth cycle, a simple single-step whose one heading is written by hand,
+  this workspace having no `[version]`, committed by `rung commit` and landed. README's `### rung`
+  gains **A single-step is one rung**.
+- Filed while it was in review (wink, 2026-11-21): **feat: init copies a file set**, the top `##
+  Todo` entry, `file-set.toml` at a set's root; `cycle plan [TODO]` and `vc-x1 todo list [START]
+  [-n COUNT]` in **feat: the bookmark is made first**; the rule "Every argument is a flag" going in
+  the docs rung; and **feat: rung commit without a cycle**, the next rung.
+
+##### feat: rung commit without a cycle
+
+With no cycle in progress, `rung commit -s b --title "<title>" --body "..."` makes the bookmark on
+the work `@`, the title's slug or `--bookmark`'s, refused when the name is in use, and commits the
+pair verbatim, `TODO.md` and `zTOC.md` untouched and not required, `main` unmoved. With a cycle in
+progress `--title` is refused, the rung's title being the ladder's. `--record` (wink, 2026-11-21)
+plans the cycle as `cycle plan --title` does, its one heading the title, fills the record's problem
+and solution from the body, and closes it in the same commit, the record in `## Closed` and the
+ladder `0 (done) <title>`. `--land <TARGET>` lands the commit in the same invocation, as `cycle
+close --land` does, its checks made before the commit, `--push` then publishing the target, and
+without it `--push` is the draft push of the bookmark. The version check stays, so a project with
+`[version]` bumps by hand first. Asked for by wink's test in a fresh `init` workspace, `echo abc >
+abc.txt` and the commit (wink, 2026-11-21).
 
 ##### feat: cycle squash makes one commit
 
@@ -307,7 +343,11 @@ set-aside `nruymrqm`, whose bookmark is then deleted. Cycle shape says the versi
 chooses the shape, the rules **Shape named, count checked** and **A ladder lands as a trapezoid,
 never squashed** rewritten, the 1:M re-point named, and every invocation names the subcommands,
 the rationale with them. The state-recording Todo loses `m-13`'s fix and `--rung-start` to this
-cycle, and the `v0.3.1` Todo's gathered list gains this cycle's rules.
+cycle, and the `v0.3.1` Todo's gathered list gains this cycle's rules. The rule "Every argument is
+a flag" goes (wink, 2026-11-21), a command's operand being a positional where it reads one way,
+`cycle land <TARGET>` and `cycle close [REV,...]` since rung 2: `jj.md`'s line and README's
+`### Every argument is a flag` rewritten to keep what a flag is still for, the names that mean the
+same everywhere, and the positionals retired before stay refused.
 
 ##### feat: one cycle flow, plan, rungs, close closing
 
@@ -387,6 +427,38 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### feat: init copies a file set
+
+(wink + agent, 2026-11-21, from **feat: one cycle flow, plan, rungs, close**, gathered from
+**Initialization leaves no bad link** and **agent-files(proposal): v0.3.1**) A new workspace gets
+its files from `scripts/vc-dr-apply.sh`, and what a set holds is restated in `AGENTS.md`'s
+Terminology, `src/agent_files/`, and the script, so no command makes a whole workspace and no one
+list says what a set is. `cycle plan` needs only `TODO.md` and `zTOC.md`, which `init` writes since
+**feat: init writes the record's files**, so this cycle builds on that one and runs next.
+
+- **Solution**: the set declares itself in `file-set.toml` at its root, each entry a path and a
+  kind, and `vc-x1 init --from DIR` copies a set by it into the workspace it makes.
+- **Acceptance check**, provisional: a workspace made by `vc-x1 init --from <an adopter's
+  work-repo>` holds the source's verbatim files identical, its starters written, and `init`'s own
+  `TODO.md` and `zTOC.md`, and `cycle plan` plans a cycle in it with no file made by hand.
+- **The kinds** (wink, 2026-11-21, `verbatim` where it was "set"):
+  - verbatim: kept identical, diffed, and replaced on copy, `AGENTS.md` and `agent-data/`.
+  - starter: written only when absent, `{name}` filled, never replaced, its shape the set's and
+    its content the project's, `CONTRIBUTING.md`, `notes/`, `LICENSE-*`, `TODO.md`, and `zTOC.md`.
+  - optional: copied only when asked, `custom.md`.
+- **The record files are `init`'s own** (wink, 2026-11-21): `init` writes an empty `TODO.md` and
+  `zTOC.md`, so the manifest's starters of those names find them there and are skipped, and every
+  new workspace starts with no Todo and no ladder.
+- **The manifest `init` reads** (wink, 2026-11-21): `DIR/file-set.toml` by default, at the set's
+  root and not in `agent-data/`, and `--file-set PATH` names another, so a set can be copied by a
+  list other than its own.
+- **Where the list comes from**, open (wink, 2026-11-21): not hard-coded, wink suggesting a table
+  in `.vc-config.md`. The agent's view: the manifest, data that travels with the set, since the
+  list describes the set and not one workspace, and a `.vc-config.md` table only narrowing it.
+- **Scope**, open: whether `agent-files copy` and `diff` read the manifest in this cycle, so the set
+  is defined once, and how much of `vc-dr-apply.sh` retires here, its base skeleton, `--lang`, and
+  `xtask copy`, or stays for **Initialization leaves no bad link**.
+
 ### feat: the bookmark is made first
 
 (wink + agent, 2026-11-19, split from **feat: one cycle flow, plan, rungs, close** 2026-11-20) A
@@ -410,10 +482,32 @@ flow, plan, rungs, close** lands, `--open` becoming `cycle plan`.
     bare `cycle status` names `<name>`.
   - `cycle plan` refuses on an `@` carrying two local bookmarks, naming both, and on one carrying a
     bookmark that tracks a remote, `main` moved onto it.
-- **A bare `cycle plan` takes the top Todo** (wink + agent, 2026-11-21, from **feat: one cycle
+- **`cycle plan [TODO]` picks the Todo it plans** (wink + agent, 2026-11-21, from **feat: one cycle
   flow, plan, rungs, close**): a new workspace starts with an empty `TODO.md`, its first Todo is
-  written, and `cycle plan` with no `--title` plans the top `## Todo` entry, the list being in
-  priority order, `--title` naming another or a cycle with no entry.
+  written, and `cycle plan` names the entry to plan, its heading the cycle title.
+  - Bare, no argument, the top `## Todo` entry, the list being in priority order.
+  - A number, an offset into `## Todo`, `1` the top.
+  - Anything else, consecutive words of a title, whole words and case ignored, so `cycle plan
+    "squash refuses"` finds **feat: squash-push refuses an agent push that names unpublished
+    work**. More than one match, or none, is refused, listing the candidates with their offsets.
+  - Each is confirmed with the user, the entry's title shown, unless `--yes`, which the agent
+    passes only with the user's approval, as for `push --yes`. Without a tty and without `--yes`
+    it is refused, nothing made.
+  - `--title` stays for a cycle with no entry, the empty scaffold, and is refused beside `TODO`.
+  - `vc-x1 todo list [START] [-n COUNT]` prints the `## Todo` entries numbered, a line each, the
+    offset and the title, so the number seen is the number `cycle plan` takes (wink + agent,
+    2026-11-21). A command of its own rather than `cycle plan --list` (wink), since listing the
+    Todos is no stage of a cycle and is wanted outside one.
+    - `START` is the first offset listed, each line keeping its own number, `1` by default, and
+      one past the end lists nothing and says so. `-n, --count` is how many, `-n` as on `list`
+      and `status`, every entry by default, 155 today, so `todo list -n 3` is entries 1 to 3 and
+      `todo list 4 -n 3` entries 4 to 6. `--count` and not `--number`, which every line and
+      `START` already are (wink, 2026-11-21). No `-s`, the command reading the work-repo's `TODO.md`
+      alone and `-s` being the scope everywhere else, and `-R` says which workspace.
+    - It is made from `TODO.md` each time and nothing is stored: reading the file takes about a
+      millisecond of a 53 ms `cycle ladder`, so a cache keyed on the file's time would cost more
+      than it saves. What it saves is the agent's reading, the whole of `TODO.md` some 90k
+      tokens.
 - **Rungs, provisional**: **feat: vc-x1 bookmark and its subcommands**, `delete-bookmark` and
   `move-bookmark` replaced; **feat: cycle plan inherits the bookmark on @**, the record's name read
   by every stage, and the scaffold no longer claiming a `## Todo` entry when there was none;
@@ -525,21 +619,24 @@ version the set's, and writes into this entry, each as a `####` change with its 
   member's `CONTRIBUTING.md > ## Agents`, not the set. Nothing copies it unless asked, `-c`, as
   `agent-files copy` already does, and vc-x1 commits its own.
 - The set's manifest, "the" list of agent-files (wink, 2026-11-18): the set declares itself as
-  data that travels with it, `agent-data/file-set.toml` (wink, 2026-11-21), each entry a path and
-  a kind. A verbatim file, the kind named so by wink (2026-11-21) where it was "set", is kept
-  identical, diffed, and replaced on copy, `AGENTS.md` and `agent-data/`. A starter is written
-  only when absent, `{name}` filled, never replaced, its shape the set's and its content the
-  project's, `TODO.md`, `zTOC.md`, `CONTRIBUTING.md`, `notes/`, and `LICENSE-*`, the skeleton
-  `vc-dr-apply` writes today. An optional file is copied only when asked, `custom.md`. `agent-files copy` and `diff` read the
-  source's manifest, a project's config only narrowing it, so the set is defined once, where
-  `AGENTS.md`'s Terminology, `agent_files.rs`, and the script each restate it today.
+  data that travels with it, `file-set.toml` at the set's root (wink, 2026-11-21), each entry a
+  path and a kind. A verbatim file, the kind named so by wink (2026-11-21) where it was "set", is
+  kept identical, diffed, and replaced on copy, `AGENTS.md` and `agent-data/`. A starter is
+  written only when absent, `{name}` filled, never replaced, its shape the set's and its content
+  the project's, `TODO.md`, `zTOC.md`, `CONTRIBUTING.md`, `notes/`, and `LICENSE-*`, the skeleton
+  `vc-dr-apply` writes today. An optional file is copied only when asked, `custom.md`.
+  `agent-files copy` and `diff` read the source's manifest, a project's config only narrowing it,
+  so the set is defined once, where `AGENTS.md`'s Terminology, `agent_files.rs`, and the script
+  each restate it today.
+  - Designed and made by **feat: init copies a file set** (wink, 2026-11-21), the cycle before
+    this one, which this proposal then carries.
 
-Left for the cycle after: `init --from DIR`, the manifest's verbatim files and starters and `xtask
-copy` in one command, retiring `vc-dr-apply.sh`, with the agent repo's starters, which want a side
-in the manifest, from **Initialization leaves no bad link**. Left for a later proposal: **Durable
-messaging between projects**, the family's protocol and not the set's, and **The family leaves the
-committed config**, **init and clone take --custom**, and **Every repo's .gitignore ignores
-.claude**, each shaped by those.
+`init --from DIR` and the manifest are **feat: init copies a file set**'s, the cycle before. Left
+for the cycle after: `xtask copy` in the same command, retiring `vc-dr-apply.sh`, with the agent
+repo's starters, which want a side in the manifest, from **Initialization leaves no bad link**.
+Left for a later proposal: **Durable messaging between projects**, the family's protocol and not
+the set's, and **The family leaves the committed config**, **init and clone take --custom**, and
+**Every repo's .gitignore ignores .claude**, each shaped by those.
 
 #### Never rename
 
@@ -585,10 +682,11 @@ description is not rewritten while the work still moves.
   `commit -s b`, `squash -s b`, `push -s b` in the per-rung flow, and `squash-push -s a` for the
   user's squash-push, replacing `--scope=both` and `-R <agent-dir>`.
 - Every argument is a flag, no positional: `commit -r REV`, `push -r REV --bookmark NAME`, and
-  `squash-push --bookmark NAME`. Step 9's `vc-x1 commit -s b --title --body`, At rest's `squash-push
-  -s a`, and `jj.md`'s vc-x1 push section's opening were brought current in this copy by **feat:
-  push, commit, and squash-push take flags only**, the invocations alone, the Committing vs pushing
-  rewrite still this proposal's.
+  `squash-push --bookmark NAME`. The rule itself goes in **feat: one cycle flow, plan, rungs,
+  close** (wink, 2026-11-21), these commands' flags staying. Step 9's `vc-x1 commit -s b --title
+  --body`, At rest's `squash-push -s a`, and `jj.md`'s vc-x1 push section's opening were brought
+  current in this copy by **feat: push, commit, and squash-push take flags only**, the invocations
+  alone, the Committing vs pushing rewrite still this proposal's.
 - The rest of the commands too, by **feat: the other commands take flags only**: `versioning.md`'s
   adoption names `agent-files copy --from` and `diff --from`, and `hooks.sh`'s guard test names
   `install --dev`, `build-dev`, `install-dev`, and `run-dev` being `build`, `install`, and `run`
@@ -1052,10 +1150,9 @@ session was already started in, as `../help` was. Tried by dry run on `../help`,
 `init --target ../help --adopt --test-repo <REMOTES> --dry-run` planned all ten steps and found
 none of what would stop it:
 
-- **The target is positional**, `init <TARGET>`, its one required argument, `--target` gone. It
-  bends "Every argument is a flag" (`jj.md`'s vc-x1 commit and push, and `v0.3.1`'s scope-flags
-  change), so the rule names it, or the rule changes to let a command's one required argument be
-  positional.
+- **The target is positional**, `init <TARGET>`, its one required argument, `--target` gone. The
+  rule "Every argument is a flag" it would have bent goes in **feat: one cycle flow, plan, rungs,
+  close**'s docs rung (wink, 2026-11-21).
 - **Preflight checks the symlink path.** A session started in the directory first makes
   `~/.claude/projects/<mangled-path>` a real directory, holding its transcript and `memory/`, and
   the symlink step refuses a path that "exists and is not a symlink", the last step, after the
@@ -1109,19 +1206,9 @@ the agent-files, so the fix is to ship it, not to drop the link.
     was set aside: each set has its own version, `diff`, and update, and the one command belongs
     to `init`. `xtask copy` is the first of the script's jobs moved into Rust, `--lang rust`
     calling it, from **feat: the project's tasks move to cargo xtask**.
-- **A new workspace's record files are `init`'s own** (wink, 2026-11-21, from **feat: one cycle
-  flow, plan, rungs, close**): `init` writes an empty `TODO.md` and `zTOC.md`, the skeletons of
-  that cycle's **feat: init writes the record's files**, and `init --from <PATH>` copies the other
-  files `vc-dr-apply` copies today, a `TODO.md` or `zTOC.md` in the path skipped, so every new
-  workspace starts with no Todo and no ladder.
-  - Where the list of files comes from, open (wink, 2026-11-21): not hard-coded, wink suggesting a
-    table in `.vc-config.md`. The agent's view: the manifest `agent-files(proposal): v0.3.1`
-    plans, `agent-data/file-set.toml`, data that travels with the set, since the list describes
-    the set and not one workspace, and a `.vc-config.md` table only narrowing it.
-  - The manifest `init` reads (wink, 2026-11-21): `init --from DIR` reads
-    `DIR/agent-data/file-set.toml` by default, and `--file-set PATH` names another, so a set can
-    be copied by a list other than its own. A starter is written only when
-    absent, so `init`'s `TODO.md` and `zTOC.md` already keep the manifest's.
+- **`init --from DIR` and its manifest are the next cycle's** (wink, 2026-11-21): **feat: init
+  copies a file set**, the top `## Todo` entry, holds them and the decisions made for them, and
+  this entry keeps what that cycle leaves.
 - The manifest moved into `agent-files(proposal): v0.3.1` (wink, 2026-11-18): the set declared
   as data with set, starter, and optional kinds, the starters being the skeleton below, so this
   entry keeps `init --from DIR` on top of it, the script's retirement, and the cross-file link

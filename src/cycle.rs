@@ -678,7 +678,7 @@ pub fn cycle(ctx: &mut Context, params: &CycleParams) -> Result<(), Box<dyn std:
     match params {
         CycleParams::Open(o) => open(ctx, o),
         CycleParams::Ladder(r) => ladder(r),
-        CycleParams::Close(c) => close(ctx, c),
+        CycleParams::Close(c) => close(ctx, c, "cycle close"),
         CycleParams::Land(l) => land(ctx, l),
         CycleParams::Push(p) => push(ctx, p),
         CycleParams::Status(r) => {
@@ -1127,38 +1127,37 @@ fn short(id: &str) -> String {
 /// destination or another head is joined. The ladder is rewritten,
 /// every rung done, and the record moved to `## Closed`, both in the
 /// commit. Every check is made before a file is written.
-fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Error>> {
-    let stage = "close";
+fn close(ctx: &mut Context, c: &CloseCycle, label: &str) -> Result<(), Box<dyn std::error::Error>> {
     let r = &c.rung.running;
     let work = r.work.as_path();
-    let bookmark = cycle_bookmark(r, &format!("cycle {stage}"))?;
+    let bookmark = cycle_bookmark(r, label)?;
     let commits = branch_titles(work, &bookmark)?;
     let path = work.join(crate::commit::RECORD);
-    let todo = std::fs::read_to_string(&path)
-        .map_err(|e| format!("cycle {stage}: {}: {e}", path.display()))?;
-    let cycle = record::cycle_title(&todo).map_err(|e| format!("cycle {stage}: {e}"))?;
+    let todo =
+        std::fs::read_to_string(&path).map_err(|e| format!("{label}: {}: {e}", path.display()))?;
+    let cycle = record::cycle_title(&todo).map_err(|e| format!("{label}: {e}"))?;
     if !jj::local_bookmarks_at(work, "@ | @-")?.contains(&bookmark) {
         return Err(format!(
-            "cycle {stage}: the cycle's bookmark '{bookmark}' is not on the work @ or @-, and a \
+            "{label}: the cycle's bookmark '{bookmark}' is not on the work @ or @-, and a \
              closing is made from the cycle's tip: `jj new {bookmark}` moves @ onto it"
         )
         .into());
     }
     // A rung started and not committed holds the closing back, but for
-    // the closing itself, and for a single-step cycle's opening, which
-    // its one commit is.
-    if let Some(current) = record::current_rung(work).map_err(|e| format!("cycle {stage}: {e}"))?
+    // the closing itself, and for a single-step cycle's opening or its
+    // one rung, which its one commit is.
+    if let Some(current) = record::current_rung(work).map_err(|e| format!("{label}: {e}"))?
         && !commits.contains(&current)
         && current != format!("{cycle} closing")
-        && !(c.single_step && current == format!("{cycle} opening"))
+        && !(c.single_step && (current == format!("{cycle} opening") || current == cycle))
     {
         return Err(format!(
-            "cycle {stage}: the rung '{current}' is started and not committed: `rung commit` \
+            "{label}: the rung '{current}' is started and not committed: `rung commit` \
              commits it, or `rung stop` leaves it"
         )
         .into());
     }
-    crate::pair::refuse_conflicts(work, "cycle close", "work")?;
+    crate::pair::refuse_conflicts(work, label, "work")?;
     if let Some(l) = &c.land {
         // The Land's own checks, before the closing is made: a
         // trapezoid onto the destination joins one that moved.
@@ -1171,14 +1170,14 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
     match (single, commits.len()) {
         (true, n) if n >= 2 => {
             return Err(format!(
-                "cycle {stage} --single-step: the branch has {n} commits, a ladder, which is \
+                "{label} --single-step: the branch has {n} commits, a ladder, which is \
                  never squashed into one: --multi-step makes its closing commit"
             )
             .into());
         }
         (false, 0) => {
             return Err(format!(
-                "cycle {stage} --multi-step: the branch has no commit, so there is no opening \
+                "{label} --multi-step: the branch has no commit, so there is no opening \
                  for a closing to follow: `rung commit` makes the opening first, or \
                  --single-step commits the work @ as the cycle's one commit"
             )
@@ -1197,7 +1196,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
         (Some(b), _) => b.clone(),
         (None, true) => {
             return Err(format!(
-                "cycle {stage} --single-step: the cycle's one commit holds the work, so it gives \
+                "{label} --single-step: the cycle's one commit holds the work, so it gives \
                  --body, its problem and solution, or --default-body for the pointer at the record"
             )
             .into());
@@ -1207,7 +1206,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
     let parents = match single {
         true if c.trapezoid.is_some() || !c.heads.is_empty() => {
             return Err(format!(
-                "cycle {stage} --single-step: the cycle's one commit joins nothing, so it takes \
+                "{label} --single-step: the cycle's one commit joins nothing, so it takes \
                  no head and no --trapezoid: --multi-step makes a closing commit that can"
             )
             .into());
@@ -1224,9 +1223,8 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
         done.push(closing);
         done
     };
-    crate::commit::check_version(work, "@", c.rung.same_version, "cycle close")?;
-    let ladder =
-        record::plan_ladder(work, &done, None).map_err(|e| format!("cycle {stage}: {e}"))?;
+    crate::commit::check_version(work, "@", c.rung.same_version, label)?;
+    let ladder = record::plan_ladder(work, &done, None).map_err(|e| format!("{label}: {e}"))?;
     let mut moved = crate::commit::RecordMove::plan(work)?;
     // A single-step cycle's one commit has no rungs, so the block goes to
     // `## Closed` without its `#### Rungs`, which the ladder read above.
@@ -1239,14 +1237,14 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
     let unwritten = record::unwritten_items(&todo);
     if !unwritten.is_empty() {
         warn!(
-            "cycle {stage}: the record's {} still read `_To write._`, and the closing moves it to \
+            "{label}: the record's {} still read `_To write._`, and the closing moves it to \
              `## Closed` as it is",
             unwritten.join(", ")
         );
     }
     let fold = single && commits.len() == 1;
     info!(
-        "cycle {stage}: {} on '{bookmark}', '{title}'",
+        "{label}: {} on '{bookmark}', '{title}'",
         match (single, fold) {
             (true, true) => "a single-step cycle, its closing squashed into its one commit",
             (true, false) => "a single-step cycle, its one commit made now from the work @",
@@ -1260,7 +1258,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
     if r.dry_run {
         if ladder.edit.is_some() {
             info!(
-                "cycle {stage}: [dry-run] rewrite the ladder in {}, every rung done",
+                "{label}: [dry-run] rewrite the ladder in {}, every rung done",
                 record::LADDER_FILE
             );
         }
@@ -1269,7 +1267,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
         }
         if let Some(parents) = &parents {
             info!(
-                "cycle {stage}: [dry-run] the closing's parents are {}",
+                "{label}: [dry-run] the closing's parents are {}",
                 parents
                     .iter()
                     .map(|p| short(p))
@@ -1309,7 +1307,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
         if let Some(edit) = &ladder.edit {
             std::fs::write(&edit.path, &edit.text)?;
             info!(
-                "cycle {stage}: the ladder in {} is rewritten, every rung done",
+                "{label}: the ladder in {} is rewritten, every rung done",
                 record::LADDER_FILE
             );
         }
@@ -1320,17 +1318,17 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
             return crate::commit::finalize(ctx, work, pair.as_ref(), &title, &body, false);
         }
         if let Some(parents) = &parents {
-            crate::merge::set_parents(ctx, work, "@", parents, "cycle close")?;
+            crate::merge::set_parents(ctx, work, "@", parents, label)?;
         }
         let mut params = commit_params(&c.rung, title, body, bookmark);
         params.land_follows = c.land.is_some();
         crate::commit::commit(ctx, &params)
     })();
     if let Err(e) = &made {
-        snapshot.restore("cycle close", e.as_ref());
+        snapshot.restore(label, e.as_ref());
         for (path, text) in &written {
             if let Err(w) = std::fs::write(path, text) {
-                warn!("cycle {stage}: {} was not put back: {w}", path.display());
+                warn!("{label}: {} was not put back: {w}", path.display());
             }
         }
     }
@@ -1842,7 +1840,15 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let closing = format!("{cycle} closing");
     let started = current.filter(|c| rungs.contains(c) && !commits.contains(c));
     let next = rungs.iter().find(|r| !commits.contains(r));
+    let one = record::is_one_rung(&cycle, &rungs);
     out.push(match (&started, commits.len(), next) {
+        (Some(c), 0, _) if one => format!(
+            "next: '{c}' is started: `rung commit -s <SCOPE> --body ...` makes it the cycle's one \
+             commit"
+        ),
+        (None, 0, _) if one => {
+            format!("next: `rung next` starts '{cycle}', the cycle's one commit")
+        }
         (Some(c), ..) if *c == closing => format!(
             "next: '{c}' is started: `cycle close -s <SCOPE> --multi-step` makes it, \
              `--trapezoid <BOOKMARK>` a merge"
@@ -1851,8 +1857,9 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
         (Some(c), ..) => {
             format!("next: '{c}' is started: `rung commit -s <SCOPE> --body ...` commits it")
         }
-        (None, 0, _) => "next: `rung next` starts the opening, or `cycle close -s <SCOPE> \
-                         --single-step --body` closes a single-step cycle"
+        (None, 0, _) => "next: `rung next` starts the opening, a bare `--ver X.Y.Z` making the \
+                         cycle one commit, or `cycle close -s <SCOPE> --single-step --body` \
+                         closes a single-step cycle"
             .to_string(),
         (None, 1, Some(c)) if *c == closing => "next: `cycle close -s <SCOPE> --single-step \
                                                 --body` squashes the closing into the opening, \
@@ -2993,6 +3000,77 @@ mod tests {
         let closed = file_at(&fx.work, "@-", "zTOC.md");
         assert!(closed.contains("- 0 (done) feat: a cycle"), "{closed}");
         assert!(!closed.contains("(current)"), "{closed}");
+    }
+
+    /// The simple single-step: a bare `--ver` before the opening makes
+    /// a plan of only its bookends the one heading, and `rung commit
+    /// --body` makes it the cycle's one commit, the record closed in it.
+    /// A bare version with work rungs planned is refused, nothing
+    /// changed.
+    #[test]
+    fn a_bare_version_makes_a_single_step_one_rung() {
+        let fx = Fixture::new("cycle-one-rung");
+        write_record(&fx);
+        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("planned");
+        let path = fx.work.join(".vc-config.md");
+        let mut cfg = fs::read_to_string(&path).expect("read the config");
+        cfg.push_str(
+            "\n```toml\n[version]\nfile = \"VERSION.md\"\npattern = 'version = '\nbump = \
+             \"sh bump.sh {ver}\"\n```\n",
+        );
+        fs::write(&path, cfg).expect("write the config");
+        fs::write(
+            fx.work.join("bump.sh"),
+            "printf 'version = \"%s\"\\n' \"$1\" > VERSION.md\n",
+        )
+        .expect("write");
+
+        rung(&fx.work, &["next", "--ver", "1.0.0"]).expect("the one rung started");
+        let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
+        assert!(todo.contains("##### feat: a cycle\n"), "{todo}");
+        assert!(!todo.contains("##### feat: a cycle opening"), "{todo}");
+        assert!(!todo.contains("##### feat: a cycle closing"), "{todo}");
+        assert_eq!(ladder_lines(&fx.work), ["- 0 (current) feat: a cycle"]);
+        assert_eq!(
+            fs::read_to_string(fx.work.join("VERSION.md")).unwrap(),
+            "version = \"1.0.0\"\n"
+        );
+
+        fs::write(fx.work.join("work.txt"), "work\n").expect("write");
+        let err = rung(&fx.work, &["commit", "-s", "b"]).unwrap_err();
+        assert!(err.contains("--body"), "{err}");
+        rung(
+            &fx.work,
+            &["commit", "-s", "b", "--body", "Why.\n\nSolution: how."],
+        )
+        .expect("the one commit");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle");
+        assert!(
+            description(&fx.bot, "@-").starts_with("feat: a cycle\n"),
+            "the agent half is made too"
+        );
+        let closed = file_at(&fx.work, "@-", "TODO.md");
+        assert!(
+            closed.contains("_No cycle currently in progress._") && !closed.contains("#### Rungs"),
+            "{closed}"
+        );
+        let ladder = file_at(&fx.work, "@-", "zTOC.md");
+        assert!(ladder.contains("- 0 (done) feat: a cycle\n"), "{ladder}");
+        assert!(!ladder.contains("(current)"), "{ladder}");
+
+        let fx = planned("cycle-one-rung-refused");
+        let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
+        let err = rung(&fx.work, &["next", "--ver", "1.0.0"]).unwrap_err();
+        assert!(
+            err.contains("1.0.0-0") && err.contains("1 work rung"),
+            "{err}"
+        );
+        assert_eq!(fs::read_to_string(fx.work.join("TODO.md")).unwrap(), todo);
+        assert!(
+            !ladder_lines(&fx.work)
+                .iter()
+                .any(|l| l.contains("(current)"))
+        );
     }
 
     /// `--ver` without `[version] bump` in the config is refused, and no

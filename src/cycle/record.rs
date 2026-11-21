@@ -324,10 +324,13 @@ pub(crate) struct Ladder {
 /// link alone. The marker `(current)` is the working copy's, written by
 /// `rung next` and never by a commit, so no commit's tree claims work
 /// not yet begun. A single-step cycle, its one commit under the bare
-/// cycle title, is one unlinked rung.
+/// cycle title, is one unlinked rung, and so is a plan of one heading,
+/// the cycle title itself, the simple single-step, its heading's
+/// anchor being the cycle's own.
 ///
-/// Refused: a title written twice, a ladder not opened by the cycle
-/// title plus " opening" or not closed by it plus " closing", and a
+/// Refused: a title written twice, a ladder of more than the one
+/// heading not opened by the cycle title plus " opening" or not closed
+/// by it plus " closing", and a
 /// commit whose title is no rung's, each naming what it found. A done
 /// rung below the first rung not done is a finding, the ladder still
 /// made, and so is a `current` that is done or no rung, its marker
@@ -346,12 +349,14 @@ pub(crate) fn ladder_of(
         }
     }
     let (opening, closing) = (format!("{cycle} opening"), format!("{cycle} closing"));
-    if rungs.first() != Some(&opening) {
+    let one = is_one_rung(cycle, rungs);
+    if !one && rungs.first() != Some(&opening) {
         return Err(format!(
-            "the first rung under `#### Rungs` is not the cycle's opening, '{opening}'"
+            "the first rung under `#### Rungs` is not the cycle's opening, '{opening}', nor is \
+             it the cycle title alone, a single-step's one rung"
         ));
     }
-    if rungs.len() < 2 || rungs.last() != Some(&closing) {
+    if !one && (rungs.len() < 2 || rungs.last() != Some(&closing)) {
         return Err(format!(
             "the last rung under `#### Rungs` is not the cycle's closing, '{closing}'"
         ));
@@ -409,7 +414,7 @@ pub(crate) fn ladder_of(
         .iter()
         .enumerate()
         .map(|(i, r)| {
-            let link = rung_link(r);
+            let link = if one { r.clone() } else { rung_link(r) };
             if commits.contains(r) {
                 if let Some(n) = next
                     && n < i
@@ -428,6 +433,59 @@ pub(crate) fn ladder_of(
         })
         .collect();
     Ok(Ladder { lines, findings })
+}
+
+/// Whether `rungs` is a simple single-step's plan, the one heading, the
+/// cycle title itself.
+pub(crate) fn is_one_rung(cycle: &str, rungs: &[String]) -> bool {
+    matches!(rungs, [only] if only == cycle)
+}
+
+/// `TODO.md`'s text with a plan of only its bookends, the cycle title
+/// plus " opening" and " closing", made the simple single-step's one
+/// heading, the cycle title: the opening's heading renamed, its text
+/// kept, and the closing's subsection removed to the next heading of
+/// its level or above. Refused when the plan is not the bookends alone.
+pub(crate) fn one_rung_record(text: &str, cycle: &str) -> Result<String, String> {
+    let rungs = rung_titles(text)?;
+    let (opening, closing) = (format!("{cycle} opening"), format!("{cycle} closing"));
+    if rungs != [opening.clone(), closing.clone()] {
+        return Err(format!(
+            "the plan under `#### Rungs` is not the bookends alone, '{opening}' and '{closing}'"
+        ));
+    }
+    let (start, end) = section(text, "## In Progress")
+        .ok_or_else(|| format!("{RECORD} has no `## In Progress`"))?;
+    let body = &text[start..end];
+    let heading = |l: &str| {
+        ["# ", "## ", "### ", "#### ", "##### "]
+            .iter()
+            .any(|h| l.starts_with(h))
+    };
+    let named = |l: &str, t: &str| l.strip_prefix("##### ").map(str::trim) == Some(t);
+    let lines: Vec<(usize, &str)> = prose_lines(body)
+        .skip_while(|(_, l)| l.trim_end() != "#### Rungs")
+        .collect();
+    let open = lines.iter().find(|(_, l)| named(l, &opening));
+    let close = lines.iter().position(|(_, l)| named(l, &closing));
+    let (Some(&(open_at, open_line)), Some(close)) = (open, close) else {
+        return Err(format!(
+            "{RECORD}'s bookend headings were not found to rewrite"
+        ));
+    };
+    let close_from = lines[close].0;
+    let close_to = lines[close + 1..]
+        .iter()
+        .find(|(_, l)| heading(l))
+        .map_or(body.len(), |(at, _)| *at);
+    let mut new = body.to_string();
+    // The later span first, so the earlier offsets stand.
+    new.replace_range(close_from..close_to, "");
+    new.replace_range(
+        open_at..open_at + open_line.len(),
+        &format!("##### {cycle}"),
+    );
+    Ok(format!("{}{new}{}", &text[..start], &text[end..]))
 }
 
 /// A ladder line with its link reduced to the title it shows,
@@ -980,6 +1038,73 @@ The last cycle's record.
 
     /// The rung started is marked `(current)`, numbered, and one done
     /// or no rung keeps no marker, said as a finding.
+    /// A plan of one heading, the cycle title, is the simple
+    /// single-step's one rung, unlinked, started and then done.
+    #[test]
+    fn one_heading_is_a_single_steps_one_rung() {
+        let one = titles(&["feat: c"]);
+        let plain = ladder_of("feat: c", &one, &[], None).expect("made");
+        assert_eq!(plain.lines, ["- feat: c"]);
+        let started = ladder_of("feat: c", &one, &[], Some("feat: c")).expect("made");
+        assert_eq!(started.lines, ["- 0 (current) feat: c"]);
+        let done = ladder_of("feat: c", &one, &one, None).expect("made");
+        assert_eq!(done.lines, ["- 0 (done) feat: c"]);
+        let err = ladder_of("feat: c", &titles(&["feat: other"]), &[], None).unwrap_err();
+        assert!(err.contains("the cycle title alone"), "{err}");
+        assert_eq!(
+            current_of("## Ladder\n\n- 0 (current) feat: c\n"),
+            Some("feat: c".into())
+        );
+    }
+
+    /// A plan of only its bookends becomes the one heading, the
+    /// opening's text kept and the closing's subsection gone, and a plan
+    /// with work rungs is refused.
+    #[test]
+    fn the_bookends_become_the_one_heading() {
+        let record = "\
+## In Progress
+
+### feat: c
+
+#### Rungs
+
+##### feat: c opening
+
+The plan.
+
+##### feat: c closing
+
+Closing out the cycle.
+
+## Todo
+";
+        let one = one_rung_record(record, "feat: c").expect("rewritten");
+        assert_eq!(
+            one,
+            "\
+## In Progress
+
+### feat: c
+
+#### Rungs
+
+##### feat: c
+
+The plan.
+
+## Todo
+"
+        );
+        assert_eq!(rung_titles(&one).expect("rungs"), ["feat: c"]);
+        let laddered = record.replace(
+            "##### feat: c closing",
+            "##### feat: work\n\nIt.\n\n##### feat: c closing",
+        );
+        let err = one_rung_record(&laddered, "feat: c").unwrap_err();
+        assert!(err.contains("bookends alone"), "{err}");
+    }
+
     #[test]
     fn the_current_rung_is_marked_until_it_is_done() {
         let opened = titles(&["feat: c opening"]);

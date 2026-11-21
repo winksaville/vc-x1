@@ -2,13 +2,15 @@
 # cycle-rehearsal.sh - run the cycle flow end to end, by `cycle` and `rung`.
 #
 # Makes a throwaway dual workspace with local bare remotes and no cargo
-# project, and runs three cycles through it, open to Land, checking
+# project, and runs four cycles through it, plan to Land, checking
 # what each command left:
 #
 #   1. a single-step cycle with nothing committed before its closing
 #   2. a single-step cycle whose opening is committed first
 #   3. a ladder, closed as a trapezoid, with each way back from a fault
 #      found after the closing tried: fix inside, fix on top, reopen
+#   4. a simple single-step, its plan the one heading, its one rung
+#      committed by `rung commit`
 #
 # Usage: scripts/cycle-rehearsal.sh [DIR]
 #   DIR  where the workspace and its remotes go, removed first
@@ -267,6 +269,25 @@ check "the closing landed" "$(title main)" "feat: a ladder cycle closing"
 check "the ladder is under the closing" "$(above_main "$base" main | head -1)" \
     "feat: a ladder cycle opening"
 check_landed "cycle 3" feat-a-ladder-cycle
+
+step "Cycle 4: a simple single-step, its plan the one heading"
+base=$(cid main)
+run "$VC" cycle plan --title "fix: one rung"
+# No [version] here, so the one heading is written by hand: the
+# opening's renamed, the closing's subsection removed.
+sed -i 's/^##### fix: one rung opening$/##### fix: one rung/' TODO.md
+sed -i '/^##### fix: one rung closing$/,/^## /{/^## /!d}' TODO.md
+run "$VC" rung next
+check "the one rung is current" "$(ladder)" "- 0 (current) fix: one rung"
+echo "four" >four.txt
+run "$VC" rung commit -s b --body "The problem.
+
+Solution: the one rung."
+check "one commit above main" "$(above_main "$base" @-)" "fix: one rung"
+check "the ladder is the one rung done" "$(ladder)" "- 0 (done) fix: one rung"
+check_has "the record is in Closed" "$(sed -n '/^## Closed$/,$p' TODO.md)" "### fix: one rung"
+run "$VC" cycle land main -s b --push
+check_landed "cycle 4" fix-one-rung
 
 step "Result"
 if [ -L "$LINK" ]; then rm "$LINK"; fi

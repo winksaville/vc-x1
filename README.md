@@ -1850,7 +1850,7 @@ and is refused only when the ladder there has a rung done, which it would lose.
 The grammar is strict, and each of these is refused with nothing edited: a commit on the branch
 whose title is no rung's, so an unplanned rung gets its heading before its commit, a rung written
 twice, a ladder whose first rung is not the cycle title plus " opening" or whose last is not it
-plus " closing", and a line of the ladder already there that is not a rung, a left-margin `- `
+plus " closing", unless it is the one heading of [a single-step](#a-single-step-is-one-rung), and a line of the ladder already there that is not a rung, a left-margin `- `
 with a number and marker or neither and a link whose slug is its title's. A done rung below one
 not done is a warning. `--dry-run` prints the ladder and writes none.
 
@@ -2041,7 +2041,8 @@ vc-x1 rung commit -s b --body "..." # commit it, (done), none current
   a rung is current and when every rung is committed. With `--ver` it first runs the config's
   `[version] bump`, `{ver}` the version given, from the workspace root, so the dev build under
   review carries the rung's version, and a bump that fails marks nothing. Without `bump` in the
-  config `--ver` is refused, and the version is bumped by hand.
+  config `--ver` is refused, and the version is bumped by hand. A bare version, `X.Y.Z`, before the
+  opening says the cycle is one commit: see [A single-step is one rung](#a-single-step-is-one-rung).
 - `stop` clears the marker, the work `@` left as it is.
 - `commit` commits the current rung, its title the rung's, and the ladder it carries marks the rung
   `(done)` and none current. Refused with no rung current, naming `next`, and on the closing, which
@@ -2072,6 +2073,31 @@ nothing.
 `cycle close` is refused while a rung other than the closing is current, so a rung is never
 left in flight. `--bookmark` names the cycle's bookmark when it is not the title's slug, and `-R`
 says where.
+
+#### A single-step is one rung
+
+A cycle planned as one commit has no opening or closing, so its plan is one heading under `####
+Rungs`, the cycle title itself, and its ladder that one rung, unlinked, since its heading's anchor
+is the cycle's own:
+
+```bash
+vc-x1 cycle plan --title "fix: a typo"   # the bookends, as for any cycle
+vc-x1 rung next --ver 0.86.1             # a bare version: the bookends become the one heading
+vc-x1 rung commit -s b --body @body.txt  # the cycle's one commit, the record closed in it
+```
+
+- A bare `--ver` before the opening, on a plan of only its bookends, rewrites them in `TODO.md`
+  into the one heading, the opening's text kept and the closing's subsection removed, so the
+  record shows the real rung before the review. Under the suffix scheme a bare version is only
+  ever a cycle's last commit, so it can say the shape. A plan with work rungs is refused, naming
+  both ways on, `X.Y.Z-0` for the opening or the work rungs removed. Without `[version]` the one
+  heading is written by hand, and a bare `rung next` starts it.
+- `rung commit` on the one rung needs `--body`, since the commit holds the work, and makes it as
+  `cycle close --single-step` does: the bare cycle title, the record moved to `## Closed` without
+  its `#### Rungs`, and the ladder `0 (done) <title>`. No `cycle close` follows, and `cycle land`
+  lands it.
+- A cycle planned as a ladder that needed one commit keeps its bookends, the long style, and
+  `cycle close --single-step` makes its one commit.
 
 ### trailers
 
