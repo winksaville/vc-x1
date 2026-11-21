@@ -236,12 +236,12 @@ mod tests {
     /// none wider than the width unless one word is.
     #[test]
     fn a_long_message_wraps_between_words() {
-        let msg = "error: cycle --open: /home/wink/tmp/t17 has no TODO.md or zTOC.md, and a \
+        let msg = "error: cycle plan: /home/wink/tmp/t17 has no TODO.md or zTOC.md, and a \
                    cycle runs on its record";
         let wrapped = wrap(msg, 40, true);
         assert_eq!(
             wrapped,
-            "error: cycle --open: /home/wink/tmp/t17\n  \
+            "error: cycle plan: /home/wink/tmp/t17\n  \
              has no TODO.md or zTOC.md, and a cycle\n  \
              runs on its record"
         );

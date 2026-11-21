@@ -17,15 +17,16 @@ acquaint, acted on, and reset to `_None._` by the reader.
   bookmark, `feat-one-cycle-flow-plan-rungs-close`, is local, renamed by `jj bookmark rename`. The
   opening pair, reworked and retitled while local, is work `zkvzwtno` and agent `ktmznnnu`, nothing
   pushed.
-- Rung 1, **feat: vc-x1 rung next, stop and commit**, is in the work `@`, `(current)` in
-  `zTOC.md`, its work done and validated, waiting on wink's review. It is committed by
-  `vc-x1-dev rung commit -s b --body "..."`, and the next rung started by `vc-x1-dev rung next
-  --ver 0.85.26-2`.
-- Run every cycle command by `vc-x1-dev`, installed from the working copy at `0.85.26-1`: the
-  installed `vc-x1` `0.85.25` has no `rung` and writes the next rung `(current)` into a commit.
-  The bookmark is the title's slug, so no `--bookmark` is needed.
+- Rung 1, **feat: vc-x1 rung next, stop and commit**, is committed, work `pmqspyxw` and agent
+  `ytzxxqlr`, local. Rung 2, **feat: cycle stages are subcommands**, is in the work `@`,
+  `(current)` in `zTOC.md`, at `0.85.26-2`, its work done and validated, waiting on wink's review.
+  It is committed by `vc-x1-dev rung commit -s b --body "..."`, and the next rung started by
+  `vc-x1-dev rung next --ver 0.85.26-3`.
+- Run every cycle command by `vc-x1-dev`, installed from the working copy: the installed `vc-x1`
+  `0.85.25` has no `rung` and no stage subcommands, and writes the next rung `(current)` into a
+  commit. The bookmark is the title's slug, so no `--bookmark` is needed.
 - Findings to file as Todos, or fold into a rung: `vc-x1 sync -s b` reports "1 repo is up to date"
-  for two; `cycle --ladder` refuses while a committed rung's title is being reworked, so a retitle
+  for two; `cycle ladder` refuses while a committed rung's title is being reworked, so a retitle
   needs the ladder edited by hand until its squash; `cycle --status` named no bookmark given to
   `--open` by `--bookmark`, which **feat: the bookmark is made first** fixes.
 - The messages clone is clean, and `m-14` (`cycle --land` tags the version) and `m-15` (a clone per
@@ -236,6 +237,34 @@ rung or names the next. Its agent-files half, the set-aside `nruymrqm`'s, joins 
 its own and a later stage chained as a flag, `cycle close --land main --push` and `rung commit
 --push`. `cycle --open` becomes `cycle plan`, `cycle --commit` goes to `rung commit`, the old stage
 flags go, and the rehearsal, README, and tests name the subcommands.
+
+- `cycle` is a command with subcommands, `plan`, `ladder`, `status`, `close`, `land`, and `push`,
+  each with its own arguments, so a flag another stage owns is clap's "unexpected argument" and the
+  "takes no" refusals went. `Where`, the bookmark, `-R`, and `--dry-run`, is shared with `rung`'s
+  acts, and `-s` is required by clap on `close`, `land`, and `push`.
+- `cycle --commit` is gone, `rung commit` being the one way a rung is committed, and `rung_params`
+  builds a rung's commit for `rung commit` and `cycle close` alike. The tests commit a rung by that
+  code with a title given, so the title refusals stay tested.
+- A stage's target is positional, `cycle land <TARGET>` and `cycle close [REV,...]`'s heads. `close
+  --land <TARGET>` chains the Land, `--skip` and `--delete-intermediate-bookmarks` requiring it,
+  and `land`'s `--title` and `--body` require `--merge`. `-s w` on `land` and `push` is refused by
+  one message.
+- Every message names the subcommand, `cycle plan`, `cycle close`, and `rung commit` where it said
+  `cycle --open`, `--close`, and `--commit`. `cycle -h` lists the stages, and each stage's long help
+  is its own.
+- The rehearsal starts and commits the opening and each rung by `rung next` and `rung commit`,
+  checks the marker `rung next` writes, and tries `rung commit` with no rung started where it tried
+  an unplanned title. README's `### cycle` shows the subcommands, the commit's details moved to `###
+  rung`, and `vc-config.md`'s `used-by` names them. The agent-files still name the flags until the
+  docs rung.
+
+##### feat: cycle plan writes a missing record
+
+`cycle plan` writes `TODO.md` or `zTOC.md` when the workspace has none, a skeleton of the
+headings the record needs, `## In Progress`, `## Todo`, and `## Closed` in `TODO.md` and `##
+Ladder` in `zTOC.md`, then the record as it does now, so a bare `vc-x1 init` workspace plans a
+cycle with no file made by hand. `--no-record` still writes nothing. Found by wink's test of
+rung 2 in a fresh `init` workspace (wink, 2026-11-21).
 
 ##### feat: a single-step is one rung
 

@@ -6,7 +6,8 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 
 - 0 (done) [feat: one cycle flow, plan, rungs, close opening](TODO.md#feat-one-cycle-flow-plan-rungs-close-opening)
 - 1 (done) [feat: vc-x1 rung next, stop and commit](TODO.md#feat-vc-x1-rung-next-stop-and-commit)
-- [feat: cycle stages are subcommands](TODO.md#feat-cycle-stages-are-subcommands)
+- 2 (done) [feat: cycle stages are subcommands](TODO.md#feat-cycle-stages-are-subcommands)
+- [feat: cycle plan writes a missing record](TODO.md#feat-cycle-plan-writes-a-missing-record)
 - [feat: a single-step is one rung](TODO.md#feat-a-single-step-is-one-rung)
 - [feat: cycle squash makes one commit](TODO.md#feat-cycle-squash-makes-one-commit)
 - [docs: one cycle flow](TODO.md#docs-one-cycle-flow)

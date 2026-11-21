@@ -1,4 +1,4 @@
-//! The cycle-record's mechanical edits, as text: what `cycle --open`
+//! The cycle-record's mechanical edits, as text: what `cycle plan`
 //! writes into `TODO.md` and `zTOC.md`.
 //!
 //! - The record's shape is the agent-files', so the tool knows it
@@ -264,7 +264,7 @@ pub(crate) fn cycle_title(text: &str) -> Result<String, String> {
     prose_lines(&text[start..end])
         .find_map(|(_, l)| l.strip_prefix("### "))
         .map(|t| t.trim().to_string())
-        .ok_or_else(|| format!("{RECORD} has no cycle in progress: `cycle --open` opens one"))
+        .ok_or_else(|| format!("{RECORD} has no cycle in progress: `cycle plan` opens one"))
 }
 
 /// The title of the cycle `## Closed` holds in `TODO.md`'s `text`, the
@@ -577,7 +577,7 @@ pub(crate) struct FileEdit {
     pub text: String,
 }
 
-/// What `cycle --open` writes, planned before anything is made.
+/// What `cycle plan` writes, planned before anything is made.
 #[derive(Debug, Default)]
 pub(crate) struct OpenRecord {
     /// The files written, the record then the ladder.
@@ -604,7 +604,7 @@ pub(crate) fn plan_open(root: &Path, title: &str) -> Result<OpenRecord, String> 
         return Err(format!(
             "{} has no {}, and a cycle runs on its record: {RECORD} with `## In Progress` and \
              `## Closed`, and {LADDER_FILE} with `{LADDER}`. Add them, or --no-record makes the \
-             bookmark alone, a branch that `cycle --commit` and `--close` will not take",
+             bookmark alone, a branch that `rung commit` and `cycle close` will not take",
             root.display(),
             missing.join(" or ")
         ));

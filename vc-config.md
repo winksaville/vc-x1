@@ -603,7 +603,7 @@ artifact's.
 homes = ["workspace-code"]
 kind = "str"
 doc = "The file holding the version, whose change a work commit is checked for"
-used-by = "vc-x1 commit, vc-x1 cycle --commit and --close"
+used-by = "vc-x1 commit, vc-x1 rung commit, vc-x1 cycle close"
 example = "Cargo.toml"
 ```
 
@@ -617,7 +617,7 @@ holds the text, a dependency's own `version = ` inside a table, is not taken for
 homes = ["workspace-code"]
 kind = "str"
 doc = "What the version's line starts with, in `version.file`"
-used-by = "vc-x1 commit, vc-x1 cycle --commit and --close"
+used-by = "vc-x1 commit, vc-x1 rung commit, vc-x1 cycle close"
 example = "version = "
 ```
 
@@ -640,7 +640,7 @@ example = "cargo xtask bump {ver}"
 
 ## opening.body
 
-The body `vc-x1 cycle --commit` writes on a cycle's opening commit, its first, when `--body` is
+The body `vc-x1 rung commit` writes on a cycle's opening commit, its first, when `--body` is
 left out, `{title}` filled with the cycle title read from `TODO.md`. Absent, the body names the
 cycle. Either way the pointer to its record follows, a paragraph of its own, `See details in
 TODO.md:` and the cycle's heading. Owned by the work side because the cycle's commits are the work
@@ -651,13 +651,13 @@ repo's.
 homes = ["workspace-code"]
 kind = "str"
 doc = "The opening commit's default body, `{title}` the cycle title"
-used-by = "vc-x1 cycle --commit"
+used-by = "vc-x1 rung commit"
 example = "Opens the cycle {title}."
 ```
 
 ## closing.body
 
-The body `vc-x1 cycle --close` writes on a ladder's closing commit when `--body` is left out,
+The body `vc-x1 cycle close` writes on a ladder's closing commit when `--body` is left out,
 `{title}` filled with the cycle title read from `TODO.md`. Absent, the body names the cycle. Either
 way the pointer to its record follows, a paragraph of its own, `See details in TODO.md:` and the
 cycle's heading. A single-step cycle's one commit holds the work, so it gives `--body`, and
@@ -669,7 +669,7 @@ work repo's.
 homes = ["workspace-code"]
 kind = "str"
 doc = "The closing commit's default body, `{title}` the cycle title"
-used-by = "vc-x1 cycle --close"
+used-by = "vc-x1 cycle close"
 example = "Closes the cycle {title}."
 ```
 

@@ -67,8 +67,8 @@ pub enum Skip {
 }
 
 /// How the Land's messages name the command: `vc-x1 land` is retired,
-/// and `cycle --land` runs this code.
-const LABEL: &str = "cycle --land";
+/// and `cycle land` runs this code.
+const LABEL: &str = "cycle land";
 
 /// Inputs to the land op, flat, owned, clap-free.
 #[derive(Debug)]
@@ -604,9 +604,9 @@ pub(crate) fn run(
         );
     } else if !dry {
         let flag = if pair.is_some() { "b" } else { "p" };
-        // `cycle --push` reads what the Land left and publishes it, the
+        // `cycle push` reads what the Land left and publishes it, the
         // target and the cycle's bookmark on origin, wherever @- is.
-        let publish = format!("`vc-x1 cycle --push -s {flag}`");
+        let publish = format!("`vc-x1 cycle push -s {flag}`");
         info!(
             "{label}: landed on '{onto}' on this machine, '{onto}' having moved from \
              {}, and {publish} publishes it.{}",
@@ -670,7 +670,7 @@ mod tests {
     }
 
     /// The params of a Land in the fixture's work repo, from the flags
-    /// `cycle --land` passes on, written as `vc-x1 land`'s were.
+    /// `cycle land` passes on, written as `vc-x1 land`'s were.
     fn local_land_params(fx: &Fixture, args: &[&str]) -> LandParams {
         let mut p = LandParams {
             repo: fx.work.clone(),

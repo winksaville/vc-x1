@@ -4,24 +4,22 @@
 //!   `(current)` in the working copy's `zTOC.md`, and with `--ver`
 //!   sets the version by the config's `[version] bump`.
 //! - `stop` clears the marker, the edits in `@` left as they are.
-//! - `commit` commits the current rung, by `cycle --commit`'s own
-//!   code, its title the rung's, the ladder it carries marking it
+//! - `commit` commits the current rung, by the code `cycle close`
+//!   shares, its title the rung's, the ladder it carries marking it
 //!   `(done)` and none current.
 //!
 //! The marker lives in the working copy alone: a commit ends its rung
 //! and starts none, so no commit's tree claims work not yet begun.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use clap::{Args, Subcommand};
 use log::info;
 
 use super::{
-    CommitRung, Running, branch_titles, commit_rung, commit_scope, cycle_bookmark, record,
-    resolve_repos,
+    CommitRung, Running, Where, branch_titles, commit_rung, cycle_bookmark, record, rung_params,
 };
 use crate::context::Context;
-use crate::options_flags::dry_run::DryRunFlag;
 use crate::options_flags::scope::{RepoScope, repo_scope_parser};
 use crate::subcommand::SubcommandRunner;
 
@@ -50,31 +48,21 @@ pub enum RungCommand {
 
     /// Commit the current rung: its title the rung's, the ladder marking it `(done)`
     #[command(
-        long_about = "Commit the working copies as the current rung, as `cycle\n\
-        --commit` does, its title the rung's: the ladder is rewritten into\n\
-        the commit, the rung `(done)` and none current, so the next rung\n\
-        starts by `rung next`. The opening's body defaults, and a work rung\n\
-        gives --body. The closing is `cycle --close`'s. Refused with no\n\
-        rung current."
+        long_about = "Commit the working copies as the current rung, its title the\n\
+        rung's, by the code `vc-x1 commit` runs, so a dual workspace gets\n\
+        the pair, each half stamped with the other's change id. The ladder\n\
+        is rewritten into the commit, the rung `(done)` and none current,\n\
+        so the next rung starts by `rung next`, and the cycle's bookmark is\n\
+        the one advanced. The opening's body defaults to `[opening] body`,\n\
+        and a work rung gives --body, the text or @PATH. -s is required: `b`\n\
+        the pair, `w` the work half alone, `p` a plain repo's commit. --push\n\
+        publishes the rung on the cycle's bookmark, a draft. With `[version]\n\
+        file` and `pattern` in the config, a commit that changes no line of\n\
+        the file starting with the pattern is refused, and --same-version\n\
+        commits it as it is. The closing is `cycle close`'s. Refused with\n\
+        no rung current."
     )]
     Commit(CommitArgs),
-}
-
-/// Where, and the cycle's bookmark when it is not the title's slug.
-#[derive(Args, Debug)]
-pub struct Where {
-    /// The cycle's bookmark, in place of the title's slug
-    #[arg(long, value_name = "NAME")]
-    pub bookmark: Option<String>,
-
-    /// Where: a path in the workspace, its root or either repo, or a
-    /// plain repo [default: the current directory]
-    #[arg(short = 'R', long, value_name = "PATH")]
-    pub repo: Option<PathBuf>,
-
-    /// Say what would be done, and do none of it
-    #[command(flatten)]
-    pub dry_run: DryRunFlag,
 }
 
 /// `rung next`'s arguments.
@@ -132,20 +120,6 @@ pub enum RungParams {
     Commit(CommitRung),
 }
 
-impl Where {
-    fn running(&self) -> Result<(Running, Option<PathBuf>), String> {
-        let (work, agent) = resolve_repos(self.repo.as_deref())?;
-        Ok((
-            Running {
-                work,
-                bookmark: self.bookmark.clone(),
-                dry_run: self.dry_run.value,
-            },
-            agent,
-        ))
-    }
-}
-
 impl TryFrom<&RungArgs> for RungParams {
     type Error = String;
 
@@ -161,21 +135,16 @@ impl TryFrom<&RungArgs> for RungParams {
             RungCommand::Stop(w) => Ok(RungParams::Stop(w.running()?.0)),
             RungCommand::Commit(c) => {
                 let (running, agent) = c.at.running()?;
-                let body = match &c.body {
-                    Some(b) => Some(crate::desc_helpers::read_body(b, "rung commit")?),
-                    None => None,
-                };
-                if body.as_deref().is_some_and(|b| b.trim().is_empty()) {
-                    return Err("rung commit: a --body given is not blank".into());
-                }
-                Ok(RungParams::Commit(CommitRung {
-                    agent: commit_scope(Some(&c.scope), agent, "rung commit")?,
+                Ok(RungParams::Commit(rung_params(
                     running,
-                    title: None,
-                    body,
-                    push: c.push,
-                    same_version: c.same_version,
-                }))
+                    agent,
+                    &c.scope,
+                    None,
+                    c.body.as_deref(),
+                    c.push,
+                    c.same_version,
+                    "rung commit",
+                )?))
             }
         }
     }
@@ -305,7 +274,7 @@ fn stop(r: &Running) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// `rung commit`: commit the current rung under its title, the
-/// closing refused for `cycle --close`.
+/// closing refused for `cycle close`.
 fn commit(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::error::Error>> {
     let s = state(&c.running, "commit")?;
     let Some(rung) = s.started().map(String::from) else {
@@ -320,7 +289,7 @@ fn commit(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::error::E
     };
     if rung == format!("{} closing", s.cycle) {
         return Err(format!(
-            "rung commit: '{rung}' is the cycle's closing, which `cycle --close` makes"
+            "rung commit: '{rung}' is the cycle's closing, which `cycle close` makes"
         )
         .into());
     }
