@@ -13,6 +13,10 @@
 //! bookends, and `commit` makes the cycle's one commit by `cycle
 //! close --single-step`'s code.
 //!
+//! With no cycle in progress, `commit --title` commits the work `@`
+//! as a cycle of its own, verbatim on a bookmark made for it, and with
+//! `--record` its record written and closed in the commit.
+//!
 //! The marker lives in the working copy alone: a commit ends its rung
 //! and starts none, so no commit's tree claims work not yet begun.
 
@@ -22,9 +26,11 @@ use clap::{Args, Subcommand};
 use log::info;
 
 use super::{
-    CommitRung, Running, Where, branch_titles, commit_rung, cycle_bookmark, record, rung_params,
+    CloseCycle, CommitRung, LandCycle, OpenCycle, Running, Where, branch_titles, commit_params,
+    commit_rung, cycle_bookmark, land_checks, land_closed, publish_scope, record, rung_params,
 };
 use crate::context::Context;
+use crate::jj;
 use crate::options_flags::scope::{RepoScope, repo_scope_parser};
 use crate::subcommand::SubcommandRunner;
 
@@ -70,7 +76,16 @@ pub enum RungCommand {
         commits it as it is. A single-step's one rung, the cycle title,\n\
         gives --body and is the cycle's one commit, the record moved to\n\
         `## Closed` in it. The closing is `cycle close`'s. Refused with\n\
-        no rung current."
+        no rung current.\n\n\
+        With no cycle in progress, --title commits the work @ as a cycle\n\
+        of its own: a bookmark made on @, the title's slug or --bookmark's,\n\
+        and the pair committed verbatim, --body required, TODO.md and\n\
+        zTOC.md untouched and not needed, main unmoved. --record writes the\n\
+        record too, planned with the one heading, its problem and solution\n\
+        the body's, and closed in the commit. --land <TARGET> lands the\n\
+        commit in the same invocation, as `cycle land` does, and with it\n\
+        --push publishes the target, as it does for a single-step's one\n\
+        rung."
     )]
     Commit(CommitArgs),
 }
@@ -115,8 +130,35 @@ pub struct CommitArgs {
     #[arg(long)]
     pub same_version: bool,
 
+    /// With no cycle in progress, the commit's title: the work @ is
+    /// committed as it is, on a bookmark made for it, the title's slug
+    /// or --bookmark's
+    #[arg(long, value_name = "STR")]
+    pub title: Option<String>,
+
+    /// With --title, write the cycle's record too: planned with the one
+    /// heading, its problem and solution from the body, and closed in
+    /// the same commit
+    #[arg(long, requires = "title")]
+    pub record: bool,
+
+    /// Land the commit on TARGET in the same invocation, as `cycle
+    /// land` does, --push then publishing the target: a cycle's one
+    /// commit, or a commit with --title
+    #[arg(long, value_name = "TARGET")]
+    pub land: Option<String>,
+
     #[command(flatten)]
     pub at: Where,
+}
+
+/// `rung commit`'s inputs: the commit's, with or without a cycle in
+/// progress, the record asked for, and the Land that follows.
+#[derive(Debug)]
+pub struct RungCommit {
+    pub rung: CommitRung,
+    pub record: bool,
+    pub land: Option<LandCycle>,
 }
 
 /// Inputs to the rung op, clap-free.
@@ -127,7 +169,7 @@ pub enum RungParams {
         ver: Option<String>,
     },
     Stop(Running),
-    Commit(CommitRung),
+    Commit(Box<RungCommit>),
 }
 
 impl TryFrom<&RungArgs> for RungParams {
@@ -145,16 +187,40 @@ impl TryFrom<&RungArgs> for RungParams {
             RungCommand::Stop(w) => Ok(RungParams::Stop(w.running()?.0)),
             RungCommand::Commit(c) => {
                 let (running, agent) = c.at.running()?;
-                Ok(RungParams::Commit(rung_params(
+                if let Some(t) = &c.title {
+                    crate::commit::refuse_suffixed(t, "rung commit --title")
+                        .map_err(|e| e.replacen("commit ", "", 1))?;
+                }
+                let land = match &c.land {
+                    Some(dest) => Some(LandCycle {
+                        agent: publish_scope(&c.scope, agent.clone(), "rung commit --land")?,
+                        running: running.clone(),
+                        dest: dest.clone(),
+                        merge: false,
+                        skip: None,
+                        delete_intermediate: false,
+                        push: c.push,
+                        title: None,
+                        body: None,
+                    }),
+                    None => None,
+                };
+                let rung = rung_params(
                     running,
                     agent,
                     &c.scope,
-                    None,
+                    c.title.as_deref(),
                     c.body.as_deref(),
-                    c.push,
+                    // With a Land the push is the Land's, the target's.
+                    c.push && land.is_none(),
                     c.same_version,
                     "rung commit",
-                )?))
+                )?;
+                Ok(RungParams::Commit(Box::new(RungCommit {
+                    rung,
+                    record: c.record,
+                    land,
+                })))
             }
         }
     }
@@ -334,9 +400,36 @@ fn stop(r: &Running) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// `rung commit`: commit the current rung under its title, the
-/// closing refused for `cycle close`.
-fn commit(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::error::Error>> {
+/// `rung commit`: with a cycle in progress, commit the current rung
+/// under its title, the closing refused for `cycle close`, and with
+/// none, `--title` commits the work `@` as a cycle of its own.
+fn commit(ctx: &mut Context, rc: &RungCommit) -> Result<(), Box<dyn std::error::Error>> {
+    let c = &rc.rung;
+    let path = c.running.work.join(crate::commit::RECORD);
+    let in_progress = match path.is_file() {
+        true => record::cycle_title(&std::fs::read_to_string(&path)?).ok(),
+        false => None,
+    };
+    match (in_progress, &c.title) {
+        (Some(cycle), Some(_)) => Err(format!(
+            "rung commit --title: the cycle '{cycle}' is in progress, and a rung's title is the \
+             ladder's: leave --title out"
+        )
+        .into()),
+        (Some(_), None) => commit_current(ctx, rc),
+        (None, Some(title)) => commit_alone(ctx, rc, title),
+        (None, None) => Err(format!(
+            "rung commit: no cycle is in progress in {}: `cycle plan` opens one, or --title \
+             commits the work @ as a cycle of its own",
+            crate::commit::RECORD
+        )
+        .into()),
+    }
+}
+
+/// `rung commit` in a cycle: the current rung, under its title.
+fn commit_current(ctx: &mut Context, rc: &RungCommit) -> Result<(), Box<dyn std::error::Error>> {
+    let c = &rc.rung;
     let s = state(&c.running, "commit")?;
     let Some(rung) = s.started().map(String::from) else {
         return Err(match &s.current {
@@ -364,37 +457,101 @@ fn commit(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::error::E
             )
             .into());
         }
-        let one = super::CloseCycle {
-            rung: CommitRung {
-                running: c.running.clone(),
-                agent: c.agent.clone(),
-                title: None,
-                body: c.body.clone(),
-                push: c.push,
-                same_version: c.same_version,
-            },
-            heads: Vec::new(),
-            trapezoid: None,
-            default_body: false,
-            dead_end: false,
-            single_step: true,
-            land: None,
-        };
-        return super::close(ctx, &one, "rung commit");
+        return super::close(ctx, &one_commit(c, rc.land.clone()), "rung commit");
+    }
+    if rc.land.is_some() {
+        return Err(format!(
+            "rung commit --land: '{rung}' is a rung of a ladder, and a Land is of a cycle closed: \
+             `cycle close --land` closes and lands it"
+        )
+        .into());
     }
     let c = CommitRung {
-        running: Running {
-            work: c.running.work.clone(),
-            bookmark: c.running.bookmark.clone(),
-            dry_run: c.running.dry_run,
-        },
-        agent: c.agent.clone(),
         title: Some(rung),
-        body: c.body.clone(),
-        push: c.push,
-        same_version: c.same_version,
+        ..c.clone()
     };
     commit_rung(ctx, &c, "rung commit")
+}
+
+/// The single-step commit `cycle close --single-step` makes, from a
+/// rung commit's inputs.
+fn one_commit(c: &CommitRung, land: Option<LandCycle>) -> CloseCycle {
+    CloseCycle {
+        rung: CommitRung {
+            title: None,
+            ..c.clone()
+        },
+        heads: Vec::new(),
+        trapezoid: None,
+        default_body: false,
+        dead_end: false,
+        single_step: true,
+        land,
+    }
+}
+
+/// `rung commit --title` with no cycle in progress: the work `@`
+/// committed as a cycle of its own, on a bookmark made for it, the
+/// record written and closed in the commit with `--record`, and
+/// untouched without. Every check is made before the bookmark is.
+fn commit_alone(
+    ctx: &mut Context,
+    rc: &RungCommit,
+    title: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let c = &rc.rung;
+    let label = "rung commit --title";
+    let work = c.running.work.as_path();
+    let dry_run = c.running.dry_run;
+    let body = c.body.clone().ok_or_else(|| {
+        format!("{label}: the commit holds the work, so it gives --body, its problem and solution")
+    })?;
+    let bookmark = crate::open::bookmark_name(c.running.bookmark.as_deref(), Some(title))?;
+    if jj::is_empty(work, "@")? {
+        return Err(format!("{label}: the work @ is empty, so there is nothing to commit").into());
+    }
+    crate::commit::check_version(work, "@", c.same_version, label)?;
+    if let Some(l) = &rc.land {
+        land_checks(work, &l.dest, Some("@-"), l.agent.is_none())?;
+    }
+    let open = crate::open::OpenParams {
+        work: work.to_path_buf(),
+        agent: c.agent.as_ref().map(|(a, _)| a.clone()),
+        bookmark: bookmark.clone(),
+        dry_run,
+    };
+    if rc.record {
+        super::open(
+            ctx,
+            &OpenCycle {
+                open,
+                record: Some(title.to_string()),
+                hint: false,
+            },
+        )?;
+        if dry_run {
+            info!("{label}: [dry-run] make the record the one heading, then commit it closed");
+            return Ok(());
+        }
+        let path = work.join(crate::commit::RECORD);
+        let todo = std::fs::read_to_string(&path)?;
+        let todo = record::one_rung_record(&todo, title).map_err(|e| format!("{label}: {e}"))?;
+        let todo = record::with_body_items(&todo, &body);
+        std::fs::write(&path, todo).map_err(|e| format!("{label}: {}: {e}", path.display()))?;
+        return super::close(ctx, &one_commit(c, rc.land.clone()), "rung commit");
+    }
+    crate::open::open(ctx, &open)?;
+    if dry_run {
+        info!("{label}: [dry-run] commit the work @ as '{title}' on '{bookmark}'");
+        return Ok(());
+    }
+    let mut params = commit_params(c, title.to_string(), body, bookmark.clone());
+    params.land_follows = rc.land.is_some();
+    crate::commit::commit(ctx, &params)?;
+    match &rc.land {
+        Some(l) => land_closed(ctx, l, Some(bookmark)),
+        None => Ok(()),
+    }
 }
 
 /// The config's `[version] bump` as words, `{ver}` replaced by `ver`,

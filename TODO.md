@@ -20,10 +20,11 @@ acquaint, acted on, and reset to `_None._` by the reader.
 - Rungs 1 to 3 are committed, all local: **feat: vc-x1 rung next, stop and commit**, work
   `pmqspyxw` and agent `ytzxxqlr`, **feat: cycle stages are subcommands**, work `knxrkytt` and
   agent `nnsouwvt`, and **feat: init writes the record's files**, inserted by wink, work
-  `qpwrrxwr` and agent `wypwkqvo`. Rung 4, **feat: a single-step is one rung**, is in the work
-  `@`, `(current)` in `zTOC.md`, at `0.85.26-4`, its work done and validated, waiting on wink's
-  review. It is committed by `vc-x1-dev rung commit -s b --body "..."`, and the next rung started
-  by `vc-x1-dev rung next --ver 0.85.26-5`.
+  `qpwrrxwr` and agent `wypwkqvo`. Rung 4, **feat: a single-step is one rung**, is committed, work
+  `tpzuvumr` and agent `nvutuqyy`, local. Rung 5, **feat: rung commit without a cycle**, inserted
+  by wink, is in the work `@`, `(current)` in `zTOC.md`, at `0.85.26-5`, its work done and
+  validated, waiting on wink's review. It is committed by `vc-x1-dev rung commit -s b --body
+  "..."`, and the next rung started by `vc-x1-dev rung next --ver 0.85.26-6`.
 - Run every cycle command by `vc-x1-dev`, installed from the working copy: the installed `vc-x1`
   `0.85.25` has no `rung` and no stage subcommands, and writes the next rung `(current)` into a
   commit. The bookmark is the title's slug, so no `--bookmark` is needed.
@@ -325,6 +326,28 @@ without it `--push` is the draft push of the bookmark. The version check stays, 
 `[version]` bumps by hand first. Asked for by wink's test in a fresh `init` workspace, `echo abc >
 abc.txt` and the commit (wink, 2026-11-21).
 
+- `rung commit` reads `TODO.md` first: a cycle in progress takes the current rung, as before, and
+  `--title` is refused, and with none `--title` takes the new path and a bare `rung commit` is
+  refused naming both ways on.
+- Every check comes before the bookmark is made, the body, an empty `@`, the version, and the
+  Land's, so a refusal leaves nothing. The bookmark is `cycle plan`'s, by `open`, and the commit
+  `vc-x1 commit`'s, advancing that bookmark, so `main` is not touched until the Land.
+- `--record` runs `cycle plan`'s own code, its "plan the cycle" hint left out, makes the bookends
+  the one heading by `one_rung_record`, writes Problem and Solution from the body by
+  `with_body_items`, the Acceptance check `_None._`, and makes the commit by `cycle close
+  --single-step`'s code, as a single-step's one rung is.
+- `--land` builds the Land as `cycle close --land` does, `-s w` refused, and is refused on a
+  ladder's rung. The push then is the target's, and without `--land` it is the bookmark's draft.
+- The test helper that commits a rung with a title now sets it on `RungCommit`'s rung, and two
+  tests cover the verbatim form, landed by `cycle land`, and `--record --land main`. The
+  rehearsal gains cycles 5 and 6, the verbatim form with `--land main --push` and `--record`, 80
+  checks. README's `### rung` gains **A commit without a cycle**.
+- `RungParams::Commit` holds its inputs boxed, clippy's large-variant lint asking for it.
+- Filed while it was in review (wink, 2026-11-21): **feat: vc-x1 delete removes a workspace from
+  this machine**, the test repos with it when asked and no remote reached by a URL; **feat: lookup
+  says what it searched**; **fix: a local Land moves the agent main in every case**; and the
+  nearest bookmark, `main+N`, in **feat: status and list print @ and @- alike**.
+
 ##### feat: cycle squash makes one commit
 
 `vc-x1 cycle squash` squashes the work rungs into the opening under the bare title, after
@@ -459,6 +482,50 @@ list says what a set is. `cycle plan` needs only `TODO.md` and `zTOC.md`, which 
   is defined once, and how much of `vc-dr-apply.sh` retires here, its base skeleton, `--lang`, and
   `xtask copy`, or stays for **Initialization leaves no bad link**.
 
+### feat: vc-x1 delete removes a workspace from this machine
+
+(wink + agent, 2026-11-21, from **feat: one cycle flow, plan, rungs, close**, wanted soon) Every
+test of a cycle makes a workspace by `vc-x1 init --test-repo`, its two repos, its symlink in
+`~/.claude/projects/`, and two bare repos under the test-repo directory, and nothing removes them,
+so `~/tmp` and the symlinks pile up and each is removed by hand, where a slip deletes a real repo.
+
+- **Solution**: `vc-x1 delete` removes the workspace's local repos and its symlink, and, asked
+  for, the local bare repos its remotes are, never a remote reached by a URL.
+- **Acceptance check**: a workspace made by `init --test-repo <DIR>` is removed whole by `vc-x1
+  delete`, the bare repos with them when asked, and one whose remotes are GitHub's keeps them,
+  `delete` removing only what is on this machine.
+- **Test repos only, never real ones** (wink, 2026-11-21): a remote whose `origin` is a local path,
+  a bare repo as `init --test-repo` makes it, is deleted only when asked, a flag such as
+  `--test-repos`, its name open, and a remote reached by a URL, GitHub's or any host's, is never
+  touched, as the design below already says.
+- The design is **Improve init and add rename and delete subcommands**'s `#### delete removes a
+  workspace from this machine` and `#### What stops delete and rename`: the prompt listing what
+  goes and the commits found nowhere else, uncommitted or unpushed work refusing, and commits no
+  bookmark reaches and a half-made workspace each asking a yes. This entry moves delete ahead of
+  that entry's `init` work, wink's order there being `init`, then delete, then rename.
+
+### fix: a local Land moves the agent main in every case
+
+(wink + agent, 2026-11-21, from **feat: one cycle flow, plan, rungs, close**) After a local Land
+the work `main` shows the Land, ahead of origin, and the agent `main` does only sometimes. The Land
+moves it when it commits the agent `@` as the partner (`src/land.rs`, `bookmark_set("main", "@-")`),
+which it does when some rungs were `-s w`, and when every rung is a pair there is no agent commit
+to make and the agent `main` stays where it was until the push. Seen in wink's test workspace: a
+cycle of one `-s b` commit, `cycle land main -s b`, and `vc-x1 st -sb` showing `main` on the work
+`@-` and on no agent commit.
+
+- **Solution**: with no agent commit to make, the Land moves the agent `main` to the newest agent
+  commit, the work commit's partner, when it descends from the agent `main`, so both repos show
+  the Land alike and `cycle push` publishes the two `main`s already in place. Nothing on `origin`
+  moves before the push, and the push's fold of the session tail into that commit keeps the
+  bookmark on it, jj carrying a bookmark through a rewrite.
+- **Acceptance check**: a cycle of `-s b` pairs landed locally has the agent `main` on the work
+  `main`'s partner, `main@origin` unmoved on both sides, and `cycle push -s b` publishes both, as
+  `land::tests::a_local_cycle_lands_locally_and_push_publishes_it` already checks for `-s w` rungs.
+- An agent commit that does not descend from the agent `main` is refused, naming it, rather than
+  moved over, since the agent-repo is a linear journal.
+- Likely a single-step cycle.
+
 ### feat: the bookmark is made first
 
 (wink + agent, 2026-11-19, split from **feat: one cycle flow, plan, rungs, close** 2026-11-20) A
@@ -576,6 +643,36 @@ cycle.
     id and ochid alone would drop the commit id `jj st` shows.
 - **One title** (wink, 2026-11-19): "print @ and @- alike", the point being consistency between
   the two commands, not likeness to jj.
+- **The nearest bookmark, with its distance** (wink + agent, 2026-11-21): a commit line names the
+  bookmarks on the commit, `main`, as today, and with none on it the nearest below, `main+N`, N
+  commits down, the closest first, as a shell prompt's `(main+1)` does, and nothing when no
+  bookmark is below. Mid-cycle the agent-repo, which carries no cycle bookmark, then reads
+  `main+6` where it reads nothing today, and after a local Land a lagging agent `main` shows, as
+  wink's test workspace showed it (**fix: a local Land moves the agent main in every case**).
+
+### feat: lookup says what it searched
+
+(wink + agent, 2026-11-21, from **feat: one cycle flow, plan, rungs, close**) `vc-x1 lookup --line
+abc.txt:1`, in a fresh `init` workspace whose `abc.txt` was written by hand and committed by `rung
+commit -s w --title`, printed `partner nopttlrpxvmp` and `write none found: no Write, Edit, or Bash
+call on abc.txt carries the line`. The partner was the agent `@`, not committed and empty, and the
+message reads the same whether the partner holds no session data or holds sessions that never
+wrote the line, so the reader cannot weigh it.
+
+- **Solution**: `lookup` says what it searched, facts alone: the partner's state, `partner
+  nopttlrpxvmp (the agent @, not committed yet)`, and for no write `write none found: the partner
+  holds no session data`, or `write none found: N entries searched, no Write, Edit, or Bash call on
+  abc.txt carries the line`.
+- **Acceptance check**: in a workspace made by `init --test-repo`, a line written by hand and
+  committed `-s w`, `-s b`, and `-s w` then `commit -s a --covers` gets each of the three forms
+  as its partner stands, and a line an agent session wrote still gets its window and write.
+- **No claim of authorship** (wink, 2026-11-21): even a partner with no session data does not show
+  the line was not an agent's, which may have run in another workspace, by a script it ran, or by
+  a tool outside Claude Code, so `lookup` never says who wrote a line, only what it found.
+- **A later session in the same partner**: committed by `-s a` or the push after the work commit,
+  the partner may hold sessions that ran after it, and a write of the same text there is marked
+  `(after the window, a later amend)` today, flagged and not the line's origin. Whether to say so
+  more plainly is open.
 
 ### agent-files(proposal): v0.3.1
 
@@ -3137,7 +3234,8 @@ an empty public repo there and a local workspace with no remote.
 #### delete removes a workspace from this machine
 
 - It removes the directories and the symlink, and leaves the remote alone. A repo on the remote
-  is deleted by hand.
+  is deleted by hand, but for a local bare repo, a test repo, removed when asked (wink,
+  2026-11-21), moved ahead as **feat: vc-x1 delete removes a workspace from this machine**.
 - Its prompt lists what goes and the commits that are nowhere else.
 - What stops it is below.
 

@@ -488,6 +488,47 @@ pub(crate) fn one_rung_record(text: &str, cycle: &str) -> Result<String, String>
     Ok(format!("{}{new}{}", &text[..start], &text[end..]))
 }
 
+/// `TODO.md`'s text with the cycle in progress's Problem and Solution
+/// written from a commit's `body` where they still read the
+/// scaffold's placeholder: the paragraphs before the one opening
+/// "Solution:" its problem, and that one on its solution, a pointer
+/// paragraph, `See details in ...`, left out. The Acceptance check
+/// reads `_None._`, the commit being its own.
+pub(crate) fn with_body_items(text: &str, body: &str) -> String {
+    let paragraphs: Vec<&str> = body
+        .split("\n\n")
+        .map(str::trim)
+        .filter(|p| !p.is_empty() && !p.starts_with("See details in "))
+        .collect();
+    let at = paragraphs.iter().position(|p| p.starts_with("Solution:"));
+    let (problem, solution) = match at {
+        Some(i) => (
+            paragraphs[..i].join("\n\n"),
+            paragraphs[i..]
+                .join("\n\n")
+                .trim_start_matches("Solution:")
+                .trim()
+                .to_string(),
+        ),
+        None => (paragraphs.join("\n\n"), String::new()),
+    };
+    let Some((start, end)) = section(text, "## In Progress") else {
+        return text.to_string();
+    };
+    let mut block = text[start..end].to_string();
+    for (item, with) in [
+        ("Problem", problem.as_str()),
+        ("Solution", solution.as_str()),
+        ("Acceptance check", "_None._"),
+    ] {
+        let placeholder = format!("#### {item}\n\n{TO_WRITE}\n");
+        if !with.is_empty() {
+            block = block.replacen(&placeholder, &format!("#### {item}\n\n{with}\n"), 1);
+        }
+    }
+    format!("{}{block}{}", &text[..start], &text[end..])
+}
+
 /// A ladder line with its link reduced to the title it shows,
 /// `- 1 (done) [feat: x](TODO.md#feat-x)` to `- 1 (done) feat: x`,
 /// for a terminal, where the link cannot be followed.

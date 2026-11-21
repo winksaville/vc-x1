@@ -2,7 +2,7 @@
 # cycle-rehearsal.sh - run the cycle flow end to end, by `cycle` and `rung`.
 #
 # Makes a throwaway dual workspace with local bare remotes and no cargo
-# project, and runs four cycles through it, plan to Land, checking
+# project, and runs six cycles through it, plan to Land, checking
 # what each command left:
 #
 #   1. a single-step cycle with nothing committed before its closing
@@ -11,6 +11,9 @@
 #      found after the closing tried: fix inside, fix on top, reopen
 #   4. a simple single-step, its plan the one heading, its one rung
 #      committed by `rung commit`
+#   5. a commit with no cycle, `rung commit --title`, verbatim, landed
+#      and published by its own `--land main --push`
+#   6. the same with `--record`, the record written and closed in it
 #
 # Usage: scripts/cycle-rehearsal.sh [DIR]
 #   DIR  where the workspace and its remotes go, removed first
@@ -288,6 +291,32 @@ check "the ladder is the one rung done" "$(ladder)" "- 0 (done) fix: one rung"
 check_has "the record is in Closed" "$(sed -n '/^## Closed$/,$p' TODO.md)" "### fix: one rung"
 run "$VC" cycle land main -s b --push
 check_landed "cycle 4" fix-one-rung
+
+step "Cycle 5: a commit with no cycle, verbatim"
+base=$(cid main)
+before=$(cat TODO.md)
+echo "five" >five.txt
+run "$VC" rung commit -s b --title "feat: no cycle" --body "The problem.
+
+Solution: one commit." --land main --push
+check "one commit above the old main" "$(above_main "$base" main)" "feat: no cycle"
+check "the record is untouched" "$(cat TODO.md)" "$before"
+check_landed "cycle 5" feat-no-cycle
+
+step "Cycle 6: a commit with no cycle, its record written"
+base=$(cid main)
+echo "six" >six.txt
+run "$VC" rung commit -s b --title "feat: recorded" --body "The problem.
+
+Solution: one commit." --record
+check "one commit above main" "$(above_main "$base" @-)" "feat: recorded"
+check "the ladder is the one rung done" "$(ladder)" "- 0 (done) feat: recorded"
+check_has "the record is in Closed, its solution the body's" \
+    "$(sed -n '/^## Closed$/,$p' TODO.md)" "#### Solution
+
+one commit."
+run "$VC" cycle land main -s b --push
+check_landed "cycle 6" feat-recorded
 
 step "Result"
 if [ -L "$LINK" ]; then rm "$LINK"; fi

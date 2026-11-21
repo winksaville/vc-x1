@@ -349,6 +349,9 @@ pub struct PushArgs {
 pub struct OpenCycle {
     pub open: OpenParams,
     pub record: Option<String>,
+    /// Whether the plan ends saying what comes next, a plan of its own
+    /// and not one a commit follows in the same invocation.
+    pub hint: bool,
 }
 
 /// The cycle a stage after `cycle plan` works on: its work repo and
@@ -363,7 +366,7 @@ pub struct Running {
 /// A rung's commit's inputs, `rung commit`'s and `cycle close`'s: the
 /// cycle, the repos the commit is made in, and the title and body
 /// given.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CommitRung {
     pub running: Running,
     /// The agent repo, and whether its commit is made now, `None` for
@@ -394,7 +397,7 @@ pub struct CloseCycle {
 
 /// `cycle land`'s inputs: the cycle's work repo, the agent repo of a
 /// dual workspace, and the target.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LandCycle {
     pub running: Running,
     pub agent: Option<PathBuf>,
@@ -561,6 +564,7 @@ fn plan_params(a: &PlanArgs) -> Result<CycleParams, String> {
             (Some(t), false) => Some(t.trim().to_string()),
             _ => None,
         },
+        hint: true,
     }))
 }
 
@@ -1053,7 +1057,7 @@ fn open(ctx: &mut Context, o: &OpenCycle) -> Result<(), Box<dyn std::error::Erro
         std::fs::write(&edit.path, &edit.text)
             .map_err(|e| format!("cycle plan: {}: {e}", edit.path.display()))?;
     }
-    if !plan.edits.is_empty() {
+    if o.hint && !plan.edits.is_empty() {
         info!(
             "cycle plan: the record is written and nothing is committed: plan the cycle in it, \
              then `rung next --ver <VERSION>` starts the opening"
@@ -1939,8 +1943,8 @@ mod tests {
         let rung::RungParams::Commit(mut c) = rung::RungParams::try_from(&a)? else {
             panic!("expected rung commit");
         };
-        c.title = title;
-        commit_rung(&mut test_ctx(), &c, "rung commit").map_err(|e| e.to_string())
+        c.rung.title = title;
+        commit_rung(&mut test_ctx(), &c.rung, "rung commit").map_err(|e| e.to_string())
     }
 
     /// Run `vc-x1 rung <args>` in `repo`.
@@ -3071,6 +3075,116 @@ mod tests {
                 .iter()
                 .any(|l| l.contains("(current)"))
         );
+    }
+
+    /// With no cycle in progress, `rung commit --title` commits the work
+    /// `@` verbatim on a bookmark made for it, the record untouched, and
+    /// `cycle land` lands it. Refused: no `--body`, an empty `@`, and
+    /// `--title` while a cycle is in progress.
+    #[test]
+    fn rung_commit_without_a_cycle_is_verbatim() {
+        let fx = Fixture::new("cycle-alone");
+        let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
+        let err = rung(&fx.work, &["commit", "-s", "b"]).unwrap_err();
+        assert!(
+            err.contains("no cycle is in progress") && err.contains("--title"),
+            "{err}"
+        );
+        let alone = ["commit", "-s", "b", "--title", "feat: create abc"];
+        let err = rung(&fx.work, &alone).unwrap_err();
+        assert!(err.contains("--body"), "{err}");
+        let mut with_body = alone.to_vec();
+        with_body.extend(["--body", "Why.\n\nSolution: how."]);
+        let err = rung(&fx.work, &with_body).unwrap_err();
+        assert!(err.contains("empty"), "{err}");
+        assert_eq!(bookmarks_at(&fx.work), "", "nothing made");
+
+        fs::write(fx.work.join("abc.txt"), "abc\n").expect("write");
+        rung(&fx.work, &with_body).expect("committed");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: create abc");
+        assert_eq!(
+            jj_ok(
+                &fx.work,
+                &["log", "-r", "@-", "--no-graph", "-T", "local_bookmarks"]
+            ),
+            "feat-create-abc"
+        );
+        assert!(
+            description(&fx.bot, "@-").starts_with("feat: create abc\n"),
+            "the agent half is made too"
+        );
+        assert_eq!(
+            fs::read_to_string(fx.work.join("TODO.md")).unwrap(),
+            todo,
+            "the record is untouched"
+        );
+        run(&fx.work, &["land", "main"]).expect("landed");
+        assert_eq!(title_of(&fx.work, "main"), "feat: create abc");
+
+        let fx = planned("cycle-alone-in-progress");
+        let err = rung(
+            &fx.work,
+            &["commit", "-s", "b", "--title", "feat: x", "--body", "b"],
+        )
+        .unwrap_err();
+        assert!(err.contains("is in progress"), "{err}");
+        let err = rung(&fx.work, &["commit", "-s", "b", "--record"]).unwrap_err();
+        assert!(err.contains("--title"), "{err}");
+    }
+
+    /// `--record` writes the cycle's record, its problem and solution
+    /// the body's, and closes it in the commit, and `--land` lands it in
+    /// the same invocation.
+    #[test]
+    fn rung_commit_record_writes_and_closes_the_record() {
+        let fx = Fixture::new("cycle-alone-record");
+        fs::write(fx.work.join("abc.txt"), "abc\n").expect("write");
+        rung(
+            &fx.work,
+            &[
+                "commit",
+                "-s",
+                "b",
+                "--title",
+                "feat: create abc",
+                "--body",
+                "Why.\n\nSolution: how.",
+                "--record",
+                "--land",
+                "main",
+            ],
+        )
+        .expect("committed and landed");
+        assert_eq!(title_of(&fx.work, "main"), "feat: create abc");
+        let todo = file_at(&fx.work, "main", "TODO.md");
+        assert!(todo.contains("_No cycle currently in progress._"), "{todo}");
+        assert!(
+            todo.contains(
+                "### feat: create abc\n\n#### Problem\n\nWhy.\n\n#### Solution\n\nhow.\n"
+            ),
+            "{todo}"
+        );
+        assert!(!todo.contains("#### Rungs"), "{todo}");
+        let ladder = file_at(&fx.work, "main", "zTOC.md");
+        assert!(
+            ladder.ends_with("## Ladder\n\n- 0 (done) feat: create abc"),
+            "{ladder}"
+        );
+        assert!(
+            !jj_ok(&fx.work, &["bookmark", "list"]).contains("feat-create-abc"),
+            "the cycle's bookmark is gone"
+        );
+
+        let fx = planned("cycle-alone-land-ladder");
+        commit(&fx.work, &[]).expect("the opening");
+        rung(&fx.work, &["next"]).expect("started");
+        fs::write(fx.work.join("w.txt"), "w\n").expect("write");
+        let err = rung(
+            &fx.work,
+            &["commit", "-s", "b", "--body", "b", "--land", "main"],
+        )
+        .unwrap_err();
+        assert!(err.contains("a rung of a ladder"), "{err}");
     }
 
     /// `--ver` without `[version] bump` in the config is refused, and no

@@ -2099,6 +2099,31 @@ vc-x1 rung commit -s b --body @body.txt  # the cycle's one commit, the record cl
 - A cycle planned as a ladder that needed one commit keeps its bookends, the long style, and
   `cycle close --single-step` makes its one commit.
 
+#### A commit without a cycle
+
+With no cycle in progress, `--title` makes the work `@` a cycle of its own, with no plan step:
+
+```bash
+echo abc > abc.txt
+vc-x1 rung commit -s b --title "feat: create abc" --body @body.txt   # on its own bookmark
+vc-x1 cycle land main -s b --push                                     # landed and published
+vc-x1 rung commit -s b --title "feat: create abc" --body @body.txt --land main --push  # in one
+vc-x1 rung commit -s b --title "feat: create abc" --body @body.txt --record  # the record too
+```
+
+- The bookmark is made on `@`, the title's slug or `--bookmark`'s, refused when the name is in
+  use, and the pair is committed verbatim, `--body` required, so `main` moves only at the Land.
+- `TODO.md` and `zTOC.md` are left as they are and need not exist. `--record` writes the record
+  instead: planned with the one heading, as `cycle plan --title` would, a `## Todo` entry of the
+  title moved in, its Problem and Solution written from the body, the paragraphs before
+  `Solution:` and that one, and closed in the commit, the ladder `0 (done) <title>`.
+- `--land <TARGET>` lands the commit in the same invocation, its checks made before the commit,
+  and `--push` then publishes the target. It lands a single-step's one rung the same way, and is
+  refused on a ladder's rung, which `cycle close --land` lands.
+- Every check is made before the bookmark: an empty `@`, the version check when the config has
+  `[version]`, and the Land's. With a cycle in progress `--title` is refused, a rung's title being
+  the ladder's.
+
 ### trailers
 
 Rewrite a range of work commits' trailers to what is stamped today ([Cross-repo
