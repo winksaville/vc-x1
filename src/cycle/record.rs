@@ -586,34 +586,64 @@ pub(crate) struct OpenRecord {
     pub did: Vec<String>,
 }
 
+/// The `TODO.md` `vc-x1 init` writes, and `cycle plan` when there is
+/// none: the headings the
+/// record needs, a cycle's home and the one it moves to, and the
+/// sections the agent-files read first and rank by, `## Todo` and `##
+/// Closed` empty, so no placeholder is left when a cycle fills them.
+pub(crate) const TODO_SKELETON: &str = "\
+# Todo list
+
+## Continuation notes
+
+_None._
+
+## In Progress
+
+_No cycle currently in progress._
+
+## Todo
+
+## Closed
+";
+
+/// The `zTOC.md` `vc-x1 init` writes, and `cycle plan` when there is
+/// none: the ladder's heading.
+pub(crate) const LADDER_SKELETON: &str = "\
+# TOC
+
+## Ladder
+
+_None._
+";
+
 /// Plan the record of the cycle `title` in the workspace at `root`,
 /// reading and checking both files, so a refusal comes before the
-/// bookmark is made. A workspace missing either file is refused, naming
-/// what a cycle needs, since without its record the later stages
-/// refuse and the bookmark would be a branch and not a cycle.
+/// bookmark is made. A file missing, in a workspace made before `vc-x1
+/// init` wrote them, is planned from its skeleton, [`TODO_SKELETON`] or
+/// [`LADDER_SKELETON`], as `init` writes it.
 pub(crate) fn plan_open(root: &Path, title: &str) -> Result<OpenRecord, String> {
     let mut plan = OpenRecord::default();
     let record = root.join(RECORD);
     let ladder = root.join(LADDER_FILE);
-    let missing: Vec<&str> = [(RECORD, &record), (LADDER_FILE, &ladder)]
-        .into_iter()
-        .filter(|(_, p)| !p.is_file())
-        .map(|(name, _)| name)
-        .collect();
-    if !missing.is_empty() {
-        return Err(format!(
-            "{} has no {}, and a cycle runs on its record: {RECORD} with `## In Progress` and \
-             `## Closed`, and {LADDER_FILE} with `{LADDER}`. Add them, or --no-record makes the \
-             bookmark alone, a branch that `rung commit` and `cycle close` will not take",
-            root.display(),
-            missing.join(" or ")
+    let read = |name: &str, p: &Path, skeleton: &str, did: &mut Vec<String>| {
+        if p.is_file() {
+            return std::fs::read_to_string(p).map_err(|e| format!("{}: {e}", p.display()));
+        }
+        did.push(format!(
+            "write {name}, a skeleton, since {} has none",
+            root.display()
         ));
-    }
-    let read = |p: &Path| std::fs::read_to_string(p).map_err(|e| format!("{}: {e}", p.display()));
-    let (text, did) = opened_record(&read(&record)?, title)?;
-    plan.did = did;
+        Ok(skeleton.to_string())
+    };
+    let mut made = Vec::new();
+    let todo = read(RECORD, &record, TODO_SKELETON, &mut made)?;
+    let toc = read(LADDER_FILE, &ladder, LADDER_SKELETON, &mut made)?;
+    let (text, did) = opened_record(&todo, title)?;
+    plan.did = made;
+    plan.did.extend(did);
     plan.edits.push(FileEdit { path: record, text });
-    let text = opened_ladder(&read(&ladder)?, title)?;
+    let text = opened_ladder(&toc, title)?;
     plan.did.push(format!(
         "replace the ladder in {LADDER_FILE} with the opening and the closing"
     ));

@@ -1309,8 +1309,11 @@ vc-x1 init --target my-project --agent-repo my-project.claude
 | `--push-retry-delay <N>` | Seconds between push retries [default: 3] |
 | `--config <none\|PATH>` | Override the canned config write, under the name the source's carrier calls for |
 
-init makes a bare workspace, the repos with only `.vc-config.md` and `.gitignore` in them, and what
-goes in it is applied afterwards. `--use-template`, which copied template directories in, is gone.
+init makes a bare workspace, the repos with only `.vc-config.md` and `.gitignore` in them, and the
+work repo with the cycle-record's `TODO.md` and `zTOC.md` too, each a skeleton of the headings a
+cycle's record is written into, so a first Todo can be written and [`cycle plan`](#cycle) run with
+no file made by hand. A record file an adopted directory or repo has is kept. What else goes in the
+workspace is applied afterwards. `--use-template`, which copied template directories in, is gone.
 
 **`--adopt`**. Without it an existing TARGET is refused, named by what it holds. With it, init
 grows the target into a dual workspace:
@@ -1810,10 +1813,12 @@ no bookmark, being on `main` alone, and nothing is pushed. The record:
   is an empty scaffold, and says so.
 - In `zTOC.md`, the ladder is replaced with the opening and the closing, neither marked, the
   opening started by [`rung next`](#rung).
+- A workspace with no `TODO.md` or no `zTOC.md`, one made before `vc-x1 init` wrote them, gets
+  the skeleton `init` writes first: `TODO.md` with `## Continuation notes`, `## In Progress`, `## Todo`, and `##
+  Closed`, and `zTOC.md` with `## Ladder`. A file there is kept as it is.
 
-Everything is planned before anything is made, so a cycle in progress, a workspace with no
-`TODO.md` or `zTOC.md`, a `TODO.md` with no `## In Progress`, and a name in use are each refused
-with the workspace as it was, the first naming the two files a cycle needs. `--no-record` and
+Everything is planned before anything is made, so a cycle in progress, a `TODO.md` with no `## In
+Progress`, and a name in use are each refused with the workspace as it was. `--no-record` and
 `--bookmark` without `--title` get the bookmark alone, a branch that `rung commit` and `close`
 will not take, since they read the cycle from its record. Nothing
 is committed or pushed, and the version is the project's to bump, by hand or by `rung next --ver`.
@@ -2285,6 +2290,7 @@ writes and push in one shot.
   <NAME>/              work repo (jj colocated, main tracks origin)
     .vc-config.md      work=".", agent=".claude"
     .gitignore         /target /.claude /.git /.jj /.claude/settings.local.json
+    TODO.md zTOC.md    the cycle-record's skeletons
     .claude/           bot repo (jj colocated, main tracks origin)
       .vc-config.md    work="..", agent="."
       .gitignore       .git .jj /settings.local.json

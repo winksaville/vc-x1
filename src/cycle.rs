@@ -52,10 +52,11 @@ pub enum CycleCommand {
         record. In TODO.md what `## Closed` holds is deleted and the `##\n\
         Todo` entry titled as --title is moved into an `## In Progress`\n\
         scaffold, an empty one when no entry matches, and in zTOC.md the\n\
-        ladder is replaced with the opening and the closing. Every check is\n\
+        ladder is replaced with the opening and the closing. A workspace with\n\
+        no TODO.md or no zTOC.md gets a skeleton of the file first, the\n\
+        headings the record needs, and a file there is kept. Every check is\n\
         made before anything changes: a cycle in progress is refused, as is\n\
-        a name in use, and a workspace with no TODO.md or zTOC.md, a cycle\n\
-        running on its record. --no-record makes the bookmark alone, a\n\
+        a name in use. --no-record makes the bookmark alone, writing no file, a\n\
         branch the later stages will not take, as does --bookmark without\n\
         --title. Nothing is committed or pushed, and no version is changed,\n\
         `rung next --ver` setting it when the opening starts.")]
@@ -2055,26 +2056,76 @@ mod tests {
         assert_eq!(fs::read_to_string(fx.work.join("TODO.md")).unwrap(), TODO);
     }
 
-    /// A workspace without its record is refused, nothing made, and
-    /// `--no-record` and a bookmark with no title get the bookmark alone.
+    /// A fresh workspace's record is `init`'s skeletons, which a plan
+    /// writes the cycle into, and a workspace without them, made before
+    /// `init` wrote them, gets them from the plan, a dry run writing
+    /// none. `--no-record` and a bookmark with no title get the bookmark
+    /// alone.
     #[test]
     fn open_makes_the_bookmark_alone() {
         let fx = Fixture::new("cycle-open-alone");
-        let err = run(&fx.work, &["plan", "--title", "feat: a cycle"]).unwrap_err();
-        assert!(
-            err.contains("no TODO.md or zTOC.md") && err.contains("--no-record"),
-            "{err}"
-        );
-        assert_eq!(bookmarks_at(&fx.work), "", "nothing made");
-        fs::write(fx.work.join("TODO.md"), TODO).expect("write");
-        let err = run(&fx.work, &["plan", "--title", "feat: a cycle"]).unwrap_err();
-        assert!(err.contains("no zTOC.md,"), "{err}");
+        let skeleton = |name: &str| fs::read_to_string(fx.work.join(name)).unwrap();
+        assert_eq!(skeleton("TODO.md"), record::TODO_SKELETON, "init's");
+        assert_eq!(skeleton("zTOC.md"), record::LADDER_SKELETON, "init's");
         run(
             &fx.work,
             &["plan", "--title", "feat: a cycle", "--no-record"],
         )
         .expect("alone");
         assert_eq!(bookmarks_at(&fx.work), "feat-a-cycle");
+        assert_eq!(
+            skeleton("TODO.md"),
+            record::TODO_SKELETON,
+            "--no-record writes none"
+        );
+
+        let fx = Fixture::new("cycle-open-skeleton");
+        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("planned");
+        let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
+        assert!(
+            todo.contains("## In Progress\n\n### feat: a cycle\n")
+                && todo.contains("##### feat: a cycle opening")
+                && todo.contains("## Todo\n\n## Closed\n"),
+            "{todo}"
+        );
+        let ztoc = fs::read_to_string(fx.work.join("zTOC.md")).unwrap();
+        assert!(
+            ztoc.contains(
+                "## Ladder\n\n- [feat: a cycle opening](TODO.md#feat-a-cycle-opening)\n\
+                 - [feat: a cycle closing](TODO.md#feat-a-cycle-closing)\n"
+            ),
+            "{ztoc}"
+        );
+        run(&fx.work, &["ladder"]).expect("the skeleton's record is a cycle's");
+
+        let fx = Fixture::new("cycle-open-neither");
+        fs::remove_file(fx.work.join("TODO.md")).expect("remove init's");
+        fs::remove_file(fx.work.join("zTOC.md")).expect("remove init's");
+        run(&fx.work, &["plan", "--title", "feat: a cycle", "--dry-run"]).expect("a dry run");
+        assert!(!fx.work.join("TODO.md").exists(), "a dry run writes none");
+        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("planned");
+        assert!(
+            fs::read_to_string(fx.work.join("TODO.md"))
+                .unwrap()
+                .contains("### feat: a cycle\n"),
+            "the skeleton is made, the record in it"
+        );
+
+        let fx = Fixture::new("cycle-open-one-missing");
+        fs::write(fx.work.join("TODO.md"), TODO).expect("write");
+        fs::remove_file(fx.work.join("zTOC.md")).expect("remove init's");
+        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("planned");
+        let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
+        assert!(
+            todo.contains("The record's home."),
+            "the file there is kept: {todo}"
+        );
+        assert!(
+            fs::read_to_string(fx.work.join("zTOC.md"))
+                .unwrap()
+                .contains("- [feat: a cycle opening]"),
+            "the missing one is made"
+        );
 
         let fx = Fixture::new("cycle-open-no-record");
         write_record(&fx);
@@ -2967,6 +3018,7 @@ mod tests {
             CycleParams::Status(r) => super::status(&r).expect("status").join("\n"),
             _ => panic!("expected Status"),
         };
+        fs::remove_file(fx.work.join("TODO.md")).expect("remove init's");
         assert!(status(&fx).contains("no TODO.md"), "{}", status(&fx));
         write_record(&fx);
         let s = status(&fx);

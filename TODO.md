@@ -18,10 +18,11 @@ acquaint, acted on, and reset to `_None._` by the reader.
   opening pair, reworked and retitled while local, is work `zkvzwtno` and agent `ktmznnnu`, nothing
   pushed.
 - Rung 1, **feat: vc-x1 rung next, stop and commit**, is committed, work `pmqspyxw` and agent
-  `ytzxxqlr`, local. Rung 2, **feat: cycle stages are subcommands**, is in the work `@`,
-  `(current)` in `zTOC.md`, at `0.85.26-2`, its work done and validated, waiting on wink's review.
-  It is committed by `vc-x1-dev rung commit -s b --body "..."`, and the next rung started by
-  `vc-x1-dev rung next --ver 0.85.26-3`.
+  `ytzxxqlr`, and rung 2, **feat: cycle stages are subcommands**, work `knxrkytt` and agent
+  `nnsouwvt`, all local. Rung 3, **feat: init writes the record's files**, inserted by wink
+  after rung 2, is in the work `@`, `(current)` in `zTOC.md`, at `0.85.26-3`, its work done and
+  validated, waiting on wink's review. It is committed by `vc-x1-dev rung commit -s b --body
+  "..."`, and the next rung started by `vc-x1-dev rung next --ver 0.85.26-4`.
 - Run every cycle command by `vc-x1-dev`, installed from the working copy: the installed `vc-x1`
   `0.85.25` has no `rung` and no stage subcommands, and writes the next rung `(current)` into a
   commit. The bookmark is the title's slug, so no `--bookmark` is needed.
@@ -258,13 +259,26 @@ flags go, and the rehearsal, README, and tests name the subcommands.
   rung`, and `vc-config.md`'s `used-by` names them. The agent-files still name the flags until the
   docs rung.
 
-##### feat: cycle plan writes a missing record
+##### feat: init writes the record's files
 
-`cycle plan` writes `TODO.md` or `zTOC.md` when the workspace has none, a skeleton of the
-headings the record needs, `## In Progress`, `## Todo`, and `## Closed` in `TODO.md` and `##
-Ladder` in `zTOC.md`, then the record as it does now, so a bare `vc-x1 init` workspace plans a
-cycle with no file made by hand. `--no-record` still writes nothing. Found by wink's test of
-rung 2 in a fresh `init` workspace (wink, 2026-11-21).
+`vc-x1 init` writes `TODO.md` and `zTOC.md` into the work repo's first commit, each a skeleton of
+the headings a cycle's record is written into, so a new workspace takes its first Todo and its
+first `cycle plan` with no file made by hand. `cycle plan` writes the skeleton itself into a
+workspace made before. Found by wink's test of rung 2 in a fresh `init` workspace, first planned as
+`cycle plan` writing the files, then moved to `init` (wink, 2026-11-21), the files the set brings
+being `init`'s to copy later, under **Initialization leaves no bad link**.
+
+- The skeletons hold the headings alone: `TODO.md`'s `## Continuation notes` reading `_None._`,
+  `## In Progress` reading `_No cycle currently in progress._`, and `## Todo` and `## Closed`
+  empty, so no placeholder is left when a cycle fills them, and `zTOC.md`'s `## Ladder` reading
+  `_None._`. No link into `agent-data/`, which a workspace without the agent-files would not have.
+- `init` writes them in the dual and plain-repo modes alike, in its work-config step, and an
+  adopted directory or repo keeps a record file it has, the other written.
+- `plan_open` reads a missing file as its skeleton, `TODO_SKELETON` or `LADDER_SKELETON`, the
+  ones `init` writes, and plans the record on it, so the skeleton's write and the record's are
+  one edit and a refusal or a dry run writes neither. The refusal that named the two files went.
+- The test fixtures are made by `init`, so the cycle tests that need a workspace without the
+  files remove them first.
 
 ##### feat: a single-step is one rung
 
@@ -396,6 +410,10 @@ flow, plan, rungs, close** lands, `--open` becoming `cycle plan`.
     bare `cycle status` names `<name>`.
   - `cycle plan` refuses on an `@` carrying two local bookmarks, naming both, and on one carrying a
     bookmark that tracks a remote, `main` moved onto it.
+- **A bare `cycle plan` takes the top Todo** (wink + agent, 2026-11-21, from **feat: one cycle
+  flow, plan, rungs, close**): a new workspace starts with an empty `TODO.md`, its first Todo is
+  written, and `cycle plan` with no `--title` plans the top `## Todo` entry, the list being in
+  priority order, `--title` naming another or a cycle with no entry.
 - **Rungs, provisional**: **feat: vc-x1 bookmark and its subcommands**, `delete-bookmark` and
   `move-bookmark` replaced; **feat: cycle plan inherits the bookmark on @**, the record's name read
   by every stage, and the scaffold no longer claiming a `## Todo` entry when there was none;
@@ -507,18 +525,18 @@ version the set's, and writes into this entry, each as a `####` change with its 
   member's `CONTRIBUTING.md > ## Agents`, not the set. Nothing copies it unless asked, `-c`, as
   `agent-files copy` already does, and vc-x1 commits its own.
 - The set's manifest, "the" list of agent-files (wink, 2026-11-18): the set declares itself as
-  data that travels with it, a TOML fence in `AGENTS.md`'s Terminology or an `agent-data/set.toml`,
-  each entry a path and a kind. A set file is kept identical, diffed, and replaced on copy,
-  `AGENTS.md` and `agent-data/`. A starter is written only when absent, `{name}` filled, never
-  replaced, its shape the set's and its content the project's, `TODO.md`, `zTOC.md`,
-  `CONTRIBUTING.md`, `notes/`, and `LICENSE-*`, the skeleton `vc-dr-apply` writes today. An
-  optional file is copied only when asked, `custom.md`. `agent-files copy` and `diff` read the
+  data that travels with it, `agent-data/file-set.toml` (wink, 2026-11-21), each entry a path and
+  a kind. A verbatim file, the kind named so by wink (2026-11-21) where it was "set", is kept
+  identical, diffed, and replaced on copy, `AGENTS.md` and `agent-data/`. A starter is written
+  only when absent, `{name}` filled, never replaced, its shape the set's and its content the
+  project's, `TODO.md`, `zTOC.md`, `CONTRIBUTING.md`, `notes/`, and `LICENSE-*`, the skeleton
+  `vc-dr-apply` writes today. An optional file is copied only when asked, `custom.md`. `agent-files copy` and `diff` read the
   source's manifest, a project's config only narrowing it, so the set is defined once, where
   `AGENTS.md`'s Terminology, `agent_files.rs`, and the script each restate it today.
 
-Left for the cycle after: `init --from DIR`, the manifest's set and starters and `xtask copy` in
-one command, retiring `vc-dr-apply.sh`, with the agent repo's starters, which want a side in the
-manifest, from **Initialization leaves no bad link**. Left for a later proposal: **Durable
+Left for the cycle after: `init --from DIR`, the manifest's verbatim files and starters and `xtask
+copy` in one command, retiring `vc-dr-apply.sh`, with the agent repo's starters, which want a side
+in the manifest, from **Initialization leaves no bad link**. Left for a later proposal: **Durable
 messaging between projects**, the family's protocol and not the set's, and **The family leaves the
 committed config**, **init and clone take --custom**, and **Every repo's .gitignore ignores
 .claude**, each shaped by those.
@@ -1091,6 +1109,19 @@ the agent-files, so the fix is to ship it, not to drop the link.
     was set aside: each set has its own version, `diff`, and update, and the one command belongs
     to `init`. `xtask copy` is the first of the script's jobs moved into Rust, `--lang rust`
     calling it, from **feat: the project's tasks move to cargo xtask**.
+- **A new workspace's record files are `init`'s own** (wink, 2026-11-21, from **feat: one cycle
+  flow, plan, rungs, close**): `init` writes an empty `TODO.md` and `zTOC.md`, the skeletons of
+  that cycle's **feat: init writes the record's files**, and `init --from <PATH>` copies the other
+  files `vc-dr-apply` copies today, a `TODO.md` or `zTOC.md` in the path skipped, so every new
+  workspace starts with no Todo and no ladder.
+  - Where the list of files comes from, open (wink, 2026-11-21): not hard-coded, wink suggesting a
+    table in `.vc-config.md`. The agent's view: the manifest `agent-files(proposal): v0.3.1`
+    plans, `agent-data/file-set.toml`, data that travels with the set, since the list describes
+    the set and not one workspace, and a `.vc-config.md` table only narrowing it.
+  - The manifest `init` reads (wink, 2026-11-21): `init --from DIR` reads
+    `DIR/agent-data/file-set.toml` by default, and `--file-set PATH` names another, so a set can
+    be copied by a list other than its own. A starter is written only when
+    absent, so `init`'s `TODO.md` and `zTOC.md` already keep the manifest's.
 - The manifest moved into `agent-files(proposal): v0.3.1` (wink, 2026-11-18): the set declared
   as data with set, starter, and optional kinds, the starters being the skeleton below, so this
   entry keeps `init --from DIR` on top of it, the script's retirement, and the cross-file link

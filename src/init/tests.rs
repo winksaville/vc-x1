@@ -694,11 +694,19 @@ fn adopt_plain_directory_commits_its_content() {
     .unwrap();
     std::fs::write(work.join(".gitignore"), "*.log").unwrap();
     std::fs::write(work.join("run.log"), "noise\n").unwrap();
+    std::fs::write(work.join("TODO.md"), "# Its own\n").unwrap();
 
     adopt_plain(&base).expect("adopt a plain directory");
 
     let files = jj_ok_at(&work, &["file", "list", "-r", "@-"]);
-    for tracked in [".gitignore", ".vc-config.md", "notes.txt", "pins/big.jsonl"] {
+    for tracked in [
+        ".gitignore",
+        ".vc-config.md",
+        "notes.txt",
+        "pins/big.jsonl",
+        "TODO.md",
+        "zTOC.md",
+    ] {
         assert!(
             files.lines().any(|l| l == tracked),
             "{tracked} tracked: {files}"
@@ -717,6 +725,16 @@ fn adopt_plain_directory_commits_its_content() {
     assert_eq!(
         gitignore, "*.log\n/.agent-session\n/.claude/settings.local.json\n",
         "kept, and given the lines"
+    );
+    assert_eq!(
+        std::fs::read_to_string(work.join("TODO.md")).unwrap(),
+        "# Its own\n",
+        "a record file there is kept"
+    );
+    assert_eq!(
+        std::fs::read_to_string(work.join("zTOC.md")).unwrap(),
+        crate::cycle::record::LADDER_SKELETON,
+        "the missing one is the skeleton"
     );
 
     let agent = work.join(".agent-session");
@@ -1747,7 +1765,7 @@ fn por_fixture_creates_single_repo_layout() {
 
 /// POR fixture writes the WorkOnly config + .gitignore variants:
 /// `work = "."` with no `agent` key, and `.gitignore` has no
-/// `/.agent-session` exclusion.
+/// `/.agent-session` exclusion, and commits the record's skeletons.
 #[test]
 fn por_fixture_writes_work_only_config_files() {
     let fx = crate::test_helpers::FixturePor::new("por-config");
@@ -1771,6 +1789,22 @@ fn por_fixture_writes_work_only_config_files() {
         gi.lines().any(|l| l == "/.claude/settings.local.json"),
         "expected the settings file's entry"
     );
+
+    let files = crate::test_helpers::jj_ok_at(&fx.work, &["file", "list", "-r", "@-"]);
+    for (name, skeleton) in [
+        ("TODO.md", crate::cycle::record::TODO_SKELETON),
+        ("zTOC.md", crate::cycle::record::LADDER_SKELETON),
+    ] {
+        assert!(
+            files.lines().any(|l| l == name),
+            "{name} committed: {files}"
+        );
+        assert_eq!(
+            std::fs::read_to_string(fx.work.join(name)).unwrap(),
+            skeleton,
+            "{name} is the skeleton"
+        );
+    }
 }
 
 /// POR fixture has a `main` bookmark tracking `origin/main`:

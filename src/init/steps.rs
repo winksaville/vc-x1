@@ -85,6 +85,7 @@ impl Steps {
                 p.display()
             ),
         };
+        let config_work = format!("{config_work}, then TODO.md and zTOC.md where absent");
         list.push((Step::ConfigWork, config_work));
         let commit_work = match plan.work_start {
             WorkStart::Fresh => "Commit the work repo's initial commit".to_string(),
