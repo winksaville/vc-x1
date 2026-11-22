@@ -1210,11 +1210,17 @@ pub(crate) fn title_problems(title: &str) -> Vec<String> {
 /// and a name in use writes no record, and with `--ver` set the
 /// opening's version last.
 fn open(ctx: &mut Context, o: &OpenCycle) -> Result<(), Box<dyn std::error::Error>> {
+    let label = "cycle plan start --ver";
     let dry_run = o.open.dry_run;
     if let Some(title) = &o.record {
         for problem in title_problems(title) {
             warn!("cycle plan: {problem}, and every commit of the cycle carries it");
         }
+    }
+    // The bump's config is checked with the plan's other refusals, so a
+    // `--ver` that cannot run makes nothing.
+    if let Some(ver) = &o.ver {
+        rung::bump_words(&o.open.work, ver, label)?;
     }
     let plan = match &o.record {
         Some(title) => {
@@ -1236,16 +1242,40 @@ fn open(ctx: &mut Context, o: &OpenCycle) -> Result<(), Box<dyn std::error::Erro
     }
     if dry_run {
         if let Some(ver) = &o.ver {
-            rung::bump(&o.open.work, ver, true)?;
+            rung::bump(&o.open.work, ver, true, label)?;
         }
         return Ok(());
     }
+    // The files as they were, `None` for one the plan makes, put back
+    // when the bump fails after them.
+    let before: Vec<(PathBuf, Option<String>)> = plan
+        .edits
+        .iter()
+        .map(|e| (e.path.clone(), std::fs::read_to_string(&e.path).ok()))
+        .collect();
     for edit in &plan.edits {
         std::fs::write(&edit.path, &edit.text)
             .map_err(|e| format!("cycle plan: {}: {e}", edit.path.display()))?;
     }
-    if let Some(ver) = &o.ver {
-        rung::bump(&o.open.work, ver, false)?;
+    if let Some(ver) = &o.ver
+        && let Err(e) = rung::bump(&o.open.work, ver, false, label)
+    {
+        for (path, text) in &before {
+            let undone = match text {
+                Some(text) => std::fs::write(path, text),
+                None => std::fs::remove_file(path),
+            };
+            if let Err(w) = undone {
+                warn!("{label}: {} was not put back: {w}", path.display());
+            }
+        }
+        if let Err(d) = ctx.session(&o.open.work)?.bookmark_delete(&o.open.bookmark) {
+            warn!(
+                "{label}: the bookmark '{}' was not deleted: {d}",
+                o.open.bookmark
+            );
+        }
+        return Err(format!("{e}, so the plan is undone, the record and the bookmark").into());
     }
     if o.hint && !plan.edits.is_empty() {
         info!(
@@ -3425,6 +3455,45 @@ mod tests {
         fs::write(fx.work.join("TODO.md"), one).expect("write");
         let err = run(&fx.work, &["plan", "commit", "-s", "b"]).unwrap_err();
         assert!(err.contains("the one heading"), "{err}");
+    }
+
+    /// `cycle plan start --ver` is all or nothing: with no `[version]
+    /// bump` it is refused before anything is made, and a bump command
+    /// that fails puts the record back and deletes the bookmark.
+    #[test]
+    fn plan_start_ver_makes_nothing_when_the_bump_cannot_run() {
+        let fx = Fixture::new("cycle-plan-ver-none");
+        write_record(&fx);
+        let start = [
+            "plan",
+            "start",
+            "--title",
+            "feat: a cycle",
+            "--ver",
+            "1.0.0",
+        ];
+        let err = run(&fx.work, &start).unwrap_err();
+        assert!(
+            err.starts_with("cycle plan start --ver: the config has no `[version] bump`"),
+            "{err}"
+        );
+        assert_eq!(bookmarks_at(&fx.work), "", "no bookmark");
+        assert_eq!(fs::read_to_string(fx.work.join("TODO.md")).unwrap(), TODO);
+
+        let fx = Fixture::new("cycle-plan-ver-fails");
+        write_record(&fx);
+        let path = fx.work.join(".vc-config.md");
+        let mut cfg = fs::read_to_string(&path).expect("read the config");
+        cfg.push_str("\n```toml\n[version]\nbump = \"false {ver}\"\n```\n");
+        fs::write(&path, cfg).expect("write the config");
+        let err = run(&fx.work, &start).unwrap_err();
+        assert!(
+            err.contains("`false 1.0.0` failed") && err.contains("the plan is undone"),
+            "{err}"
+        );
+        assert_eq!(bookmarks_at(&fx.work), "", "the bookmark deleted");
+        assert_eq!(fs::read_to_string(fx.work.join("TODO.md")).unwrap(), TODO);
+        assert_eq!(fs::read_to_string(fx.work.join("zTOC.md")).unwrap(), ZTOC);
     }
 
     /// `--ver` without `[version] bump` in the config is refused, and no

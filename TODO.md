@@ -25,10 +25,12 @@ acquaint, acted on, and reset to `_None._` by the reader.
   by wink, is committed, work `omwopnww` and agent `ytrumktm`, local. Rung 6, **feat: cycle squash
   makes one commit**, is committed, work `ovooponm` and agent `znoptqxq`, local. Rung 7, **feat:
   cycle plan start and commit**, inserted by wink, is committed, work `oqvsowlv` and agent
-  `szunotlx`, local. The docs rung, **docs: one cycle flow**, is in the work `@`, `(current)` in
-  `zTOC.md`, at `0.85.26-8`, its work done and validated, waiting on wink's review. It is committed
-  by `vc-x1-dev rung commit -s b --body "..."`. wink then pushes the branch as a draft, `vc-x1-dev
-  cycle push -s b`, to test while travelling, and the closing comes after.
+  `szunotlx`, local. The docs rung, **docs: one cycle flow**, is committed,
+  work `smvumtns` and agent `nyxolkrn`, and the branch is draft-pushed, the agent `main` with it,
+  so a `cycle squash` of this cycle takes `--yes`. Rung 9, **fix: cycle plan start checks --ver
+  before it writes**, inserted by wink from a test while travelling, is in the work `@`,
+  `(current)` in `zTOC.md`, at `0.85.26-9`, its work done and validated, waiting on wink's review.
+  It is committed by `vc-x1-dev rung commit -s b --body "..."`, and the closing comes after.
 - Run every cycle command by `vc-x1-dev`, installed from the working copy: the installed `vc-x1`
   `0.85.25` has no `rung` and no stage subcommands, and writes the next rung `(current)` into a
   commit. The bookmark is the title's slug, so no `--bookmark` is needed.
@@ -454,6 +456,25 @@ same everywhere, and the positionals retired before stay refused.
 - The rule's removal reaches the code: the retired-positional refusal reads "a flag naming what the
   word is" in place of "every argument is a flag", and `commit` and `push`'s help with it. README's
   section is **Flags mean the same everywhere**.
+
+##### fix: cycle plan start checks --ver before it writes
+
+`cycle plan start --ver` in a workspace with no `[version] bump` made the bookmark and wrote the
+record before the bump refused, labelled `rung next --ver`, so a refusal left half a plan (wink's
+test, 2026-11-22). The config's bump is checked with the plan's other refusals, before anything is
+made, and a bump command that fails after the plan is written puts `TODO.md` and `zTOC.md` back
+and deletes the bookmark, so `plan start` is all or nothing, each message naming `cycle plan start
+--ver`.
+
+- `bump_words` and `bump` take the label of the command that asked, so `plan start`'s messages
+  name `cycle plan start --ver` and `rung next`'s keep theirs, its "so no rung is marked" added by
+  the caller.
+- `plan start` checks the bump's config, the `bump` key and its `{ver}`, beside its other refusals,
+  before the bookmark and the record. The command's own failure, which no check foresees, comes
+  after the record is written, so the files are put back as they were, a skeleton the plan made
+  removed, and the bookmark deleted, the refusal saying the plan is undone.
+- `plan_start_ver_makes_nothing_when_the_bump_cannot_run` covers both, a config with no bump and
+  one whose bump is `false {ver}`.
 
 ##### feat: one cycle flow, plan, rungs, close closing
 

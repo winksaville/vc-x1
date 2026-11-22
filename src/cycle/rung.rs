@@ -363,7 +363,8 @@ fn next(r: &Running, ver: Option<&str>) -> Result<(), Box<dyn std::error::Error>
         );
     }
     if let Some(ver) = ver {
-        bump(&r.work, ver, r.dry_run)?;
+        bump(&r.work, ver, r.dry_run, "rung next --ver")
+            .map_err(|e| format!("{e}, so no rung is marked"))?;
     }
     if let Some((path, text)) = &one {
         rung = s.cycle.clone();
@@ -567,16 +568,22 @@ fn commit_alone(
 
 /// The config's `[version] bump` as words, `{ver}` replaced by `ver`,
 /// refused when the config has no `bump` or it names no `{ver}`.
-fn bump_words(work: &Path, ver: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+pub(super) fn bump_words(
+    work: &Path,
+    ver: &str,
+    label: &str,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let command = crate::config_md::load(work)?
         .and_then(|cfg| crate::toml_simple::toml_get(&cfg.map, "version.bump").cloned())
-        .ok_or(
-            "rung next --ver: the config has no `[version] bump`, the command that sets the \
-             version: add it, or bump the version by hand and leave --ver out",
-        )?;
+        .ok_or_else(|| {
+            format!(
+                "{label}: the config has no `[version] bump`, the command that sets the version: \
+                 add it, or bump the version by hand and leave --ver out"
+            )
+        })?;
     if !command.contains("{ver}") {
         return Err(format!(
-            "rung next --ver: `[version] bump`, `{command}`, has no `{{ver}}` for the version"
+            "{label}: `[version] bump`, `{command}`, has no `{{ver}}` for the version"
         )
         .into());
     }
@@ -587,22 +594,23 @@ fn bump_words(work: &Path, ver: &str) -> Result<Vec<String>, Box<dyn std::error:
 }
 
 /// Set the version to `ver` by the config's `[version] bump`, run from
-/// the workspace root.
+/// the workspace root, `label` the command and flag that asked.
 pub(super) fn bump(
     work: &Path,
     ver: &str,
     dry_run: bool,
+    label: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let words = bump_words(work, ver)?;
+    let words = bump_words(work, ver, label)?;
     let line = words.join(" ");
     if dry_run {
-        info!("rung next: [dry-run] run `{line}`");
+        info!("{label}: [dry-run] run `{line}`");
         return Ok(());
     }
     let Some((program, args)) = words.split_first() else {
-        return Err("rung next --ver: `[version] bump` is empty".into());
+        return Err(format!("{label}: `[version] bump` is empty").into());
     };
-    info!("rung next: run `{line}`");
+    info!("{label}: run `{line}`");
     // Register entry 8 (clippy.toml): the project's version is set by
     // its own tool, the command `[version] bump` names, which is the
     // whole job of `rung next --ver`.
@@ -611,11 +619,9 @@ pub(super) fn bump(
         .args(args)
         .current_dir(work)
         .status()
-        .map_err(|e| format!("rung next --ver: cannot run `{line}`: {e}"))?;
+        .map_err(|e| format!("{label}: cannot run `{line}`: {e}"))?;
     if !status.success() {
-        return Err(
-            format!("rung next --ver: `{line}` failed ({status}), so no rung is marked").into(),
-        );
+        return Err(format!("{label}: `{line}` failed ({status})").into());
     }
     Ok(())
 }
@@ -639,14 +645,18 @@ mod tests {
         };
         write("bump = \"cargo xtask bump {ver}\"\n");
         assert_eq!(
-            bump_words(&dir, "1.2.3-1").expect("words"),
+            bump_words(&dir, "1.2.3-1", "rung next --ver").expect("words"),
             ["cargo", "xtask", "bump", "1.2.3-1"]
         );
         write("");
-        let err = bump_words(&dir, "1.2.3").unwrap_err().to_string();
+        let err = bump_words(&dir, "1.2.3", "rung next --ver")
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("no `[version] bump`"), "{err}");
         write("bump = \"cargo xtask bump\"\n");
-        let err = bump_words(&dir, "1.2.3").unwrap_err().to_string();
+        let err = bump_words(&dir, "1.2.3", "rung next --ver")
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("no `{ver}`"), "{err}");
         std::fs::remove_dir_all(&dir).expect("remove scratch dir");
     }

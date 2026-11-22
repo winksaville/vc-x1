@@ -13,6 +13,7 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 - 6 (done) [feat: cycle squash makes one commit](TODO.md#feat-cycle-squash-makes-one-commit)
 - 7 (done) [feat: cycle plan start and commit](TODO.md#feat-cycle-plan-start-and-commit)
 - 8 (done) [docs: one cycle flow](TODO.md#docs-one-cycle-flow)
+- 9 (done) [fix: cycle plan start checks --ver before it writes](TODO.md#fix-cycle-plan-start-checks---ver-before-it-writes)
 - [feat: one cycle flow, plan, rungs, close closing](TODO.md#feat-one-cycle-flow-plan-rungs-close-closing)
 
 ## The TOC
