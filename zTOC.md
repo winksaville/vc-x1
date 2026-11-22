@@ -14,6 +14,7 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 - 7 (done) [feat: cycle plan start and commit](TODO.md#feat-cycle-plan-start-and-commit)
 - 8 (done) [docs: one cycle flow](TODO.md#docs-one-cycle-flow)
 - 9 (done) [fix: cycle plan start checks --ver before it writes](TODO.md#fix-cycle-plan-start-checks---ver-before-it-writes)
+- 10 (done) [fix: the build docs, completions -h, and Rust 1.100's new warnings](TODO.md#fix-the-build-docs-completions--h-and-rust-1100s-new-warnings)
 - [feat: one cycle flow, plan, rungs, close closing](TODO.md#feat-one-cycle-flow-plan-rungs-close-closing)
 
 ## The TOC

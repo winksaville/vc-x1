@@ -30,12 +30,15 @@ fn write(root: &Path, files: &[(&str, &str)]) {
     }
 }
 
-/// A binary package's manifest and main, printing its name.
-fn bin(name: &str) -> [(String, String); 2] {
+/// A binary package's manifest and main, printing its name, its
+/// manifest's version line `version`: its own, or the workspace's
+/// inherited, since cargo warns of a `[workspace.package]` version no
+/// member uses.
+fn bin(name: &str, version: &str) -> [(String, String); 2] {
     [
         (
             format!("{name}/Cargo.toml"),
-            format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n"),
+            format!("[package]\nname = \"{name}\"\n{version}\nedition = \"2024\"\n"),
         ),
         (
             format!("{name}/src/main.rs"),
@@ -68,6 +71,13 @@ fn text(out: &Output) -> String {
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     )
+}
+
+/// A command's stdout alone, for an answer cargo's warnings on stderr
+/// must not reach: the bare workspace's `[workspace.package]` version
+/// is one no member uses yet, which cargo 1.100 warns of.
+fn stdout(out: &Output) -> String {
+    String::from_utf8_lossy(&out.stdout).into_owned()
 }
 
 /// Copy into each shape, run its tasks, diff it clean, then update it.
@@ -122,7 +132,7 @@ fn xtask_copies_into_every_shape_and_updates() {
             "fn main() { println!(\"rooted\"); }\n".to_string(),
         ),
     ];
-    files.extend(bin("tool"));
+    files.extend(bin("tool", "version = \"0.1.0\""));
     let files: Vec<(&str, &str)> = files
         .iter()
         .map(|(p, t)| (p.as_str(), t.as_str()))
@@ -148,8 +158,8 @@ fn xtask_copies_into_every_shape_and_updates() {
          [workspace.metadata.xtask.tasks]\nhello = [[\"cargo\", \"run\", \"--quiet\", \"--bin\"]]\n"
             .to_string(),
     )];
-    files.extend(bin("app"));
-    files.extend(bin("tool"));
+    files.extend(bin("app", "version.workspace = true"));
+    files.extend(bin("tool", "version.workspace = true"));
     let files: Vec<(&str, &str)> = files
         .iter()
         .map(|(p, t)| (p.as_str(), t.as_str()))
@@ -163,7 +173,7 @@ fn xtask_copies_into_every_shape_and_updates() {
         "{manifest}"
     );
     assert_eq!(
-        text(&cargo_xtask(&virt, &target, &["version"])).trim(),
+        stdout(&cargo_xtask(&virt, &target, &["version"])).trim(),
         "2.0.0"
     );
     assert!(text(&cargo_xtask(&virt, &target, &["run"])).contains("app"));
@@ -184,7 +194,7 @@ fn xtask_copies_into_every_shape_and_updates() {
         "*.log\n/target\n"
     );
     assert_eq!(
-        text(&cargo_xtask(&bare, &target, &["version"])).trim(),
+        stdout(&cargo_xtask(&bare, &target, &["version"])).trim(),
         "0.1.0"
     );
     std::fs::write(

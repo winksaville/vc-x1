@@ -630,9 +630,9 @@ fn print_window(r: &WorkResolution, rel: &Path, context: usize) {
     );
     let from = w.saturating_sub(context);
     let to = (w + context).min(r.timeline.entries.len() - 1);
-    for i in from..=to {
+    for (i, entry) in (from..).zip(&r.timeline.entries[from..=to]) {
         let mark = if i == w { ">" } else { " " };
-        info!("  {mark} {}", window::render(&r.timeline.entries[i]));
+        info!("  {mark} {}", window::render(entry));
     }
 }
 

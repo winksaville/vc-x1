@@ -476,6 +476,30 @@ and deletes the bookmark, so `plan start` is all or nothing, each message naming
 - `plan_start_ver_makes_nothing_when_the_bump_cannot_run` covers both, a config with no bump and
   one whose bump is `false {ver}`.
 
+##### fix: the build docs, completions -h, and Rust 1.100's new warnings
+
+Inserted by wink, 2026-11-23, from reading README and a validate on Rust 1.100. README's `## Build
+and install` says how to build and install, its split link no longer read as a heading, and names
+`cx`, an alias or a script, and how its completion is installed. `cargo xtask completions -h` shows
+the install steps, which only `--help` did. Rust 1.100's two new warnings, clippy's and cargo's,
+failed the full validate on code this cycle did not touch.
+
+- README's opening sentence says what the section is for, the manifest's `[package].name` dropped,
+  and the link to `CONTRIBUTING.md#tasks` holds no `## `, so a rewrap cannot make it a heading.
+- `completions`' install lines moved from its `long_about` to `after_help`, which clap prints for
+  `-h` and `--help` alike.
+- `lookup`'s window loop walks the slice it prints, `(from..).zip(&entries[from..=to])`, clippy's
+  `needless_range_loop`.
+- `tests/cli_xtask.rs`: the virtual workspace's members take its version, `bin()` given the
+  version line, and the two `version` answers are read from stdout alone, since the bare
+  workspace's manifest warns of a version no member uses, filed as **fix: a new workspace's
+  manifest warns of an unused version**.
+- Filed: **feat: a cycle is taken up on another machine by one command**, wink having asked for the
+  commands after a sync, and **feat: the new cycle flow**, wink's shape and test findings of
+  2026-11-22. `## Todo` opens with the next three cycles in wink's order (2026-11-23): **feat: vc-x1
+  delete removes a workspace from this machine**, so the tests of the next two clean up after
+  themselves, **feat: the new cycle flow**, and **feat: init copies a file set**.
+
 ##### feat: one cycle flow, plan, rungs, close closing
 
 Closing out the cycle.
@@ -554,6 +578,77 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
+### feat: vc-x1 delete removes a workspace from this machine
+
+(wink + agent, 2026-11-21, from **feat: one cycle flow, plan, rungs, close**, wanted soon) Every
+test of a cycle makes a workspace by `vc-x1 init --test-repo`, its two repos, its symlink in
+`~/.claude/projects/`, and two bare repos under the test-repo directory, and nothing removes them,
+so `~/tmp` and the symlinks pile up and each is removed by hand, where a slip deletes a real repo.
+
+- **Solution**: `vc-x1 delete` removes the workspace's local repos and its symlink, and, asked
+  for, the local bare repos its remotes are, never a remote reached by a URL.
+- **Acceptance check**: a workspace made by `init --test-repo <DIR>` is removed whole by `vc-x1
+  delete`, the bare repos with them when asked, and one whose remotes are GitHub's keeps them,
+  `delete` removing only what is on this machine.
+- **Test repos only, never real ones** (wink, 2026-11-21): a remote whose `origin` is a local path,
+  a bare repo as `init --test-repo` makes it, is deleted only when asked, a flag such as
+  `--test-repos`, its name open, and a remote reached by a URL, GitHub's or any host's, is never
+  touched, as the design below already says.
+- The design is **Improve init and add rename and delete subcommands**'s `#### delete removes a
+  workspace from this machine` and `#### What stops delete and rename`: the prompt listing what
+  goes and the commits found nowhere else, uncommitted or unpushed work refusing, and commits no
+  bookmark reaches and a half-made workspace each asking a yes. This entry moves delete ahead of
+  that entry's `init` work, wink's order there being `init`, then delete, then rename.
+
+### feat: the new cycle flow
+
+(wink + agent, 2026-11-23, from **feat: one cycle flow, plan, rungs, close** and wink's test findings
+of 2026-11-22) The flow that cycle built has two ends, `cycle close` and `cycle squash`, so a cycle
+closed as a ladder cannot then be made one commit, and three ways to make a single-step, the
+one-heading plan, `plan start` then `squash`, and `rung commit --title --record`. Wink's shape
+(2026-11-23) is two flows:
+
+- Formal, a cycle with a record: `cycle plan`, then each rung implemented and committed by `rung
+  commit`, iterated, then `cycle close`, its shape an option, `--squash` making it one commit, and
+  `--land <target>` and `--push` chained or run after as `cycle land` and `cycle push`.
+- Informal, commits with no record: the work, code and `TODO.md` and `zTOC.md` edited by hand like
+  any file, committed by `rung commit`, iterated.
+
+- **Solution**, provisional: `cycle squash` becomes `cycle close --squash`, and `close --squash` on
+  a closed draft converts it, as the trapezoid and linear closings were to convert (the `v0.3.1`
+  proposal's **The closing is a trapezoid or linear, and converts**), with no `--yes`, a local draft
+  taking no approval. A single-step is `cycle plan`, one rung, and `close --squash`, so the
+  one-heading single-step, `rung next`'s bare `--ver`, and `rung commit --record` go. The agent-files
+  say so, into `v0.3.1`.
+- **Acceptance check**, provisional: in a workspace made by `init --test-repo`, a ladder closed by
+  `close --trapezoid main` and then `close --squash` is one commit whose agent commits are
+  re-pointed; a single-step by `cycle plan`, one rung, and `close --squash` lands; and informal
+  commits iterate and land, `TODO.md` edited in one of them.
+- **Open, from the shape**:
+  - `cycle plan`: one command, or `plan start` and `plan commit`, the plan reviewed before its
+    commit, as today.
+  - `rung next`: kept, the bump at the rung's start so the reviewed tree carries it and the rung
+    shown `(current)` while in flight, or folded into `rung commit`, the bump then after the review,
+    which rung 1 of that cycle refused.
+  - Informal iterations: each its own bookmark and Land, as `rung commit --title --land` today, or
+    a run on one bookmark landed once, which needs a Land of a bookmark that is no cycle's.
+  - `--linear`: a third closing shape beside the trapezoid and `--squash`, or gone.
+- **Wink's findings it answers** (`~/tmp/vc-x1-dev-cycle-test-findings.md`, 2026-11-22):
+  - Squash of a closed, unlanded cycle: `close --squash` on the draft. The refusal's hint, "`cycle
+    plan start` opens one", deletes that cycle's record when followed, so it names the closed
+    cycle instead.
+  - `--record` refusing an empty work `@`, and an informal commit leaving the last cycle's record:
+    `--record` goes, and an informal commit clears a stale record by hand in the same commit, the
+    tool leaving the files untouched.
+  - `rung next` before the plan: the plan is its own phase, and the informal path is `rung commit`.
+- **Wink's findings it carries**:
+  - `cycle land --push` whose push failed is refused on a re-run, the target already moved
+    locally: the re-run finishes the Land and pushes, rather than the fast-forward undone, and the
+    hint names `cycle push -s b`. Its agent `main` left unmoved is **fix: a local Land moves the
+    agent main in every case**.
+  - Messages name the command run: `rung commit --title`'s bookmark line says `cycle plan:`, and
+    hints say `vc-x1` where `vc-x1-dev` ran, `argv[0]` as the banner has it.
+
 ### feat: init copies a file set
 
 (wink + agent, 2026-11-21, from **feat: one cycle flow, plan, rungs, close**, gathered from
@@ -561,7 +656,8 @@ Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 its files from `scripts/vc-dr-apply.sh`, and what a set holds is restated in `AGENTS.md`'s
 Terminology, `src/agent_files/`, and the script, so no command makes a whole workspace and no one
 list says what a set is. `cycle plan` needs only `TODO.md` and `zTOC.md`, which `init` writes since
-**feat: init writes the record's files**, so this cycle builds on that one and runs next.
+**feat: init writes the record's files**, so this cycle builds on that one. It runs after **feat:
+the new cycle flow** (wink, 2026-11-23), so the files it copies describe the new style.
 
 - **Solution**: the set declares itself in `file-set.toml` at its root, each entry a path and a
   kind, and `vc-x1 init --from DIR` copies a set by it into the workspace it makes.
@@ -586,27 +682,24 @@ list says what a set is. `cycle plan` needs only `TODO.md` and `zTOC.md`, which 
   is defined once, and how much of `vc-dr-apply.sh` retires here, its base skeleton, `--lang`, and
   `xtask copy`, or stays for **Initialization leaves no bad link**.
 
-### feat: vc-x1 delete removes a workspace from this machine
+### fix: a new workspace's manifest warns of an unused version
 
-(wink + agent, 2026-11-21, from **feat: one cycle flow, plan, rungs, close**, wanted soon) Every
-test of a cycle makes a workspace by `vc-x1 init --test-repo`, its two repos, its symlink in
-`~/.claude/projects/`, and two bare repos under the test-repo directory, and nothing removes them,
-so `~/tmp` and the symlinks pile up and each is removed by hand, where a slip deletes a real repo.
+(wink + agent, 2026-11-23, from **feat: one cycle flow, plan, rungs, close**) `vc-x1 xtask copy`
+into a directory with no `Cargo.toml` writes `NEW_MANIFEST` (`src/xtask_cmd/wiring.rs`), a
+workspace of xtask alone whose `[workspace.package] version` is the version-of-record for packages
+to come, xtask keeping its own. Until a member takes it by `version.workspace = true`, cargo 1.100
+warns `unused field version in workspace.package` on every `cargo xtask`. Harmless, the version
+read right, and the test reads stdout alone for it.
 
-- **Solution**: `vc-x1 delete` removes the workspace's local repos and its symlink, and, asked
-  for, the local bare repos its remotes are, never a remote reached by a URL.
-- **Acceptance check**: a workspace made by `init --test-repo <DIR>` is removed whole by `vc-x1
-  delete`, the bare repos with them when asked, and one whose remotes are GitHub's keeps them,
-  `delete` removing only what is on this machine.
-- **Test repos only, never real ones** (wink, 2026-11-21): a remote whose `origin` is a local path,
-  a bare repo as `init --test-repo` makes it, is deleted only when asked, a flag such as
-  `--test-repos`, its name open, and a remote reached by a URL, GitHub's or any host's, is never
-  touched, as the design below already says.
-- The design is **Improve init and add rename and delete subcommands**'s `#### delete removes a
-  workspace from this machine` and `#### What stops delete and rename`: the prompt listing what
-  goes and the commits found nowhere else, uncommitted or unpushed work refusing, and commits no
-  bookmark reaches and a half-made workspace each asking a yes. This entry moves delete ahead of
-  that entry's `init` work, wink's order there being `init`, then delete, then rename.
+- **Solution**, open, each tried in a scratch workspace or not:
+  - `[workspace.lints.cargo] unused_workspace_package_fields = "allow"` silences it, tried, and
+    cargo then warns `missing_lints_inheritance` on every member without `[lints]`, xtask's
+    manifest, copied verbatim, among them.
+  - The version-of-record moves out of `[workspace.package]`, to `[workspace.metadata.xtask]` for
+    one, which cargo does not check, `version` and `bump` reading and writing it there. Not tried.
+  - No version until a package is added, `version` and `bump` refusing in a bare workspace.
+- **Acceptance check**: `cargo xtask version` in a workspace `xtask copy` made from a bare
+  directory prints the version and no warning, on cargo 1.100.
 
 ### fix: a local Land moves the agent main in every case
 
@@ -777,6 +870,29 @@ wrote the line, so the reader cannot weigh it.
   the partner may hold sessions that ran after it, and a write of the same text there is marked
   `(after the window, a later amend)` today, flagged and not the line's origin. Whether to say so
   more plainly is open.
+
+### feat: a cycle is taken up on another machine by one command
+
+(wink + agent, 2026-11-21, from **feat: one cycle flow, plan, rungs, close**) A cycle draft-pushed
+from one machine is continued on another by hand, and the steps are easy to forget: after `vc-x1
+sync -s b` the cycle's bookmark is on the remote alone, the work `@` is on `main`, and `cycle
+status` and `sync --bookmark` are refused until `jj bookmark track <bookmark> --remote=origin` and
+`jj new <bookmark>` are typed, the dev build installed after them. This cycle's closing was taken
+up that way, wink asking the agent for the commands. A fresh `vc-x1 clone` leaves the same state.
+
+- **Solution**, provisional: one command, on `sync` or `clone` or of its own, tracks the cycle's
+  remote bookmark, puts the work `@` on its tip, and says the dev build is the install task's to
+  make, the agent `main` already carrying the session.
+- **Acceptance check**, provisional: a cycle draft-pushed from one workspace is taken up in a
+  second, synced or freshly cloned, by the one command, and `cycle status` there names the
+  bookmark on the work `@-`, its ladder, and the next rung.
+- **Which cycle**, open: the remote may hold several draft bookmarks, so the command takes the
+  bookmark's name, or lists the remote bookmarks `main@origin` does not reach when given none.
+- **`sync` says so**, open: a bare `sync -s b` reports both repos up to date while a draft
+  bookmark waits untracked, and it could name each one.
+- **A parked head is durable and continues on any machine** is the same need for work not yet
+  committed, its `continue` fetching a `wip/` ref, and **clone takes -b for the work-repo's
+  bookmark** the same for a clone. The three may be one cycle.
 
 ### agent-files(proposal): v0.3.1
 

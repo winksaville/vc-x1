@@ -77,16 +77,35 @@ A few naming conventions this project keeps, to avoid ambiguous jargon:
 
 ## Build and install
 
-A plain Rust crate, one binary, `vc-x1`, named by the manifest's `[package].name`, which never
-changes. Its tasks, the build, the run, the install, and the validation, are the workspace's own
-`cargo xtask`, the `xtask/` package beside it, which needs nothing installed ([CONTRIBUTING.md >
-## Tasks](CONTRIBUTING.md#tasks)):
+To build and install `vc-x1`, use the workspace's own `cargo xtask`, the `xtask/` package, which
+needs nothing installed. `cargo xtask -h` lists its tasks, and
+[CONTRIBUTING.md](CONTRIBUTING.md#tasks) says when each is used:
 
 ```bash
 cargo xtask install            # the dev build, as ~/.cargo/bin/vc-x1-dev
 cargo xtask install --release  # the release build, as ~/.cargo/bin/vc-x1
 cargo xtask run st -sb         # build the dev binary, then run `vc-x1 st -sb`
 cargo xtask validate           # fmt, clippy, and every test
+```
+
+`cx` is shorter to type, `cx install --release`, made by an alias in `~/.bashrc` or a script on the
+`PATH`:
+
+```bash
+alias cx='cargo xtask'
+```
+
+```sh
+#!/bin/sh
+exec cargo xtask "$@"
+```
+
+`cargo xtask completions cx` prints the bash completion for `cargo xtask` and `cx`, installed once
+by saving it and sourcing it from `~/.bashrc`:
+
+```bash
+cargo xtask completions cx > ~/.config/cargo-xtask-completion.bash
+echo 'source ~/.config/cargo-xtask-completion.bash' >> ~/.bashrc
 ```
 
 - Every build carries the commit it was built from, read from jj, so `vc-x1 -V` names it, with
