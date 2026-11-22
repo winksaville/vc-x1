@@ -47,7 +47,9 @@ pub enum RungCommand {
     /// Start the next rung: mark the first rung not done `(current)` in zTOC.md
     #[command(
         long_about = "Start the next rung: mark the first rung not done `(current)`\n\
-        in the working copy's zTOC.md, refused while a rung is current.\n\
+        in the working copy's zTOC.md, refused while a rung is current and\n\
+        before the plan is committed, `cycle plan commit` committing the\n\
+        opening, which is no rung started here.\n\
         With --ver, set the version first, by the command the config's\n\
         `[version] bump` names, `{ver}` the version given, so the dev\n\
         build under review carries it. A bare version, X.Y.Z, before the\n\
@@ -67,8 +69,7 @@ pub enum RungCommand {
         the pair, each half stamped with the other's change id. The ladder\n\
         is rewritten into the commit, the rung `(done)` and none current,\n\
         so the next rung starts by `rung next`, and the cycle's bookmark is\n\
-        the one advanced. The opening's body defaults to `[opening] body`,\n\
-        and a work rung gives --body, the text or @PATH. -s is required: `b`\n\
+        the one advanced. A work rung gives --body, the text or @PATH. -s is required: `b`\n\
         the pair, `w` the work half alone, `p` a plain repo's commit. --push\n\
         publishes the rung on the cycle's bookmark, a draft. With `[version]\n\
         file` and `pattern` in the config, a commit that changes no line of\n\
@@ -118,7 +119,7 @@ pub struct CommitArgs {
     pub scope: RepoScope,
 
     /// The commit's body, the problem and its solution, or @PATH to
-    /// read it from a file [default: `[opening] body` for the opening]
+    /// read it from a file
     #[arg(long, value_name = "STR|@PATH")]
     pub body: Option<String>,
 
@@ -352,6 +353,15 @@ fn next(r: &Running, ver: Option<&str>) -> Result<(), Box<dyn std::error::Error>
         }
         _ => None,
     };
+    // The opening is the plan's commit, `cycle plan commit`'s, and no
+    // rung `rung next` starts.
+    if one.is_none() && rung == format!("{} opening", s.cycle) {
+        return Err(
+            "rung next: the plan is not committed: `cycle plan commit -s <SCOPE>` commits it, the \
+             opening, and `rung next` then starts the first work rung"
+                .into(),
+        );
+    }
     if let Some(ver) = ver {
         bump(&r.work, ver, r.dry_run)?;
     }
@@ -527,6 +537,7 @@ fn commit_alone(
                 open,
                 record: Some(title.to_string()),
                 hint: false,
+                ver: None,
             },
         )?;
         if dry_run {
@@ -577,7 +588,11 @@ fn bump_words(work: &Path, ver: &str) -> Result<Vec<String>, Box<dyn std::error:
 
 /// Set the version to `ver` by the config's `[version] bump`, run from
 /// the workspace root.
-fn bump(work: &Path, ver: &str, dry_run: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub(super) fn bump(
+    work: &Path,
+    ver: &str,
+    dry_run: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let words = bump_words(work, ver)?;
     let line = words.join(" ");
     if dry_run {

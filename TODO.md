@@ -23,10 +23,11 @@ acquaint, acted on, and reset to `_None._` by the reader.
   `qpwrrxwr` and agent `wypwkqvo`. Rung 4, **feat: a single-step is one rung**, is committed, work
   `tpzuvumr` and agent `nvutuqyy`, local. Rung 5, **feat: rung commit without a cycle**, inserted
   by wink, is committed, work `omwopnww` and agent `ytrumktm`, local. Rung 6, **feat: cycle squash
-  makes one commit**, is in the work `@`, `(current)` in `zTOC.md`, at `0.85.26-6`, its work done
-  and validated, waiting on wink's review. It is committed by `vc-x1-dev rung commit -s b --body
-  "..."`, and the next rung, **feat: cycle plan start and commit**, inserted by wink, started by
-  `vc-x1-dev rung next --ver 0.85.26-7`.
+  makes one commit**, is committed, work `ovooponm` and agent `znoptqxq`, local. Rung 7, **feat:
+  cycle plan start and commit**, inserted by wink, is in the work `@`, `(current)` in `zTOC.md`, at
+  `0.85.26-7`, its work done and validated, waiting on wink's review. It is committed by
+  `vc-x1-dev rung commit -s b --body "..."`, and the docs rung started by `vc-x1-dev rung next
+  --ver 0.85.26-8`.
 - Run every cycle command by `vc-x1-dev`, installed from the working copy: the installed `vc-x1`
   `0.85.25` has no `rung` and no stage subcommands, and writes the next rung `(current)` into a
   commit. The bookmark is the title's slug, so no `--bookmark` is needed.
@@ -397,6 +398,22 @@ naming `cycle plan commit`, so the opening is never `(current)`. `plan start` th
 the one-off's path, which `squash` already takes. `cycle ladder` stays, for a rung inserted
 mid-cycle. Open: whether the one-heading single-step, rung 4's bare `--ver`, is then kept or
 dropped, `rung commit --record` using it.
+
+- `cycle plan` takes the subcommands `start` and `commit`. `start` is the old `cycle plan`, its
+  `--ver` running the config's bump last, after the bookmark and the record, so a refusal bumps
+  nothing, and its hint now names `cycle plan commit`. This replaces the deliberation's "`cycle
+  plan` changes no version".
+- `plan commit` is `rung commit`'s code for the opening, `commit_rung` with no title, which already
+  rewrites the ladder from the headings into the commit, so no `cycle ladder` is needed first. It
+  is refused over a committed plan and on the one-heading plan.
+- `rung next` refuses the opening, naming `cycle plan commit`, but for the bare-`--ver` shortcut,
+  which makes the one heading and starts it. The one-heading single-step stays, the open question
+  left for the docs rung or a later cycle.
+- `cycle status` names `cycle plan commit` before the opening, and `cycle plan start` with no
+  cycle. Tests: the rung-flow test commits the plan by `plan commit` and checks `rung next`'s
+  refusal before it, `a_one_off_squashes_after_plan_start` replaces the opening-started
+  single-step, and `plan_start_sets_the_version_and_plan_commit_commits_it` is new. The rehearsal
+  commits each plan by `plan commit`, 91 checks, and README's `### cycle` shows the two steps.
 
 ##### docs: one cycle flow
 

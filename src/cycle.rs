@@ -46,21 +46,14 @@ pub struct CycleArgs {
 /// The `cycle` subcommands, its stages.
 #[derive(Subcommand, Debug)]
 pub enum CycleCommand {
-    /// Plan a cycle: make its bookmark on the work `@`, then write its record
+    /// Plan a cycle: `start` makes the bookmark and the record, `commit` commits the plan
     #[command(long_about = "\
-        Plan a cycle: make the bookmark on the work @ first, the slug of\n\
-        --title or --bookmark's name, kept local, then write the cycle's\n\
-        record. In TODO.md what `## Closed` holds is deleted and the `##\n\
-        Todo` entry titled as --title is moved into an `## In Progress`\n\
-        scaffold, an empty one when no entry matches, and in zTOC.md the\n\
-        ladder is replaced with the opening and the closing. A workspace with\n\
-        no TODO.md or no zTOC.md gets a skeleton of the file first, the\n\
-        headings the record needs, and a file there is kept. Every check is\n\
-        made before anything changes: a cycle in progress is refused, as is\n\
-        a name in use. --no-record makes the bookmark alone, writing no file, a\n\
-        branch the later stages will not take, as does --bookmark without\n\
-        --title. Nothing is committed or pushed, and no version is changed,\n\
-        `rung next --ver` setting it when the opening starts.")]
+        A cycle's plan, a phase of its own: `start` makes the bookmark and\n\
+        writes the record, the plan is deliberated and its rungs headed in\n\
+        it, and `commit` commits it, the opening, the ladder made from the\n\
+        headings. `rung next` and `rung commit` then run each work rung, and\n\
+        `cycle close` or `cycle squash` ends the cycle. `start`, the work, and\n\
+        `cycle squash` is a one-off's path.")]
     Plan(PlanArgs),
 
     /// Make zTOC.md's ladder from the rung headings in TODO.md
@@ -209,6 +202,48 @@ pub struct Scope {
 /// `cycle plan`'s arguments.
 #[derive(Args, Debug)]
 pub struct PlanArgs {
+    #[command(subcommand)]
+    pub command: PlanCommand,
+}
+
+/// The `cycle plan` subcommands.
+#[derive(Subcommand, Debug)]
+pub enum PlanCommand {
+    /// Start a plan: make its bookmark on the work `@`, then write its record
+    #[command(long_about = "\
+        Start a cycle's plan: make the bookmark on the work @ first, the\n\
+        slug of --title or --bookmark's name, kept local, then write the\n\
+        cycle's record. In TODO.md what `## Closed` holds is deleted and the\n\
+        `## Todo` entry titled as --title is moved into an `## In Progress`\n\
+        scaffold, an empty one when no entry matches, and in zTOC.md the\n\
+        ladder is replaced with the opening and the closing. A workspace with\n\
+        no TODO.md or no zTOC.md gets a skeleton of the file first, the\n\
+        headings the record needs, and a file there is kept. Every check is\n\
+        made before anything changes: a cycle in progress is refused, as is\n\
+        a name in use. --no-record makes the bookmark alone, writing no\n\
+        file, a branch the later stages will not take, as does --bookmark\n\
+        without --title. With --ver the opening's version is set last, by\n\
+        the config's `[version] bump`, so the plan under review carries it.\n\
+        Nothing is committed or pushed.")]
+    Start(PlanStartArgs),
+
+    /// Commit the plan: the ladder made from its headings, then the opening committed
+    #[command(long_about = "\
+        Commit the plan, the cycle's opening: the ladder in zTOC.md is made\n\
+        from the rung headings under `#### Rungs` and rewritten into the\n\
+        commit, the opening `(done)`, and the working copies committed by\n\
+        the code `vc-x1 commit` runs, the title the cycle title plus \"\n\
+        opening\" and the body `[opening] body`, a --body given taking its\n\
+        place. Refused when the plan is committed already, and on a plan of\n\
+        the one heading, a single-step's, which has no opening. -s is\n\
+        required: `b` the pair, `w` the work half alone, `p` a plain repo's\n\
+        commit. --push publishes the cycle's bookmark, a draft.")]
+    Commit(PlanCommitArgs),
+}
+
+/// `cycle plan start`'s arguments.
+#[derive(Args, Debug)]
+pub struct PlanStartArgs {
     /// The bare cycle title, a Conventional Commit: the bookmark is its
     /// slug, and the record is written under it
     #[arg(long, value_name = "STR")]
@@ -217,6 +252,43 @@ pub struct PlanArgs {
     /// Make the bookmark alone and write no record
     #[arg(long)]
     pub no_record: bool,
+
+    /// The opening's version, set by the config's `[version] bump` once
+    /// the record is written [default: the version left as it is]
+    #[arg(long, value_name = "VERSION")]
+    pub ver: Option<String>,
+
+    #[command(flatten)]
+    pub at: Where,
+}
+
+/// `cycle plan commit`'s arguments.
+#[derive(Args, Debug)]
+pub struct PlanCommitArgs {
+    /// Which repos, required: `b|both` a dual workspace's pair,
+    /// `w|work` the work half with the agent half left to push, and
+    /// `p|por` a plain repo
+    #[arg(
+        short = 's',
+        long,
+        value_name = "SCOPE",
+        value_parser = repo_scope_parser(&["work", "both", "por"]),
+        help = "Which repos, required: `w|work`, `b|both`, or `p|por`"
+    )]
+    pub scope: RepoScope,
+
+    /// The opening's body, or @PATH to read it from a file [default:
+    /// `[opening] body`]
+    #[arg(long, value_name = "STR|@PATH")]
+    pub body: Option<String>,
+
+    /// Publish the cycle's bookmark once committed, a draft push
+    #[arg(long)]
+    pub push: bool,
+
+    /// Commit although the version's line is unchanged
+    #[arg(long)]
+    pub same_version: bool,
 
     #[command(flatten)]
     pub at: Where,
@@ -415,6 +487,8 @@ pub struct OpenCycle {
     /// Whether the plan ends saying what comes next, a plan of its own
     /// and not one a commit follows in the same invocation.
     pub hint: bool,
+    /// The opening's version, set once the record is written.
+    pub ver: Option<String>,
 }
 
 /// The cycle a stage after `cycle plan` works on: its work repo and
@@ -493,6 +567,7 @@ pub struct PushCycle {
 #[derive(Debug)]
 pub enum CycleParams {
     Open(OpenCycle),
+    PlanCommit(CommitRung),
     Ladder(Running),
     Close(CloseCycle),
     Squash(SquashCycle),
@@ -586,11 +661,34 @@ fn rung_params(
     })
 }
 
-/// `cycle plan`'s params.
+/// `cycle plan`'s params, a subcommand's.
 fn plan_params(a: &PlanArgs) -> Result<CycleParams, String> {
+    match &a.command {
+        PlanCommand::Start(s) => plan_start_params(s),
+        PlanCommand::Commit(c) => {
+            let (running, agent) = c.at.running()?;
+            Ok(CycleParams::PlanCommit(rung_params(
+                running,
+                agent,
+                &c.scope,
+                None,
+                c.body.as_deref(),
+                c.push,
+                c.same_version,
+                "cycle plan commit",
+            )?))
+        }
+    }
+}
+
+/// `cycle plan start`'s params.
+fn plan_start_params(a: &PlanStartArgs) -> Result<CycleParams, String> {
     let (running, agent) = a.at.running()?;
     if a.title.is_none() && a.at.bookmark.is_none() {
-        return Err("cycle plan: --title or --bookmark names the bookmark".into());
+        return Err("cycle plan start: --title or --bookmark names the bookmark".into());
+    }
+    if a.ver.as_deref().is_some_and(|v| v.trim().is_empty()) {
+        return Err("cycle plan start: --ver is blank".into());
     }
     let bookmark = crate::open::bookmark_name(a.at.bookmark.as_deref(), a.title.as_deref())?;
     if let Some(t) = &a.title {
@@ -609,6 +707,7 @@ fn plan_params(a: &PlanArgs) -> Result<CycleParams, String> {
             _ => None,
         },
         hint: true,
+        ver: a.ver.as_deref().map(|v| v.trim().to_string()),
     }))
 }
 
@@ -763,6 +862,7 @@ pub fn cycle(ctx: &mut Context, params: &CycleParams) -> Result<(), Box<dyn std:
     debug!("cycle: enter {params:?}");
     match params {
         CycleParams::Open(o) => open(ctx, o),
+        CycleParams::PlanCommit(c) => plan_commit(ctx, c),
         CycleParams::Ladder(r) => ladder(r),
         CycleParams::Close(c) => close(ctx, c, "cycle close"),
         CycleParams::Squash(c) => squash::squash(ctx, c),
@@ -1074,9 +1174,6 @@ fn ladder(r: &Running) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// `cycle plan`: plan the record, make the bookmark, then write the
-/// record, so a record that cannot be written makes no bookmark, and a
-/// name in use writes no record.
 /// What is wrong with `title` as a cycle title, a line each: one that
 /// is no Conventional Commit, `<type>: <desc>` or `<type>(<scope>):
 /// <desc>`, and one over 50 characters, the bookends then longer still.
@@ -1108,6 +1205,10 @@ pub(crate) fn title_problems(title: &str) -> Vec<String> {
     problems
 }
 
+/// `cycle plan start`: plan the record, make the bookmark, then write
+/// the record, so a record that cannot be written makes no bookmark,
+/// and a name in use writes no record, and with `--ver` set the
+/// opening's version last.
 fn open(ctx: &mut Context, o: &OpenCycle) -> Result<(), Box<dyn std::error::Error>> {
     let dry_run = o.open.dry_run;
     if let Some(title) = &o.record {
@@ -1134,19 +1235,55 @@ fn open(ctx: &mut Context, o: &OpenCycle) -> Result<(), Box<dyn std::error::Erro
         info!("{tag} {line}");
     }
     if dry_run {
+        if let Some(ver) = &o.ver {
+            rung::bump(&o.open.work, ver, true)?;
+        }
         return Ok(());
     }
     for edit in &plan.edits {
         std::fs::write(&edit.path, &edit.text)
             .map_err(|e| format!("cycle plan: {}: {e}", edit.path.display()))?;
     }
+    if let Some(ver) = &o.ver {
+        rung::bump(&o.open.work, ver, false)?;
+    }
     if o.hint && !plan.edits.is_empty() {
         info!(
             "cycle plan: the record is written and nothing is committed: plan the cycle in it, \
-             then `rung next --ver <VERSION>` starts the opening"
+             then `cycle plan commit -s <SCOPE>` commits the plan, the opening"
         );
     }
     Ok(())
+}
+
+/// `cycle plan commit`: commit the plan, the cycle's opening, the
+/// ladder made from the headings and rewritten into the commit by
+/// [`commit_rung`]. Refused when the branch has a commit already, and
+/// on a plan of the one heading, which has no opening.
+fn plan_commit(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::error::Error>> {
+    let label = "cycle plan commit";
+    let r = &c.running;
+    let bookmark = cycle_bookmark(r, label)?;
+    let commits = branch_titles(&r.work, &bookmark)?;
+    if let Some(first) = commits.first() {
+        return Err(format!(
+            "{label}: the plan is committed already, '{first}': `rung next` starts the next rung"
+        )
+        .into());
+    }
+    let path = r.work.join(crate::commit::RECORD);
+    let todo =
+        std::fs::read_to_string(&path).map_err(|e| format!("{label}: {}: {e}", path.display()))?;
+    let cycle = record::cycle_title(&todo).map_err(|e| format!("{label}: {e}"))?;
+    let rungs = record::rung_titles(&todo).map_err(|e| format!("{label}: {e}"))?;
+    if record::is_one_rung(&cycle, &rungs) {
+        return Err(format!(
+            "{label}: the plan is the one heading, '{cycle}', a single-step's, which has no \
+             opening: `rung next` starts it, and `rung commit --body` commits it"
+        )
+        .into());
+    }
+    commit_rung(ctx, c, label)
 }
 
 /// A closing's body when none is given: `[closing] body` in the
@@ -1844,7 +1981,7 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
                     .filter(|b| remote.get(b.as_str()) != jj::cid_of(work, b).ok().as_ref())
                     .collect();
                 out.push(match unpublished.as_slice() {
-                    [] => "next: `cycle plan --title \"<title>\"` opens one".to_string(),
+                    [] => "next: `cycle plan start --title \"<title>\"` opens one".to_string(),
                     names => format!(
                         "next: `cycle push -s <SCOPE>` publishes {}, landed here and not on \
                          origin",
@@ -1856,7 +1993,7 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
                     ),
                 });
             }
-            _ => out.push("next: `cycle plan --title \"<title>\"` opens one".to_string()),
+            _ => out.push("next: `cycle plan start --title \"<title>\"` opens one".to_string()),
         }
         return Ok(out);
     };
@@ -1941,13 +2078,15 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
              <TARGET>` a merge, or `cycle squash -s <SCOPE> --body ...` makes the cycle one \
              commit"
         ),
-        (Some(c), 0, _) => format!("next: '{c}' is started: `rung commit -s <SCOPE>` commits it"),
+        (Some(c), 0, _) => format!(
+            "next: '{c}' is started: `cycle plan commit -s <SCOPE>` commits the plan, the opening"
+        ),
         (Some(c), ..) => {
             format!("next: '{c}' is started: `rung commit -s <SCOPE> --body ...` commits it")
         }
-        (None, 0, _) => "next: `rung next` starts the opening, a bare `--ver X.Y.Z` making the \
-                         cycle one commit, or `cycle squash -s <SCOPE> --body ...` commits the \
-                         work @ as the cycle's one commit"
+        (None, 0, _) => "next: `cycle plan commit -s <SCOPE>` commits the plan, the opening, or \
+                         `cycle squash -s <SCOPE> --body ...` commits the work @ as the cycle's \
+                         one commit"
             .to_string(),
         (None, _, Some(c)) if *c == closing => format!(
             "next: `rung next` starts '{c}', or `cycle squash -s <SCOPE> --body ...` makes the \
@@ -2086,12 +2225,12 @@ mod tests {
         let err = parse(&["vc-x1", "cycle", "--open"]).unwrap_err();
         assert!(err.contains("--open"), "the stage flags are gone: {err}");
         let fx = Fixture::new("cycle-stage");
-        let err = params(&fx.work, &["plan"]).unwrap_err();
+        let err = params(&fx.work, &["plan", "start"]).unwrap_err();
         assert!(
             err.contains("--title") && err.contains("--bookmark"),
             "{err}"
         );
-        let err = params(&fx.work, &["plan", "--title", "feat: x opening"]).unwrap_err();
+        let err = params(&fx.work, &["plan", "start", "--title", "feat: x opening"]).unwrap_err();
         assert!(
             err.contains("opening") && err.contains("cycle plan"),
             "{err}"
@@ -2105,11 +2244,15 @@ mod tests {
     fn open_makes_the_bookmark_and_the_record() {
         let fx = Fixture::new("cycle-open");
         write_record(&fx);
-        run(&fx.work, &["plan", "--title", "feat: a cycle", "--dry-run"]).expect("a dry run");
+        run(
+            &fx.work,
+            &["plan", "start", "--title", "feat: a cycle", "--dry-run"],
+        )
+        .expect("a dry run");
         assert_eq!(bookmarks_at(&fx.work), "", "a dry run makes none");
         assert_eq!(fs::read_to_string(fx.work.join("TODO.md")).unwrap(), TODO);
 
-        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("opened");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
         assert_eq!(bookmarks_at(&fx.work), "feat-a-cycle");
         let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
         assert!(todo.contains("## In Progress\n\nThe record's home.\n\n### feat: a cycle\n"));
@@ -2135,8 +2278,8 @@ mod tests {
     fn open_refuses_before_anything_is_made() {
         let fx = Fixture::new("cycle-open-refused");
         write_record(&fx);
-        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("opened");
-        let err = run(&fx.work, &["plan", "--title", "fix: another"]).unwrap_err();
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
+        let err = run(&fx.work, &["plan", "start", "--title", "fix: another"]).unwrap_err();
         assert!(err.contains("in progress"), "{err}");
         assert_eq!(bookmarks_at(&fx.work), "feat-a-cycle", "no second bookmark");
 
@@ -2146,7 +2289,7 @@ mod tests {
             &fx.work,
             &["bookmark", "create", "feat-a-cycle", "-r", "main"],
         );
-        let err = run(&fx.work, &["plan", "--title", "feat: a cycle"]).unwrap_err();
+        let err = run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).unwrap_err();
         assert!(err.contains("exists"), "{err}");
         assert_eq!(fs::read_to_string(fx.work.join("TODO.md")).unwrap(), TODO);
     }
@@ -2164,7 +2307,7 @@ mod tests {
         assert_eq!(skeleton("zTOC.md"), record::LADDER_SKELETON, "init's");
         run(
             &fx.work,
-            &["plan", "--title", "feat: a cycle", "--no-record"],
+            &["plan", "start", "--title", "feat: a cycle", "--no-record"],
         )
         .expect("alone");
         assert_eq!(bookmarks_at(&fx.work), "feat-a-cycle");
@@ -2175,7 +2318,7 @@ mod tests {
         );
 
         let fx = Fixture::new("cycle-open-skeleton");
-        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("planned");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("planned");
         let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
         assert!(
             todo.contains("## In Progress\n\n### feat: a cycle\n")
@@ -2196,9 +2339,13 @@ mod tests {
         let fx = Fixture::new("cycle-open-neither");
         fs::remove_file(fx.work.join("TODO.md")).expect("remove init's");
         fs::remove_file(fx.work.join("zTOC.md")).expect("remove init's");
-        run(&fx.work, &["plan", "--title", "feat: a cycle", "--dry-run"]).expect("a dry run");
+        run(
+            &fx.work,
+            &["plan", "start", "--title", "feat: a cycle", "--dry-run"],
+        )
+        .expect("a dry run");
         assert!(!fx.work.join("TODO.md").exists(), "a dry run writes none");
-        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("planned");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("planned");
         assert!(
             fs::read_to_string(fx.work.join("TODO.md"))
                 .unwrap()
@@ -2209,7 +2356,7 @@ mod tests {
         let fx = Fixture::new("cycle-open-one-missing");
         fs::write(fx.work.join("TODO.md"), TODO).expect("write");
         fs::remove_file(fx.work.join("zTOC.md")).expect("remove init's");
-        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("planned");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("planned");
         let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
         assert!(
             todo.contains("The record's home."),
@@ -2226,7 +2373,7 @@ mod tests {
         write_record(&fx);
         run(
             &fx.work,
-            &["plan", "--title", "feat: a cycle", "--no-record"],
+            &["plan", "start", "--title", "feat: a cycle", "--no-record"],
         )
         .expect("opened");
         assert_eq!(bookmarks_at(&fx.work), "feat-a-cycle");
@@ -2234,7 +2381,7 @@ mod tests {
 
         let fx = Fixture::new("cycle-open-named");
         write_record(&fx);
-        run(&fx.work, &["plan", "--bookmark", "mine"]).expect("opened");
+        run(&fx.work, &["plan", "start", "--bookmark", "mine"]).expect("opened");
         assert_eq!(bookmarks_at(&fx.work), "mine");
         assert_eq!(fs::read_to_string(fx.work.join("TODO.md")).unwrap(), TODO);
     }
@@ -2246,7 +2393,7 @@ mod tests {
     fn ladder_is_made_from_the_headings_and_the_commits() {
         let fx = Fixture::new("cycle-ladder");
         write_record(&fx);
-        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("opened");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
         let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
         let planned = todo.replace(
             "##### feat: a cycle closing",
@@ -2301,7 +2448,7 @@ mod tests {
         let err = run(&fx.work, &["ladder"]).unwrap_err();
         assert!(err.contains("no cycle in progress"), "{err}");
 
-        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("opened");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
         commit(&fx.work, &[]).expect("the opening");
         jj_ok(&fx.work, &["bookmark", "rename", "feat-a-cycle", "mine"]);
         let err = run(&fx.work, &["ladder"]).unwrap_err();
@@ -2324,7 +2471,7 @@ mod tests {
     fn planned(tag: &str) -> Fixture {
         let fx = Fixture::new(tag);
         write_record(&fx);
-        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("opened");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
         let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
         let planned = todo.replace(
             "##### feat: a cycle closing",
@@ -2518,7 +2665,7 @@ mod tests {
         fs::write(por.work.join("zTOC.md"), ZTOC).expect("write");
         let err = commit(&por.work, &["-s", "b"]).unwrap_err();
         assert!(err.contains("plain repo"), "{err}");
-        run(&por.work, &["plan", "--title", "feat: a cycle"]).expect("opened");
+        run(&por.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
         commit(&por.work, &["-s", "p"]).expect("the opening");
         let desc = description(&por.work, "@-");
         assert!(desc.starts_with("feat: a cycle opening\n"), "{desc}");
@@ -2595,7 +2742,7 @@ mod tests {
     fn a_cycle_with_no_commit_closes_as_one_commit() {
         let fx = Fixture::new("cycle-close-none");
         write_record(&fx);
-        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("opened");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
         fs::write(fx.work.join("work.txt"), "the work\n").expect("write");
         let err = run(&fx.work, &["squash"]).unwrap_err();
         assert!(
@@ -2640,7 +2787,7 @@ mod tests {
     fn a_cycle_of_one_commit_closes_into_it() {
         let fx = Fixture::new("cycle-close-one");
         write_record(&fx);
-        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("opened");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
         commit(&fx.work, &[]).expect("the opening");
         let opening = jj_ok(
             &fx.work,
@@ -2853,7 +3000,7 @@ mod tests {
     fn a_single_step_cycle_closes_lands_and_publishes() {
         let fx = Fixture::new("cycle-land-single");
         write_record(&fx);
-        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("opened");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
         fs::write(fx.work.join("work.txt"), "the work\n").expect("write");
         run(
             &fx.work,
@@ -2943,16 +3090,32 @@ mod tests {
         let err = rung(&fx.work, &["stop"]).unwrap_err();
         assert!(err.contains("no rung is current"), "{err}");
 
-        rung(&fx.work, &["next"]).expect("the opening started");
+        let err = rung(&fx.work, &["next"]).unwrap_err();
+        assert!(
+            err.contains("cycle plan commit"),
+            "the opening is the plan's: {err}"
+        );
+        run(&fx.work, &["plan", "commit", "-s", "b"]).expect("the plan committed");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle opening");
+        let committed = file_at(&fx.work, "@-", "zTOC.md");
+        assert!(
+            committed.contains("- 0 (done) [feat: a cycle opening]"),
+            "{committed}"
+        );
+        assert!(!committed.contains("(current)"), "{committed}");
+        let err = run(&fx.work, &["plan", "commit", "-s", "b"]).unwrap_err();
+        assert!(err.contains("committed already"), "{err}");
+
+        rung(&fx.work, &["next"]).expect("the work rung started");
         assert_eq!(
-            ladder_lines(&fx.work)[0],
-            "- 0 (current) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)"
+            ladder_lines(&fx.work)[1],
+            "- 1 (current) [feat: one rung](TODO.md#feat-one-rung)"
         );
         let err = rung(&fx.work, &["next"]).unwrap_err();
-        assert!(err.contains("'feat: a cycle opening' is started"), "{err}");
+        assert!(err.contains("'feat: one rung' is started"), "{err}");
         run(&fx.work, &["ladder"]).expect("laddered again");
         assert!(
-            ladder_lines(&fx.work)[0].contains("(current)"),
+            ladder_lines(&fx.work)[1].contains("(current)"),
             "the ladder keeps it"
         );
         rung(&fx.work, &["stop"]).expect("stopped");
@@ -2961,27 +3124,7 @@ mod tests {
                 .iter()
                 .any(|l| l.contains("(current)"))
         );
-
-        rung(&fx.work, &["next"]).expect("the opening started again");
-        rung(&fx.work, &["commit", "-s", "b"]).expect("the opening committed");
-        assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle opening");
-        let committed = file_at(&fx.work, "@-", "zTOC.md");
-        assert!(
-            committed.contains("- 0 (done) [feat: a cycle opening]"),
-            "{committed}"
-        );
-        assert!(!committed.contains("(current)"), "{committed}");
-        assert!(
-            !ladder_lines(&fx.work)
-                .iter()
-                .any(|l| l.contains("(current)"))
-        );
-
-        rung(&fx.work, &["next"]).expect("the work rung started");
-        assert_eq!(
-            ladder_lines(&fx.work)[1],
-            "- 1 (current) [feat: one rung](TODO.md#feat-one-rung)"
-        );
+        rung(&fx.work, &["next"]).expect("the work rung started again");
         let err = run(&fx.work, &["close"]).unwrap_err();
         assert!(err.contains("'feat: one rung' is started"), "{err}");
         fs::write(fx.work.join("work.txt"), "work\n").expect("write");
@@ -3036,15 +3179,17 @@ mod tests {
         );
     }
 
-    /// A single-step cycle's one commit is its opening, so `cycle close
-    /// --single-step` takes the opening started by `rung next`.
+    /// A one-off is `cycle plan start`, the work, and `cycle squash`,
+    /// the plan never committed: `close` has no opening to follow.
     #[test]
-    fn a_single_step_closes_with_its_opening_started() {
+    fn a_one_off_squashes_after_plan_start() {
         let fx = planned("cycle-rung-single");
-        rung(&fx.work, &["next"]).expect("the opening started");
         fs::write(fx.work.join("work.txt"), "work\n").expect("write");
         let err = run(&fx.work, &["close"]).unwrap_err();
-        assert!(err.contains("'feat: a cycle opening' is started"), "{err}");
+        assert!(
+            err.contains("no opening") && err.contains("cycle squash"),
+            "{err}"
+        );
         run(&fx.work, &["squash", "--body", "Why.\n\nHow."]).expect("closed");
         assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle");
         let closed = file_at(&fx.work, "@-", "zTOC.md");
@@ -3061,7 +3206,7 @@ mod tests {
     fn a_bare_version_makes_a_single_step_one_rung() {
         let fx = Fixture::new("cycle-one-rung");
         write_record(&fx);
-        run(&fx.work, &["plan", "--title", "feat: a cycle"]).expect("planned");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("planned");
         let path = fx.work.join(".vc-config.md");
         let mut cfg = fs::read_to_string(&path).expect("read the config");
         cfg.push_str(
@@ -3233,12 +3378,62 @@ mod tests {
         assert!(err.contains("a rung of a ladder"), "{err}");
     }
 
+    /// `cycle plan start --ver` sets the opening's version by the
+    /// config's bump once the record is written, `cycle plan commit`
+    /// commits the plan, and a plan of the one heading has no opening
+    /// to commit.
+    #[test]
+    fn plan_start_sets_the_version_and_plan_commit_commits_it() {
+        let fx = Fixture::new("cycle-plan-ver");
+        write_record(&fx);
+        let path = fx.work.join(".vc-config.md");
+        let mut cfg = fs::read_to_string(&path).expect("read the config");
+        cfg.push_str(
+            "\n```toml\n[version]\nfile = \"VERSION.md\"\npattern = 'version = '\nbump = \
+             \"sh bump.sh {ver}\"\n```\n",
+        );
+        fs::write(&path, cfg).expect("write the config");
+        fs::write(
+            fx.work.join("bump.sh"),
+            "printf 'version = \"%s\"\\n' \"$1\" > VERSION.md\n",
+        )
+        .expect("write");
+        run(
+            &fx.work,
+            &[
+                "plan",
+                "start",
+                "--title",
+                "feat: a cycle",
+                "--ver",
+                "1.0.0-0",
+            ],
+        )
+        .expect("planned");
+        assert_eq!(
+            fs::read_to_string(fx.work.join("VERSION.md")).unwrap(),
+            "version = \"1.0.0-0\"\n"
+        );
+        run(&fx.work, &["plan", "commit", "-s", "b"]).expect("the plan committed");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle opening");
+
+        let fx = Fixture::new("cycle-plan-one");
+        write_record(&fx);
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("planned");
+        let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
+        let one = record::one_rung_record(&todo, "feat: a cycle").expect("one heading");
+        fs::write(fx.work.join("TODO.md"), one).expect("write");
+        let err = run(&fx.work, &["plan", "commit", "-s", "b"]).unwrap_err();
+        assert!(err.contains("the one heading"), "{err}");
+    }
+
     /// `--ver` without `[version] bump` in the config is refused, and no
     /// rung is marked.
     #[test]
     fn rung_next_ver_needs_the_configs_bump() {
         let fx = planned("cycle-rung-ver");
-        let err = rung(&fx.work, &["next", "--ver", "1.2.3-0"]).unwrap_err();
+        commit(&fx.work, &[]).expect("the plan");
+        let err = rung(&fx.work, &["next", "--ver", "1.2.3-1"]).unwrap_err();
         assert!(err.contains("no `[version] bump`"), "{err}");
         assert!(
             !ladder_lines(&fx.work)
@@ -3274,7 +3469,10 @@ mod tests {
         );
         assert!(s.contains("commits: 0 on the branch, 0 not pushed"), "{s}");
         assert!(s.contains("note: the ladder in zTOC.md differs"), "{s}");
-        assert!(s.contains("next: `rung next` starts the opening"), "{s}");
+        assert!(
+            s.contains("next: `cycle plan commit -s <SCOPE>` commits the plan"),
+            "{s}"
+        );
 
         commit(&fx.work, &[]).expect("the opening");
         let s = status(&fx);

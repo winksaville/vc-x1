@@ -731,9 +731,10 @@ pub(crate) enum Commands {
 
     /// Run a cycle's stages: plan, ladder, status, close, squash, land, and push
     #[command(long_about = "\
-        A cycle's stages, each a subcommand, beside `rung`'s acts:\n\
-        `plan` makes the bookmark and writes the record, `rung next` and\n\
-        `rung commit` run each rung from the opening on, `close` makes the\n\
+        A cycle's stages, each a subcommand, beside `rung`'s acts: `plan\n\
+        start` makes the bookmark and writes the record, `plan commit`\n\
+        commits the plan, the opening, `rung next` and `rung commit` run\n\
+        each work rung, `close` makes the\n\
         closing, `squash` makes the cycle one commit instead, `land` lands\n\
         it on a target, and `push` publishes what the\n\
         cycle's state calls for. `ladder` rewrites zTOC.md's ladder from the\n\
@@ -1045,7 +1046,7 @@ fn main() -> ExitCode {
         Commands::DeleteBookmark(args) => args.dispatch(&mut ctx),
         Commands::OpenOld { .. } => {
             error!(
-                "open: retired, a cycle's acts being `vc-x1 cycle`'s: `vc-x1 cycle plan --title \
+                "open: retired, a cycle's acts being `vc-x1 cycle`'s: `vc-x1 cycle plan start --title \
                  \"<cycle title>\"` makes the bookmark and the record, and `--no-record` the \
                  bookmark alone."
             );

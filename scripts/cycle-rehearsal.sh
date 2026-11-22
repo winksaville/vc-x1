@@ -165,7 +165,7 @@ run "$VC" commit -s b --title "chore: the record's skeleton" --body "The skeleto
 check "the skeleton is on main" "$(title main)" "chore: the record's skeleton"
 
 step "Cycle 1: single-step, nothing committed before the closing"
-run "$VC" cycle plan --title "feat: one commit"
+run "$VC" cycle plan start --title "feat: one commit"
 check "open made the bookmark" "$(bookmarks)" "feat-one-commit main "
 check_has "open wrote the scaffold" "$(cat TODO.md)" "### feat: one commit"
 check "open wrote the ladder" "$(ladder | head -1)" \
@@ -181,11 +181,9 @@ check_landed "cycle 1" feat-one-commit
 
 step "Cycle 2: single-step, its opening committed first"
 base=$(cid main)
-run "$VC" cycle plan --title "fix: opened first"
-run "$VC" rung next
-check "rung next marked the opening current" "$(ladder | head -1)" \
-    "- 0 (current) [fix: opened first opening](TODO.md#fix-opened-first-opening)"
-run "$VC" rung commit -s b
+run "$VC" cycle plan start --title "fix: opened first"
+tries "rung next before the plan is committed" "$VC" rung next
+run "$VC" cycle plan commit -s b
 check "the opening is committed" "$(title @-)" "fix: opened first opening"
 check_has "the opening has the default body" "$(jjw log -r @- --no-graph -T description)" \
     'Opens the cycle "fix: opened first".'
@@ -201,15 +199,14 @@ check_landed "cycle 2" fix-opened-first
 
 step "Cycle 3: a ladder, closed as a trapezoid"
 base=$(cid main)
-run "$VC" cycle plan --title "feat: a ladder cycle"
+run "$VC" cycle plan start --title "feat: a ladder cycle"
 check_has "open moved the Todo entry" "$(sed -n '/^## In Progress$/,/^## Todo$/p' TODO.md)" \
     "The ladder's problem, moved into the record by the open."
 # Plan two work rungs: a heading each, above the closing's.
 sed -i 's/^##### feat: a ladder cycle closing$/##### feat: the first rung\n\nIts intent.\n\n##### feat: the second rung\n\nIts intent.\n\n&/' TODO.md
 run "$VC" cycle ladder
 check "the ladder has the rungs planned" "$(ladder | wc -l | tr -d ' ')" "4"
-run "$VC" rung next
-run "$VC" rung commit -s b
+run "$VC" cycle plan commit -s b
 run "$VC" rung next
 check "rung next marked the first rung current" "$(ladder | sed -n 2p)" \
     "- 1 (current) [feat: the first rung](TODO.md#feat-the-first-rung)"
@@ -277,7 +274,7 @@ check_landed "cycle 3" feat-a-ladder-cycle
 
 step "Cycle 4: a simple single-step, its plan the one heading"
 base=$(cid main)
-run "$VC" cycle plan --title "fix: one rung"
+run "$VC" cycle plan start --title "fix: one rung"
 # No [version] here, so the one heading is written by hand: the
 # opening's renamed, the closing's subsection removed.
 sed -i 's/^##### fix: one rung opening$/##### fix: one rung/' TODO.md
@@ -322,10 +319,9 @@ check_landed "cycle 6" feat-recorded
 
 step "Cycle 7: a ladder made one commit by cycle squash"
 base=$(cid main)
-run "$VC" cycle plan --title "feat: squashed ladder"
+run "$VC" cycle plan start --title "feat: squashed ladder"
 sed -i 's/^##### feat: squashed ladder closing$/##### feat: its rung\n\nIts intent.\n\n&/' TODO.md
-run "$VC" rung next
-run "$VC" rung commit -s b
+run "$VC" cycle plan commit -s b
 opening=$(jjw log -r @- --no-graph -T 'change_id.short(12)')
 run "$VC" rung next
 echo "seven" >seven.txt

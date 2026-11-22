@@ -264,7 +264,7 @@ pub(crate) fn cycle_title(text: &str) -> Result<String, String> {
     prose_lines(&text[start..end])
         .find_map(|(_, l)| l.strip_prefix("### "))
         .map(|t| t.trim().to_string())
-        .ok_or_else(|| format!("{RECORD} has no cycle in progress: `cycle plan` opens one"))
+        .ok_or_else(|| format!("{RECORD} has no cycle in progress: `cycle plan start` opens one"))
 }
 
 /// The title of the cycle `## Closed` holds in `TODO.md`'s `text`, the

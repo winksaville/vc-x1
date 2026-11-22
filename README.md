@@ -135,7 +135,7 @@ vc-x1 symlink [--target P] [OPTS]         # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
 vc-x1 squash-push -s a [--bookmark NAME]  # Squash @ into @-, advance a bookmark, push
 vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
-vc-x1 cycle plan|ladder|status|close|squash|land|push  # Run a cycle's stages
+vc-x1 cycle plan start|commit, ladder|status|close|squash|land|push  # Run a cycle's stages
 vc-x1 rung next|stop|commit                # Start, leave, or commit a cycle's rung
 vc-x1 trailers --update [--range R]        # Rewrite a range's trailers to what is stamped today
 vc-x1 squash -s b [--title T --body B]     # Fold the working copies into the pair
@@ -1311,7 +1311,7 @@ vc-x1 init --target my-project --agent-repo my-project.claude
 
 init makes a bare workspace, the repos with only `.vc-config.md` and `.gitignore` in them, and the
 work repo with the cycle-record's `TODO.md` and `zTOC.md` too, each a skeleton of the headings a
-cycle's record is written into, so a first Todo can be written and [`cycle plan`](#cycle) run with
+cycle's record is written into, so a first Todo can be written and [`cycle plan start`](#cycle) run with
 no file made by hand. A record file an adopted directory or repo has is kept. What else goes in the
 workspace is applied afterwards. `--use-template`, which copied template directories in, is gone.
 
@@ -1771,21 +1771,21 @@ stands. A failure after the first commit restores both repos from `jj op` snapsh
 
 ### cycle
 
-Run a cycle by its stages, each a subcommand, beside [`rung`](#rung)'s acts, which run each rung
-from the opening on: `plan`, then `rung next` and `rung commit` for each rung, then `close`, or
-`squash` to make the cycle one commit, `land`, and `push`, with `ladder` to rewrite the ladder and
+Run a cycle by its stages, each a subcommand, beside [`rung`](#rung)'s acts, which run each work
+rung: `plan start` and `plan commit`, the plan a phase of its own and its commit the opening, then
+`rung next` and `rung commit` for each work rung, then `close`, or `squash` to make the cycle one
+commit, `land`, and `push`, with `ladder` to rewrite the ladder and
 `status` to say where the cycle stands. A later stage chains as a flag, so `cycle close -s b
 --land main --push` closes, lands, and publishes in one invocation. `-s` is required with `close`,
 `squash`, `land`, and `push`, as on every command that writes, and the other stages take none.
 
 ```bash
-vc-x1 cycle plan --title "feat: a cycle"                # the bookmark, and the record
-vc-x1 cycle plan --title "feat: a cycle" --no-record    # the bookmark alone
-vc-x1 cycle plan --title "feat: a cycle" --dry-run      # say each edit, make none
+vc-x1 cycle plan start --title "feat: a cycle" --ver 0.86.0-0  # the bookmark, the record, the version
+vc-x1 cycle plan start --title "feat: a cycle" --no-record     # the bookmark alone
+vc-x1 cycle plan start --title "feat: a cycle" --dry-run       # say each edit, make none
 vc-x1 cycle ladder                                      # the ladder, from the rung headings
-vc-x1 rung next --ver 0.86.0-0                          # start the opening, its version set
-vc-x1 rung commit -s b                                  # the opening, a cycle's first commit
-vc-x1 rung next --ver 0.86.0-1                          # start the next rung
+vc-x1 cycle plan commit -s b                            # the plan committed, the opening
+vc-x1 rung next --ver 0.86.0-1                          # start the first work rung
 vc-x1 rung commit -s b --body @body.txt                 # a work rung
 vc-x1 cycle close -s b                                  # a ladder's closing, linear
 vc-x1 cycle close -s b --trapezoid main                 # a merge, main its first parent
@@ -1798,7 +1798,7 @@ vc-x1 cycle land main -s b --merge                      # join a main that moved
 vc-x1 cycle status                                      # where the cycle stands, and what is next
 ```
 
-`plan` opens a cycle. It makes the bookmark on the work `@` first, so every edit of the cycle
+`plan start` opens a cycle. It makes the bookmark on the work `@` first, so every edit of the cycle
 is on its branch, and then writes the cycle's record into the working copy. The bookmark is the
 slug of `--title`, the anchor a heading of the title gets: lowercase, `-` and `_` kept, each space
 a `-`, everything else dropped, so `feat: no trunk, every target is named` names
@@ -1811,8 +1811,7 @@ no bookmark, being on `main` alone, and nothing is pushed. The record:
   as `--title` is moved into an `## In Progress` scaffold: the title, the item headings, the
   entry's text under Problem, and the opening and closing rung subsections. No entry of that title
   is an empty scaffold, and says so.
-- In `zTOC.md`, the ladder is replaced with the opening and the closing, neither marked, the
-  opening started by [`rung next`](#rung).
+- In `zTOC.md`, the ladder is replaced with the opening and the closing, neither marked.
 - A workspace with no `TODO.md` or no `zTOC.md`, one made before `vc-x1 init` wrote them, gets the
   skeleton `init` writes first: `TODO.md` with `## Continuation notes`, `## In Progress`, `## Todo`,
   and `## Closed`, and `zTOC.md` with `## Ladder`. A file there is kept as it is.
@@ -1820,11 +1819,20 @@ no bookmark, being on `main` alone, and nothing is pushed. The record:
 Everything is planned before anything is made, so a cycle in progress, a `TODO.md` with no `## In
 Progress`, and a name in use are each refused with the workspace as it was. `--no-record` and
 `--bookmark` without `--title` get the bookmark alone, a branch that `rung commit` and `close`
-will not take, since they read the cycle from its record. Nothing
-is committed or pushed, and the version is the project's to bump, by hand or by `rung next --ver`.
-A
-reference definition only `## Closed` cited is left, for `check anchors` to name. `-R` is
-optional and says where, a workspace or a plain repo.
+will not take, since they read the cycle from its record. Nothing is committed or pushed. With
+`--ver` the opening's version is set last, by the config's `[version] bump`, so the plan under
+review carries it, and without it the version is the project's to bump by hand. A reference
+definition only `## Closed` cited is left, for `check anchors` to name. `-R` is optional and says
+where, a workspace or a plain repo.
+
+`plan commit` commits the plan, the cycle's opening: the ladder is made from the rung headings and
+rewritten into the commit, the opening `(done)`, and the working copies are committed under the
+cycle title plus " opening", with `[opening] body` from the config, `{title}` the cycle title, or a
+body naming the cycle and its record, a `--body` given taking its place. It is refused when the
+plan is committed already, and on a plan of [the one heading](#a-single-step-is-one-rung), which
+has no opening. The opening is no rung `rung next` starts, so the ladder never shows it current.
+`-s`, `--push`, and `--same-version` are as on [`rung commit`](#rung). A one-off skips it: `plan
+start`, the work, and `squash`, which commits the work `@` as the cycle's one commit.
 
 `ladder` makes the ladder in `zTOC.md` from the rung headings of the cycle in progress, the
 `##### ` headings under `#### Rungs` in `TODO.md`, in their order. A rung is written once, as its
@@ -2057,12 +2065,9 @@ vc-x1 rung commit -s b --body "..." # commit it, (done), none current
 the pair, each half stamped with the other's change id, and a plain repo one commit with no
 trailer.
 
-- A cycle's first commit is its opening, which the tool sees and no flag says. Its title is the
-  cycle title plus " opening" and its body `[opening] body` from the config, `{title}` the cycle
-  title, or a body naming the cycle and its record when the key is absent. A `--body` given takes
-  its place.
-- Any other commit is a work rung, under its heading under `#### Rungs`, which gives `--body`, the
-  text or `@PATH`.
+- A work rung is committed under its heading under `#### Rungs`, and gives `--body`, the text or
+  `@PATH`. The opening is the plan's, [`cycle plan commit`](#cycle)'s, and `rung next` refuses
+  before it, naming that.
 - The ladder is rewritten first, the rung done and none current, so `zTOC.md` at the commit
   shows the cycle as of it, and it is put back when the commit is not made.
 - The cycle's bookmark is the one advanced, the slug of the title in `## In Progress` or
@@ -2086,7 +2091,7 @@ Rungs`, the cycle title itself, and its ladder that one rung, unlinked, since it
 is the cycle's own:
 
 ```bash
-vc-x1 cycle plan --title "fix: a typo"   # the bookends, as for any cycle
+vc-x1 cycle plan start --title "fix: a typo"  # the bookends, as for any cycle
 vc-x1 rung next --ver 0.86.1             # a bare version: the bookends become the one heading
 vc-x1 rung commit -s b --body @body.txt  # the cycle's one commit, the record closed in it
 ```
@@ -2119,7 +2124,7 @@ vc-x1 rung commit -s b --title "feat: create abc" --body @body.txt --record  # t
 - The bookmark is made on `@`, the title's slug or `--bookmark`'s, refused when the name is in
   use, and the pair is committed verbatim, `--body` required, so `main` moves only at the Land.
 - `TODO.md` and `zTOC.md` are left as they are and need not exist. `--record` writes the record
-  instead: planned with the one heading, as `cycle plan --title` would, a `## Todo` entry of the
+  instead: planned with the one heading, as `cycle plan start --title` would, a `## Todo` entry of the
   title moved in, its Problem and Solution written from the body, the paragraphs before
   `Solution:` and that one, and closed in the commit, the ladder `0 (done) <title>`.
 - `--land <TARGET>` lands the commit in the same invocation, its checks made before the commit,
