@@ -616,8 +616,8 @@ pub(crate) enum Commands {
         for it, no pair: the one bookmark at it, or --bookmark's, that\n\
         bookmark or a new one created there. The working copy and the\n\
         root are refused, and so is a REV of several commits.\n\n\
-        Every argument is a flag: the old positional is refused, naming\n\
-        --bookmark or -r, the one it was.\n\n\
+        The old positional is refused, naming --bookmark or -r, the one\n\
+        it was.\n\n\
         A push that would be forced, a published commit rewritten, is\n\
         warned of and asked about before anything moves, --yes answering\n\
         in advance, and without a tty and --yes it is an error.\n\n\
@@ -640,8 +640,8 @@ pub(crate) enum Commands {
         committed as the working copy, else `@-` or any draft below it,\n\
         described in place with no new commit and its trailer stamped, so a\n\
         commit made by hand becomes a rung's. A draft below `@-` is kept\n\
-        local, since push publishes `@-`. Every argument is a flag: the old\n\
-        positional is refused, naming -r.\n\n\
+        local, since push publishes `@-`. The old positional is refused,\n\
+        naming -r.\n\n\
         A cycle's opening, rungs, closing, and Land are `vc-x1 cycle`'s, which\n\
         makes its commits by this command's code. --opening, --closing, and\n\
         --land are retired, each refused naming its stage.\n\n\

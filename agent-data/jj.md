@@ -26,7 +26,7 @@ fixed directory.
 - `jj bookmark set <name> -r <rev> -R <repo>`: create the bookmark, or move an existing one, at
   `<rev>`. Moving it backwards needs `--allow-backwards`
 - `jj git push --named <name>=<rev> -R <repo>`: create *and* publish in one step, for a line that is
-  not a cycle's, whose bookmark `vc-x1 cycle --open` makes ([Cycle
+  not a cycle's, whose bookmark `vc-x1 cycle plan start` makes ([Cycle
   bookmarks](#cycle-bookmarks-create-and-land))
 - In jj, the working copy (@) is always a mutable commit being edited. `jj commit` finalizes it and
   creates a new empty working copy on top.
@@ -103,19 +103,19 @@ cycle.
 Use `vc-x1 chid -s work,agent -L` to capture the change IDs (first line work-repo, second agent
 repo).
 
-The trailers are **stamped by the tool**, `vc-x1 cycle` and `vc-x1 commit`. Never hand-write them
-into a commit body or `--title`/`--body`.
+The trailers are **stamped by the tool**, `vc-x1 cycle`, `vc-x1 rung`, and `vc-x1 commit`. Never
+hand-write them into a commit body or `--title`/`--body`.
 
 ## vc-x1 commit and push: what they do and do not do
 
-`vc-x1 cycle --commit -s b --title "..." --body "..."` commits both repos with the title and body,
+`vc-x1 rung commit -s b --body "..."` commits both repos with the current rung's title and the body,
 the pair, stamps their trailers ([above](#cross-repo-linking-ochid-trailers)), rewrites the ladder
-into the commit, and stays on this machine. `-s` is required, and `-s w` commits the work repo
-alone, its trailer naming the agent `@`. `--push` publishes what was committed, as `vc-x1 push`
-does, a draft push, and `vc-x1 show -s work -r @-` is the look at it before then. `vc-x1 commit -s
-b --title "..." --body "..."` is the same pair for work outside a cycle, where `-r` names a commit
-below `@`, described in place with its trailer stamped, and `--bookmark` the bookmark to advance.
-Every argument is a flag. What to keep in mind:
+into the commit, and stays on this machine, as `cycle plan commit` does for the opening. `-s` is
+required, and `-s w` commits the work repo alone, its trailer naming the agent `@`. `--push`
+publishes what was committed, as `vc-x1 push` does, a draft push, and `vc-x1 show -s work -r @-` is
+the look at it before then. `vc-x1 commit -s b --title "..." --body "..."` is the same pair for work
+outside a cycle, where `-r` names a commit below `@`, described in place with its trailer stamped,
+and `--bookmark` the bookmark to advance. What to keep in mind:
 
 - **No checks of the project's own.** vc-x1 runs no build or tests. Validation is the per-rung
   flow's job, run *before* the commit.
@@ -148,18 +148,18 @@ The mechanics behind [Cycles run on a bookmark](../AGENTS.md#cycles-run-on-a-boo
 holds the rule and when it applies, and this one holds the commands
 ([why](rationale.md#cycle-bookmarks-create-and-land)).
 
-**Create**, first at the cycle's opening: `vc-x1 cycle --open --title "<bare cycle title>"` makes
+**Create**, first at the cycle's plan: `vc-x1 cycle plan start --title "<bare cycle title>"` makes
 the bookmark on the work `@`, named by the title's slug (the anchor algorithm in [Markdown anchor
 links](notes.md#markdown-anchor-links)), or `--bookmark <NAME>`, and kept local, then writes the
 cycle's record. It refuses a name in use, locally or on `origin`, and a cycle already in progress,
-`@` holding edits or not. The bookmark follows the change, so `vc-x1 cycle --commit` commits the
+`@` holding edits or not. The bookmark follows the change, so `vc-x1 cycle plan commit` commits the
 opening on it, and every later rung advances it and no other.
 
-**Close**: `vc-x1 cycle --close -s b` with `--single-step` or `--multi-step`, from the work `@` on
-the cycle's tip, makes the closing: a
-ladder's closing commit, a merge of the target and the tip with `--trapezoid <target>`, or for a
-single-step cycle the one commit, made from `@` or squashed into the opening, its `--body` given.
-The target is read where it is now, so one that moved is joined. The record moves to `## Closed`
+**Close**: `vc-x1 cycle close -s b`, from the work `@` on the cycle's tip, makes a ladder's closing
+commit, a merge of the target and the tip with `--trapezoid <target>`, and `vc-x1 cycle squash -s b
+--body "..."` makes the cycle one commit instead, `@` committed now or folded into the opening, the
+rungs squashed into it and the agent side re-pointed. The target is read where it is now, so one
+that moved is joined. The record moves to `## Closed`
 and the ladder is rewritten in the same commit.
 
 **Land**, once the close-out is approved: the sequence that makes the cycle permanent. Its `vc-x1
@@ -167,13 +167,13 @@ push` is the push under [Approval per push](../AGENTS.md#before-any-push), with 
 before it and silence after ([At rest](../AGENTS.md#at-rest)):
 
 1. Sync: `vc-x1 sync -s b`, and a `main` it moved stops the Land ([Sync](../AGENTS.md#sync)).
-2. Integrate: `vc-x1 cycle --land <target> -s b`, local: it commits the agent `@` as the partner of
+2. Integrate: `vc-x1 cycle land <target> -s b`, local: it commits the agent `@` as the partner of
    the work commits that name it, none when every rung is a pair, fast-forwards the target, and
    deletes the cycle's local bookmark, every check made first. `--dry-run` says each step. The
    user may test here, before anything is published.
 3. Publish: `vc-x1 push -s b --bookmark <target>`, the work repo first, the journal folded into the
-   last agent commit while that is unpublished. `cycle --land <target> -s b --push` does steps 2 and
-   3 as one, and `cycle --close --multi-step --land <target> -s b --push` the closing too.
+   last agent commit while that is unpublished. `cycle land <target> -s b --push` does steps 2 and
+   3 as one, and `cycle close --land <target> -s b --push` the closing too.
    The agent publishes only with the user's permission, and otherwise the user does after the
    session, by `vc-x1 squash-push -s b` ([At rest](../AGENTS.md#at-rest)).
 4. Remote bookmark: `vc-x1 delete-bookmark -s w --bookmark <bookmark> --skip local`, when the topic
@@ -181,7 +181,7 @@ before it and silence after ([At rest](../AGENTS.md#at-rest)):
 5. Install: the install task's release build, its `-V` the smoke check, so the plain name is
    replaced only by what is on the target ([Tasks](../CONTRIBUTING.md#tasks)).
 
-- `cycle --land` onto another cycle's bookmark, a stack of cycles landing together, is the command
+- `cycle land` onto another cycle's bookmark, a stack of cycles landing together, is the command
   and not the sequence: nothing is installed, and the cycle is permanent only when the stack lands
   on its target.
 - Landing is the moment the cycle's commits become permanent. No record cites their SHAs
@@ -227,12 +227,14 @@ is one commit and lands as it is:
   `git log --first-parent` reads one commit per cycle while every rung stays reachable. It joins a
   target that moved. With one rung the figure is a triangle.
 - **linear**, one commit per rung on the target, the closing a plain commit on the ladder, is
-  `cycle --close --multi-step` without `--trapezoid`, the user's to ask for. A Land of it refuses a
+  `cycle close` without `--trapezoid`, the user's to ask for. A Land of it refuses a
   target that moved, since joining one would rewrite the reviewed ladder or need a merge.
 
-Squash is not a shape: each rung's `ochid:` trailer is a change id, a squash keeps one and drops the
-rest, and every agent-repo commit that pointed at a dropped rung is left dangling ([Cycle
-shape](../AGENTS.md#cycle-shape)).
+- **one commit**, the ladder squashed by `cycle squash`: each rung folded into the opening, whose
+  change id is kept, after every agent-repo commit naming a rung is re-pointed to it, so no
+  `ochid:` is left dangling ([Cycle shape](../AGENTS.md#cycle-shape)). It drops the rungs from the
+  history, the user's to ask for, and is refused over a rung a remote bookmark other than the
+  cycle's reaches.
 
 **Preview before closing.** The cycle's net change is the tree diff from `<base>` to the tip,
 whatever shape the commits between are in: `jj diff --from <base> --to <tip>`, or the gitk range
@@ -275,7 +277,7 @@ commit:
    permitted describe.
 
 At the end, squash the chain into the rung (below) and continue the per-rung flow from its
-validation step. `vc-x1 cycle --commit` then makes the single commit and stamps its trailers, and
+validation step. `vc-x1 rung commit` then makes the single commit and stamps its trailers, and
 refuses while an intermediate is still on the branch, its title being no rung's. A
 sub-cycle that deserves its own record nests the version suffix
 ([versioning.md](versioning.md#suffix-scheme)) and names its rungs like any other.

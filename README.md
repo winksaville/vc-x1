@@ -153,13 +153,13 @@ vc-x1 --version                            # Print version, with the workspace's
 vc-x1 --help                           # Print help
 ```
 
-### Every argument is a flag
+### Flags mean the same everywhere
 
-Every argument is a flag, the command names aside, so a word on the command line says what it is
-and never reads two ways by its place: in `push -s b feature`, `feature` could have been the
-bookmark to move or the commit it is at, and `push -s b --bookmark feature` is one of them. The
-command line is also what is reviewed before a write runs, and a flag says what each word means.
-The same names mean the same thing everywhere:
+A word on the command line says what it is: a flag where its place could read two ways, as in
+`push -s b feature`, where `feature` could have been the bookmark to move or the commit it is at,
+and `push -s b --bookmark feature` is one of them, and a positional where a command acts on one
+operand that reads one way, `cycle land <TARGET>` and `cycle close [REV,...]`. The command line is
+also what is reviewed before a write runs. The same names mean the same thing everywhere:
 
 | Flag | Means |
 |------|-------|
@@ -175,7 +175,7 @@ the value in place, so a stale doc or a habit is told its own fix:
 
 ```
 $ vc-x1 push -s b @-
-error: push: the positional is retired, every argument is a flag: `-r @-`
+error: push: the positional is retired, a flag naming what the word is: `-r @-`
 ```
 
 `init --por` and `clone --por` are refused the same way, naming `--scope por`.
@@ -284,8 +284,8 @@ vc-x1 list -r ..x.. -n 1       # just x (1 commit)
 
 **Defaults:** with no arguments, REVISION is `@` and COMMITS is 1 (just the working copy).
 
-Every argument is a flag: the positionals these commands once took, `list x 5`, are refused, naming
-the flag form, `-r x -n 5`.
+The positionals these commands once took, `list x 5`, are refused, naming the flag form, `-r x -n
+5`.
 
 ### Multi-repo queries
 
@@ -2264,7 +2264,7 @@ Publish a rung's pair, or a name for a commit already made. Push carries no desc
 none, so what was reviewed is what goes out: `commit` makes the pair and pushes it unless told not
 to, and push publishes one it kept local, completing the agent half as its partner.
 
-Every argument is a flag. `-r` is the commit to publish, the work `@-` when left out, and
+`-r` is the commit to publish, the work `@-` when left out, and
 `--bookmark` is its name on the remote, so the commit and its name are never one word read two
 ways, as jj keeps them apart in `jj bookmark set NAME -r REV`. At `@-` the pair goes out on the
 line's bookmark, or the one named, a new name created at `@-` and pushed tracked. Any other `-r`

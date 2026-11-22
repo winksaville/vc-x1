@@ -130,15 +130,15 @@ under a program heading, each one deeper):
 - **rungs**: a `#### Rungs` heading over the rung subsections, the ladder itself being `zTOC.md`'s
   ([zTOC format](#ztoc-format)), made by the tool from the subsections' headings, so a rung is
   written once, as its heading: one rung per step, `- 2 (done) [<title>](TODO.md#<slug>)`: the
-  rung's number, its position in the ladder from `0`, then the marker, `(done)` or `(current)`,
-  both first so they read down their columns, and a rung not yet started has neither, and an inline
-  link so the ladder is one list with nothing beside it to keep in step, its line as long as the
-  title makes it. A rung is `(done)` when a commit of its title is on the cycle's branch and
-  `(current)` when it is the first without one, so no marker is typed. `<title>` is the rung's
-  commit title, `<type>: <desc>` per [Conventional-commit
-  shape](prose.md#conventional-commit-shape-ladder--commit), so a `## Todo` entry is retitled as
-  its cycle title before `cycle --open` moves it. The first rung is `<cycle title> opening` and the
-  last `<cycle title> closing`, linked like the rest
+  rung's number, its position in the ladder from `0`, then the marker, `(done)` or `(current)`, both
+  first so they read down their columns, and a rung not yet started has neither, and an inline link
+  so the ladder is one list with nothing beside it to keep in step, its line as long as the title
+  makes it. A rung is `(done)` when a commit of its title is on the cycle's branch, and `(current)`
+  when `rung next` started it and no commit has ended it, a marker of the working copy alone that no
+  commit carries, so no marker is typed. `<title>` is the rung's commit title, `<type>: <desc>` per
+  [Conventional-commit shape](prose.md#conventional-commit-shape-ladder--commit), so a `## Todo`
+  entry is retitled as its cycle title before `cycle plan start` moves it. The first rung is `<cycle
+  title> opening` and the last `<cycle title> closing`, linked like the rest
 
 `#### Rungs` holds the **rung subsections**, one per rung in the ladder's order, the closing
 included, headed by the rung's exact title, so the ladder is their index. Each opens at laddering
@@ -171,7 +171,7 @@ in a listing. Its sections, in this order:
 - `## Ladder`: the cycle's ladder, its one copy, each rung with its marker as [The In Progress
   block](#the-in-progress-block) shapes it, linking across to its subsection in `TODO.md`, since a
   same-file link does not work in every markdown preview, zed's among them. Written by `vc-x1
-  cycle --open`, replacing the last cycle's, made again from the rung headings by `cycle --ladder`
+  cycle plan start`, replacing the last cycle's, made again from the rung headings by `cycle ladder`
   and by every cycle commit, and kept by the closing commit, so the landmark's tree holds the
   finished ladder beside its `## Closed`. Its grammar is strict: each rung a left-margin `- `
   line, and the tool refuses to rewrite a ladder holding any other line but a blank one.

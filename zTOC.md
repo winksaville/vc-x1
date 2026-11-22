@@ -12,7 +12,7 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 - 5 (done) [feat: rung commit without a cycle](TODO.md#feat-rung-commit-without-a-cycle)
 - 6 (done) [feat: cycle squash makes one commit](TODO.md#feat-cycle-squash-makes-one-commit)
 - 7 (done) [feat: cycle plan start and commit](TODO.md#feat-cycle-plan-start-and-commit)
-- [docs: one cycle flow](TODO.md#docs-one-cycle-flow)
+- 8 (done) [docs: one cycle flow](TODO.md#docs-one-cycle-flow)
 - [feat: one cycle flow, plan, rungs, close closing](TODO.md#feat-one-cycle-flow-plan-rungs-close-closing)
 
 ## The TOC

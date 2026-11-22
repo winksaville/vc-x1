@@ -7,14 +7,17 @@ shape](../AGENTS.md#cycle-shape).
 
 Who writes what:
 
-- `vc-x1 cycle --open --title` writes the scaffold: the title, the five item headings, the `##
+- `vc-x1 cycle plan start --title` writes the scaffold: the title, the five item headings, the `##
   Todo` entry's text under Problem, the opening and closing rung subsections, and the ladder of
   the two in `zTOC.md`.
 - The user and the agent write the rest, the planning being theirs: the items, and each work rung
   as a `#####` heading under `#### Rungs` with its intent, between the bookends.
-- The tool makes the ladder from those headings, `cycle --ladder` and every cycle commit, each
-  rung's number its position and each marker computed from the commits, so no marker is typed.
-- `cycle --close` moves the block to `## Closed`, a single-step cycle's without its `#### Rungs`.
+- The tool makes the ladder from those headings, `cycle ladder` and every cycle commit, each
+  rung's number its position and `(done)` computed from the commits, so no marker is typed, and
+  `rung next` marks the rung it starts `(current)` in the working copy alone.
+- `cycle plan commit` commits the plan, the opening, and `rung commit` each work rung.
+- `cycle close` moves the block to `## Closed`, and `cycle squash`, the cycle made one commit, moves
+  it without its `#### Rungs`.
 
 ## A ladder, mid-run
 
@@ -90,7 +93,7 @@ without a file on disk.
 ```
 
 The same cycle's ladder, `zTOC.md > ## Ladder`, made by the tool, linking across to the
-subsections:
+subsections, the work rung started by `rung next` and not yet committed:
 
 ```
 ## Ladder
@@ -100,12 +103,12 @@ subsections:
 - [refactor: extract config loader closing](TODO.md#refactor-extract-config-loader-closing)
 ```
 
-Its closing, `cycle --close --multi-step --trapezoid main`, makes the closing commit, every marker
+Its closing, `cycle close --trapezoid main`, makes the closing commit, every marker
 `(done)` and the block moved whole to `## Closed`, its `#### Rungs` kept.
 
 ## A single-step cycle, closed
 
-The `version flag` cycle, one commit made by `cycle --close --single-step`, as `TODO.md > ## Closed`
+The `version flag` cycle, one commit made by `cycle squash`, as `TODO.md > ## Closed`
 holds it:
 
 ```

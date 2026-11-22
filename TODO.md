@@ -24,10 +24,11 @@ acquaint, acted on, and reset to `_None._` by the reader.
   `tpzuvumr` and agent `nvutuqyy`, local. Rung 5, **feat: rung commit without a cycle**, inserted
   by wink, is committed, work `omwopnww` and agent `ytrumktm`, local. Rung 6, **feat: cycle squash
   makes one commit**, is committed, work `ovooponm` and agent `znoptqxq`, local. Rung 7, **feat:
-  cycle plan start and commit**, inserted by wink, is in the work `@`, `(current)` in `zTOC.md`, at
-  `0.85.26-7`, its work done and validated, waiting on wink's review. It is committed by
-  `vc-x1-dev rung commit -s b --body "..."`, and the docs rung started by `vc-x1-dev rung next
-  --ver 0.85.26-8`.
+  cycle plan start and commit**, inserted by wink, is committed, work `oqvsowlv` and agent
+  `szunotlx`, local. The docs rung, **docs: one cycle flow**, is in the work `@`, `(current)` in
+  `zTOC.md`, at `0.85.26-8`, its work done and validated, waiting on wink's review. It is committed
+  by `vc-x1-dev rung commit -s b --body "..."`. wink then pushes the branch as a draft, `vc-x1-dev
+  cycle push -s b`, to test while travelling, and the closing comes after.
 - Run every cycle command by `vc-x1-dev`, installed from the working copy: the installed `vc-x1`
   `0.85.25` has no `rung` and no stage subcommands, and writes the next rung `(current)` into a
   commit. The bookmark is the title's slug, so no `--bookmark` is needed.
@@ -38,8 +39,6 @@ acquaint, acted on, and reset to `_None._` by the reader.
 - The messages clone is clean, and `m-14` (`cycle --land` tags the version) and `m-15` (a clone per
   member) are pending for us, unanswered. `m-13` is complete and could be closed, and our
   `m-13-1` owes a line linking the landed fix, which this cycle now carries.
-- The set-aside `nruymrqm`, bookmark `aside/fix-a-cycle-commit-marks-no-rung-current`, joins this
-  cycle's docs rung, and its bookmark is deleted then.
 - **vc-x2 is seeded from vc-x1**'s `## Waiting` condition looks met, **feat: improve vc-x1 cycle
   flow** closed and its rehearsal passing, and was left for wink to promote or not.
 - `~/tmp/tv-0-85-25-5-1ead2` and its symlink in `~/.claude/projects/` are still there, wink's to
@@ -429,6 +428,33 @@ a flag" goes (wink, 2026-11-21), a command's operand being a positional where it
 `### Every argument is a flag` rewritten to keep what a flag is still for, the names that mean the
 same everywhere, and the positionals retired before stay refused.
 
+- `AGENTS.md`: Terminology names `cycle` and `rung` and the shape by the ending stage; the rules
+  **Shape named, count checked** and the never-squashed clause become **One commit or a ladder**,
+  **Commit by the tool** names `cycle plan commit`, `rung commit`, `cycle close`, and `cycle
+  squash`, **The ladder is the tool's** names `rung next`'s working-copy marker, and **The version
+  is the project's** names `--ver`. Cycle shape is rewritten whole, Cycle-record's ladder says
+  `(current)` is the working copy's, Opening is the plan's start and commit, the per-rung flow's
+  step 1 is `rung next --ver` and step 7 `rung commit`, and Committing vs pushing, A cycle is local
+  by default, Pushing, At rest, and Close-out name the subcommands, `rung commit --title` without a
+  cycle among them.
+- `rationale.md`: Cycle shape's why is the ending stage, with **A ladder may be squashed, its agent
+  side re-pointed** and **Stages are subcommands**, the named-shape paragraph marked superseded;
+  Opening gains **The plan is started and committed**; the per-rung flow gains the `--ver` and the
+  rung-marker whys; and the closed block keeps `(done)` alone.
+- `jj.md`'s create, close, Land, and close-out shapes name the subcommands, the one-commit shape
+  `cycle squash`'s in place of "Squash is not a shape", and its "Every argument is a flag" line
+  goes. `notes.md`'s In Progress block and zTOC format, and `cycle-model.md`'s who-writes-what and
+  specimens, name `(current)` as the working copy's and the subcommands.
+- The set-aside `nruymrqm` was written when no commit and no working copy marked a rung current;
+  its intent, no commit marking one, is taken, its text not, and its bookmark
+  `aside/fix-a-cycle-commit-marks-no-rung-current` is deleted.
+- The agent-files version is `v0.3.1-17`, `CONTRIBUTING.md` dating it, and the `v0.3.1` Todo's
+  gathered list gains this cycle's rules. The state-recording Todo notes the rung lifecycle and
+  `m-13`'s fix landed here, its rung renamed to what is left, `agent-at` and `--insert`.
+- The rule's removal reaches the code: the retired-positional refusal reads "a flag naming what the
+  word is" in place of "every argument is a flag", and `commit` and `push`'s help with it. README's
+  section is **Flags mean the same everywhere**.
+
 ##### feat: one cycle flow, plan, rungs, close closing
 
 Closing out the cycle.
@@ -761,6 +787,13 @@ version the set's, and writes into this entry, each as a `####` change with its 
   word saying what follows the commit, the body's pointer as the heading's own line, nested
   subcommands allowed with `cycle`'s stages flags for chaining, and `zTOC.md`'s TOC linking the
   todo list.
+- From **feat: one cycle flow, plan, rungs, close**, its docs rung's `v0.3.1-17`: the stages as
+  subcommands, `cycle plan start|commit`, `close`, `squash`, `land`, `push`, `status`, and
+  `ladder`, beside `rung next|stop|commit`; the plan a phase of its own; `(current)` the working
+  copy's alone; `--ver` running the config's bump at a step's start; the shape said by the ending
+  stage, the rules **Shape named, count checked** and **A ladder lands as a trapezoid, never
+  squashed** become **One commit or a ladder**, a squashed ladder's agent side re-pointed; and
+  "Every argument is a flag" gone, a positional allowed where it reads one way.
 - **agent-files(proposal): dry runs interleave**, the dry-run convention into `code.md`.
 - **agent-files(proposal): vc-x1 is the interface, jj the engine**, the rule **jj, not git**
   becoming vc-x1 in a cycle, a reach for raw jj a vc-x1 gap.
@@ -1550,6 +1583,10 @@ pushed ref keeps. One cycle, its rungs below, wink's "we'll see how it goes".
     version file, so the revert is its own reviewed commit.
   - The quick path: `--open`, `--commit --title "..."` for the opening, then for each rung
     `--rung-start --insert --title "..."`, the work, and `--commit`.
+  - Landed in part by **feat: one cycle flow, plan, rungs, close** (2026-11-21): `rung next`,
+    `rung stop`, and `rung commit`, `(current)` the working copy's alone, which is `m-13`'s fix,
+    and the plan started and committed by `cycle plan start|commit`. Left here: `agent-at`
+    recorded, `--title` and `--insert` choosing the rung, and the dead-end commit.
 - **Scopes and pairing.** `-s u`, unpaired, joins `b`, `w`, `a`, and `p`, taken by `commit`,
   `squash`, `cycle --commit`, and `cycle --close`.
   - `u` is the work-repo of a dual workspace committed with no trailer and never covered. `p` is a
@@ -1639,7 +1676,8 @@ pushed ref keeps. One cycle, its rungs below, wink's "we'll see how it goes".
   an unpaired rung, and an unlanded dead-end among them.
 - **The rungs**, provisional, between the opening and the closing:
   - `feat: a rung's state is recorded in TODO.md`
-  - `feat: cycle --rung-start, --rung-stop, and --commit by the rung in flight`
+  - `feat: rung next takes --title and --insert, and records agent-at`, the rest of the rung
+    lifecycle, `rung next|stop|commit` landed by **feat: one cycle flow, plan, rungs, close**
   - `feat: -s u commits the work-repo unpaired`
   - `feat: the cycle's bookmark is provisional, renamed by --bookmark-rename`
   - `feat: a closing names its shape, and its target once`
