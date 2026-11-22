@@ -22,9 +22,11 @@ acquaint, acted on, and reset to `_None._` by the reader.
   agent `nnsouwvt`, and **feat: init writes the record's files**, inserted by wink, work
   `qpwrrxwr` and agent `wypwkqvo`. Rung 4, **feat: a single-step is one rung**, is committed, work
   `tpzuvumr` and agent `nvutuqyy`, local. Rung 5, **feat: rung commit without a cycle**, inserted
-  by wink, is in the work `@`, `(current)` in `zTOC.md`, at `0.85.26-5`, its work done and
-  validated, waiting on wink's review. It is committed by `vc-x1-dev rung commit -s b --body
-  "..."`, and the next rung started by `vc-x1-dev rung next --ver 0.85.26-6`.
+  by wink, is committed, work `omwopnww` and agent `ytrumktm`, local. Rung 6, **feat: cycle squash
+  makes one commit**, is in the work `@`, `(current)` in `zTOC.md`, at `0.85.26-6`, its work done
+  and validated, waiting on wink's review. It is committed by `vc-x1-dev rung commit -s b --body
+  "..."`, and the next rung, **feat: cycle plan start and commit**, inserted by wink, started by
+  `vc-x1-dev rung next --ver 0.85.26-7`.
 - Run every cycle command by `vc-x1-dev`, installed from the working copy: the installed `vc-x1`
   `0.85.25` has no `rung` and no stage subcommands, and writes the next rung `(current)` into a
   commit. The bookmark is the title's slug, so no `--bookmark` is needed.
@@ -357,6 +359,44 @@ target reaches, and without `--yes` over an agent commit `main@origin` reaches, 
 `--push` chained as on `close`. It takes the long single-step, a branch of the opening alone or
 none, so `cycle close`'s `--single-step` and `--multi-step` and the commit-count check go here,
 `close` always a ladder's closing.
+
+- `cycle squash` is a subcommand of its own, `src/cycle/squash.rs`. With no commit on the branch,
+  or the opening alone, it is the single-step commit `close` already made, `@` committed now or
+  folded in. With work rungs, every check is made first: the first commit the opening, the
+  bookmark on `@` or `@-`, no started rung but the closing, no conflict, the version, the Land's,
+  no commit of the branch that a remote bookmark other than the cycle's reaches, and no agent
+  commit on the agent `main@origin` to rewrite without `--yes`.
+- Then the agent side first: each agent commit a work commit names, whose `ochid:` names a rung,
+  gets its description rewritten to name the opening, deduplicated, the agent `@` skipped, its
+  trailers the push's. The opening gets every agent commit's `ochid:`, each rung is squashed into
+  it oldest first by change id, and the single-step fold writes the record, the ladder, and the
+  bare title. A failure restores both repos, and the Land and the draft push come after.
+- A local bookmark other than the cycle's already keeps its commits off the branch, so "a target
+  reaches" is read as a remote bookmark: `main@origin` and any other pushed name, the cycle's own
+  draft push allowed.
+- `cycle close` loses `--single-step`, `--multi-step`, and `--default-body`, and the count check
+  with them: it is always a ladder's closing, refused with no opening and naming `squash`. The
+  single-step code stays inside `close` for `squash`, a single-step's one rung, and `rung commit
+  --record`. `cycle status` names `squash` where it named `--single-step`.
+- Tests: `close_is_a_ladders_closing`, `a_ladder_squashes_into_one_commit`, the change id kept and
+  each agent commit re-pointed, `squash_rewrites_a_published_agent_commit_only_with_yes`, and
+  `squash_needs_a_body`, the old shape tests replaced. The rehearsal's cycles 1 and 2 squash,
+  cycle 3 closes without `--multi-step`, and cycle 7 squashes a ladder and checks the trailers
+  both ways, 92 checks. README's `close` section loses its shape table, and `squash` gets one.
+- Filed while it was in review (wink, 2026-11-21): the nearest bookmark, `main+N`, in **feat: status
+  and list print @ and @- alike**, and **feat: cycle plan start and commit**, the next rung.
+
+##### feat: cycle plan start and commit
+
+The plan is a phase of its own, started and committed, not a rung (wink, 2026-11-21): `cycle plan
+start --title "<title>"` is today's `cycle plan`, the bookmark and the record's scaffold, with
+`--ver X.Y.Z-0` setting the opening's version at the start as `rung next --ver` does, and `cycle
+plan commit -s b` makes the ladder from the headings and commits the opening, its title and body
+defaulted. `rung next` then starts work rungs alone, refused before the opening is committed and
+naming `cycle plan commit`, so the opening is never `(current)`. `plan start` then `cycle squash` is
+the one-off's path, which `squash` already takes. `cycle ladder` stays, for a rung inserted
+mid-cycle. Open: whether the one-heading single-step, rung 4's bare `--ver`, is then kept or
+dropped, `rung commit --record` using it.
 
 ##### docs: one cycle flow
 

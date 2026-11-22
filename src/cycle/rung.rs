@@ -11,7 +11,7 @@
 //! A single-step's plan is one heading, the cycle title, its one rung,
 //! which `next --ver` with a bare version makes of a plan of only its
 //! bookends, and `commit` makes the cycle's one commit by `cycle
-//! close --single-step`'s code.
+//! squash`'s single-step code.
 //!
 //! With no cycle in progress, `commit --title` commits the work `@`
 //! as a cycle of its own, verbatim on a bookmark made for it, and with
@@ -448,7 +448,7 @@ fn commit_current(ctx: &mut Context, rc: &RungCommit) -> Result<(), Box<dyn std:
         .into());
     }
     // The simple single-step's one rung is the cycle's one commit, made
-    // as `cycle close --single-step` makes it, the record closed in it.
+    // as `cycle squash` makes a cycle of no commit, the record closed in it.
     if record::is_one_rung(&s.cycle, &s.rungs) {
         if c.body.is_none() {
             return Err(format!(
@@ -473,7 +473,7 @@ fn commit_current(ctx: &mut Context, rc: &RungCommit) -> Result<(), Box<dyn std:
     commit_rung(ctx, &c, "rung commit")
 }
 
-/// The single-step commit `cycle close --single-step` makes, from a
+/// The single-step commit `cycle squash` makes, from a
 /// rung commit's inputs.
 fn one_commit(c: &CommitRung, land: Option<LandCycle>) -> CloseCycle {
     CloseCycle {

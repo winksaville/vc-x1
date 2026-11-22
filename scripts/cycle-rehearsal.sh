@@ -2,7 +2,7 @@
 # cycle-rehearsal.sh - run the cycle flow end to end, by `cycle` and `rung`.
 #
 # Makes a throwaway dual workspace with local bare remotes and no cargo
-# project, and runs six cycles through it, plan to Land, checking
+# project, and runs seven cycles through it, plan to Land, checking
 # what each command left:
 #
 #   1. a single-step cycle with nothing committed before its closing
@@ -14,6 +14,8 @@
 #   5. a commit with no cycle, `rung commit --title`, verbatim, landed
 #      and published by its own `--land main --push`
 #   6. the same with `--record`, the record written and closed in it
+#   7. a ladder made one commit by `cycle squash`, its agent commits
+#      re-pointed to it
 #
 # Usage: scripts/cycle-rehearsal.sh [DIR]
 #   DIR  where the workspace and its remotes go, removed first
@@ -169,7 +171,7 @@ check_has "open wrote the scaffold" "$(cat TODO.md)" "### feat: one commit"
 check "open wrote the ladder" "$(ladder | head -1)" \
     "- [feat: one commit opening](TODO.md#feat-one-commit-opening)"
 echo "one" >work.txt
-run "$VC" cycle close -s b --single-step --body "The problem.
+run "$VC" cycle squash -s b --body "The problem.
 
 Solution: the one commit." --land main --push
 check "one commit above the old main" "$(above_main 'main@origin-' main)" "feat: one commit"
@@ -189,7 +191,7 @@ check_has "the opening has the default body" "$(jjw log -r @- --no-graph -T desc
     'Opens the cycle "fix: opened first".'
 opening=$(jjw log -r @- --no-graph -T 'change_id.short(12)')
 echo "two" >>work.txt
-run "$VC" cycle close -s b --single-step --default-body
+run "$VC" cycle squash -s b --default-body
 check "the closing is squashed into the opening" "$(above_main "$base" @-)" "fix: opened first"
 check "the opening's change is kept" "$(jjw log -r @- --no-graph -T 'change_id.short(12)')" \
     "$opening"
@@ -230,7 +232,7 @@ check "main has not moved" "$(cid main)" "$base"
 run "$VC" push -s b
 check "the draft push published the cycle's bookmark" "$(remote_bookmarks)" \
     "feat-a-ladder-cycle main "
-run "$VC" cycle close -s b --multi-step --trapezoid main
+run "$VC" cycle close -s b --trapezoid main
 check "the closing is titled" "$(title @-)" "feat: a ladder cycle closing"
 check "the closing is a merge of two" "$(nparents @-)" "2"
 check "every rung is done" "$(ladder | grep -c '(done)')" "4"
@@ -262,7 +264,7 @@ tries "reopen, a fix rung started by \`rung next\`" "$VC" rung next
 tries "reopen, a fix rung by \`rung commit\`" "$VC" rung commit -s b --body "Why.
 
 Solution: how."
-tries "reopen, the closing made again" "$VC" cycle close -s b --multi-step --trapezoid main
+tries "reopen, the closing made again" "$VC" cycle close -s b --trapezoid main
 check "the cycle closed again" "$(title @-)" "feat: a ladder cycle closing"
 check "the fix is a rung of it" "$(above_main "$base" @- | grep -c '^fix: the fault$')" "1"
 
@@ -317,6 +319,37 @@ check_has "the record is in Closed, its solution the body's" \
 one commit."
 run "$VC" cycle land main -s b --push
 check_landed "cycle 6" feat-recorded
+
+step "Cycle 7: a ladder made one commit by cycle squash"
+base=$(cid main)
+run "$VC" cycle plan --title "feat: squashed ladder"
+sed -i 's/^##### feat: squashed ladder closing$/##### feat: its rung\n\nIts intent.\n\n&/' TODO.md
+run "$VC" rung next
+run "$VC" rung commit -s b
+opening=$(jjw log -r @- --no-graph -T 'change_id.short(12)')
+run "$VC" rung next
+echo "seven" >seven.txt
+run "$VC" rung commit -s b --body "Why.
+
+Solution: how."
+agents=$(jjw log -r "$base..@-" --no-graph -T 'description' | sed -n 's/^ochid: //p' | sort | tr '\n' ' ')
+run "$VC" cycle squash -s b --body "The problem.
+
+Solution: one commit."
+check "one commit above main" "$(above_main "$base" @-)" "feat: squashed ladder"
+check "the opening's change id is kept" "$(jjw log -r @- --no-graph -T 'change_id.short(12)')" \
+    "$opening"
+check "the one commit names every agent commit" \
+    "$(jjw log -r @- --no-graph -T 'description' | sed -n 's/^ochid: //p' | sort | tr '\n' ' ')" \
+    "$agents"
+named=""
+for a in $agents; do
+    named="$named$(jja log -r "$a" --no-graph -T 'description' | sed -n 's/^ochid: //p') "
+done
+check "each agent commit names the one commit" "$named" "$(for a in $agents; do printf '%s ' "$opening"; done)"
+check "the ladder is the one rung done" "$(ladder)" "- 0 (done) feat: squashed ladder"
+run "$VC" cycle land main -s b --push
+check_landed "cycle 7" feat-squashed-ladder
 
 step "Result"
 if [ -L "$LINK" ]; then rm "$LINK"; fi

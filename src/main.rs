@@ -729,12 +729,13 @@ pub(crate) enum Commands {
         rest: Vec<String>,
     },
 
-    /// Run a cycle's stages: plan, ladder, status, close, land, and push
+    /// Run a cycle's stages: plan, ladder, status, close, squash, land, and push
     #[command(long_about = "\
         A cycle's stages, each a subcommand, beside `rung`'s acts:\n\
         `plan` makes the bookmark and writes the record, `rung next` and\n\
         `rung commit` run each rung from the opening on, `close` makes the\n\
-        closing, `land` lands it on a target, and `push` publishes what the\n\
+        closing, `squash` makes the cycle one commit instead, `land` lands\n\
+        it on a target, and `push` publishes what the\n\
         cycle's state calls for. `ladder` rewrites zTOC.md's ladder from the\n\
         rung headings, and `status` says where the cycle stands. A later\n\
         stage chains as a flag, `cycle close --land main --push`.\n\n\
