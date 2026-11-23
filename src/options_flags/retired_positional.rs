@@ -1,5 +1,5 @@
-//! A retired positional: every argument is a flag, the command names
-//! aside, so a command that took a positional keeps it as a hidden
+//! A retired positional: a command that read two ways by a word's
+//! place gave the word a flag, and keeps the positional as a hidden
 //! argument and refuses it with the flag that replaced it, rather
 //! than with clap's generic unexpected-argument error. A stale doc or
 //! a habit is told its own fix.
@@ -47,7 +47,7 @@ pub fn refuse_two(
 
 /// The one wording: the command, the rule, and the flag form to type.
 fn message(command: &str, form: &str) -> String {
-    format!("{command}: the positional is retired, every argument is a flag: `{form}`")
+    format!("{command}: the positional is retired, a flag naming what the word is: `{form}`")
 }
 
 #[cfg(test)]
@@ -59,7 +59,7 @@ mod tests {
     fn refusal_names_the_flag_form() {
         assert_eq!(
             refusal("push", "@-", "-r"),
-            "push: the positional is retired, every argument is a flag: `-r @-`"
+            "push: the positional is retired, a flag naming what the word is: `-r @-`"
         );
     }
 

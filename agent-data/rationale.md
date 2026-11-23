@@ -51,7 +51,7 @@ ladders](#local-ladders). "Project layer" (2026-10-18), the project's own agent-
 the one file it named became local ([custom.md](#custommd)). "Trunk" (2026-11-10), the one bookmark
 every cycle was assumed to land on, `[cycle] trunk` else `main`, retired for the target, named on
 the command each time. "`--onto`" (2026-11-11), the closing's flag for the target, retired with
-`commit --closing` for `cycle --close --trapezoid <target>` and `cycle --land <target>`.
+`commit --closing` for `cycle close --trapezoid <target>` and `cycle land <target>`.
 
 **No target is assumed** (wink, 2026-11-10) because a bookmark made is likely, not certainly, the
 one a cycle lands on, and a release branch is a target as much as `main` is. A default would guess,
@@ -168,9 +168,24 @@ intact and lets the `ochid:` trailers ride along: they carry change ids, which s
 
 ### Cycle shape
 
-The tool tells the shapes apart by counting, with no title to read, and a cycle need not decide its
-shape before its first commit: it is single-step until a second commit makes it a ladder. A dead end
-lands because its commits are named by agent-repo trailers, and landing keeps every rung reachable.
+The stage that ends a cycle says its shape, `cycle squash` one commit and `cycle close` a ladder,
+so no title is read, no count is guessed at, and a cycle need not decide its shape before its end
+(wink + agent, 2026-11-20). A dead end lands because its commits are named by agent-repo trailers,
+and landing keeps every rung reachable.
+
+**A ladder may be squashed, its agent side re-pointed** (wink, 2026-11-20): the rule "a ladder lands
+as a trapezoid, never squashed" stood because a squash kept one rung's change id and left every
+agent commit naming the others dangling. `cycle squash` keeps the opening's change id and rewrites
+the description of each agent commit naming a rung to name it, the 1:M shape the links already
+allowed, so every `ochid:` resolves and the agent-repo keeps its per-rung history. A rung a remote
+bookmark other than the cycle's reaches is never rewritten, its history published, and an agent
+commit `main@origin` reaches is rewritten only with `--yes`, the next agent push then forced.
+
+**Stages are subcommands** (wink, 2026-11-19): the flags below were for chaining, which a
+subcommand keeps with its later stages as flags, `cycle close --land main --push`, and as flags
+every stage shared one argument list, a flag another stage owned refused by hand. `cycle plan
+start|commit`, `ladder`, `status`, `close`, `squash`, `land`, and `push`, with `rung
+next|stop|commit` for a rung's acts, superseding the next paragraph.
 
 **One command, its stages flags** (wink, 2026-11-11): `commit` made a rung, an opening, a closing
 that was a merge or a rewrite in place, moved the record, landed, pushed, and described an older
@@ -183,7 +198,8 @@ desc` for two (wink, 2026-11-17). The opening is the first commit, seen and not 
 **Every cycle has an opening and a closing** (wink, 2026-11-11), and in a single-step cycle the
 closing is squashed into the opening, so there is one flow and the shape picks the commits.
 
-**The shape is named, the count checks it** (wink, 2026-11-13), where the count alone had decided
+**The shape is named, the count checks it** (wink, 2026-11-13, superseded 2026-11-20 by the shape
+said by the ending stage), where the count alone had decided
 it since 2026-11-11. The count is unambiguous over no commit and over two or more, and over one it
 guessed: a single-step cycle whose opening was committed early and a ladder with only its opening
 made are the same branch, and the guess squashed the second's closing into its opening, retitling
@@ -246,8 +262,8 @@ every commit of a cycle matches a rung, or the tool errors.
 blocked entry cannot hold a place in the order: the first entry means "next", and a blocked entry
 there would say "do this" to every reader when the answer is "cannot" (wink, 2026-08-27).
 
-**The bookmark is made first, by `vc-x1 cycle --open`** (wink, 2026-11-10, `vc-x1 open` until
-2026-11-11), because the record, the
+**The bookmark is made first, by `vc-x1 cycle plan start`** (wink, 2026-11-10, `vc-x1 open` until
+2026-11-11, `cycle --open` until 2026-11-21), because the record, the
 ladder, and the bump are a cycle's first edits, and made before its bookmark they sit on no branch,
 a single-step cycle's included. It goes on `@`, so it follows the change into the opening, and a
 command makes it rather than `jj bookmark create` for the name, the title's slug by the anchor
@@ -268,9 +284,13 @@ route, so a changed check is one of the things the deliberation exists to justif
 
 **Deliberation comes before the opening commit** (wink, 2026-11-11), so the opening carries the
 plan and its review is of the plan, before any work. The cost is a working copy uncommitted while
-the plan is talked through, so the user is free to commit the setup first. `cycle --open` writes
-the record's mechanical parts, whose shape the agent-files define, so the tool knows them without
-knowing the work.
+the plan is talked through, so the user is free to commit the setup first. `cycle plan start`
+writes the record's mechanical parts, whose shape the agent-files define, so the tool knows them
+without knowing the work.
+
+**The plan is started and committed** (wink, 2026-11-21): `cycle plan start` and `cycle plan
+commit` make it a phase of its own, since starting the opening by `rung next` treated the plan as a
+work rung, marking it `(current)` while it was deliberated.
 
 ### The per-rung flow
 
@@ -317,6 +337,16 @@ a rung committed without its bump, by a file and a pattern the config names, whi
 knowledge of the manifest. The flag that commits anyway is named, `--same-version`, and not
 `--yes`, which is the user's approval of a forced push and would become a switch for any question.
 The marker steps left the flow with the ladder becoming the tool's.
+
+**`--ver` runs the project's bump at a step's start** (wink, 2026-11-20): `rung next --ver` and
+`cycle plan start --ver` run the command the config's `[version] bump` names, so the project's own
+tool still writes the version and `vc-x1` only invokes it. At the start and not the commit, since a
+bump at the commit changes the manifest after the validation and the review, a tree no one
+validated.
+
+**A rung is started and ended** (wink, 2026-11-19): a commit that wrote the next rung `(current)`
+committed a prediction as a fact, so the marker is the working copy's, `rung next` writing it and
+the rung's commit clearing it, and no commit's tree claims work not yet begun.
 
 ### Committing vs pushing
 
@@ -432,10 +462,11 @@ Each close-out step exists because a close-out once went wrong without it.
   itself, so the step says what must be written down before the exit.
 - The size row is recorded only when an agent-file changed (wink, 2026-09-16) because the table
   is the count's history, and a row repeating the last one records nothing.
-- The `(current)` / `(done)` markers stay in the closed block (wink, 2026-08-28) because they have
-  value: the finished block is the ladder as it was worked, and a closed block is one every rung of
-  which reads `(done)`, so a rung reading otherwise is a finding. The earlier "drop the markers"
-  step was one more transform of the record, of the kind [Cycle-record](#cycle-record) retired.
+- The `(done)` markers stay in the closed block (wink, 2026-08-28) because they have value,
+  `(current)` being the working copy's alone since 2026-11-20, so no commit carries it: the finished
+  block is the ladder as it was worked, and a closed block is one every rung of which reads
+  `(done)`, so a rung reading otherwise is a finding. The earlier "drop the markers" step was one
+  more transform of the record, of the kind [Cycle-record](#cycle-record) retired.
 - The single-step case is spelled out because a single-step close-out went wrong when it was left
   to analogy (2026-08-26): the agent treated the one commit as a closing rung.
   - The agent-repo commit took the title plus " closing" while the work-repo commit kept the bare

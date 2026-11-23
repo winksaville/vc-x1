@@ -55,6 +55,7 @@ since its note is prose.
 | 2026-11-10 | chore: complete vc-x1, ready for vc-x2 | 10 | 1877 | the drafts `v0.3.1-3` to `-7`: `orepo:` in place of `ocid:` and `pcid:` with squash-push the clean-up, no push forced without asking, a rung committed as a pair, no trunk and the Target named by `--onto`, and `vc-x1 open` making the cycle's bookmark first, 38 lines more |
 | 2026-11-16 | fix: a cycle commit marks no rung current | 10 | 2016 | the draft `v0.3.1-14`, a dead-end's one kept change: `jj.md` names `jj diff --tool meld` for a side-by-side review, 5 lines more |
 | 2026-11-16 | docs: CONTRIBUTING.md names the project's tasks | 10 | 2018 | the draft `v0.3.1-15`: `AGENTS.md` gains `## CONTRIBUTING.md`, required, with its rule, its Terminology lines, and the acquaint's link, 16 lines, and `custom.md` gives the project's items to `CONTRIBUTING.md` and drops its long-output list, 14 fewer |
+| 2026-11-23 | feat: one cycle flow, plan, rungs, close | 10 | 2066 | the draft `v0.3.1-17`: the per-rung flow starts a rung by `rung next` and ends it by `rung commit`, the shape is said by the stage that ends the cycle, the plan is started and committed, and every stage is a subcommand, `AGENTS.md` 13 lines more, `cycle-model.md` 3, and `jj.md` 2, from the last column's 2034; `custom.md` is local and untracked, so its 24 where that column read 10 is this machine's copy, no cycle's change |
 
 Per file for the three most recent rows, newest on the left, the window sliding at each close-out
 so the earlier history is in the commits. A column is labeled by the set version it carries, the
@@ -63,17 +64,17 @@ landings before the set was versioned relative to the first version (`- v0.1.0` 
 its own row above. A cell in angle brackets, `<543>`, is a file the total leaves out, shown so a
 reader sees what it costs, and an empty cell is a file that was not in the set that landing.
 
-| File | feat: the project's tasks move to cargo xtask | docs: CONTRIBUTING.md names the project's tasks | fix: a cycle commit marks no rung current |
+| File | feat: one cycle flow, plan, rungs, close | feat: the project's tasks move to cargo xtask | docs: CONTRIBUTING.md names the project's tasks |
 |---|---:|---:|---:|
-| AGENTS.md | 590 | 586 | 570 |
-| custom.md | 10 | 10 | 24 |
+| AGENTS.md | 603 | 590 | 586 |
+| custom.md | 24 | 10 | 10 |
 | agent-data/code.md | 90 | 90 | 90 |
-| agent-data/commit-model.md | 41 | 35 | 35 |
-| agent-data/cycle-model.md | 141 | 141 | 141 |
-| agent-data/jj.md | 337 | 337 | 337 |
-| agent-data/notes.md | 192 | 191 | 191 |
-| agent-data/prose.md | 389 | 384 | 384 |
-| agent-data/rationale.md | <837> | <818> | <800> |
+| agent-data/commit-model.md | 41 | 41 | 35 |
+| agent-data/cycle-model.md | 144 | 141 | 141 |
+| agent-data/jj.md | 339 | 337 | 337 |
+| agent-data/notes.md | 192 | 192 | 191 |
+| agent-data/prose.md | 389 | 389 | 384 |
+| agent-data/rationale.md | <868> | <837> | <818> |
 | agent-data/session-lock.md | 43 | 43 | 43 |
 | agent-data/versioning.md | 201 | 201 | 201 |
-| total | 2034 | 2018 | 2016 |
+| total | 2066 | 2034 | 2018 |

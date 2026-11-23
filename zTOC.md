@@ -4,14 +4,18 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 
 ## Ladder
 
-- 0 (done) [feat: the project's tasks move to cargo xtask opening](TODO.md#feat-the-projects-tasks-move-to-cargo-xtask-opening)
-- 1 (done) [feat: cargo xtask runs the project's tasks](TODO.md#feat-cargo-xtask-runs-the-projects-tasks)
-- 2 (done) [refactor: vc-x1's validators become vc-x1 check](TODO.md#refactor-vc-x1s-validators-become-vc-x1-check)
-- 3 (done) [refactor: xtask names nothing of its project](TODO.md#refactor-xtask-names-nothing-of-its-project)
-- 4 (done) [feat: vc-x1 hands its tasks to cargo xtask](TODO.md#feat-vc-x1-hands-its-tasks-to-cargo-xtask)
-- 5 (done) [feat: vc-x1 xtask copy and diff](TODO.md#feat-vc-x1-xtask-copy-and-diff)
-- 6 (done) [docs: the tasks are named by CONTRIBUTING.md](TODO.md#docs-the-tasks-are-named-by-contributingmd)
-- 7 (done) [feat: the project's tasks move to cargo xtask closing](TODO.md#feat-the-projects-tasks-move-to-cargo-xtask-closing)
+- 0 (done) [feat: one cycle flow, plan, rungs, close opening](TODO.md#feat-one-cycle-flow-plan-rungs-close-opening)
+- 1 (done) [feat: vc-x1 rung next, stop and commit](TODO.md#feat-vc-x1-rung-next-stop-and-commit)
+- 2 (done) [feat: cycle stages are subcommands](TODO.md#feat-cycle-stages-are-subcommands)
+- 3 (done) [feat: init writes the record's files](TODO.md#feat-init-writes-the-records-files)
+- 4 (done) [feat: a single-step is one rung](TODO.md#feat-a-single-step-is-one-rung)
+- 5 (done) [feat: rung commit without a cycle](TODO.md#feat-rung-commit-without-a-cycle)
+- 6 (done) [feat: cycle squash makes one commit](TODO.md#feat-cycle-squash-makes-one-commit)
+- 7 (done) [feat: cycle plan start and commit](TODO.md#feat-cycle-plan-start-and-commit)
+- 8 (done) [docs: one cycle flow](TODO.md#docs-one-cycle-flow)
+- 9 (done) [fix: cycle plan start checks --ver before it writes](TODO.md#fix-cycle-plan-start-checks---ver-before-it-writes)
+- 10 (done) [fix: the build docs, completions -h, and Rust 1.100's new warnings](TODO.md#fix-the-build-docs-completions--h-and-rust-1100s-new-warnings)
+- 11 (done) [feat: one cycle flow, plan, rungs, close closing](TODO.md#feat-one-cycle-flow-plan-rungs-close-closing)
 
 ## The TOC
 

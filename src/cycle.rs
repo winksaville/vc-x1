@@ -1,29 +1,32 @@
-//! The `cycle` subcommand: a cycle's acts, each a stage named by a
-//! flag. The bookmark is [`crate::open`]'s to make, the commits
-//! [`crate::commit`]'s, and the Land [`crate::land`]'s, none of which
-//! is a command of its own for a cycle.
+//! The `cycle` subcommand: a cycle's stages, each a subcommand of its
+//! own, beside [`rung`]'s acts. The bookmark is [`crate::open`]'s to
+//! make, the commits [`crate::commit`]'s, and the Land
+//! [`crate::land`]'s, none of which is a command of its own for a
+//! cycle.
 //!
-//! - `--open` opens a cycle: the bookmark first, on the work `@`, as
+//! - `plan` opens a cycle: the bookmark first, on the work `@`, as
 //!   [`crate::open`] makes it, then the cycle's record, the edits
 //!   [`record`] plans. Everything is planned and checked before
 //!   anything is made, so a refusal leaves the workspace as it was.
-//! - `--ladder` makes `zTOC.md`'s ladder from the rung headings in
-//!   `TODO.md`, each marker computed from the commits on the cycle's
-//!   branch, so a rung is written once and no marker is typed.
-//! - `--commit`, `--close`, and `--land` make a rung, the closing,
-//!   and the Land, by `commit`'s and `land`'s own code, and chain in
-//!   that order. `--status` reads where the cycle stands.
+//! - `ladder` makes `zTOC.md`'s ladder from the rung headings in
+//!   `TODO.md`, each `(done)` computed from the commits on the cycle's
+//!   branch and a `(current)` kept, so a rung is written once and no
+//!   marker is typed. [`rung`] starts a rung and commits it.
+//! - `close` and `land` make the closing and the Land, by `commit`'s
+//!   and `land`'s own code, `close --land` chaining the two, and `push`
+//!   publishes. `status` reads where the cycle stands.
 //! - The record is the agent-files' shape and not the work's, so the
 //!   tool writes it without knowing the work. The version is the
-//!   project's, and no stage bumps it.
-//! - A stage is a flag and not a subcommand, the form every `vc-x1`
-//!   command has.
+//!   project's, and no stage bumps it, `rung next --ver` running the
+//!   project's own bump.
 
 pub(crate) mod record;
+pub(crate) mod rung;
+mod squash;
 
 use std::path::PathBuf;
 
-use clap::Args;
+use clap::{Args, Subcommand};
 use log::{debug, info, warn};
 
 use crate::context::Context;
@@ -35,139 +38,297 @@ use crate::subcommand::SubcommandRunner;
 
 /// Run a cycle's stages.
 #[derive(Args, Debug)]
-#[group(id = "stage", required = true, multiple = true, args = ["open", "ladder", "commit", "close", "land", "status", "push"])]
 pub struct CycleArgs {
-    /// Open a cycle: make its bookmark on the work `@`, then write its
-    /// record, `TODO.md`'s `## In Progress` scaffold and `zTOC.md`'s
-    /// ladder
-    #[arg(long, help_heading = "Stages", conflicts_with_all = ["ladder", "commit", "close", "land", "push"])]
-    pub open: bool,
+    #[command(subcommand)]
+    pub command: CycleCommand,
+}
 
-    /// Make `zTOC.md`'s ladder from the rung headings under `####
-    /// Rungs` in `TODO.md`, each marker computed from the cycle's
-    /// commits
-    #[arg(long, help_heading = "Stages", conflicts_with_all = ["commit", "close", "land", "title", "push"])]
-    pub ladder: bool,
+/// The `cycle` subcommands, its stages.
+#[derive(Subcommand, Debug)]
+pub enum CycleCommand {
+    /// Plan a cycle: `start` makes the bookmark and the record, `commit` commits the plan
+    #[command(long_about = "\
+        A cycle's plan, a phase of its own: `start` makes the bookmark and\n\
+        writes the record, the plan is deliberated and its rungs headed in\n\
+        it, and `commit` commits it, the opening, the ladder made from the\n\
+        headings. `rung next` and `rung commit` then run each work rung, and\n\
+        `cycle close` or `cycle squash` ends the cycle. `start`, the work, and\n\
+        `cycle squash` is a one-off's path.")]
+    Plan(PlanArgs),
 
-    /// Commit the working copies as a rung of the cycle in progress,
-    /// the ladder rewritten into it: the cycle's first commit is its
-    /// opening, its title and body defaulted, and a work rung gives
-    /// both
-    #[arg(long, help_heading = "Stages", conflicts_with_all = ["close", "land"])]
-    pub commit: bool,
+    /// Make zTOC.md's ladder from the rung headings in TODO.md
+    #[command(long_about = "\
+        Make the ladder in zTOC.md from the rung headings, the `##### `\n\
+        headings under `#### Rungs` of the cycle in progress in TODO.md, in\n\
+        their order, so a rung is written once. Each line is marked\n\
+        `(done)` and numbered by its position when a commit of the rung's\n\
+        title is on the cycle's branch, a rung `rung next` started is kept\n\
+        `(current)`, and every other rung is its link alone. No marker is\n\
+        made here. Refused, with nothing edited: a commit on the branch that\n\
+        is no rung's, a rung written twice, a ladder not opened and closed\n\
+        by the cycle title plus \" opening\" and \" closing\", and a line of\n\
+        the ladder there that is no rung by its grammar. The branch is the\n\
+        commits the cycle's bookmark reaches that no other local bookmark\n\
+        does, the bookmark the title's slug or --bookmark's, and before the\n\
+        bookmark is made the ladder has no rung done.")]
+    Ladder(Where),
 
-    /// Close the cycle in progress from the work `@`, each REV listed
-    /// another head joined, a parent of the closing: a branch with no
-    /// commit or one is a single-step cycle, its closing squashed into
-    /// its one commit under the bare cycle title, and a longer one gets
-    /// the closing commit, titled and bodied by default. The record
-    /// moves to `## Closed` in it
+    /// Say where the cycle stands, changing nothing
+    #[command(long_about = "\
+        Say where the cycle stands and change nothing: the title, the\n\
+        bookmark and whether it is on the work @, the commits on the branch\n\
+        and how many are not pushed, the ladder as the rungs and the commits\n\
+        make it, a note when zTOC.md's differs, and the stage that comes\n\
+        next. What another stage would refuse, it says.")]
+    Status(Where),
+
+    /// Close a ladder: its closing commit, made from the work `@`
+    #[command(long_about = "\
+        Close the cycle from the work @, which is on the cycle's tip, by its\n\
+        closing commit, the cycle title plus \" closing\" and `[closing]\n\
+        body` unless --title or --body is given, above the opening and any\n\
+        work rungs, and refused with no opening committed: `cycle squash`\n\
+        makes a cycle one commit. It is linear, on @'s own parents, unless\n\
+        --trapezoid <TARGET> makes the target its first parent or a REV\n\
+        listed joins another head, each a parent after @'s. --dead-end\n\
+        titles the closing \" dead-end closing\". The ladder is rewritten,\n\
+        every rung done, and the record moved to `## Closed`, both in the\n\
+        commit. The acceptance check comes first, by hand, and again after.\n\n\
+        --land <TARGET> lands the closing in the same invocation, as `cycle\n\
+        land` does, its checks made before the closing is, and --push then\n\
+        publishes the target. Without --land, --push is the draft push of\n\
+        the cycle's bookmark. -s is required: `b` the pair, `w` the work half\n\
+        alone, `p` a plain repo's commit. With `[version] file` and `pattern`\n\
+        in the config, a closing that changes no line of the file starting\n\
+        with the pattern is refused, and --same-version commits it as it is.")]
+    Close(CloseArgs),
+
+    /// Make the cycle one commit: its rungs and the work `@` squashed into the opening
+    #[command(long_about = "\
+        Make the cycle one commit under the bare cycle title, its closing in\n\
+        it: with no commit on the branch, the work @ committed now; with\n\
+        the opening alone, @ folded into it; and with work rungs, each\n\
+        squashed into the opening, whose change id jj keeps, then @. The\n\
+        agent side is re-pointed, not squashed: each agent commit naming a\n\
+        rung is rewritten first to name the one work commit, and that\n\
+        commit names every agent commit, so the agent-repo keeps its\n\
+        per-rung history. The ladder is rewritten to one rung, done, and\n\
+        the record moved to `## Closed` without its `#### Rungs`. --body is\n\
+        required, the commit holding the work, unless --default-body asks\n\
+        for the pointer at the record.\n\n\
+        Refused, nothing rewritten: a work commit of the branch that a\n\
+        remote bookmark other than the cycle's reaches, its history\n\
+        published, and without --yes an agent commit `main@origin` reaches,\n\
+        whose rewrite makes the next agent push a forced one. A rung only\n\
+        draft-pushed is rewritten, and the next push of the bookmark is\n\
+        forced, asked about then. -s is `b` or `p`. --land <TARGET> and\n\
+        --push chain as on `close`.")]
+    Squash(SquashArgs),
+
+    /// Land the closed cycle on TARGET
+    #[command(long_about = "\
+        Land a closed cycle on TARGET, any bookmark, none assumed: the agent\n\
+        @ committed when the cycle's commits name it, the target\n\
+        fast-forwarded to the cycle's last commit, and the cycle's bookmark\n\
+        deleted, --skip keeping a side. The cycle is the one `## Closed`\n\
+        holds, its bookmark the title's slug or --bookmark's, and a cycle\n\
+        still in progress is refused. A target that moved is refused, naming\n\
+        the ways on, and --merge is one: a merge commit of the target and\n\
+        the cycle's last commit, made from an empty @ and then landed, a\n\
+        conflicted one undone and left to you, --title and --body its own.\n\
+        --push publishes the target and deletes the cycle's bookmark on\n\
+        origin. -s is required, `b` or `p`.")]
+    Land(LandArgs),
+
+    /// Publish what the cycle's state calls for
+    #[command(long_about = "\
+        Publish what the cycle's state calls for. A cycle in progress, or\n\
+        closed and not landed, is a draft, and its bookmark is pushed. A\n\
+        cycle landed here publishes the target its landmark is on and\n\
+        deletes the cycle's bookmark on origin, and with nothing to publish\n\
+        it says so. -s is required, `b` or `p`.")]
+    Push(PushArgs),
+}
+
+/// Where, and the cycle's bookmark when it is not the title's slug,
+/// the arguments every stage and every rung act shares.
+#[derive(Args, Debug)]
+pub struct Where {
+    /// The cycle's bookmark, in place of the title's slug
+    #[arg(long, value_name = "NAME")]
+    pub bookmark: Option<String>,
+
+    /// Where: a path in the workspace, its root or either repo, or a
+    /// plain repo [default: the current directory]
+    #[arg(short = 'R', long, value_name = "PATH")]
+    pub repo: Option<PathBuf>,
+
+    /// Say what would be done, and do none of it
+    #[command(flatten)]
+    pub dry_run: DryRunFlag,
+}
+
+impl Where {
+    /// The cycle this names, and the agent repo of a dual workspace.
+    pub(crate) fn running(&self) -> Result<(Running, Option<PathBuf>), String> {
+        let (work, agent) = resolve_repos(self.repo.as_deref())?;
+        Ok((
+            Running {
+                work,
+                bookmark: self.bookmark.clone(),
+                dry_run: self.dry_run.value,
+            },
+            agent,
+        ))
+    }
+}
+
+/// Which repos a stage that writes takes, required.
+#[derive(Args, Debug)]
+pub struct Scope {
+    /// Which repos, required: `b|both` a dual workspace's pair, `w|work`
+    /// the work half with the agent half left to push, and `p|por` a
+    /// plain repo
     #[arg(
+        short = 's',
         long,
-        help_heading = "Stages",
-        value_name = "REV",
-        num_args = 0..,
-        value_delimiter = ','
+        value_name = "SCOPE",
+        value_parser = repo_scope_parser(&["work", "both", "por"]),
+        help = "Which repos, required: `w|work`, `b|both`, or `p|por`"
     )]
-    pub close: Option<Vec<String>>,
+    pub scope: RepoScope,
+}
 
-    /// Land the closed cycle on BOOKMARK, the destination: commit the
-    /// agent `@` when the cycle's commits name it, fast-forward the
-    /// destination to the cycle's last commit, and delete the cycle's
-    /// bookmark. After `--close` it lands the closing just made
-    #[arg(long, help_heading = "Stages", value_name = "BOOKMARK")]
-    pub land: Option<String>,
+/// `cycle plan`'s arguments.
+#[derive(Args, Debug)]
+pub struct PlanArgs {
+    #[command(subcommand)]
+    pub command: PlanCommand,
+}
 
-    /// Say where the cycle stands: its title, its bookmark, the ladder
-    /// with its markers, the commits not yet pushed, and the stages open
-    /// from here. It reads, and changes nothing
+/// The `cycle plan` subcommands.
+#[derive(Subcommand, Debug)]
+pub enum PlanCommand {
+    /// Start a plan: make its bookmark on the work `@`, then write its record
+    #[command(long_about = "\
+        Start a cycle's plan: make the bookmark on the work @ first, the\n\
+        slug of --title or --bookmark's name, kept local, then write the\n\
+        cycle's record. In TODO.md what `## Closed` holds is deleted and the\n\
+        `## Todo` entry titled as --title is moved into an `## In Progress`\n\
+        scaffold, an empty one when no entry matches, and in zTOC.md the\n\
+        ladder is replaced with the opening and the closing. A workspace with\n\
+        no TODO.md or no zTOC.md gets a skeleton of the file first, the\n\
+        headings the record needs, and a file there is kept. Every check is\n\
+        made before anything changes: a cycle in progress is refused, as is\n\
+        a name in use. --no-record makes the bookmark alone, writing no\n\
+        file, a branch the later stages will not take, as does --bookmark\n\
+        without --title. With --ver the opening's version is set last, by\n\
+        the config's `[version] bump`, so the plan under review carries it.\n\
+        Nothing is committed or pushed.")]
+    Start(PlanStartArgs),
+
+    /// Commit the plan: the ladder made from its headings, then the opening committed
+    #[command(long_about = "\
+        Commit the plan, the cycle's opening: the ladder in zTOC.md is made\n\
+        from the rung headings under `#### Rungs` and rewritten into the\n\
+        commit, the opening `(done)`, and the working copies committed by\n\
+        the code `vc-x1 commit` runs, the title the cycle title plus \"\n\
+        opening\" and the body `[opening] body`, a --body given taking its\n\
+        place. Refused when the plan is committed already, and on a plan of\n\
+        the one heading, a single-step's, which has no opening. -s is\n\
+        required: `b` the pair, `w` the work half alone, `p` a plain repo's\n\
+        commit. --push publishes the cycle's bookmark, a draft.")]
+    Commit(PlanCommitArgs),
+}
+
+/// `cycle plan start`'s arguments.
+#[derive(Args, Debug)]
+pub struct PlanStartArgs {
+    /// The bare cycle title, a Conventional Commit: the bookmark is its
+    /// slug, and the record is written under it
+    #[arg(long, value_name = "STR")]
+    pub title: Option<String>,
+
+    /// Make the bookmark alone and write no record
+    #[arg(long)]
+    pub no_record: bool,
+
+    /// The opening's version, set by the config's `[version] bump` once
+    /// the record is written [default: the version left as it is]
+    #[arg(long, value_name = "VERSION")]
+    pub ver: Option<String>,
+
+    #[command(flatten)]
+    pub at: Where,
+}
+
+/// `cycle plan commit`'s arguments.
+#[derive(Args, Debug)]
+pub struct PlanCommitArgs {
+    /// Which repos, required: `b|both` a dual workspace's pair,
+    /// `w|work` the work half with the agent half left to push, and
+    /// `p|por` a plain repo
     #[arg(
+        short = 's',
         long,
-        help_heading = "Stages",
-        conflicts_with_all = ["open", "ladder", "commit", "close", "land", "title", "push"]
+        value_name = "SCOPE",
+        value_parser = repo_scope_parser(&["work", "both", "por"]),
+        help = "Which repos, required: `w|work`, `b|both`, or `p|por`"
     )]
-    pub status: bool,
+    pub scope: RepoScope,
 
-    /// With `--open`, the bare cycle title, a Conventional Commit: the
-    /// bookmark is its slug, and the record is written under it. With
-    /// `--commit`, the rung's title, a heading under `#### Rungs`, and
-    /// with `--close` the closing's, as written [default: the opening's
-    /// for a cycle's first commit, and for a closing the cycle title,
-    /// plus " closing" on a ladder]
+    /// The opening's body, or @PATH to read it from a file [default:
+    /// `[opening] body`]
+    #[arg(long, value_name = "STR|@PATH")]
+    pub body: Option<String>,
+
+    /// Publish the cycle's bookmark once committed, a draft push
+    #[arg(long)]
+    pub push: bool,
+
+    /// Commit although the version's line is unchanged
+    #[arg(long)]
+    pub same_version: bool,
+
+    #[command(flatten)]
+    pub at: Where,
+}
+
+/// `cycle close`'s arguments.
+#[derive(Args, Debug)]
+pub struct CloseArgs {
+    /// Another head joined, a parent of the closing after @'s own
+    #[arg(value_name = "REV", value_delimiter = ',')]
+    pub heads: Vec<String>,
+
+    #[command(flatten)]
+    pub scope: Scope,
+
+    /// The closing's title [default: the cycle title, plus " closing"
+    /// on a ladder]
     #[arg(long, value_name = "STR")]
     pub title: Option<String>,
 
     /// The commit's body, the problem and its solution, or @PATH to
-    /// read it from a file [default: `[opening] body` for a cycle's
-    /// first commit, and `[closing] body` for a ladder's closing]
+    /// read it from a file [default: `[closing] body` for a ladder's
+    /// closing]
     #[arg(long, value_name = "STR|@PATH")]
     pub body: Option<String>,
 
-    /// With `--close`, make the closing a trapezoid, a merge whose
-    /// first parent is BOOKMARK, the destination, read where it is now
-    /// [default: linear, the heads alone]
-    #[arg(
-        long,
-        value_name = "BOOKMARK",
-        requires = "close",
-        help_heading = "Close"
-    )]
+    /// Make the closing a trapezoid, a merge whose first parent is
+    /// TARGET, read where it is now [default: linear, the heads alone]
+    #[arg(long, value_name = "TARGET")]
     pub trapezoid: Option<String>,
 
-    /// With `--close`, give a single-step cycle's one commit the
-    /// default body, `[closing] body`, a pointer at the record, in
-    /// place of the `--body` it otherwise requires
-    #[arg(
-        long,
-        requires = "close",
-        conflicts_with = "body",
-        help_heading = "Close"
-    )]
-    pub default_body: bool,
-
-    /// With `--close`, close the cycle as a dead end: a closing commit,
-    /// with `--multi-step`, its title ending " dead-end closing"
-    #[arg(long, requires = "close", help_heading = "Close")]
+    /// Close the cycle as a dead end: its closing's title ending
+    /// " dead-end closing"
+    #[arg(long)]
     pub dead_end: bool,
 
-    /// With `--close`, required or `--multi-step`: the cycle is one
-    /// commit, made now from the work `@` when the branch has none, or
-    /// its opening with the closing squashed into it when it has one
-    #[arg(
-        long,
-        requires = "close",
-        conflicts_with = "multi_step",
-        help_heading = "Close"
-    )]
-    pub single_step: bool,
-
-    /// With `--close`, required or `--single-step`: the cycle is a
-    /// ladder, and the closing is its own commit above the opening and
-    /// any work rungs
-    #[arg(long, requires = "close", help_heading = "Close")]
-    pub multi_step: bool,
-
-    /// The cycle's bookmark, in place of the title's slug: the name
-    /// `--open` makes, and the one another stage reads the cycle's
-    /// commits from and advances
-    #[arg(long, value_name = "NAME")]
-    pub bookmark: Option<String>,
-
-    /// With `--open`, make the bookmark alone and write no record
-    #[arg(long, requires = "open", help_heading = "Open")]
-    pub no_record: bool,
-
-    /// With `--land`, join a destination that moved by a merge commit,
-    /// the destination its first parent and the cycle's last commit its
-    /// second, made and then landed, a tree no rung validated [default:
-    /// a destination that moved is refused]
-    #[arg(
-        long,
-        requires = "land",
-        conflicts_with = "close",
-        help_heading = "Land"
-    )]
-    pub merge: bool,
+    /// Land the closing on TARGET in the same invocation, as `cycle
+    /// land` does
+    #[arg(long, value_name = "TARGET", help_heading = "Land")]
+    pub land: Option<String>,
 
     /// With `--land`, which side of the cycle's bookmark is kept:
     /// `local`, `remote`, or `both`, none deleted
@@ -181,72 +342,168 @@ pub struct CycleArgs {
     pub skip: Option<crate::land::Skip>,
 
     /// With `--land`, also delete the bookmarks on the commits strictly
-    /// between the destination and the cycle's last commit, a stack of
-    /// cycles landing together [default: named as merged and kept]
+    /// between the target and the cycle's last commit
     #[arg(long, requires = "land", help_heading = "Land")]
     pub delete_intermediate_bookmarks: bool,
 
-    /// Which repos, required with `--commit`, `--close`, and `--land`,
-    /// as on every command that writes: `b|both` a dual workspace's
-    /// pair, `w|work` the work half with the agent half left to push,
-    /// not with `--land`, and `p|por` a plain repo. The other stages
-    /// take none
+    /// Publish: the cycle's bookmark, a draft push, or with `--land`
+    /// the target
+    #[arg(long)]
+    pub push: bool,
+
+    /// Commit although the version's line is unchanged
+    #[arg(long)]
+    pub same_version: bool,
+
+    #[command(flatten)]
+    pub at: Where,
+}
+
+/// `cycle squash`'s arguments.
+#[derive(Args, Debug)]
+pub struct SquashArgs {
+    /// Which repos, required: `b|both` a dual workspace's pair, its
+    /// agent side re-pointed, or `p|por` a plain repo
     #[arg(
         short = 's',
         long,
         value_name = "SCOPE",
-        value_parser = repo_scope_parser(&["work", "both", "por"]),
-        required_unless_present_any = ["open", "ladder", "status"],
-        help = "Which repos, required with --commit, --close, --land, and --push: `w|work`, \
-                `b|both`, or `p|por`"
+        value_parser = repo_scope_parser(&["both", "por"]),
+        help = "Which repos, required: `b|both` or `p|por`"
     )]
-    pub scope: Option<RepoScope>,
+    pub scope: RepoScope,
 
-    /// Publish. Alone, a stage: what the cycle's state calls for, its
-    /// bookmark while it is a draft, and once landed here the target,
-    /// the cycle's bookmark deleted on `origin`. With `--commit` or
-    /// `--close`, the cycle's bookmark, a draft push, and with `--land`
-    /// the target. Nothing is pushed without it
-    #[arg(long, help_heading = "Stages")]
+    /// The one commit's body, the problem and its solution, or @PATH to
+    /// read it from a file
+    #[arg(long, value_name = "STR|@PATH")]
+    pub body: Option<String>,
+
+    /// Give the one commit the default body, `[closing] body`, a
+    /// pointer at the record, in place of --body
+    #[arg(long, conflicts_with = "body")]
+    pub default_body: bool,
+
+    /// Rewrite agent commits `main@origin` reaches, the next agent push
+    /// then a forced one
+    #[arg(long)]
+    pub yes: bool,
+
+    /// Land the one commit on TARGET in the same invocation, as `cycle
+    /// land` does
+    #[arg(long, value_name = "TARGET", help_heading = "Land")]
+    pub land: Option<String>,
+
+    /// With `--land`, which side of the cycle's bookmark is kept:
+    /// `local`, `remote`, or `both`, none deleted
+    #[arg(
+        long,
+        value_enum,
+        value_name = "SIDE",
+        requires = "land",
+        help_heading = "Land"
+    )]
+    pub skip: Option<crate::land::Skip>,
+
+    /// With `--land`, also delete the bookmarks on the commits strictly
+    /// between the target and the cycle's last commit
+    #[arg(long, requires = "land", help_heading = "Land")]
+    pub delete_intermediate_bookmarks: bool,
+
+    /// Publish: the cycle's bookmark, a draft push, or with `--land`
+    /// the target
+    #[arg(long)]
     pub push: bool,
 
-    /// With `--commit` or `--close`, commit although the version's line
-    /// is unchanged: with `[version] file` and `pattern` in the config,
-    /// a commit that changes no line of the file starting with the
-    /// pattern is otherwise refused
-    #[arg(long, help_heading = "Commit")]
+    /// Commit although the version's line is unchanged
+    #[arg(long)]
     pub same_version: bool,
 
-    /// Where: a path in the workspace, its root or either repo, or a
-    /// plain repo [default: the current directory]
-    #[arg(short = 'R', long, value_name = "PATH")]
-    pub repo: Option<PathBuf>,
-
-    /// Say what each stage would do, and do none of it
     #[command(flatten)]
-    pub dry_run: DryRunFlag,
+    pub at: Where,
 }
 
-/// `--open`'s inputs: the bookmark's, as [`crate::open::open`] takes them, and the
-/// title the record is written under, `None` when no record is.
+/// `cycle land`'s arguments.
+#[derive(Args, Debug)]
+pub struct LandArgs {
+    /// The target, the bookmark the cycle lands on
+    #[arg(value_name = "TARGET")]
+    pub target: String,
+
+    #[command(flatten)]
+    pub scope: Scope,
+
+    /// Join a target that moved by a merge commit, the target its first
+    /// parent and the cycle's last commit its second, made and then
+    /// landed, a tree no rung validated [default: a target that moved is
+    /// refused]
+    #[arg(long)]
+    pub merge: bool,
+
+    /// With `--merge`, the merge commit's title
+    #[arg(long, value_name = "STR", requires = "merge")]
+    pub title: Option<String>,
+
+    /// With `--merge`, the merge commit's body, or @PATH to read it from
+    /// a file
+    #[arg(long, value_name = "STR|@PATH", requires = "merge")]
+    pub body: Option<String>,
+
+    /// Which side of the cycle's bookmark is kept: `local`, `remote`, or
+    /// `both`, none deleted
+    #[arg(long, value_enum, value_name = "SIDE")]
+    pub skip: Option<crate::land::Skip>,
+
+    /// Also delete the bookmarks on the commits strictly between the
+    /// target and the cycle's last commit, a stack of cycles landing
+    /// together [default: named as merged and kept]
+    #[arg(long)]
+    pub delete_intermediate_bookmarks: bool,
+
+    /// Publish the target, and delete the cycle's bookmark on origin
+    #[arg(long)]
+    pub push: bool,
+
+    #[command(flatten)]
+    pub at: Where,
+}
+
+/// `cycle push`'s arguments.
+#[derive(Args, Debug)]
+pub struct PushArgs {
+    #[command(flatten)]
+    pub scope: Scope,
+
+    #[command(flatten)]
+    pub at: Where,
+}
+
+/// `cycle plan`'s inputs: the bookmark's, as [`crate::open::open`]
+/// takes them, and the title the record is written under, `None` when
+/// no record is.
 #[derive(Debug)]
 pub struct OpenCycle {
     pub open: OpenParams,
     pub record: Option<String>,
+    /// Whether the plan ends saying what comes next, a plan of its own
+    /// and not one a commit follows in the same invocation.
+    pub hint: bool,
+    /// The opening's version, set once the record is written.
+    pub ver: Option<String>,
 }
 
-/// The cycle a stage after `--open` works on: its work repo and the
-/// bookmark named, the title's slug when none is.
-#[derive(Debug)]
+/// The cycle a stage after `cycle plan` works on: its work repo and
+/// the bookmark named, the title's slug when none is.
+#[derive(Debug, Clone)]
 pub struct Running {
     pub work: PathBuf,
     pub bookmark: Option<String>,
     pub dry_run: bool,
 }
 
-/// `--commit`'s inputs: the cycle, the repos the commit is made in,
-/// and the title and body given.
-#[derive(Debug)]
+/// A rung's commit's inputs, `rung commit`'s and `cycle close`'s: the
+/// cycle, the repos the commit is made in, and the title and body
+/// given.
+#[derive(Debug, Clone)]
 pub struct CommitRung {
     pub running: Running,
     /// The agent repo, and whether its commit is made now, `None` for
@@ -258,14 +515,14 @@ pub struct CommitRung {
     pub same_version: bool,
 }
 
-/// `--close`'s inputs: the commit's, as a rung's, and the closing's
-/// shape.
-#[derive(Debug)]
+/// `cycle close`'s inputs: the commit's, as a rung's, and the
+/// closing's shape.
+#[derive(Debug, Clone)]
 pub struct CloseCycle {
     pub rung: CommitRung,
     /// The other heads joined, each a revision of one commit.
     pub heads: Vec<String>,
-    /// The destination, the closing's first parent, for a trapezoid.
+    /// The target, the closing's first parent, for a trapezoid.
     pub trapezoid: Option<String>,
     pub default_body: bool,
     pub dead_end: bool,
@@ -275,9 +532,17 @@ pub struct CloseCycle {
     pub land: Option<LandCycle>,
 }
 
-/// `--land`'s inputs: the cycle's work repo, the agent repo of a dual
-/// workspace, and the destination.
+/// `cycle squash`'s inputs: the single-step commit it ends in, and
+/// whether agent commits `main@origin` reaches may be rewritten.
 #[derive(Debug)]
+pub struct SquashCycle {
+    pub one: CloseCycle,
+    pub yes: bool,
+}
+
+/// `cycle land`'s inputs: the cycle's work repo, the agent repo of a
+/// dual workspace, and the target.
+#[derive(Debug, Clone)]
 pub struct LandCycle {
     pub running: Running,
     pub agent: Option<PathBuf>,
@@ -291,7 +556,7 @@ pub struct LandCycle {
     pub body: Option<String>,
 }
 
-/// `--push` alone: the cycle and the repos a push publishes.
+/// `cycle push`'s inputs: the cycle and the repos a push publishes.
 #[derive(Debug)]
 pub struct PushCycle {
     pub running: Running,
@@ -302,9 +567,10 @@ pub struct PushCycle {
 #[derive(Debug)]
 pub enum CycleParams {
     Open(OpenCycle),
+    PlanCommit(CommitRung),
     Ladder(Running),
-    Commit(CommitRung),
     Close(CloseCycle),
+    Squash(SquashCycle),
     Land(LandCycle),
     Status(Running),
     Push(PushCycle),
@@ -327,168 +593,231 @@ fn resolve_repos(repo: Option<&std::path::Path>) -> Result<(PathBuf, Option<Path
 }
 
 /// The agent repo a commit is made beside, and whether its commit is
-/// made now, by `-s`, required: refused when it is left out, and when
-/// it asks for a pair where there is none or a plain commit where
-/// there is one.
+/// made now, by `-s`: refused when it asks for a pair where there is
+/// none or a plain commit where there is one.
 fn commit_scope(
-    scope: Option<&RepoScope>,
+    scope: &RepoScope,
     agent: Option<PathBuf>,
-    stage: &str,
+    label: &str,
 ) -> Result<Option<(PathBuf, bool)>, String> {
     match (scope, agent) {
-        (None, _) => Err(format!(
-            "cycle {stage}: -s is required, which repos: `b|both`, `w|work`, or `p|por`"
+        (RepoScope::Por, None) => Ok(None),
+        (RepoScope::Por, Some(_)) => Err(format!(
+            "{label} -s p: this is a dual workspace, whose rung is a pair: -s b or -s w"
         )),
-        (Some(RepoScope::Por), None) => Ok(None),
-        (Some(RepoScope::Por), Some(_)) => Err(format!(
-            "cycle {stage} -s p: this is a dual workspace, whose rung is a pair: -s b or -s w"
+        (RepoScope::Sides(_), None) => Err(format!(
+            "{label}: this is a plain repo, with no agent repo to pair with: -s p"
         )),
-        (Some(RepoScope::Sides(_)), None) => Err(format!(
-            "cycle {stage}: this is a plain repo, with no agent repo to pair with: -s p"
-        )),
-        (Some(RepoScope::Sides(sides)), Some(agent)) => Ok(Some((agent, sides.is_both()))),
+        (RepoScope::Sides(sides), Some(agent)) => Ok(Some((agent, sides.is_both()))),
     }
 }
 
-/// What `--close` lacks, every piece at once, so one refusal names all
-/// of it: the shape, and with `--single-step` the body its one commit
-/// needs. `None` when nothing is.
-fn close_missing(a: &CycleArgs) -> Option<String> {
-    let bodied = a.body.is_some() || a.default_body;
-    let mut missing: Vec<&str> = Vec::new();
-    if !a.single_step && !a.multi_step {
-        missing.push(
-            "the cycle's shape, --single-step, its one commit, or --multi-step, a ladder whose \
-             closing is its own commit, which the branch's commits check and, with one commit, \
-             the opening, it decides",
-        );
-        if !bodied {
-            missing.push("with --single-step, --body or --default-body");
-        }
-    } else if a.single_step && !bodied {
-        missing.push(
-            "--body, the problem and solution of the one commit, which holds the work, or \
-             --default-body for the pointer at the record",
-        );
+/// The agent repo a publishing stage takes, by `-s`: the work half
+/// alone is refused, since it would publish trailers naming agent
+/// commits not yet published.
+fn publish_scope(
+    scope: &RepoScope,
+    agent: Option<PathBuf>,
+    label: &str,
+) -> Result<Option<PathBuf>, String> {
+    if matches!(scope, RepoScope::Sides(s) if !s.is_both()) {
+        return Err(format!(
+            "{label} -s w: the work half alone would publish trailers naming agent commits its \
+             agent half may not have published: -s b"
+        ));
     }
-    match missing.as_slice() {
-        [] => None,
-        [one] => Some(format!("cycle --close: it needs {one}")),
-        many => Some(format!("cycle --close: it needs {}", many.join("; and "))),
-    }
+    Ok(commit_scope(scope, agent, label)?.map(|(a, _)| a))
 }
 
-impl CycleArgs {
-    /// The cycle a stage after `--open` works on.
-    fn running(&self, work: PathBuf) -> Running {
-        Running {
-            work,
-            bookmark: self.bookmark.clone(),
-            dry_run: self.dry_run.value,
-        }
+/// A rung's commit's params, `rung commit`'s and `cycle close`'s alike,
+/// the body read and neither the title nor the body blank.
+#[allow(clippy::too_many_arguments)]
+fn rung_params(
+    running: Running,
+    agent: Option<PathBuf>,
+    scope: &RepoScope,
+    title: Option<&str>,
+    body: Option<&str>,
+    push: bool,
+    same_version: bool,
+    label: &str,
+) -> Result<CommitRung, String> {
+    let body = match body {
+        Some(b) => Some(crate::desc_helpers::read_body(b, label)?),
+        None => None,
+    };
+    if title.is_some_and(|t| t.trim().is_empty())
+        || body.as_deref().is_some_and(|b| b.trim().is_empty())
+    {
+        return Err(format!("{label}: a --title or --body given is not blank"));
     }
+    Ok(CommitRung {
+        agent: commit_scope(scope, agent, label)?,
+        running,
+        title: title.map(|t| t.trim().to_string()),
+        body,
+        push,
+        same_version,
+    })
+}
 
-    /// `--open`'s params.
-    fn open_params(&self, work: PathBuf, agent: Option<PathBuf>) -> Result<CycleParams, String> {
-        if self.title.is_none() && self.bookmark.is_none() {
-            return Err("cycle --open: --title or --bookmark names the bookmark".into());
-        }
-        let bookmark = crate::open::bookmark_name(self.bookmark.as_deref(), self.title.as_deref())?;
-        if let Some(t) = &self.title {
-            crate::commit::refuse_suffixed(t, "cycle --open --title")
-                .map_err(|e| e.replacen("commit ", "", 1))?;
-        }
-        Ok(CycleParams::Open(OpenCycle {
-            open: OpenParams {
-                work,
+/// `cycle plan`'s params, a subcommand's.
+fn plan_params(a: &PlanArgs) -> Result<CycleParams, String> {
+    match &a.command {
+        PlanCommand::Start(s) => plan_start_params(s),
+        PlanCommand::Commit(c) => {
+            let (running, agent) = c.at.running()?;
+            Ok(CycleParams::PlanCommit(rung_params(
+                running,
                 agent,
-                bookmark,
-                dry_run: self.dry_run.value,
-            },
-            record: match (&self.title, self.no_record) {
-                (Some(t), false) => Some(t.trim().to_string()),
-                _ => None,
-            },
-        }))
+                &c.scope,
+                None,
+                c.body.as_deref(),
+                c.push,
+                c.same_version,
+                "cycle plan commit",
+            )?))
+        }
     }
+}
 
-    /// `--land`'s params, `None` when it is not asked for. With `alone`
-    /// the title and body are the merge commit's, and after `--close`
-    /// they are the closing's.
-    fn land_params(
-        &self,
-        work: PathBuf,
-        agent: Option<PathBuf>,
-        alone: bool,
-    ) -> Result<Option<LandCycle>, String> {
-        let Some(dest) = &self.land else {
-            return Ok(None);
-        };
-        if matches!(&self.scope, Some(RepoScope::Sides(s)) if !s.is_both()) {
-            return Err(
-                "cycle --land -s w: a work-only Land would publish trailers naming agent commits \
-                 its agent half may not have published: -s b"
-                    .into(),
-            );
-        }
-        commit_scope(self.scope.as_ref(), agent.clone(), "--land")?;
-        if alone && self.same_version {
-            return Err("cycle --land: it takes no --same-version, a Land bumping nothing".into());
-        }
-        if alone && (self.title.is_some() || self.body.is_some()) && !self.merge {
-            return Err(
-                "cycle --land: a Land makes no commit of its own, so --title and --body are \
-                 --merge's, the merge commit's"
-                    .into(),
-            );
-        }
-        let body = match (&self.body, alone) {
-            (Some(b), true) => Some(crate::desc_helpers::read_body(b, "cycle --land")?),
-            _ => None,
-        };
-        Ok(Some(LandCycle {
-            running: self.running(work),
+/// `cycle plan start`'s params.
+fn plan_start_params(a: &PlanStartArgs) -> Result<CycleParams, String> {
+    let (running, agent) = a.at.running()?;
+    if a.title.is_none() && a.at.bookmark.is_none() {
+        return Err("cycle plan start: --title or --bookmark names the bookmark".into());
+    }
+    if a.ver.as_deref().is_some_and(|v| v.trim().is_empty()) {
+        return Err("cycle plan start: --ver is blank".into());
+    }
+    let bookmark = crate::open::bookmark_name(a.at.bookmark.as_deref(), a.title.as_deref())?;
+    if let Some(t) = &a.title {
+        crate::commit::refuse_suffixed(t, "cycle plan --title")
+            .map_err(|e| e.replacen("commit ", "", 1))?;
+    }
+    Ok(CycleParams::Open(OpenCycle {
+        open: OpenParams {
+            work: running.work,
             agent,
-            dest: dest.clone(),
-            merge: self.merge,
-            skip: self.skip,
-            delete_intermediate: self.delete_intermediate_bookmarks,
-            push: self.push,
-            title: self.title.clone().filter(|_| alone),
-            body,
-        }))
-    }
+            bookmark,
+            dry_run: running.dry_run,
+        },
+        record: match (&a.title, a.no_record) {
+            (Some(t), false) => Some(t.trim().to_string()),
+            _ => None,
+        },
+        hint: true,
+        ver: a.ver.as_deref().map(|v| v.trim().to_string()),
+    }))
+}
 
-    /// A commit's params, `--commit`'s and `--close`'s alike.
-    fn rung(
-        &self,
-        work: PathBuf,
-        agent: Option<PathBuf>,
-        stage: &str,
-    ) -> Result<CommitRung, String> {
-        let body = match &self.body {
-            Some(b) => Some(crate::desc_helpers::read_body(
-                b,
-                &format!("cycle {stage}"),
-            )?),
-            None => None,
-        };
-        if self.title.as_deref().is_some_and(|t| t.trim().is_empty())
-            || body.as_deref().is_some_and(|b| b.trim().is_empty())
-        {
-            return Err(format!(
-                "cycle {stage}: a --title or --body given is not blank"
-            ));
-        }
-        Ok(CommitRung {
-            agent: commit_scope(self.scope.as_ref(), agent, stage)?,
-            running: self.running(work),
-            title: self.title.as_ref().map(|t| t.trim().to_string()),
-            body,
-            push: self.push,
-            same_version: self.same_version,
-        })
+/// `cycle close`'s params, its Land's with them when `--land` chains
+/// one.
+fn close_params(a: &CloseArgs) -> Result<CycleParams, String> {
+    let (running, agent) = a.at.running()?;
+    let land = match &a.land {
+        Some(dest) => Some(LandCycle {
+            agent: publish_scope(&a.scope.scope, agent.clone(), "cycle close --land")?,
+            running: running.clone(),
+            dest: dest.clone(),
+            merge: false,
+            skip: a.skip,
+            delete_intermediate: a.delete_intermediate_bookmarks,
+            push: a.push,
+            title: None,
+            body: None,
+        }),
+        None => None,
+    };
+    let rung = rung_params(
+        running,
+        agent,
+        &a.scope.scope,
+        a.title.as_deref(),
+        a.body.as_deref(),
+        // With a Land the push is the Land's, the target's.
+        a.push && land.is_none(),
+        a.same_version,
+        "cycle close",
+    )?;
+    Ok(CycleParams::Close(CloseCycle {
+        rung,
+        heads: a.heads.clone(),
+        trapezoid: a.trapezoid.clone(),
+        default_body: false,
+        dead_end: a.dead_end,
+        single_step: false,
+        land,
+    }))
+}
+
+/// `cycle squash`'s params, its Land's with them when `--land` chains
+/// one.
+fn squash_params(a: &SquashArgs) -> Result<CycleParams, String> {
+    if a.body.is_none() && !a.default_body {
+        return Err(
+            "cycle squash: the one commit holds the work, so it gives --body, its problem and \
+             solution, or --default-body for the pointer at the record"
+                .into(),
+        );
     }
+    let (running, agent) = a.at.running()?;
+    let land = match &a.land {
+        Some(dest) => Some(LandCycle {
+            agent: publish_scope(&a.scope, agent.clone(), "cycle squash --land")?,
+            running: running.clone(),
+            dest: dest.clone(),
+            merge: false,
+            skip: a.skip,
+            delete_intermediate: a.delete_intermediate_bookmarks,
+            push: a.push,
+            title: None,
+            body: None,
+        }),
+        None => None,
+    };
+    let rung = rung_params(
+        running,
+        agent,
+        &a.scope,
+        None,
+        a.body.as_deref(),
+        a.push && land.is_none(),
+        a.same_version,
+        "cycle squash",
+    )?;
+    Ok(CycleParams::Squash(SquashCycle {
+        one: CloseCycle {
+            rung,
+            heads: Vec::new(),
+            trapezoid: None,
+            default_body: a.default_body,
+            dead_end: false,
+            single_step: true,
+            land,
+        },
+        yes: a.yes,
+    }))
+}
+
+/// `cycle land`'s params.
+fn land_params(a: &LandArgs) -> Result<CycleParams, String> {
+    let (running, agent) = a.at.running()?;
+    let body = match &a.body {
+        Some(b) => Some(crate::desc_helpers::read_body(b, "cycle land")?),
+        None => None,
+    };
+    Ok(CycleParams::Land(LandCycle {
+        agent: publish_scope(&a.scope.scope, agent, "cycle land")?,
+        running,
+        dest: a.target.clone(),
+        merge: a.merge,
+        skip: a.skip,
+        delete_intermediate: a.delete_intermediate_bookmarks,
+        push: a.push,
+        title: a.title.clone(),
+        body,
+    }))
 }
 
 impl TryFrom<&CycleArgs> for CycleParams {
@@ -496,76 +825,20 @@ impl TryFrom<&CycleArgs> for CycleParams {
 
     /// Resolve the workspace and the stage asked for.
     fn try_from(a: &CycleArgs) -> Result<Self, String> {
-        let (work, agent) = resolve_repos(a.repo.as_deref())?;
-        let only = |stage: &str, given: &[(&str, bool)]| match given.iter().find(|(_, g)| *g) {
-            Some((flag, _)) => Err(format!("cycle {stage}: it takes no {flag}")),
-            None => Ok(()),
-        };
-        let commits = [
-            ("--same-version", a.same_version),
-            ("-s", a.scope.is_some()),
-            ("--push", a.push),
-            ("--body", a.body.is_some()),
-        ];
-        if a.open {
-            only("--open", &commits)?;
-            a.open_params(work, agent)
-        } else if a.ladder {
-            only("--ladder", &commits)?;
-            Ok(CycleParams::Ladder(a.running(work)))
-        } else if a.status {
-            only("--status", &commits)?;
-            Ok(CycleParams::Status(a.running(work)))
-        } else if let Some(heads) = &a.close {
-            // A dead end's shape is wrong whatever else is given, so it is
-            // said first.
-            if a.dead_end && a.single_step {
-                return Err(
-                    "cycle --close --dead-end: a dead end closes the commits a cycle made with a \
-                     closing commit of its own: --multi-step"
-                        .into(),
-                );
+        match &a.command {
+            CycleCommand::Plan(p) => plan_params(p),
+            CycleCommand::Ladder(w) => Ok(CycleParams::Ladder(w.running()?.0)),
+            CycleCommand::Status(w) => Ok(CycleParams::Status(w.running()?.0)),
+            CycleCommand::Close(c) => close_params(c),
+            CycleCommand::Squash(c) => squash_params(c),
+            CycleCommand::Land(l) => land_params(l),
+            CycleCommand::Push(p) => {
+                let (running, agent) = p.at.running()?;
+                Ok(CycleParams::Push(PushCycle {
+                    agent: publish_scope(&p.scope.scope, agent, "cycle push")?,
+                    running,
+                }))
             }
-            if let Some(missing) = close_missing(a) {
-                return Err(missing);
-            }
-            let land = a.land_params(work.clone(), agent.clone(), false)?;
-            let mut rung = a.rung(work, agent, "--close")?;
-            // With a Land the push is the Land's, the destination's.
-            rung.push = rung.push && land.is_none();
-            Ok(CycleParams::Close(CloseCycle {
-                rung,
-                heads: heads.clone(),
-                trapezoid: a.trapezoid.clone(),
-                default_body: a.default_body,
-                dead_end: a.dead_end,
-                single_step: a.single_step,
-                land,
-            }))
-        } else if let Some(land) = a.land_params(work.clone(), agent.clone(), true)? {
-            Ok(CycleParams::Land(land))
-        } else if a.commit {
-            Ok(CycleParams::Commit(a.rung(work, agent, "--commit")?))
-        } else {
-            only(
-                "--push",
-                &[
-                    ("--same-version", a.same_version),
-                    ("--body", a.body.is_some()),
-                    ("--title", a.title.is_some()),
-                ],
-            )?;
-            if matches!(&a.scope, Some(RepoScope::Sides(s)) if !s.is_both()) {
-                return Err(
-                    "cycle --push -s w: the work half alone would publish trailers naming agent \
-                     commits not yet published: -s b"
-                        .into(),
-                );
-            }
-            Ok(CycleParams::Push(PushCycle {
-                agent: commit_scope(a.scope.as_ref(), agent, "--push")?.map(|(a, _)| a),
-                running: a.running(work),
-            }))
         }
     }
 }
@@ -589,9 +862,10 @@ pub fn cycle(ctx: &mut Context, params: &CycleParams) -> Result<(), Box<dyn std:
     debug!("cycle: enter {params:?}");
     match params {
         CycleParams::Open(o) => open(ctx, o),
+        CycleParams::PlanCommit(c) => plan_commit(ctx, c),
         CycleParams::Ladder(r) => ladder(r),
-        CycleParams::Commit(c) => commit_rung(ctx, c),
-        CycleParams::Close(c) => close(ctx, c),
+        CycleParams::Close(c) => close(ctx, c, "cycle close"),
+        CycleParams::Squash(c) => squash::squash(ctx, c),
         CycleParams::Land(l) => land(ctx, l),
         CycleParams::Push(p) => push(ctx, p),
         CycleParams::Status(r) => {
@@ -662,23 +936,27 @@ fn commit_params(
     }
 }
 
-/// `--commit`: commit the working copies as a rung of the cycle in
+/// `rung commit`, `label` naming it in what it says:
+/// commit the working copies as a rung of the cycle in
 /// progress. The cycle's first commit is its opening, titled and
 /// bodied by default, and any other is a work rung, whose title is a
 /// rung heading not yet committed. The ladder is rewritten first, the
 /// rung done, so the commit carries it, and the cycle's bookmark is
 /// the one advanced. Every check is made before the ladder is written.
-fn commit_rung(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::error::Error>> {
-    let stage = "--commit";
+fn commit_rung(
+    ctx: &mut Context,
+    c: &CommitRung,
+    label: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     let r = &c.running;
     let work = r.work.as_path();
-    let bookmark = cycle_bookmark(r, stage)?;
+    let bookmark = cycle_bookmark(r, label)?;
     let commits = branch_titles(work, &bookmark)?;
     let path = work.join(crate::commit::RECORD);
-    let todo = std::fs::read_to_string(&path)
-        .map_err(|e| format!("cycle {stage}: {}: {e}", path.display()))?;
-    let cycle = record::cycle_title(&todo).map_err(|e| format!("cycle {stage}: {e}"))?;
-    let rungs = record::rung_titles(&todo).map_err(|e| format!("cycle {stage}: {e}"))?;
+    let todo =
+        std::fs::read_to_string(&path).map_err(|e| format!("{label}: {}: {e}", path.display()))?;
+    let cycle = record::cycle_title(&todo).map_err(|e| format!("{label}: {e}"))?;
+    let rungs = record::rung_titles(&todo).map_err(|e| format!("{label}: {e}"))?;
     let (opening, closing) = (format!("{cycle} opening"), format!("{cycle} closing"));
     let first = commits.is_empty();
     let title = match (&c.title, first) {
@@ -686,14 +964,14 @@ fn commit_rung(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::err
         (Some(t), true) if *t == opening => opening.clone(),
         (Some(t), true) => {
             return Err(format!(
-                "cycle {stage}: the cycle has no commit yet, so this one is its opening, \
+                "{label}: the cycle has no commit yet, so this one is its opening, \
                  '{opening}', and not '{t}': leave --title out"
             )
             .into());
         }
         (None, false) => {
             return Err(format!(
-                "cycle {stage}: the opening is committed, so this is a work rung, which gives \
+                "{label}: the opening is committed, so this is a work rung, which gives \
                  --title, a heading under `#### Rungs`, and --body"
             )
             .into());
@@ -702,19 +980,19 @@ fn commit_rung(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::err
     };
     if title == closing {
         return Err(format!(
-            "cycle {stage}: '{title}' is the cycle's closing, which `cycle --close` makes"
+            "{label}: '{title}' is the cycle's closing, which `cycle close` makes"
         )
         .into());
     }
     if commits.contains(&title) {
         return Err(format!(
-            "cycle {stage}: the rung '{title}' is committed already: `vc-x1 squash` continues it"
+            "{label}: the rung '{title}' is committed already: `vc-x1 squash` continues it"
         )
         .into());
     }
     if !rungs.contains(&title) {
         return Err(format!(
-            "cycle {stage}: '{title}' is no rung of the cycle, a `##### ` heading under `#### \
+            "{label}: '{title}' is no rung of the cycle, a `##### ` heading under `#### \
              Rungs` in {}: write its heading first",
             crate::commit::RECORD
         )
@@ -724,36 +1002,37 @@ fn commit_rung(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::err
         (Some(b), _) => b.clone(),
         (None, true) => opening_body(work, &cycle)?,
         (None, false) => {
-            return Err(format!(
-                "cycle {stage}: a work rung gives --body, its problem and solution"
-            )
-            .into());
+            return Err(
+                format!("{label}: a work rung gives --body, its problem and solution").into(),
+            );
         }
     };
-    crate::pair::refuse_conflicts(work, "cycle --commit", "work")?;
+    crate::pair::refuse_conflicts(work, label, "work")?;
     if jj::is_empty(work, "@")? {
         return Err(format!(
-            "cycle {stage}: nothing to commit, the work repo's @ is empty ('{}')",
+            "{label}: nothing to commit, the work repo's @ is empty ('{}')",
             work.display()
         )
         .into());
     }
-    crate::commit::check_version(work, "@", c.same_version, "cycle --commit")?;
+    crate::commit::check_version(work, "@", c.same_version, label)?;
     let mut with = commits.clone();
     with.push(title.clone());
-    let plan = record::plan_ladder(work, &with).map_err(|e| format!("cycle {stage}: {e}"))?;
+    // A commit ends its rung, so the ladder it carries marks none
+    // current: the next rung is started by `rung next`.
+    let plan = record::plan_ladder(work, &with, None).map_err(|e| format!("{label}: {e}"))?;
     for finding in &plan.ladder.findings {
-        warn!("cycle {stage}: {finding}");
+        warn!("{label}: {finding}");
     }
     info!(
-        "cycle {stage}: {} '{title}' on '{bookmark}'",
+        "{label}: {} '{title}' on '{bookmark}'",
         if first { "the opening" } else { "the rung" }
     );
     let params = commit_params(c, title, body, bookmark);
     let Some(edit) = plan.edit.as_ref().filter(|_| !r.dry_run) else {
         if plan.edit.is_some() {
             info!(
-                "cycle {stage}: [dry-run] rewrite the ladder in {}, the rung done",
+                "{label}: [dry-run] rewrite the ladder in {}, the rung done",
                 record::LADDER_FILE
             );
         }
@@ -764,13 +1043,13 @@ fn commit_rung(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::err
     let old = std::fs::read_to_string(&edit.path)?;
     std::fs::write(&edit.path, &edit.text)?;
     info!(
-        "cycle {stage}: the ladder in {} is rewritten, the rung done",
+        "{label}: the ladder in {} is rewritten, the rung done",
         record::LADDER_FILE
     );
     crate::commit::commit(ctx, &params).inspect_err(|_| {
         if let Err(e) = std::fs::write(&edit.path, &old) {
             warn!(
-                "cycle {stage}: the ladder in {} was not put back: {e}",
+                "{label}: the ladder in {} was not put back: {e}",
                 edit.path.display()
             );
         }
@@ -809,21 +1088,12 @@ pub(crate) fn branch_titles(
 /// work repo has no such bookmark.
 pub(crate) fn cycle_bookmark(
     r: &Running,
-    stage: &str,
+    label: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let name = match &r.bookmark {
-        Some(name) => name.clone(),
-        None => {
-            let path = r.work.join(crate::commit::RECORD);
-            let todo = std::fs::read_to_string(&path)
-                .map_err(|e| format!("cycle {stage}: {}: {e}", path.display()))?;
-            let title = record::cycle_title(&todo).map_err(|e| format!("cycle {stage}: {e}"))?;
-            crate::check::anchors::anchor_slug(&title)
-        }
-    };
+    let name = bookmark_name(r, label)?;
     if !jj::local_bookmark_exists(&r.work, &name)? {
         return Err(format!(
-            "cycle {stage}: the cycle's bookmark '{name}' is not in {}: name it, --bookmark <NAME>",
+            "{label}: the cycle's bookmark '{name}' is not in {}: name it, --bookmark <NAME>",
             r.work.display()
         )
         .into());
@@ -831,33 +1101,72 @@ pub(crate) fn cycle_bookmark(
     Ok(name)
 }
 
-/// `--ladder`: make the ladder from the rung headings and the cycle's
-/// commits, and write it, or with a dry run print it.
+/// The name of the cycle's bookmark, whether or not it is made: the
+/// one named, else the slug of the title in `TODO.md`.
+fn bookmark_name(r: &Running, label: &str) -> Result<String, Box<dyn std::error::Error>> {
+    Ok(match &r.bookmark {
+        Some(name) => name.clone(),
+        None => {
+            let path = r.work.join(crate::commit::RECORD);
+            let todo = std::fs::read_to_string(&path)
+                .map_err(|e| format!("{label}: {}: {e}", path.display()))?;
+            let title = record::cycle_title(&todo).map_err(|e| format!("{label}: {e}"))?;
+            crate::check::anchors::anchor_slug(&title)
+        }
+    })
+}
+
+/// `cycle ladder`: make the ladder from the rung headings and the cycle's
+/// commits, and write it, or with a dry run print it. A rung marked
+/// `(current)` keeps its marker, and none is made, `rung next` being
+/// what starts a rung. `TODO.md` is the ladder's source, so a cycle
+/// whose bookmark is not made yet has its ladder too, no rung done,
+/// refused when the ladder there has a rung done, which a missing
+/// bookmark would lose.
 fn ladder(r: &Running) -> Result<(), Box<dyn std::error::Error>> {
-    let bookmark = cycle_bookmark(r, "--ladder")?;
-    let commits = branch_titles(&r.work, &bookmark)?;
-    let plan =
-        record::plan_ladder(&r.work, &commits).map_err(|e| format!("cycle --ladder: {e}"))?;
+    let bookmark = bookmark_name(r, "cycle ladder")?;
+    let commits = if jj::local_bookmark_exists(&r.work, &bookmark)? {
+        branch_titles(&r.work, &bookmark)?
+    } else {
+        let path = r.work.join(record::LADDER_FILE);
+        let text = std::fs::read_to_string(&path)
+            .map_err(|e| format!("cycle ladder: {}: {e}", path.display()))?;
+        if record::has_done(&text) {
+            return Err(format!(
+                "cycle ladder: the cycle's bookmark '{bookmark}' is not in {}, and the ladder \
+                 in {} has a rung done, which a ladder made without the cycle's commits would \
+                 lose: name the bookmark, --bookmark <NAME>",
+                r.work.display(),
+                record::LADDER_FILE
+            )
+            .into());
+        }
+        info!("cycle ladder: no bookmark '{bookmark}' yet, so no rung is done");
+        Vec::new()
+    };
+    let current = record::current_rung(&r.work).map_err(|e| format!("cycle ladder: {e}"))?;
+    let plan = record::plan_ladder(&r.work, &commits, current.as_deref())
+        .map_err(|e| format!("cycle ladder: {e}"))?;
     for line in &plan.ladder.lines {
         info!("{line}");
     }
     for finding in &plan.ladder.findings {
-        warn!("cycle --ladder: {finding}");
+        warn!("cycle ladder: {finding}");
     }
     match (&plan.edit, r.dry_run) {
         (None, _) => info!(
-            "cycle --ladder: the ladder in {} is as the rungs make it",
+            "cycle ladder: the ladder in {} is as the rungs make it",
             record::LADDER_FILE
         ),
         (Some(_), true) => info!(
-            "cycle --ladder: [dry-run] write the ladder into {}",
+            "cycle ladder: [dry-run] write the ladder into {}",
             record::LADDER_FILE
         ),
         (Some(edit), false) => {
             std::fs::write(&edit.path, &edit.text)
-                .map_err(|e| format!("cycle --ladder: {}: {e}", edit.path.display()))?;
+                .map_err(|e| format!("cycle ladder: {}: {e}", edit.path.display()))?;
             info!(
-                "cycle --ladder: the ladder is written into {}",
+                "cycle ladder: the ladder is written into {}",
                 record::LADDER_FILE
             );
         }
@@ -865,9 +1174,6 @@ fn ladder(r: &Running) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// `--open`: plan the record, make the bookmark, then write the
-/// record, so a record that cannot be written makes no bookmark, and a
-/// name in use writes no record.
 /// What is wrong with `title` as a cycle title, a line each: one that
 /// is no Conventional Commit, `<type>: <desc>` or `<type>(<scope>):
 /// <desc>`, and one over 50 characters, the bookends then longer still.
@@ -899,45 +1205,115 @@ pub(crate) fn title_problems(title: &str) -> Vec<String> {
     problems
 }
 
+/// `cycle plan start`: plan the record, make the bookmark, then write
+/// the record, so a record that cannot be written makes no bookmark,
+/// and a name in use writes no record, and with `--ver` set the
+/// opening's version last.
 fn open(ctx: &mut Context, o: &OpenCycle) -> Result<(), Box<dyn std::error::Error>> {
+    let label = "cycle plan start --ver";
     let dry_run = o.open.dry_run;
     if let Some(title) = &o.record {
         for problem in title_problems(title) {
-            warn!("cycle --open: {problem}, and every commit of the cycle carries it");
+            warn!("cycle plan: {problem}, and every commit of the cycle carries it");
         }
+    }
+    // The bump's config is checked with the plan's other refusals, so a
+    // `--ver` that cannot run makes nothing.
+    if let Some(ver) = &o.ver {
+        rung::bump_words(&o.open.work, ver, label)?;
     }
     let plan = match &o.record {
         Some(title) => {
-            record::plan_open(&o.open.work, title).map_err(|e| format!("cycle --open: {e}"))?
+            record::plan_open(&o.open.work, title).map_err(|e| format!("cycle plan: {e}"))?
         }
         None => {
-            info!("cycle --open: no record is written, the bookmark being made alone");
+            info!("cycle plan: no record is written, the bookmark being made alone");
             record::OpenRecord::default()
         }
     };
     crate::open::open(ctx, &o.open)?;
     let tag = if dry_run {
-        "cycle --open: [dry-run]"
+        "cycle plan: [dry-run]"
     } else {
-        "cycle --open:"
+        "cycle plan:"
     };
     for line in &plan.did {
         info!("{tag} {line}");
     }
     if dry_run {
+        if let Some(ver) = &o.ver {
+            rung::bump(&o.open.work, ver, true, label)?;
+        }
         return Ok(());
     }
+    // The files as they were, `None` for one the plan makes, put back
+    // when the bump fails after them.
+    let before: Vec<(PathBuf, Option<String>)> = plan
+        .edits
+        .iter()
+        .map(|e| (e.path.clone(), std::fs::read_to_string(&e.path).ok()))
+        .collect();
     for edit in &plan.edits {
         std::fs::write(&edit.path, &edit.text)
-            .map_err(|e| format!("cycle --open: {}: {e}", edit.path.display()))?;
+            .map_err(|e| format!("cycle plan: {}: {e}", edit.path.display()))?;
     }
-    if !plan.edits.is_empty() {
+    if let Some(ver) = &o.ver
+        && let Err(e) = rung::bump(&o.open.work, ver, false, label)
+    {
+        for (path, text) in &before {
+            let undone = match text {
+                Some(text) => std::fs::write(path, text),
+                None => std::fs::remove_file(path),
+            };
+            if let Err(w) = undone {
+                warn!("{label}: {} was not put back: {w}", path.display());
+            }
+        }
+        if let Err(d) = ctx.session(&o.open.work)?.bookmark_delete(&o.open.bookmark) {
+            warn!(
+                "{label}: the bookmark '{}' was not deleted: {d}",
+                o.open.bookmark
+            );
+        }
+        return Err(format!("{e}, so the plan is undone, the record and the bookmark").into());
+    }
+    if o.hint && !plan.edits.is_empty() {
         info!(
-            "cycle --open: the record is written and nothing is committed: plan the cycle in it, \
-             and bump the version"
+            "cycle plan: the record is written and nothing is committed: plan the cycle in it, \
+             then `cycle plan commit -s <SCOPE>` commits the plan, the opening"
         );
     }
     Ok(())
+}
+
+/// `cycle plan commit`: commit the plan, the cycle's opening, the
+/// ladder made from the headings and rewritten into the commit by
+/// [`commit_rung`]. Refused when the branch has a commit already, and
+/// on a plan of the one heading, which has no opening.
+fn plan_commit(ctx: &mut Context, c: &CommitRung) -> Result<(), Box<dyn std::error::Error>> {
+    let label = "cycle plan commit";
+    let r = &c.running;
+    let bookmark = cycle_bookmark(r, label)?;
+    let commits = branch_titles(&r.work, &bookmark)?;
+    if let Some(first) = commits.first() {
+        return Err(format!(
+            "{label}: the plan is committed already, '{first}': `rung next` starts the next rung"
+        )
+        .into());
+    }
+    let path = r.work.join(crate::commit::RECORD);
+    let todo =
+        std::fs::read_to_string(&path).map_err(|e| format!("{label}: {}: {e}", path.display()))?;
+    let cycle = record::cycle_title(&todo).map_err(|e| format!("{label}: {e}"))?;
+    let rungs = record::rung_titles(&todo).map_err(|e| format!("{label}: {e}"))?;
+    if record::is_one_rung(&cycle, &rungs) {
+        return Err(format!(
+            "{label}: the plan is the one heading, '{cycle}', a single-step's, which has no \
+             opening: `rung next` starts it, and `rung commit --body` commits it"
+        )
+        .into());
+    }
+    commit_rung(ctx, c, label)
 }
 
 /// A closing's body when none is given: `[closing] body` in the
@@ -961,7 +1337,7 @@ fn closing_parents(
     work: &std::path::Path,
     c: &CloseCycle,
 ) -> Result<Option<Vec<String>>, Box<dyn std::error::Error>> {
-    let label = "cycle --close";
+    let label = "cycle close";
     let own = jj::parent_cids_of(work, "@")?;
     let mut parents: Vec<String> = Vec::new();
     if let Some(dest) = &c.trapezoid {
@@ -997,32 +1373,45 @@ fn short(id: &str) -> String {
         .collect()
 }
 
-/// `--close`: close the cycle in progress from the work `@`. The
-/// branch's commit count is its shape: none or one is a single-step
-/// cycle, the closing squashed into its one commit, made now from `@`
-/// or the opening with `@` folded in, under the bare cycle title; more
-/// is a ladder, whose closing is its own commit, a merge when a
-/// destination or another head is joined. The ladder is rewritten,
-/// every rung done, and the record moved to `## Closed`, both in the
-/// commit. Every check is made before a file is written.
-fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Error>> {
-    let stage = "--close";
+/// `cycle close`: close the cycle in progress from the work `@`, a
+/// ladder's closing commit, a merge when a target or another head is
+/// joined. With `single_step`, `cycle squash`'s and a single-step's one
+/// rung's, the cycle is one commit instead: made now from `@` with no
+/// commit on the branch, or the opening with `@` folded in, under the
+/// bare cycle title. The ladder is rewritten, every rung done, and the
+/// record moved to `## Closed`, both in the commit. Every check is made
+/// before a file is written.
+fn close(ctx: &mut Context, c: &CloseCycle, label: &str) -> Result<(), Box<dyn std::error::Error>> {
     let r = &c.rung.running;
     let work = r.work.as_path();
-    let bookmark = cycle_bookmark(r, stage)?;
+    let bookmark = cycle_bookmark(r, label)?;
     let commits = branch_titles(work, &bookmark)?;
     let path = work.join(crate::commit::RECORD);
-    let todo = std::fs::read_to_string(&path)
-        .map_err(|e| format!("cycle {stage}: {}: {e}", path.display()))?;
-    let cycle = record::cycle_title(&todo).map_err(|e| format!("cycle {stage}: {e}"))?;
+    let todo =
+        std::fs::read_to_string(&path).map_err(|e| format!("{label}: {}: {e}", path.display()))?;
+    let cycle = record::cycle_title(&todo).map_err(|e| format!("{label}: {e}"))?;
     if !jj::local_bookmarks_at(work, "@ | @-")?.contains(&bookmark) {
         return Err(format!(
-            "cycle {stage}: the cycle's bookmark '{bookmark}' is not on the work @ or @-, and a \
+            "{label}: the cycle's bookmark '{bookmark}' is not on the work @ or @-, and a \
              closing is made from the cycle's tip: `jj new {bookmark}` moves @ onto it"
         )
         .into());
     }
-    crate::pair::refuse_conflicts(work, "cycle --close", "work")?;
+    // A rung started and not committed holds the closing back, but for
+    // the closing itself, and for a single-step cycle's opening or its
+    // one rung, which its one commit is.
+    if let Some(current) = record::current_rung(work).map_err(|e| format!("{label}: {e}"))?
+        && !commits.contains(&current)
+        && current != format!("{cycle} closing")
+        && !(c.single_step && (current == format!("{cycle} opening") || current == cycle))
+    {
+        return Err(format!(
+            "{label}: the rung '{current}' is started and not committed: `rung commit` \
+             commits it, or `rung stop` leaves it"
+        )
+        .into());
+    }
+    crate::pair::refuse_conflicts(work, label, "work")?;
     if let Some(l) = &c.land {
         // The Land's own checks, before the closing is made: a
         // trapezoid onto the destination joins one that moved.
@@ -1035,16 +1424,16 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
     match (single, commits.len()) {
         (true, n) if n >= 2 => {
             return Err(format!(
-                "cycle {stage} --single-step: the branch has {n} commits, a ladder, which is \
-                 never squashed into one: --multi-step makes its closing commit"
+                "{label}: the branch has {n} commits, a ladder, and the one commit takes its \
+                 rungs squashed into the opening first, as `cycle squash` does"
             )
             .into());
         }
         (false, 0) => {
             return Err(format!(
-                "cycle {stage} --multi-step: the branch has no commit, so there is no opening \
-                 for a closing to follow: `cycle --commit` makes the opening first, or \
-                 --single-step commits the work @ as the cycle's one commit"
+                "{label}: the branch has no commit, so there is no opening for a closing to \
+                 follow: `rung commit` makes the opening first, or `cycle squash` commits the \
+                 work @ as the cycle's one commit"
             )
             .into());
         }
@@ -1061,8 +1450,8 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
         (Some(b), _) => b.clone(),
         (None, true) => {
             return Err(format!(
-                "cycle {stage} --single-step: the cycle's one commit holds the work, so it gives \
-                 --body, its problem and solution, or --default-body for the pointer at the record"
+                "{label}: the cycle's one commit holds the work, so it gives --body, its \
+                 problem and solution, or --default-body for the pointer at the record"
             )
             .into());
         }
@@ -1071,8 +1460,8 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
     let parents = match single {
         true if c.trapezoid.is_some() || !c.heads.is_empty() => {
             return Err(format!(
-                "cycle {stage} --single-step: the cycle's one commit joins nothing, so it takes \
-                 no head and no --trapezoid: --multi-step makes a closing commit that can"
+                "{label}: the cycle's one commit joins nothing, so it takes no head and no \
+                 --trapezoid: `cycle close` makes a closing commit that can"
             )
             .into());
         }
@@ -1088,8 +1477,8 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
         done.push(closing);
         done
     };
-    crate::commit::check_version(work, "@", c.rung.same_version, "cycle --close")?;
-    let ladder = record::plan_ladder(work, &done).map_err(|e| format!("cycle {stage}: {e}"))?;
+    crate::commit::check_version(work, "@", c.rung.same_version, label)?;
+    let ladder = record::plan_ladder(work, &done, None).map_err(|e| format!("{label}: {e}"))?;
     let mut moved = crate::commit::RecordMove::plan(work)?;
     // A single-step cycle's one commit has no rungs, so the block goes to
     // `## Closed` without its `#### Rungs`, which the ladder read above.
@@ -1102,14 +1491,14 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
     let unwritten = record::unwritten_items(&todo);
     if !unwritten.is_empty() {
         warn!(
-            "cycle {stage}: the record's {} still read `_To write._`, and the closing moves it to \
+            "{label}: the record's {} still read `_To write._`, and the closing moves it to \
              `## Closed` as it is",
             unwritten.join(", ")
         );
     }
     let fold = single && commits.len() == 1;
     info!(
-        "cycle {stage}: {} on '{bookmark}', '{title}'",
+        "{label}: {} on '{bookmark}', '{title}'",
         match (single, fold) {
             (true, true) => "a single-step cycle, its closing squashed into its one commit",
             (true, false) => "a single-step cycle, its one commit made now from the work @",
@@ -1123,7 +1512,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
     if r.dry_run {
         if ladder.edit.is_some() {
             info!(
-                "cycle {stage}: [dry-run] rewrite the ladder in {}, every rung done",
+                "{label}: [dry-run] rewrite the ladder in {}, every rung done",
                 record::LADDER_FILE
             );
         }
@@ -1132,7 +1521,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
         }
         if let Some(parents) = &parents {
             info!(
-                "cycle {stage}: [dry-run] the closing's parents are {}",
+                "{label}: [dry-run] the closing's parents are {}",
                 parents
                     .iter()
                     .map(|p| short(p))
@@ -1151,7 +1540,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
         }
         if let Some(l) = &c.land {
             info!(
-                "cycle --land: [dry-run] land the closing on '{}'{}, and delete the cycle's \
+                "cycle land: [dry-run] land the closing on '{}'{}, and delete the cycle's \
                  bookmark",
                 l.dest,
                 if l.push { " and publish it" } else { "" }
@@ -1172,7 +1561,7 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
         if let Some(edit) = &ladder.edit {
             std::fs::write(&edit.path, &edit.text)?;
             info!(
-                "cycle {stage}: the ladder in {} is rewritten, every rung done",
+                "{label}: the ladder in {} is rewritten, every rung done",
                 record::LADDER_FILE
             );
         }
@@ -1183,17 +1572,17 @@ fn close(ctx: &mut Context, c: &CloseCycle) -> Result<(), Box<dyn std::error::Er
             return crate::commit::finalize(ctx, work, pair.as_ref(), &title, &body, false);
         }
         if let Some(parents) = &parents {
-            crate::merge::set_parents(ctx, work, "@", parents, "cycle --close")?;
+            crate::merge::set_parents(ctx, work, "@", parents, label)?;
         }
         let mut params = commit_params(&c.rung, title, body, bookmark);
         params.land_follows = c.land.is_some();
         crate::commit::commit(ctx, &params)
     })();
     if let Err(e) = &made {
-        snapshot.restore("cycle --close", e.as_ref());
+        snapshot.restore(label, e.as_ref());
         for (path, text) in &written {
             if let Err(w) = std::fs::write(path, text) {
-                warn!("cycle {stage}: {} was not put back: {w}", path.display());
+                warn!("{label}: {} was not put back: {w}", path.display());
             }
         }
     }
@@ -1215,10 +1604,9 @@ fn land_checks(
     plain: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if !jj::local_bookmark_exists(work, dest)? {
-        return Err(format!(
-            "cycle --land: '{dest}' is not a local bookmark, and a Land moves one"
-        )
-        .into());
+        return Err(
+            format!("cycle land: '{dest}' is not a local bookmark, and a Land moves one").into(),
+        );
     }
     let at = jj::cid_of(work, dest)?;
     let remote = jj::remote_bookmark_targets(work, "origin")?
@@ -1226,7 +1614,7 @@ fn land_checks(
         .cloned();
     if remote.as_deref() != Some(at.as_str()) {
         let refusal =
-            crate::land::not_at_origin(work, "cycle --land", dest, &at, remote.as_deref(), plain)?;
+            crate::land::not_at_origin(work, "cycle land", dest, &at, remote.as_deref(), plain)?;
         return Err(refusal.into());
     }
     if let Some(tip) = tip
@@ -1240,10 +1628,10 @@ fn land_checks(
 /// The refusal of a destination that moved, naming the ways on.
 fn moved(dest: &str, at: &str) -> String {
     format!(
-        "cycle --land: the cycle does not descend from '{dest}' at {}, which moved after the \
+        "cycle land: the cycle does not descend from '{dest}' at {}, which moved after the \
          cycle forked, and a Land only fast-forwards. The ways on:\n\
-         \x20 - a merge at the Land, `cycle --land {dest} --merge`, a commit no rung validated\n\
-         \x20 - the closing made again as a trapezoid, `cycle --close --trapezoid {dest}`, \
+         \x20 - a merge at the Land, `cycle land {dest} --merge`, a commit no rung validated\n\
+         \x20 - the closing made again as a trapezoid, `cycle close --trapezoid {dest}`, \
          after `jj abandon` of the one made\n\
          \x20 - a rebase, `jj rebase -b <cycle's bookmark> -d {dest}`, every rung then validated \
          again\n\
@@ -1252,7 +1640,7 @@ fn moved(dest: &str, at: &str) -> String {
     )
 }
 
-/// `--land`: land the closed cycle on the destination.
+/// `cycle land`: land the closed cycle on the destination.
 fn land(ctx: &mut Context, l: &LandCycle) -> Result<(), Box<dyn std::error::Error>> {
     land_closed(ctx, l, None)
 }
@@ -1276,8 +1664,8 @@ fn land_closed(
     };
     if let Some(running) = todo.as_deref().and_then(|t| record::cycle_title(t).ok()) {
         return Err(format!(
-            "cycle --land: the cycle '{running}' is in progress in {}, and a Land is of a cycle \
-             closed: `cycle --close` first, or `cycle --close --land {}`",
+            "cycle land: the cycle '{running}' is in progress in {}, and a Land is of a cycle \
+             closed: `cycle close` first, or `cycle close --land {}`",
             crate::commit::RECORD,
             l.dest
         )
@@ -1299,7 +1687,7 @@ fn land_closed(
     let descends = jj::matches(work, &format!("{dest_at} & ::({source})"))?;
     match (descends, l.merge) {
         (true, true) => info!(
-            "cycle --land: '{}' has not moved, so the Land is a fast-forward and no merge is made",
+            "cycle land: '{}' has not moved, so the Land is a fast-forward and no merge is made",
             l.dest
         ),
         (true, false) => {}
@@ -1340,7 +1728,7 @@ fn land_merge(
     cycle: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let work = l.running.work.as_path();
-    let label = "cycle --land --merge";
+    let label = "cycle land --merge";
     let tip = crate::land::resolve_tip(work, label, source)?;
     if !jj::matches(work, &format!("{tip} & @-"))? || !jj::is_empty(work, "@")? {
         return Err(format!(
@@ -1391,7 +1779,7 @@ fn land_merge(
         if jj::matches(work, "@ & conflicts()")? {
             return Err(format!(
                 "{label}: the merge of '{}' and '{source}' is conflicted, so it is not made: \
-                 `jj new {} {source}` makes it for you to resolve, then `cycle --land {}`",
+                 `jj new {} {source}` makes it for you to resolve, then `cycle land {}`",
                 l.dest, l.dest, l.dest
             )
             .into());
@@ -1455,14 +1843,14 @@ fn landed_bookmarks(
     Ok(Vec::new())
 }
 
-/// `--push` alone: publish what the cycle's state calls for. A cycle
+/// `cycle push`: publish what the cycle's state calls for. A cycle
 /// in progress, or closed and not landed, is a draft, and its bookmark
 /// is pushed. A cycle landed here publishes the target its landmark is
 /// on, the one such bookmark not where its `origin` is, and its own
 /// bookmark is deleted on `origin` when it is there. Nothing to publish
 /// is said, and no error.
 fn push(ctx: &mut Context, p: &PushCycle) -> Result<(), Box<dyn std::error::Error>> {
-    let label = "cycle --push";
+    let label = "cycle push";
     let r = &p.running;
     let work = r.work.as_path();
     let path = work.join(crate::commit::RECORD);
@@ -1503,7 +1891,7 @@ fn push(ctx: &mut Context, p: &PushCycle) -> Result<(), Box<dyn std::error::Erro
     let remote = jj::remote_bookmark_targets(work, "origin")?;
     // A draft: a cycle in progress, or one closed whose bookmark stands.
     let draft = match record::cycle_title(&todo) {
-        Ok(_) => Some(cycle_bookmark(r, "--push")?),
+        Ok(_) => Some(cycle_bookmark(r, "cycle push")?),
         Err(_) => record::closed_title(&todo)
             .map(|c| {
                 r.bookmark
@@ -1583,7 +1971,7 @@ fn push(ctx: &mut Context, p: &PushCycle) -> Result<(), Box<dyn std::error::Erro
     Ok(())
 }
 
-/// `--status`: where the cycle stands, a line each, read from the
+/// `cycle status`: where the cycle stands, a line each, read from the
 /// record, the ladder, and the branch, nothing changed. What another
 /// stage would refuse is said here and refuses nothing.
 fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
@@ -1608,7 +1996,7 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
                 out.push(format!(
                     "closed: '{c}', its bookmark '{slug}' not yet landed"
                 ));
-                out.push("next: `cycle --land <BOOKMARK> -s <SCOPE>` lands it".to_string());
+                out.push("next: `cycle land <TARGET> -s <SCOPE>` lands it".to_string());
             }
             (Some(c), _) => {
                 out.push(match landed_on(work, &c)? {
@@ -1623,9 +2011,9 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
                     .filter(|b| remote.get(b.as_str()) != jj::cid_of(work, b).ok().as_ref())
                     .collect();
                 out.push(match unpublished.as_slice() {
-                    [] => "next: `cycle --open --title \"<title>\"` opens one".to_string(),
+                    [] => "next: `cycle plan start --title \"<title>\"` opens one".to_string(),
                     names => format!(
-                        "next: `cycle --push -s <SCOPE>` publishes {}, landed here and not on \
+                        "next: `cycle push -s <SCOPE>` publishes {}, landed here and not on \
                          origin",
                         names
                             .iter()
@@ -1635,12 +2023,12 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
                     ),
                 });
             }
-            _ => out.push("next: `cycle --open --title \"<title>\"` opens one".to_string()),
+            _ => out.push("next: `cycle plan start --title \"<title>\"` opens one".to_string()),
         }
         return Ok(out);
     };
     out.push(format!("cycle: {cycle}"));
-    let bookmark = match cycle_bookmark(r, "--status") {
+    let bookmark = match cycle_bookmark(r, "cycle status") {
         Ok(b) => b,
         Err(e) => {
             out.push(format!("bookmark: not found: {e}"));
@@ -1671,8 +2059,9 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
             "holds changes"
         }
     ));
+    let current = record::current_rung(work).ok().flatten();
     let rungs = record::rung_titles(&todo).and_then(|rungs| {
-        let ladder = record::ladder_of(&cycle, &rungs, &commits)?;
+        let ladder = record::ladder_of(&cycle, &rungs, &commits, current.as_deref())?;
         Ok((rungs, ladder))
     });
     let (rungs, ladder) = match rungs {
@@ -1698,29 +2087,43 @@ fn status(r: &Running) -> Result<Vec<String>, Box<dyn std::error::Error>> {
             .is_ok_and(|new| std::fs::read_to_string(&file).is_ok_and(|old| old != new))
     {
         out.push(format!(
-            "note: the ladder in {} differs, and `cycle --ladder` writes this one",
+            "note: the ladder in {} differs, and `cycle ladder` writes this one",
             record::LADDER_FILE
         ));
     }
     let closing = format!("{cycle} closing");
-    let current = rungs.iter().find(|r| !commits.contains(r));
-    out.push(match (commits.len(), current) {
-        (0, _) => {
-            "next: `cycle --commit -s <SCOPE>` makes the opening, or `cycle --close -s <SCOPE> \
-                   --single-step --body` closes a single-step cycle"
-                .to_string()
+    let started = current.filter(|c| rungs.contains(c) && !commits.contains(c));
+    let next = rungs.iter().find(|r| !commits.contains(r));
+    let one = record::is_one_rung(&cycle, &rungs);
+    out.push(match (&started, commits.len(), next) {
+        (Some(c), 0, _) if one => format!(
+            "next: '{c}' is started: `rung commit -s <SCOPE> --body ...` makes it the cycle's one \
+             commit"
+        ),
+        (None, 0, _) if one => {
+            format!("next: `rung next` starts '{cycle}', the cycle's one commit")
         }
-        (1, Some(c)) if *c == closing => "next: `cycle --close -s <SCOPE> --single-step \
-                                          --body` squashes the closing into the opening, or \
-                                          `--multi-step` makes a closing commit above it"
+        (Some(c), ..) if *c == closing => format!(
+            "next: '{c}' is started: `cycle close -s <SCOPE>` makes it, `--trapezoid \
+             <TARGET>` a merge, or `cycle squash -s <SCOPE> --body ...` makes the cycle one \
+             commit"
+        ),
+        (Some(c), 0, _) => format!(
+            "next: '{c}' is started: `cycle plan commit -s <SCOPE>` commits the plan, the opening"
+        ),
+        (Some(c), ..) => {
+            format!("next: '{c}' is started: `rung commit -s <SCOPE> --body ...` commits it")
+        }
+        (None, 0, _) => "next: `cycle plan commit -s <SCOPE>` commits the plan, the opening, or \
+                         `cycle squash -s <SCOPE> --body ...` commits the work @ as the cycle's \
+                         one commit"
             .to_string(),
-        (_, Some(c)) if *c == closing => {
-            "next: `cycle --close -s <SCOPE> --multi-step` makes the closing, `--trapezoid \
-             <BOOKMARK>` a merge"
-                .to_string()
-        }
-        (_, Some(c)) => format!("next: `cycle --commit -s <SCOPE> --title \"{c}\" --body ...`"),
-        (_, None) => "next: every rung is committed".to_string(),
+        (None, _, Some(c)) if *c == closing => format!(
+            "next: `rung next` starts '{c}', or `cycle squash -s <SCOPE> --body ...` makes the \
+             cycle one commit"
+        ),
+        (None, _, Some(c)) => format!("next: `rung next` starts '{c}'"),
+        (None, _, None) => "next: every rung is committed".to_string(),
     });
     Ok(out)
 }
@@ -1751,17 +2154,81 @@ mod tests {
     fn params(repo: &Path, args: &[&str]) -> Result<CycleParams, String> {
         let mut all = vec!["vc-x1", "cycle"];
         all.extend_from_slice(args);
-        let scoped = ["--commit", "--close", "--land"];
-        if args.iter().any(|a| scoped.contains(a)) && !args.contains(&"-s") {
+        let scoped = ["close", "squash", "land"];
+        if args.first().is_some_and(|a| scoped.contains(a)) && !args.contains(&"-s") {
             all.extend_from_slice(&["-s", "b"]);
         }
-        let mut a = parse(&all)?;
-        a.repo = Some(repo.to_path_buf());
-        CycleParams::try_from(&a)
+        if !args.is_empty() {
+            all.extend_from_slice(&["-R", repo.to_str().expect("a utf-8 path")]);
+        }
+        CycleParams::try_from(&parse(&all)?)
     }
 
     fn run(repo: &Path, args: &[&str]) -> Result<(), String> {
         cycle(&mut test_ctx(), &params(repo, args)?).map_err(|e| e.to_string())
+    }
+
+    /// Commit `@` as a rung by the code `rung commit` runs, `--title`
+    /// given as `rung commit` gives the current rung's, so a test names
+    /// the rung without starting it, and `-s b` added when no `-s` is.
+    fn commit(repo: &Path, args: &[&str]) -> Result<(), String> {
+        let mut title = None;
+        let mut all = vec!["vc-x1", "rung", "commit"];
+        let mut it = args.iter();
+        while let Some(a) = it.next() {
+            match *a {
+                "--title" => title = it.next().map(|t| t.to_string()),
+                a => all.push(a),
+            }
+        }
+        if !args.contains(&"-s") {
+            all.extend_from_slice(&["-s", "b"]);
+        }
+        all.extend_from_slice(&["-R", repo.to_str().expect("a utf-8 path")]);
+        let a = match Cli::try_parse_from(all) {
+            Ok(Cli {
+                command: Some(Commands::Rung(a)),
+                ..
+            }) => a,
+            Ok(_) => panic!("expected Rung"),
+            Err(e) => return Err(e.to_string()),
+        };
+        let rung::RungParams::Commit(mut c) = rung::RungParams::try_from(&a)? else {
+            panic!("expected rung commit");
+        };
+        c.rung.title = title;
+        commit_rung(&mut test_ctx(), &c.rung, "rung commit").map_err(|e| e.to_string())
+    }
+
+    /// Run `vc-x1 rung <args>` in `repo`.
+    fn rung(repo: &Path, args: &[&str]) -> Result<(), String> {
+        let mut all = vec!["vc-x1", "rung"];
+        all.extend_from_slice(args);
+        all.extend_from_slice(&["-R", repo.to_str().expect("a utf-8 path")]);
+        let a = match Cli::try_parse_from(all) {
+            Ok(Cli {
+                command: Some(Commands::Rung(a)),
+                ..
+            }) => a,
+            Ok(_) => panic!("expected Rung"),
+            Err(e) => return Err(e.to_string()),
+        };
+        let p = rung::RungParams::try_from(&a)?;
+        <rung::RungArgs as SubcommandRunner>::run(&mut test_ctx(), &p).map_err(|e| e.to_string())
+    }
+
+    /// The ladder lines of the working copy's `zTOC.md`, the bullets
+    /// under `## Ladder`.
+    fn ladder_lines(repo: &Path) -> Vec<String> {
+        fs::read_to_string(repo.join("zTOC.md"))
+            .expect("read zTOC.md")
+            .lines()
+            .skip_while(|l| *l != "## Ladder")
+            .skip(1)
+            .take_while(|l| !l.starts_with("## "))
+            .filter(|l| l.starts_with("- "))
+            .map(String::from)
+            .collect()
     }
 
     /// The local bookmarks on the work `@`.
@@ -1777,28 +2244,30 @@ mod tests {
         fs::write(fx.work.join("zTOC.md"), ZTOC).expect("write");
     }
 
-    /// A stage is required, the open's options need `--open`, and it
-    /// needs a name, a bare title.
+    /// A stage is required, each a subcommand, the plan's options are
+    /// its own, and it needs a name, a bare title.
     #[test]
     fn a_stage_is_required() {
         let err = parse(&["vc-x1", "cycle"]).unwrap_err();
-        assert!(err.contains("--open"), "{err}");
+        assert!(err.contains("plan") && err.contains("close"), "{err}");
         let err = parse(&["vc-x1", "cycle", "--no-record"]).unwrap_err();
-        assert!(err.contains("--open"), "{err}");
+        assert!(err.contains("--no-record"), "{err}");
+        let err = parse(&["vc-x1", "cycle", "--open"]).unwrap_err();
+        assert!(err.contains("--open"), "the stage flags are gone: {err}");
         let fx = Fixture::new("cycle-stage");
-        let err = params(&fx.work, &["--open"]).unwrap_err();
+        let err = params(&fx.work, &["plan", "start"]).unwrap_err();
         assert!(
             err.contains("--title") && err.contains("--bookmark"),
             "{err}"
         );
-        let err = params(&fx.work, &["--open", "--title", "feat: x opening"]).unwrap_err();
+        let err = params(&fx.work, &["plan", "start", "--title", "feat: x opening"]).unwrap_err();
         assert!(
-            err.contains("opening") && err.contains("cycle --open"),
+            err.contains("opening") && err.contains("cycle plan"),
             "{err}"
         );
     }
 
-    /// `--open` makes the bookmark on the work `@` and writes the
+    /// `cycle plan` makes the bookmark on the work `@` and writes the
     /// record into the working copy, nothing committed, and a dry run
     /// does neither.
     #[test]
@@ -1807,20 +2276,23 @@ mod tests {
         write_record(&fx);
         run(
             &fx.work,
-            &["--open", "--title", "feat: a cycle", "--dry-run"],
+            &["plan", "start", "--title", "feat: a cycle", "--dry-run"],
         )
         .expect("a dry run");
         assert_eq!(bookmarks_at(&fx.work), "", "a dry run makes none");
         assert_eq!(fs::read_to_string(fx.work.join("TODO.md")).unwrap(), TODO);
 
-        run(&fx.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
         assert_eq!(bookmarks_at(&fx.work), "feat-a-cycle");
         let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
         assert!(todo.contains("## In Progress\n\nThe record's home.\n\n### feat: a cycle\n"));
         assert!(!todo.contains("chore: the last cycle"), "{todo}");
         let ztoc = fs::read_to_string(fx.work.join("zTOC.md")).unwrap();
         assert!(
-            ztoc.contains("- 0 (current) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)\n"),
+            ztoc.contains(
+                "- [feat: a cycle opening](TODO.md#feat-a-cycle-opening)\n\
+                 - [feat: a cycle closing](TODO.md#feat-a-cycle-closing)\n"
+            ),
             "{ztoc}"
         );
         assert_eq!(
@@ -1836,8 +2308,8 @@ mod tests {
     fn open_refuses_before_anything_is_made() {
         let fx = Fixture::new("cycle-open-refused");
         write_record(&fx);
-        run(&fx.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
-        let err = run(&fx.work, &["--open", "--title", "fix: another"]).unwrap_err();
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
+        let err = run(&fx.work, &["plan", "start", "--title", "fix: another"]).unwrap_err();
         assert!(err.contains("in progress"), "{err}");
         assert_eq!(bookmarks_at(&fx.work), "feat-a-cycle", "no second bookmark");
 
@@ -1847,37 +2319,91 @@ mod tests {
             &fx.work,
             &["bookmark", "create", "feat-a-cycle", "-r", "main"],
         );
-        let err = run(&fx.work, &["--open", "--title", "feat: a cycle"]).unwrap_err();
+        let err = run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).unwrap_err();
         assert!(err.contains("exists"), "{err}");
         assert_eq!(fs::read_to_string(fx.work.join("TODO.md")).unwrap(), TODO);
     }
 
-    /// A workspace without its record is refused, nothing made, and
-    /// `--no-record` and a bookmark with no title get the bookmark alone.
+    /// A fresh workspace's record is `init`'s skeletons, which a plan
+    /// writes the cycle into, and a workspace without them, made before
+    /// `init` wrote them, gets them from the plan, a dry run writing
+    /// none. `--no-record` and a bookmark with no title get the bookmark
+    /// alone.
     #[test]
     fn open_makes_the_bookmark_alone() {
         let fx = Fixture::new("cycle-open-alone");
-        let err = run(&fx.work, &["--open", "--title", "feat: a cycle"]).unwrap_err();
-        assert!(
-            err.contains("no TODO.md or zTOC.md") && err.contains("--no-record"),
-            "{err}"
-        );
-        assert_eq!(bookmarks_at(&fx.work), "", "nothing made");
-        fs::write(fx.work.join("TODO.md"), TODO).expect("write");
-        let err = run(&fx.work, &["--open", "--title", "feat: a cycle"]).unwrap_err();
-        assert!(err.contains("no zTOC.md,"), "{err}");
+        let skeleton = |name: &str| fs::read_to_string(fx.work.join(name)).unwrap();
+        assert_eq!(skeleton("TODO.md"), record::TODO_SKELETON, "init's");
+        assert_eq!(skeleton("zTOC.md"), record::LADDER_SKELETON, "init's");
         run(
             &fx.work,
-            &["--open", "--title", "feat: a cycle", "--no-record"],
+            &["plan", "start", "--title", "feat: a cycle", "--no-record"],
         )
         .expect("alone");
         assert_eq!(bookmarks_at(&fx.work), "feat-a-cycle");
+        assert_eq!(
+            skeleton("TODO.md"),
+            record::TODO_SKELETON,
+            "--no-record writes none"
+        );
+
+        let fx = Fixture::new("cycle-open-skeleton");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("planned");
+        let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
+        assert!(
+            todo.contains("## In Progress\n\n### feat: a cycle\n")
+                && todo.contains("##### feat: a cycle opening")
+                && todo.contains("## Todo\n\n## Closed\n"),
+            "{todo}"
+        );
+        let ztoc = fs::read_to_string(fx.work.join("zTOC.md")).unwrap();
+        assert!(
+            ztoc.contains(
+                "## Ladder\n\n- [feat: a cycle opening](TODO.md#feat-a-cycle-opening)\n\
+                 - [feat: a cycle closing](TODO.md#feat-a-cycle-closing)\n"
+            ),
+            "{ztoc}"
+        );
+        run(&fx.work, &["ladder"]).expect("the skeleton's record is a cycle's");
+
+        let fx = Fixture::new("cycle-open-neither");
+        fs::remove_file(fx.work.join("TODO.md")).expect("remove init's");
+        fs::remove_file(fx.work.join("zTOC.md")).expect("remove init's");
+        run(
+            &fx.work,
+            &["plan", "start", "--title", "feat: a cycle", "--dry-run"],
+        )
+        .expect("a dry run");
+        assert!(!fx.work.join("TODO.md").exists(), "a dry run writes none");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("planned");
+        assert!(
+            fs::read_to_string(fx.work.join("TODO.md"))
+                .unwrap()
+                .contains("### feat: a cycle\n"),
+            "the skeleton is made, the record in it"
+        );
+
+        let fx = Fixture::new("cycle-open-one-missing");
+        fs::write(fx.work.join("TODO.md"), TODO).expect("write");
+        fs::remove_file(fx.work.join("zTOC.md")).expect("remove init's");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("planned");
+        let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
+        assert!(
+            todo.contains("The record's home."),
+            "the file there is kept: {todo}"
+        );
+        assert!(
+            fs::read_to_string(fx.work.join("zTOC.md"))
+                .unwrap()
+                .contains("- [feat: a cycle opening]"),
+            "the missing one is made"
+        );
 
         let fx = Fixture::new("cycle-open-no-record");
         write_record(&fx);
         run(
             &fx.work,
-            &["--open", "--title", "feat: a cycle", "--no-record"],
+            &["plan", "start", "--title", "feat: a cycle", "--no-record"],
         )
         .expect("opened");
         assert_eq!(bookmarks_at(&fx.work), "feat-a-cycle");
@@ -1885,19 +2411,19 @@ mod tests {
 
         let fx = Fixture::new("cycle-open-named");
         write_record(&fx);
-        run(&fx.work, &["--open", "--bookmark", "mine"]).expect("opened");
+        run(&fx.work, &["plan", "start", "--bookmark", "mine"]).expect("opened");
         assert_eq!(bookmarks_at(&fx.work), "mine");
         assert_eq!(fs::read_to_string(fx.work.join("TODO.md")).unwrap(), TODO);
     }
 
-    /// `--ladder` makes the ladder from the rung headings, a commit of
+    /// `cycle ladder` makes the ladder from the rung headings, a commit of
     /// a rung's title making it done, and a commit that is no rung's is
     /// refused, the ladder left as it was.
     #[test]
     fn ladder_is_made_from_the_headings_and_the_commits() {
         let fx = Fixture::new("cycle-ladder");
         write_record(&fx);
-        run(&fx.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
         let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
         let planned = todo.replace(
             "##### feat: a cycle closing",
@@ -1906,15 +2432,15 @@ mod tests {
         fs::write(fx.work.join("TODO.md"), planned).expect("write");
         let ladder = || fs::read_to_string(fx.work.join("zTOC.md")).unwrap();
 
-        run(&fx.work, &["--ladder", "--dry-run"]).expect("a dry run");
+        run(&fx.work, &["ladder", "--dry-run"]).expect("a dry run");
         assert!(
             !ladder().contains("feat: one rung"),
             "a dry run writes none"
         );
-        run(&fx.work, &["--ladder"]).expect("made");
+        run(&fx.work, &["ladder"]).expect("made");
         assert!(
             ladder().contains(
-                "- 0 (current) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)\n\
+                "- [feat: a cycle opening](TODO.md#feat-a-cycle-opening)\n\
                  - [feat: one rung](TODO.md#feat-one-rung)\n\
                  - [feat: a cycle closing](TODO.md#feat-a-cycle-closing)\n"
             ),
@@ -1923,11 +2449,11 @@ mod tests {
         );
 
         jj_ok(&fx.work, &["commit", "-m", "feat: a cycle opening"]);
-        run(&fx.work, &["--ladder"]).expect("made");
+        run(&fx.work, &["ladder"]).expect("made");
         assert!(
             ladder().contains(
                 "- 0 (done) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)\n\
-                 - 1 (current) [feat: one rung](TODO.md#feat-one-rung)\n"
+                 - [feat: one rung](TODO.md#feat-one-rung)\n"
             ),
             "{}",
             ladder()
@@ -1935,30 +2461,32 @@ mod tests {
 
         let before = ladder();
         jj_ok(&fx.work, &["commit", "-m", "wip: not a rung"]);
-        let err = run(&fx.work, &["--ladder"]).unwrap_err();
+        let err = run(&fx.work, &["ladder"]).unwrap_err();
         assert!(err.contains("'wip: not a rung'"), "{err}");
         assert_eq!(ladder(), before);
     }
 
-    /// `--ladder` reads the cycle in progress, so it takes no title, and
-    /// needs the cycle's bookmark, named when it is not the slug.
+    /// `cycle ladder` reads the cycle in progress, so it takes no title, and
+    /// once a rung is done needs the cycle's bookmark, named when it is
+    /// not the slug.
     #[test]
     fn ladder_needs_the_cycle_and_its_bookmark() {
         let fx = Fixture::new("cycle-ladder-needs");
         write_record(&fx);
-        let err = params(&fx.work, &["--ladder", "--title", "feat: x"]).unwrap_err();
-        assert!(err.contains("cannot be used with"), "{err}");
-        let err = run(&fx.work, &["--ladder"]).unwrap_err();
+        let err = params(&fx.work, &["ladder", "--title", "feat: x"]).unwrap_err();
+        assert!(err.contains("unexpected argument '--title'"), "{err}");
+        let err = run(&fx.work, &["ladder"]).unwrap_err();
         assert!(err.contains("no cycle in progress"), "{err}");
 
-        run(&fx.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
+        commit(&fx.work, &[]).expect("the opening");
         jj_ok(&fx.work, &["bookmark", "rename", "feat-a-cycle", "mine"]);
-        let err = run(&fx.work, &["--ladder"]).unwrap_err();
+        let err = run(&fx.work, &["ladder"]).unwrap_err();
         assert!(
             err.contains("'feat-a-cycle'") && err.contains("--bookmark"),
             "{err}"
         );
-        run(&fx.work, &["--ladder", "--bookmark", "mine"]).expect("made");
+        run(&fx.work, &["ladder", "--bookmark", "mine"]).expect("made");
     }
 
     /// A file's text at a revision.
@@ -1973,7 +2501,7 @@ mod tests {
     fn planned(tag: &str) -> Fixture {
         let fx = Fixture::new(tag);
         write_record(&fx);
-        run(&fx.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
         let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
         let planned = todo.replace(
             "##### feat: a cycle closing",
@@ -1984,21 +2512,21 @@ mod tests {
     }
 
     /// The cycle's first commit is its opening, titled and bodied by
-    /// default, the ladder in it showing it done and the next rung
-    /// current, the cycle's bookmark on it, and the pair stamped.
+    /// default, the ladder in it showing it done and no rung current,
+    /// the cycle's bookmark on it, and the pair stamped.
     #[test]
     fn the_first_commit_is_the_opening() {
         let fx = planned("cycle-commit-opening");
-        run(&fx.work, &["--commit", "--dry-run"]).expect("a dry run");
+        commit(&fx.work, &["--dry-run"]).expect("a dry run");
         assert_eq!(bookmarks_at(&fx.work), "feat-a-cycle", "nothing committed");
         assert!(
-            fs::read_to_string(fx.work.join("zTOC.md"))
+            !fs::read_to_string(fx.work.join("zTOC.md"))
                 .unwrap()
-                .contains("- 0 (current)"),
+                .contains("(done) [feat: a cycle opening]"),
             "a dry run writes no ladder"
         );
 
-        run(&fx.work, &["--commit"]).expect("the opening");
+        commit(&fx.work, &[]).expect("the opening");
         let desc = description(&fx.work, "@-");
         assert!(
             desc.starts_with(
@@ -2018,7 +2546,7 @@ mod tests {
         assert!(
             file_at(&fx.work, "@-", "zTOC.md").contains(
                 "- 0 (done) [feat: a cycle opening](TODO.md#feat-a-cycle-opening)\n\
-                 - 1 (current) [feat: one rung](TODO.md#feat-one-rung)\n\
+                 - [feat: one rung](TODO.md#feat-one-rung)\n\
                  - [feat: a cycle closing](TODO.md#feat-a-cycle-closing)\n"
             ),
             "the commit carries the ladder"
@@ -2034,16 +2562,15 @@ mod tests {
     #[test]
     fn a_work_rung_is_committed_under_its_heading() {
         let fx = planned("cycle-commit-rung");
-        run(&fx.work, &["--commit"]).expect("the opening");
+        commit(&fx.work, &[]).expect("the opening");
         fs::write(fx.work.join("work.txt"), "the rung's work\n").expect("write");
         let rung = [
-            "--commit",
             "--title",
             "feat: one rung",
             "--body",
             "Why.\n\nSolution: how.",
         ];
-        run(&fx.work, &rung).expect("the rung");
+        commit(&fx.work, &rung).expect("the rung");
         let desc = description(&fx.work, "@-");
         assert!(
             desc.starts_with("feat: one rung\n\nWhy.\n\nSolution: how.\n"),
@@ -2052,7 +2579,7 @@ mod tests {
         assert!(
             file_at(&fx.work, "@-", "zTOC.md").contains(
                 "- 1 (done) [feat: one rung](TODO.md#feat-one-rung)\n\
-                 - 2 (current) [feat: a cycle closing](TODO.md#feat-a-cycle-closing)\n"
+                 - [feat: a cycle closing](TODO.md#feat-a-cycle-closing)\n"
             ),
             "the commit carries the ladder"
         );
@@ -2091,46 +2618,30 @@ mod tests {
     #[test]
     fn a_commit_that_is_no_rungs_is_refused() {
         let fx = planned("cycle-commit-refused");
-        let rung = ["--commit", "--title", "feat: one rung", "--body", "b"];
-        let err = run(&fx.work, &rung).unwrap_err();
+        let rung = ["--title", "feat: one rung", "--body", "b"];
+        let err = commit(&fx.work, &rung).unwrap_err();
         assert!(err.contains("its opening"), "{err}");
-        run(&fx.work, &["--commit"]).expect("the opening");
+        commit(&fx.work, &[]).expect("the opening");
         let ladder = fs::read_to_string(fx.work.join("zTOC.md")).unwrap();
 
-        let err = run(&fx.work, &rung).unwrap_err();
+        let err = commit(&fx.work, &rung).unwrap_err();
         assert!(err.contains("nothing to commit"), "{err}");
         fs::write(fx.work.join("work.txt"), "work\n").expect("write");
-        let err = run(&fx.work, &["--commit"]).unwrap_err();
+        let err = commit(&fx.work, &[]).unwrap_err();
         assert!(err.contains("a work rung"), "{err}");
-        let err = run(&fx.work, &["--commit", "--title", "feat: one rung"]).unwrap_err();
+        let err = commit(&fx.work, &["--title", "feat: one rung"]).unwrap_err();
         assert!(err.contains("--body"), "{err}");
-        let err = run(
-            &fx.work,
-            &["--commit", "--title", "feat: unplanned", "--body", "b"],
-        )
-        .unwrap_err();
+        let err = commit(&fx.work, &["--title", "feat: unplanned", "--body", "b"]).unwrap_err();
         assert!(err.contains("no rung of the cycle"), "{err}");
-        let err = run(
+        let err = commit(
             &fx.work,
-            &[
-                "--commit",
-                "--title",
-                "feat: a cycle closing",
-                "--body",
-                "b",
-            ],
+            &["--title", "feat: a cycle closing", "--body", "b"],
         )
         .unwrap_err();
-        assert!(err.contains("cycle --close"), "{err}");
-        let err = run(
+        assert!(err.contains("cycle close"), "{err}");
+        let err = commit(
             &fx.work,
-            &[
-                "--commit",
-                "--title",
-                "feat: a cycle opening",
-                "--body",
-                "b",
-            ],
+            &["--title", "feat: a cycle opening", "--body", "b"],
         )
         .unwrap_err();
         assert!(err.contains("committed already"), "{err}");
@@ -2141,32 +2652,34 @@ mod tests {
         );
     }
 
-    /// `-s` is required with the stages that write commits and refused
-    /// with the rest, it is checked against the workspace, `w` makes
-    /// the work half alone, and a plain repo's commit carries no trailer.
+    /// `-s` is required with the stages that write commits and taken
+    /// by no other, it is checked against the workspace, `w` makes the
+    /// work half alone, and a plain repo's commit carries no trailer.
     #[test]
     fn the_scope_is_required_and_fits_the_workspace() {
-        for stage in [vec!["--commit"], vec!["--close"], vec!["--land", "main"]] {
+        for stage in [vec!["close"], vec!["land", "main"], vec!["push"]] {
             let mut argv = vec!["vc-x1", "cycle"];
             argv.extend(&stage);
             let err = parse(&argv).unwrap_err();
             assert!(err.contains("--scope"), "{stage:?}: {err}");
         }
-        for stage in ["--ladder", "--status"] {
+        let err = commit(Path::new("."), &["-s"]).unwrap_err();
+        assert!(err.contains("--scope"), "rung commit: {err}");
+        for stage in ["ladder", "status"] {
             parse(&["vc-x1", "cycle", stage]).expect("no scope needed");
         }
         let fx = planned("cycle-commit-scope");
-        let err = params(&fx.work, &["--status", "-s", "b"]).unwrap_err();
-        assert!(err.contains("takes no -s"), "{err}");
-        let err = params(&fx.work, &["--land", "main", "-s", "p"]).unwrap_err();
+        let err = params(&fx.work, &["status", "-s", "b"]).unwrap_err();
+        assert!(err.contains("unexpected argument '-s'"), "{err}");
+        let err = params(&fx.work, &["land", "main", "-s", "p"]).unwrap_err();
         assert!(err.contains("dual workspace"), "{err}");
-        let err = params(&fx.work, &["--commit", "-s", "p"]).unwrap_err();
+        let err = commit(&fx.work, &["-s", "p"]).unwrap_err();
         assert!(err.contains("dual workspace"), "{err}");
         let agent_at = jj_ok(
             &fx.bot,
             &["log", "-r", "@", "--no-graph", "-T", "change_id.short(12)"],
         );
-        run(&fx.work, &["--commit", "-s", "w"]).expect("the work half");
+        commit(&fx.work, &["-s", "w"]).expect("the work half");
         assert!(description(&fx.work, "@-").contains(&format!("ochid: {agent_at}")));
         assert_eq!(
             jj_ok(
@@ -2180,10 +2693,10 @@ mod tests {
         let por = crate::test_helpers::FixturePor::new("cycle-commit-por");
         fs::write(por.work.join("TODO.md"), TODO).expect("write");
         fs::write(por.work.join("zTOC.md"), ZTOC).expect("write");
-        let err = params(&por.work, &["--commit", "-s", "b"]).unwrap_err();
+        let err = commit(&por.work, &["-s", "b"]).unwrap_err();
         assert!(err.contains("plain repo"), "{err}");
-        run(&por.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
-        run(&por.work, &["--commit", "-s", "p"]).expect("the opening");
+        run(&por.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
+        commit(&por.work, &["-s", "p"]).expect("the opening");
         let desc = description(&por.work, "@-");
         assert!(desc.starts_with("feat: a cycle opening\n"), "{desc}");
         assert!(!desc.contains("ochid:"), "{desc}");
@@ -2259,49 +2772,26 @@ mod tests {
     fn a_cycle_with_no_commit_closes_as_one_commit() {
         let fx = Fixture::new("cycle-close-none");
         write_record(&fx);
-        run(&fx.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
         fs::write(fx.work.join("work.txt"), "the work\n").expect("write");
-        let err = run(&fx.work, &["--close", "--single-step"]).unwrap_err();
+        let err = run(&fx.work, &["squash"]).unwrap_err();
         assert!(
             err.contains("--body") && err.contains("--default-body"),
             "{err}"
         );
-        let err = run(
-            &fx.work,
-            &[
-                "--close",
-                "--single-step",
-                "--trapezoid",
-                "main",
-                "--body",
-                "b",
-            ],
-        )
-        .unwrap_err();
-        assert!(err.contains("joins nothing"), "{err}");
+        let err = run(&fx.work, &["squash", "--trapezoid", "main", "--body", "b"]).unwrap_err();
+        assert!(
+            err.contains("unexpected argument"),
+            "the one commit joins nothing: {err}"
+        );
         run(
             &fx.work,
-            &[
-                "--close",
-                "--single-step",
-                "--body",
-                "Why.\n\nSolution: how.",
-                "--dry-run",
-            ],
+            &["squash", "--body", "Why.\n\nSolution: how.", "--dry-run"],
         )
         .expect("a dry run");
         assert!(above_main(&fx.work).is_empty(), "a dry run commits nothing");
 
-        run(
-            &fx.work,
-            &[
-                "--close",
-                "--single-step",
-                "--body",
-                "Why.\n\nSolution: how.",
-            ],
-        )
-        .expect("closed");
+        run(&fx.work, &["squash", "--body", "Why.\n\nSolution: how."]).expect("closed");
         assert_eq!(above_main(&fx.work), ["feat: a cycle"]);
         assert!(
             description(&fx.work, "@-").contains("Solution: how.\n\n"),
@@ -2327,8 +2817,8 @@ mod tests {
     fn a_cycle_of_one_commit_closes_into_it() {
         let fx = Fixture::new("cycle-close-one");
         write_record(&fx);
-        run(&fx.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
-        run(&fx.work, &["--commit"]).expect("the opening");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
+        commit(&fx.work, &[]).expect("the opening");
         let opening = jj_ok(
             &fx.work,
             &["log", "-r", "@-", "--no-graph", "-T", "change_id.short(12)"],
@@ -2341,7 +2831,7 @@ mod tests {
         let stamped = trailer(description(&fx.work, "@-"));
         fs::write(fx.work.join("work.txt"), "the work\n").expect("write");
 
-        run(&fx.work, &["--close", "--single-step", "--default-body"]).expect("closed");
+        run(&fx.work, &["squash", "--default-body"]).expect("closed");
         assert_eq!(above_main(&fx.work), ["feat: a cycle"]);
         assert_eq!(
             jj_ok(
@@ -2370,23 +2860,19 @@ mod tests {
     #[test]
     fn a_ladder_closes_with_a_closing_commit() {
         let fx = planned("cycle-close-ladder");
-        run(&fx.work, &["--commit"]).expect("the opening");
+        commit(&fx.work, &[]).expect("the opening");
         fs::write(fx.work.join("work.txt"), "work\n").expect("write");
-        run(
-            &fx.work,
-            &["--commit", "--title", "feat: one rung", "--body", "b"],
-        )
-        .expect("the rung");
+        commit(&fx.work, &["--title", "feat: one rung", "--body", "b"]).expect("the rung");
         let tip = jj_ok(
             &fx.work,
             &["log", "-r", "@-", "--no-graph", "-T", "commit_id"],
         );
         jj_ok(&fx.work, &["new", "feat-a-cycle-"]);
-        let err = run(&fx.work, &["--close", "--multi-step"]).unwrap_err();
+        let err = run(&fx.work, &["close"]).unwrap_err();
         assert!(err.contains("not on the work @ or @-"), "{err}");
         jj_ok(&fx.work, &["new", "feat-a-cycle"]);
 
-        run(&fx.work, &["--close", "--multi-step"]).expect("closed");
+        run(&fx.work, &["close"]).expect("closed");
         assert_eq!(
             above_main(&fx.work),
             [
@@ -2434,13 +2920,9 @@ mod tests {
     #[test]
     fn a_trapezoid_joins_the_destination_and_the_heads_listed() {
         let fx = planned("cycle-close-trapezoid");
-        run(&fx.work, &["--commit"]).expect("the opening");
+        commit(&fx.work, &[]).expect("the opening");
         fs::write(fx.work.join("work.txt"), "work\n").expect("write");
-        run(
-            &fx.work,
-            &["--commit", "--title", "feat: one rung", "--body", "b"],
-        )
-        .expect("the rung");
+        commit(&fx.work, &["--title", "feat: one rung", "--body", "b"]).expect("the rung");
         let tip = jj_ok(
             &fx.work,
             &["log", "-r", "@-", "--no-graph", "-T", "commit_id"],
@@ -2462,11 +2944,7 @@ mod tests {
             &["log", "-r", &side, "--no-graph", "-T", "commit_id"],
         );
 
-        run(
-            &fx.work,
-            &["--close", &side, "--multi-step", "--trapezoid", "main"],
-        )
-        .expect("closed");
+        run(&fx.work, &["close", &side, "--trapezoid", "main"]).expect("closed");
         assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle closing");
         assert_eq!(parents(&fx.work, "@-"), [main, tip, side]);
         assert_eq!(
@@ -2482,11 +2960,11 @@ mod tests {
     #[test]
     fn a_dead_end_is_a_closing_commit() {
         let fx = planned("cycle-close-dead-end");
-        let err = run(&fx.work, &["--close", "--multi-step", "--dead-end"]).unwrap_err();
+        let err = run(&fx.work, &["close", "--dead-end"]).unwrap_err();
         assert!(err.contains("no commit"), "{err}");
-        run(&fx.work, &["--commit"]).expect("the opening");
+        commit(&fx.work, &[]).expect("the opening");
         fs::write(fx.work.join("work.txt"), "kept\n").expect("write");
-        run(&fx.work, &["--close", "--multi-step", "--dead-end"]).expect("closed");
+        run(&fx.work, &["close", "--dead-end"]).expect("closed");
         assert_eq!(
             above_main(&fx.work),
             ["feat: a cycle opening", "feat: a cycle dead-end closing"]
@@ -2500,28 +2978,20 @@ mod tests {
     /// A ladder of one work rung, its two commits made, `@` on its tip.
     fn laddered(tag: &str) -> Fixture {
         let fx = planned(tag);
-        run(&fx.work, &["--commit"]).expect("the opening");
+        commit(&fx.work, &[]).expect("the opening");
         fs::write(fx.work.join("work.txt"), "work\n").expect("write");
-        run(
-            &fx.work,
-            &["--commit", "--title", "feat: one rung", "--body", "b"],
-        )
-        .expect("the rung");
+        commit(&fx.work, &["--title", "feat: one rung", "--body", "b"]).expect("the rung");
         fx
     }
 
-    /// `--close --land` lands the closing it makes: the destination is
+    /// `cycle close --land` lands the closing it makes: the destination is
     /// fast-forwarded to it and the cycle's bookmark deleted, and a dry
     /// run makes neither.
     #[test]
     fn close_and_land_chain() {
         let fx = laddered("cycle-land-chain");
         let main = cid(&fx.work, "main");
-        run(
-            &fx.work,
-            &["--close", "--multi-step", "--land", "main", "--dry-run"],
-        )
-        .expect("a dry run");
+        run(&fx.work, &["close", "--land", "main", "--dry-run"]).expect("a dry run");
         assert_eq!(cid(&fx.work, "main"), main, "a dry run lands nothing");
         assert_eq!(
             title_of(&fx.work, "@-"),
@@ -2529,7 +2999,7 @@ mod tests {
             "and closes nothing"
         );
 
-        run(&fx.work, &["--close", "--multi-step", "--land", "main"]).expect("closed and landed");
+        run(&fx.work, &["close", "--land", "main"]).expect("closed and landed");
         assert_eq!(title_of(&fx.work, "main"), "feat: a cycle closing");
         assert_eq!(cid(&fx.work, "main"), cid(&fx.work, "@-"));
         assert_eq!(
@@ -2560,19 +3030,11 @@ mod tests {
     fn a_single_step_cycle_closes_lands_and_publishes() {
         let fx = Fixture::new("cycle-land-single");
         write_record(&fx);
-        run(&fx.work, &["--open", "--title", "feat: a cycle"]).expect("opened");
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("opened");
         fs::write(fx.work.join("work.txt"), "the work\n").expect("write");
         run(
             &fx.work,
-            &[
-                "--close",
-                "--single-step",
-                "--body",
-                "Why.",
-                "--land",
-                "main",
-                "--push",
-            ],
+            &["squash", "--body", "Why.", "--land", "main", "--push"],
         )
         .expect("landed");
         assert_eq!(title_of(&fx.work, "main"), "feat: a cycle");
@@ -2588,24 +3050,24 @@ mod tests {
         );
     }
 
-    /// `--land` alone lands a cycle already closed, found by the title
+    /// `cycle land` alone lands a cycle already closed, found by the title
     /// `## Closed` holds, and a cycle in progress is refused.
     #[test]
     fn land_is_of_a_cycle_closed() {
         let fx = laddered("cycle-land-closed");
-        let err = run(&fx.work, &["--land", "main"]).unwrap_err();
+        let err = run(&fx.work, &["land", "main"]).unwrap_err();
         assert!(
-            err.contains("in progress") && err.contains("cycle --close"),
+            err.contains("in progress") && err.contains("cycle close"),
             "{err}"
         );
-        let err = params(&fx.work, &["--land", "main", "--title", "t"]).unwrap_err();
+        let err = params(&fx.work, &["land", "main", "--title", "t"]).unwrap_err();
         assert!(err.contains("--merge"), "{err}");
-        let err = params(&fx.work, &["--land", "main", "-s", "w"]).unwrap_err();
-        assert!(err.contains("work-only"), "{err}");
-        run(&fx.work, &["--close", "--multi-step"]).expect("closed");
-        let err = run(&fx.work, &["--land", "trunk"]).unwrap_err();
+        let err = params(&fx.work, &["land", "main", "-s", "w"]).unwrap_err();
+        assert!(err.contains("-s w") && err.contains("-s b"), "{err}");
+        run(&fx.work, &["close"]).expect("closed");
+        let err = run(&fx.work, &["land", "trunk"]).unwrap_err();
         assert!(err.contains("not a local bookmark"), "{err}");
-        run(&fx.work, &["--land", "main"]).expect("landed");
+        run(&fx.work, &["land", "main"]).expect("landed");
         assert_eq!(title_of(&fx.work, "main"), "feat: a cycle closing");
     }
 
@@ -2614,7 +3076,7 @@ mod tests {
     #[test]
     fn a_destination_that_moved_is_refused_or_merged() {
         let fx = laddered("cycle-land-moved");
-        run(&fx.work, &["--close", "--multi-step"]).expect("closed");
+        run(&fx.work, &["close"]).expect("closed");
         let closing = cid(&fx.work, "@-");
         // The destination moves on origin, and is synced here.
         jj_ok(&fx.work, &["new", "main", "-m", "feat: someone else's"]);
@@ -2624,14 +3086,14 @@ mod tests {
         let main = cid(&fx.work, "main");
         jj_ok(&fx.work, &["new", "feat-a-cycle"]);
 
-        let err = run(&fx.work, &["--land", "main"]).unwrap_err();
+        let err = run(&fx.work, &["land", "main"]).unwrap_err();
         assert!(
             err.contains("moved") && err.contains("--merge") && err.contains("jj rebase"),
             "{err}"
         );
         assert_eq!(cid(&fx.work, "main"), main, "nothing moved");
 
-        run(&fx.work, &["--land", "main", "--merge"]).expect("merged and landed");
+        run(&fx.work, &["land", "main", "--merge"]).expect("merged and landed");
         assert_eq!(title_of(&fx.work, "main"), "feat: a cycle merge");
         assert_eq!(parents(&fx.work, "main"), [main, closing]);
         assert_eq!(file_at(&fx.work, "main", "other.txt"), "theirs");
@@ -2642,20 +3104,428 @@ mod tests {
         );
     }
 
-    /// `--status` says where the cycle stands at each stage, and
+    /// A rung is started by `rung next`, its marker the working copy's
+    /// alone, left by `rung stop`, and ended by `rung commit`, whose
+    /// commit marks it done and none current. A started work rung holds
+    /// back the closing, and the closing is `cycle close`'s.
+    #[test]
+    fn a_rung_is_started_stopped_and_committed() {
+        let fx = planned("cycle-rung");
+        run(&fx.work, &["ladder"]).expect("laddered");
+        let err = rung(&fx.work, &["commit", "-s", "b"]).unwrap_err();
+        assert!(
+            err.contains("no rung is current") && err.contains("rung next"),
+            "{err}"
+        );
+        let err = rung(&fx.work, &["stop"]).unwrap_err();
+        assert!(err.contains("no rung is current"), "{err}");
+
+        let err = rung(&fx.work, &["next"]).unwrap_err();
+        assert!(
+            err.contains("cycle plan commit"),
+            "the opening is the plan's: {err}"
+        );
+        run(&fx.work, &["plan", "commit", "-s", "b"]).expect("the plan committed");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle opening");
+        let committed = file_at(&fx.work, "@-", "zTOC.md");
+        assert!(
+            committed.contains("- 0 (done) [feat: a cycle opening]"),
+            "{committed}"
+        );
+        assert!(!committed.contains("(current)"), "{committed}");
+        let err = run(&fx.work, &["plan", "commit", "-s", "b"]).unwrap_err();
+        assert!(err.contains("committed already"), "{err}");
+
+        rung(&fx.work, &["next"]).expect("the work rung started");
+        assert_eq!(
+            ladder_lines(&fx.work)[1],
+            "- 1 (current) [feat: one rung](TODO.md#feat-one-rung)"
+        );
+        let err = rung(&fx.work, &["next"]).unwrap_err();
+        assert!(err.contains("'feat: one rung' is started"), "{err}");
+        run(&fx.work, &["ladder"]).expect("laddered again");
+        assert!(
+            ladder_lines(&fx.work)[1].contains("(current)"),
+            "the ladder keeps it"
+        );
+        rung(&fx.work, &["stop"]).expect("stopped");
+        assert!(
+            !ladder_lines(&fx.work)
+                .iter()
+                .any(|l| l.contains("(current)"))
+        );
+        rung(&fx.work, &["next"]).expect("the work rung started again");
+        let err = run(&fx.work, &["close"]).unwrap_err();
+        assert!(err.contains("'feat: one rung' is started"), "{err}");
+        fs::write(fx.work.join("work.txt"), "work\n").expect("write");
+        let err = rung(&fx.work, &["commit", "-s", "b"]).unwrap_err();
+        assert!(
+            err.starts_with("rung commit: a work rung gives --body"),
+            "{err}"
+        );
+        rung(&fx.work, &["commit", "-s", "b", "--body", "Why.\n\nHow."]).expect("the rung");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: one rung");
+
+        rung(&fx.work, &["next"]).expect("the closing started");
+        let err = rung(&fx.work, &["commit", "-s", "b"]).unwrap_err();
+        assert!(err.contains("cycle close"), "{err}");
+        run(&fx.work, &["close"]).expect("closed");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle closing");
+        let closed = file_at(&fx.work, "@-", "zTOC.md");
+        assert!(!closed.contains("(current)"), "{closed}");
+    }
+
+    /// `TODO.md` is the ladder's source: with the cycle's bookmark not
+    /// made, the ladder is made with no rung done, and refused when the
+    /// ladder there has one done, which it would lose.
+    #[test]
+    fn the_ladder_needs_no_bookmark_before_a_commit() {
+        let fx = planned("cycle-ladder-no-bookmark");
+        jj_ok(&fx.work, &["bookmark", "delete", "feat-a-cycle"]);
+        run(&fx.work, &["ladder"]).expect("laddered without the bookmark");
+        assert_eq!(
+            ladder_lines(&fx.work),
+            [
+                "- [feat: a cycle opening](TODO.md#feat-a-cycle-opening)",
+                "- [feat: one rung](TODO.md#feat-one-rung)",
+                "- [feat: a cycle closing](TODO.md#feat-a-cycle-closing)",
+            ]
+        );
+        let ztoc = fx.work.join("zTOC.md");
+        let done = fs::read_to_string(&ztoc).expect("read").replace(
+            "- [feat: a cycle opening]",
+            "- 0 (done) [feat: a cycle opening]",
+        );
+        fs::write(&ztoc, &done).expect("write");
+        let err = run(&fx.work, &["ladder"]).unwrap_err();
+        assert!(
+            err.contains("has a rung done") && err.contains("--bookmark"),
+            "{err}"
+        );
+        assert_eq!(
+            fs::read_to_string(&ztoc).expect("read"),
+            done,
+            "nothing written"
+        );
+    }
+
+    /// A one-off is `cycle plan start`, the work, and `cycle squash`,
+    /// the plan never committed: `close` has no opening to follow.
+    #[test]
+    fn a_one_off_squashes_after_plan_start() {
+        let fx = planned("cycle-rung-single");
+        fs::write(fx.work.join("work.txt"), "work\n").expect("write");
+        let err = run(&fx.work, &["close"]).unwrap_err();
+        assert!(
+            err.contains("no opening") && err.contains("cycle squash"),
+            "{err}"
+        );
+        run(&fx.work, &["squash", "--body", "Why.\n\nHow."]).expect("closed");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle");
+        let closed = file_at(&fx.work, "@-", "zTOC.md");
+        assert!(closed.contains("- 0 (done) feat: a cycle"), "{closed}");
+        assert!(!closed.contains("(current)"), "{closed}");
+    }
+
+    /// The simple single-step: a bare `--ver` before the opening makes
+    /// a plan of only its bookends the one heading, and `rung commit
+    /// --body` makes it the cycle's one commit, the record closed in it.
+    /// A bare version with work rungs planned is refused, nothing
+    /// changed.
+    #[test]
+    fn a_bare_version_makes_a_single_step_one_rung() {
+        let fx = Fixture::new("cycle-one-rung");
+        write_record(&fx);
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("planned");
+        let path = fx.work.join(".vc-config.md");
+        let mut cfg = fs::read_to_string(&path).expect("read the config");
+        cfg.push_str(
+            "\n```toml\n[version]\nfile = \"VERSION.md\"\npattern = 'version = '\nbump = \
+             \"sh bump.sh {ver}\"\n```\n",
+        );
+        fs::write(&path, cfg).expect("write the config");
+        fs::write(
+            fx.work.join("bump.sh"),
+            "printf 'version = \"%s\"\\n' \"$1\" > VERSION.md\n",
+        )
+        .expect("write");
+
+        rung(&fx.work, &["next", "--ver", "1.0.0"]).expect("the one rung started");
+        let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
+        assert!(todo.contains("##### feat: a cycle\n"), "{todo}");
+        assert!(!todo.contains("##### feat: a cycle opening"), "{todo}");
+        assert!(!todo.contains("##### feat: a cycle closing"), "{todo}");
+        assert_eq!(ladder_lines(&fx.work), ["- 0 (current) feat: a cycle"]);
+        assert_eq!(
+            fs::read_to_string(fx.work.join("VERSION.md")).unwrap(),
+            "version = \"1.0.0\"\n"
+        );
+
+        fs::write(fx.work.join("work.txt"), "work\n").expect("write");
+        let err = rung(&fx.work, &["commit", "-s", "b"]).unwrap_err();
+        assert!(err.contains("--body"), "{err}");
+        rung(
+            &fx.work,
+            &["commit", "-s", "b", "--body", "Why.\n\nSolution: how."],
+        )
+        .expect("the one commit");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle");
+        assert!(
+            description(&fx.bot, "@-").starts_with("feat: a cycle\n"),
+            "the agent half is made too"
+        );
+        let closed = file_at(&fx.work, "@-", "TODO.md");
+        assert!(
+            closed.contains("_No cycle currently in progress._") && !closed.contains("#### Rungs"),
+            "{closed}"
+        );
+        let ladder = file_at(&fx.work, "@-", "zTOC.md");
+        assert!(ladder.contains("- 0 (done) feat: a cycle\n"), "{ladder}");
+        assert!(!ladder.contains("(current)"), "{ladder}");
+
+        let fx = planned("cycle-one-rung-refused");
+        let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
+        let err = rung(&fx.work, &["next", "--ver", "1.0.0"]).unwrap_err();
+        assert!(
+            err.contains("1.0.0-0") && err.contains("1 work rung"),
+            "{err}"
+        );
+        assert_eq!(fs::read_to_string(fx.work.join("TODO.md")).unwrap(), todo);
+        assert!(
+            !ladder_lines(&fx.work)
+                .iter()
+                .any(|l| l.contains("(current)"))
+        );
+    }
+
+    /// With no cycle in progress, `rung commit --title` commits the work
+    /// `@` verbatim on a bookmark made for it, the record untouched, and
+    /// `cycle land` lands it. Refused: no `--body`, an empty `@`, and
+    /// `--title` while a cycle is in progress.
+    #[test]
+    fn rung_commit_without_a_cycle_is_verbatim() {
+        let fx = Fixture::new("cycle-alone");
+        let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
+        let err = rung(&fx.work, &["commit", "-s", "b"]).unwrap_err();
+        assert!(
+            err.contains("no cycle is in progress") && err.contains("--title"),
+            "{err}"
+        );
+        let alone = ["commit", "-s", "b", "--title", "feat: create abc"];
+        let err = rung(&fx.work, &alone).unwrap_err();
+        assert!(err.contains("--body"), "{err}");
+        let mut with_body = alone.to_vec();
+        with_body.extend(["--body", "Why.\n\nSolution: how."]);
+        let err = rung(&fx.work, &with_body).unwrap_err();
+        assert!(err.contains("empty"), "{err}");
+        assert_eq!(bookmarks_at(&fx.work), "", "nothing made");
+
+        fs::write(fx.work.join("abc.txt"), "abc\n").expect("write");
+        rung(&fx.work, &with_body).expect("committed");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: create abc");
+        assert_eq!(
+            jj_ok(
+                &fx.work,
+                &["log", "-r", "@-", "--no-graph", "-T", "local_bookmarks"]
+            ),
+            "feat-create-abc"
+        );
+        assert!(
+            description(&fx.bot, "@-").starts_with("feat: create abc\n"),
+            "the agent half is made too"
+        );
+        assert_eq!(
+            fs::read_to_string(fx.work.join("TODO.md")).unwrap(),
+            todo,
+            "the record is untouched"
+        );
+        run(&fx.work, &["land", "main"]).expect("landed");
+        assert_eq!(title_of(&fx.work, "main"), "feat: create abc");
+
+        let fx = planned("cycle-alone-in-progress");
+        let err = rung(
+            &fx.work,
+            &["commit", "-s", "b", "--title", "feat: x", "--body", "b"],
+        )
+        .unwrap_err();
+        assert!(err.contains("is in progress"), "{err}");
+        let err = rung(&fx.work, &["commit", "-s", "b", "--record"]).unwrap_err();
+        assert!(err.contains("--title"), "{err}");
+    }
+
+    /// `--record` writes the cycle's record, its problem and solution
+    /// the body's, and closes it in the commit, and `--land` lands it in
+    /// the same invocation.
+    #[test]
+    fn rung_commit_record_writes_and_closes_the_record() {
+        let fx = Fixture::new("cycle-alone-record");
+        fs::write(fx.work.join("abc.txt"), "abc\n").expect("write");
+        rung(
+            &fx.work,
+            &[
+                "commit",
+                "-s",
+                "b",
+                "--title",
+                "feat: create abc",
+                "--body",
+                "Why.\n\nSolution: how.",
+                "--record",
+                "--land",
+                "main",
+            ],
+        )
+        .expect("committed and landed");
+        assert_eq!(title_of(&fx.work, "main"), "feat: create abc");
+        let todo = file_at(&fx.work, "main", "TODO.md");
+        assert!(todo.contains("_No cycle currently in progress._"), "{todo}");
+        assert!(
+            todo.contains(
+                "### feat: create abc\n\n#### Problem\n\nWhy.\n\n#### Solution\n\nhow.\n"
+            ),
+            "{todo}"
+        );
+        assert!(!todo.contains("#### Rungs"), "{todo}");
+        let ladder = file_at(&fx.work, "main", "zTOC.md");
+        assert!(
+            ladder.ends_with("## Ladder\n\n- 0 (done) feat: create abc"),
+            "{ladder}"
+        );
+        assert!(
+            !jj_ok(&fx.work, &["bookmark", "list"]).contains("feat-create-abc"),
+            "the cycle's bookmark is gone"
+        );
+
+        let fx = planned("cycle-alone-land-ladder");
+        commit(&fx.work, &[]).expect("the opening");
+        rung(&fx.work, &["next"]).expect("started");
+        fs::write(fx.work.join("w.txt"), "w\n").expect("write");
+        let err = rung(
+            &fx.work,
+            &["commit", "-s", "b", "--body", "b", "--land", "main"],
+        )
+        .unwrap_err();
+        assert!(err.contains("a rung of a ladder"), "{err}");
+    }
+
+    /// `cycle plan start --ver` sets the opening's version by the
+    /// config's bump once the record is written, `cycle plan commit`
+    /// commits the plan, and a plan of the one heading has no opening
+    /// to commit.
+    #[test]
+    fn plan_start_sets_the_version_and_plan_commit_commits_it() {
+        let fx = Fixture::new("cycle-plan-ver");
+        write_record(&fx);
+        let path = fx.work.join(".vc-config.md");
+        let mut cfg = fs::read_to_string(&path).expect("read the config");
+        cfg.push_str(
+            "\n```toml\n[version]\nfile = \"VERSION.md\"\npattern = 'version = '\nbump = \
+             \"sh bump.sh {ver}\"\n```\n",
+        );
+        fs::write(&path, cfg).expect("write the config");
+        fs::write(
+            fx.work.join("bump.sh"),
+            "printf 'version = \"%s\"\\n' \"$1\" > VERSION.md\n",
+        )
+        .expect("write");
+        run(
+            &fx.work,
+            &[
+                "plan",
+                "start",
+                "--title",
+                "feat: a cycle",
+                "--ver",
+                "1.0.0-0",
+            ],
+        )
+        .expect("planned");
+        assert_eq!(
+            fs::read_to_string(fx.work.join("VERSION.md")).unwrap(),
+            "version = \"1.0.0-0\"\n"
+        );
+        run(&fx.work, &["plan", "commit", "-s", "b"]).expect("the plan committed");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle opening");
+
+        let fx = Fixture::new("cycle-plan-one");
+        write_record(&fx);
+        run(&fx.work, &["plan", "start", "--title", "feat: a cycle"]).expect("planned");
+        let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
+        let one = record::one_rung_record(&todo, "feat: a cycle").expect("one heading");
+        fs::write(fx.work.join("TODO.md"), one).expect("write");
+        let err = run(&fx.work, &["plan", "commit", "-s", "b"]).unwrap_err();
+        assert!(err.contains("the one heading"), "{err}");
+    }
+
+    /// `cycle plan start --ver` is all or nothing: with no `[version]
+    /// bump` it is refused before anything is made, and a bump command
+    /// that fails puts the record back and deletes the bookmark.
+    #[test]
+    fn plan_start_ver_makes_nothing_when_the_bump_cannot_run() {
+        let fx = Fixture::new("cycle-plan-ver-none");
+        write_record(&fx);
+        let start = [
+            "plan",
+            "start",
+            "--title",
+            "feat: a cycle",
+            "--ver",
+            "1.0.0",
+        ];
+        let err = run(&fx.work, &start).unwrap_err();
+        assert!(
+            err.starts_with("cycle plan start --ver: the config has no `[version] bump`"),
+            "{err}"
+        );
+        assert_eq!(bookmarks_at(&fx.work), "", "no bookmark");
+        assert_eq!(fs::read_to_string(fx.work.join("TODO.md")).unwrap(), TODO);
+
+        let fx = Fixture::new("cycle-plan-ver-fails");
+        write_record(&fx);
+        let path = fx.work.join(".vc-config.md");
+        let mut cfg = fs::read_to_string(&path).expect("read the config");
+        cfg.push_str("\n```toml\n[version]\nbump = \"false {ver}\"\n```\n");
+        fs::write(&path, cfg).expect("write the config");
+        let err = run(&fx.work, &start).unwrap_err();
+        assert!(
+            err.contains("`false 1.0.0` failed") && err.contains("the plan is undone"),
+            "{err}"
+        );
+        assert_eq!(bookmarks_at(&fx.work), "", "the bookmark deleted");
+        assert_eq!(fs::read_to_string(fx.work.join("TODO.md")).unwrap(), TODO);
+        assert_eq!(fs::read_to_string(fx.work.join("zTOC.md")).unwrap(), ZTOC);
+    }
+
+    /// `--ver` without `[version] bump` in the config is refused, and no
+    /// rung is marked.
+    #[test]
+    fn rung_next_ver_needs_the_configs_bump() {
+        let fx = planned("cycle-rung-ver");
+        commit(&fx.work, &[]).expect("the plan");
+        let err = rung(&fx.work, &["next", "--ver", "1.2.3-1"]).unwrap_err();
+        assert!(err.contains("no `[version] bump`"), "{err}");
+        assert!(
+            !ladder_lines(&fx.work)
+                .iter()
+                .any(|l| l.contains("(current)"))
+        );
+    }
+
+    /// `cycle status` says where the cycle stands at each stage, and
     /// changes nothing.
     #[test]
     fn status_says_where_the_cycle_stands() {
         let fx = Fixture::new("cycle-status");
-        let status = |fx: &Fixture| match params(&fx.work, &["--status"]).expect("params") {
+        let status = |fx: &Fixture| match params(&fx.work, &["status"]).expect("params") {
             CycleParams::Status(r) => super::status(&r).expect("status").join("\n"),
             _ => panic!("expected Status"),
         };
+        fs::remove_file(fx.work.join("TODO.md")).expect("remove init's");
         assert!(status(&fx).contains("no TODO.md"), "{}", status(&fx));
         write_record(&fx);
         let s = status(&fx);
         assert!(
-            s.contains("cycle: none in progress") && s.contains("cycle --open"),
+            s.contains("cycle: none in progress") && s.contains("cycle plan"),
             "{s}"
         );
 
@@ -2669,30 +3539,25 @@ mod tests {
         assert!(s.contains("commits: 0 on the branch, 0 not pushed"), "{s}");
         assert!(s.contains("note: the ladder in zTOC.md differs"), "{s}");
         assert!(
-            s.contains("next: `cycle --commit -s <SCOPE>` makes the opening"),
+            s.contains("next: `cycle plan commit -s <SCOPE>` commits the plan"),
             "{s}"
         );
 
-        run(&fx.work, &["--commit"]).expect("the opening");
+        commit(&fx.work, &[]).expect("the opening");
         let s = status(&fx);
         assert!(s.contains("commits: 1 on the branch, 1 not pushed"), "{s}");
-        assert!(s.contains("  - 1 (current) feat: one rung\n"), "{s}");
+        assert!(s.contains("  - feat: one rung\n"), "{s}");
+        assert!(!s.contains("(current)"), "{s}");
         assert!(s.contains("work @: empty"), "{s}");
         assert!(!s.contains("differs"), "{s}");
         assert!(
-            s.contains("next: `cycle --commit -s <SCOPE> --title \"feat: one rung\" --body ...`"),
+            s.contains("next: `rung next` starts 'feat: one rung'"),
             "{s}"
         );
 
         fs::write(fx.work.join("work.txt"), "work\n").expect("write");
-        run(
-            &fx.work,
-            &["--commit", "--title", "feat: one rung", "--body", "b"],
-        )
-        .expect("the rung");
-        assert!(
-            status(&fx).contains("next: `cycle --close -s <SCOPE> --multi-step` makes the closing")
-        );
+        commit(&fx.work, &["--title", "feat: one rung", "--body", "b"]).expect("the rung");
+        assert!(status(&fx).contains("next: `rung next` starts 'feat: a cycle closing'"));
         jj_ok(&fx.work, &["commit", "-m", "wip: by hand"]);
         let s = status(&fx);
         assert!(
@@ -2701,20 +3566,20 @@ mod tests {
         );
         jj_ok(&fx.work, &["abandon", "@-"]);
 
-        run(&fx.work, &["--close", "--multi-step"]).expect("closed");
+        run(&fx.work, &["close"]).expect("closed");
         let s = status(&fx);
         assert!(
-            s.contains("closed: 'feat: a cycle'") && s.contains("cycle --land"),
+            s.contains("closed: 'feat: a cycle'") && s.contains("cycle land"),
             "{s}"
         );
-        run(&fx.work, &["--land", "main"]).expect("landed");
+        run(&fx.work, &["land", "main"]).expect("landed");
         let s = status(&fx);
         assert!(
             s.contains("closed: 'feat: a cycle', landed on 'main'"),
             "{s}"
         );
         assert!(
-            s.contains("next: `cycle --push -s <SCOPE>` publishes 'main'"),
+            s.contains("next: `cycle push -s <SCOPE>` publishes 'main'"),
             "{s}"
         );
     }
@@ -2740,12 +3605,12 @@ mod tests {
             "name = \"x\"\nversion = \"1.0.0-0\"\n",
         )
         .expect("write");
-        run(&fx.work, &["--commit"]).expect("the opening sets the version");
+        commit(&fx.work, &[]).expect("the opening sets the version");
         let ladder = fs::read_to_string(fx.work.join("zTOC.md")).unwrap();
 
         fs::write(fx.work.join("work.txt"), "work\n").expect("write");
-        let rung = ["--commit", "--title", "feat: one rung", "--body", "b"];
-        let err = run(&fx.work, &rung).unwrap_err();
+        let rung = ["--title", "feat: one rung", "--body", "b"];
+        let err = commit(&fx.work, &rung).unwrap_err();
         assert!(
             err.contains("VERSION.md") && err.contains("--same-version"),
             "{err}"
@@ -2758,7 +3623,7 @@ mod tests {
         )
         .expect("write");
         assert!(
-            run(&fx.work, &rung).is_err(),
+            commit(&fx.work, &rung).is_err(),
             "the version's line is as it was"
         );
 
@@ -2767,13 +3632,13 @@ mod tests {
             "name = \"y\"\nversion = \"1.0.0-1\"\n",
         )
         .expect("write");
-        run(&fx.work, &rung).expect("the version is bumped");
+        commit(&fx.work, &rung).expect("the version is bumped");
         assert_eq!(title_of(&fx.work, "@-"), "feat: one rung");
 
-        let err = run(&fx.work, &["--close", "--multi-step"]).unwrap_err();
+        let err = run(&fx.work, &["close"]).unwrap_err();
         assert!(err.contains("--same-version"), "{err}");
         assert_eq!(title_of(&fx.work, "@-"), "feat: one rung", "nothing closed");
-        run(&fx.work, &["--close", "--multi-step", "--same-version"]).expect("closed as it is");
+        run(&fx.work, &["close", "--same-version"]).expect("closed as it is");
         assert_eq!(title_of(&fx.work, "@-"), "feat: a cycle closing");
         assert_eq!(
             file_at(&fx.work, "@-", "VERSION.md"),
@@ -2855,7 +3720,7 @@ mod tests {
     }
 
     /// A Land with no cycle-record finds the one other bookmark, and with
-    /// several names `--bookmark`, the flag `cycle --land` has.
+    /// several names `--bookmark`, the flag `cycle land` has.
     #[test]
     fn several_bookmarks_name_the_flag_cycle_has() {
         let fx = Fixture::new("cycle-land-several");
@@ -2865,57 +3730,44 @@ mod tests {
             jj_ok(&fx.work, &["commit", "-m", name]);
             jj_ok(&fx.work, &["bookmark", "create", name, "-r", "@-"]);
         }
-        let err = run(&fx.work, &["--land", "main"]).unwrap_err();
+        let err = run(&fx.work, &["land", "main"]).unwrap_err();
         assert!(
-            err.starts_with("cycle --land:") && err.contains("--bookmark <NAME>"),
+            err.starts_with("cycle land:") && err.contains("--bookmark <NAME>"),
             "{err}"
         );
         assert!(!err.contains("--source"), "{err}");
-        run(&fx.work, &["--land", "main", "--bookmark", "two"]).expect("landed");
+        run(&fx.work, &["land", "main", "--bookmark", "two"]).expect("landed");
         assert_eq!(title_of(&fx.work, "main"), "two");
     }
 
-    /// `--close` names the shape, one of the two, and the branch's
-    /// commit count checks it: no commit is no ladder, two are no single
-    /// step, and one commit, the opening, takes either, the name
-    /// deciding whether the closing is squashed into it or its own.
+    /// `cycle close` is a ladder's closing, refused with no opening and
+    /// naming `cycle squash`, and takes no shape flag, and over the
+    /// opening alone it is the closing, its own commit above it.
     #[test]
-    fn the_closing_names_its_shape_and_the_count_checks_it() {
+    fn close_is_a_ladders_closing() {
         let fx = planned("cycle-close-shape");
-        let err = params(&fx.work, &["--close"]).unwrap_err();
-        assert!(
-            err.contains("--single-step") && err.contains("--multi-step"),
-            "{err}"
-        );
-        let err = parse(&[
-            "vc-x1",
-            "cycle",
-            "--close",
-            "-s",
-            "b",
-            "--single-step",
-            "--multi-step",
-        ])
-        .unwrap_err();
-        assert!(err.contains("cannot be used with"), "{err}");
-        let err = params(&fx.work, &["--close", "--single-step", "--dead-end"]).unwrap_err();
-        assert!(err.contains("--multi-step"), "{err}");
+        for gone in ["--single-step", "--multi-step", "--default-body"] {
+            let err = parse(&["vc-x1", "cycle", "close", "-s", "b", gone]).unwrap_err();
+            assert!(err.contains("unexpected argument"), "{gone}: {err}");
+        }
+        let err = params(&fx.work, &["squash", "--body", "b", "--dead-end"]).unwrap_err();
+        assert!(err.contains("unexpected argument"), "{err}");
 
         fs::write(fx.work.join("work.txt"), "work\n").expect("write");
-        let err = run(&fx.work, &["--close", "--multi-step"]).unwrap_err();
+        let err = run(&fx.work, &["close"]).unwrap_err();
         assert!(
-            err.contains("no opening") && err.contains("--single-step"),
+            err.contains("no opening") && err.contains("cycle squash"),
             "{err}"
         );
 
-        // One commit, the opening: --multi-step makes a closing above it.
-        run(&fx.work, &["--commit"]).expect("the opening");
+        // One commit, the opening: the closing is its own commit above it.
+        commit(&fx.work, &[]).expect("the opening");
         let opening = jj_ok(
             &fx.work,
             &["log", "-r", "@-", "--no-graph", "-T", "commit_id"],
         );
         fs::write(fx.work.join("more.txt"), "more\n").expect("write");
-        run(&fx.work, &["--close", "--multi-step", "--dry-run"]).expect("a dry run");
+        run(&fx.work, &["close", "--dry-run"]).expect("a dry run");
         assert_eq!(
             title_of(&fx.work, "@-"),
             "feat: a cycle opening",
@@ -2926,31 +3778,108 @@ mod tests {
         let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
         let bookends = todo.replace("##### feat: one rung\n\nIts intent.\n\n", "");
         fs::write(fx.work.join("TODO.md"), bookends).expect("write");
-        run(&fx.work, &["--close", "--multi-step"]).expect("closed");
+        run(&fx.work, &["close"]).expect("closed");
         assert_eq!(
             above_main(&fx.work),
             ["feat: a cycle opening", "feat: a cycle closing"],
             "the opening kept, the closing its own commit"
         );
         assert_eq!(parents(&fx.work, "@-"), [opening]);
+    }
 
-        // Two commits: no single step.
-        let fx = planned("cycle-close-shape-two");
-        run(&fx.work, &["--commit"]).expect("the opening");
+    /// `cycle squash` makes a ladder one commit: the rungs squashed into
+    /// the opening, whose change id is kept, under the bare title, the
+    /// record closed in it, and the agent side re-pointed, each agent
+    /// commit naming the one work commit and it naming every one.
+    #[test]
+    fn a_ladder_squashes_into_one_commit() {
+        let fx = planned("cycle-squash");
+        commit(&fx.work, &[]).expect("the opening");
         fs::write(fx.work.join("work.txt"), "work\n").expect("write");
+        commit(&fx.work, &["--title", "feat: one rung", "--body", "b"]).expect("the rung");
+        let opening = jj_ok(
+            &fx.work,
+            &[
+                "log",
+                "-r",
+                "@--",
+                "--no-graph",
+                "-T",
+                "change_id.short(12)",
+            ],
+        );
+        let agents: Vec<String> = ["@--", "@-"]
+            .iter()
+            .flat_map(|rev| crate::desc_helpers::extract_ochids(&description(&fx.work, rev)))
+            .collect();
+        assert_eq!(agents.len(), 2, "{agents:?}");
+
         run(
             &fx.work,
-            &["--commit", "--title", "feat: one rung", "--body", "b"],
+            &["squash", "--body", "Why.\n\nSolution: how.", "--dry-run"],
         )
-        .expect("rung");
-        let err = run(&fx.work, &["--close", "--single-step", "--body", "b"]).unwrap_err();
+        .expect("a dry run");
+        assert_eq!(title_of(&fx.work, "@-"), "feat: one rung", "nothing made");
+
+        run(&fx.work, &["squash", "--body", "Why.\n\nSolution: how."]).expect("squashed");
+        assert_eq!(above_main(&fx.work), ["feat: a cycle"]);
+        assert_eq!(
+            jj_ok(
+                &fx.work,
+                &["log", "-r", "@-", "--no-graph", "-T", "change_id.short(12)"]
+            ),
+            opening,
+            "the opening's change id is kept"
+        );
+        let desc = description(&fx.work, "@-");
         assert!(
-            err.contains("2 commits") && err.contains("--multi-step"),
-            "{err}"
+            desc.starts_with("feat: a cycle\n\nWhy.\n\nSolution: how.\n"),
+            "{desc}"
+        );
+        assert_eq!(crate::desc_helpers::extract_ochids(&desc), agents, "{desc}");
+        for agent in &agents {
+            let named = crate::desc_helpers::extract_ochids(&description(&fx.bot, agent));
+            assert_eq!(named, [opening.as_str()], "{agent} re-pointed");
+        }
+        let todo = file_at(&fx.work, "@-", "TODO.md");
+        assert!(
+            todo.contains("_No cycle currently in progress._") && !todo.contains("#### Rungs"),
+            "{todo}"
+        );
+        assert!(file_at(&fx.work, "@-", "zTOC.md").contains("- 0 (done) feat: a cycle"));
+        assert!(
+            fx.work.join("work.txt").is_file(),
+            "the rung's work is in it"
         );
     }
 
-    /// `--push` alone publishes what the cycle's state calls for: the
+    /// An agent commit `main@origin` reaches is rewritten only with
+    /// `--yes`, nothing rewritten without it.
+    #[test]
+    fn squash_rewrites_a_published_agent_commit_only_with_yes() {
+        let fx = planned("cycle-squash-yes");
+        commit(&fx.work, &[]).expect("the opening");
+        fs::write(fx.work.join("work.txt"), "work\n").expect("write");
+        commit(&fx.work, &["--title", "feat: one rung", "--body", "b"]).expect("the rung");
+        run(&fx.work, &["push", "-s", "b"]).expect("the draft pushed");
+        let body = ["squash", "--body", "Why.\n\nSolution: how."];
+        let err = run(&fx.work, &body).unwrap_err();
+        assert!(
+            err.contains("main@origin") && err.contains("--yes"),
+            "{err}"
+        );
+        assert_eq!(
+            title_of(&fx.work, "@-"),
+            "feat: one rung",
+            "nothing rewritten"
+        );
+        let mut yes = body.to_vec();
+        yes.push("--yes");
+        run(&fx.work, &yes).expect("squashed");
+        assert_eq!(above_main(&fx.work), ["feat: a cycle"]);
+    }
+
+    /// `cycle push` publishes what the cycle's state calls for: the
     /// draft's bookmark, then the target it landed on here with the
     /// draft's bookmark deleted on origin, then nothing.
     #[test]
@@ -2961,15 +3890,15 @@ mod tests {
                 .expect("remote")
                 .contains_key(name)
         };
-        let err = params(&fx.work, &["--push"]).unwrap_err();
+        let err = params(&fx.work, &["push"]).unwrap_err();
         assert!(err.contains("--scope"), "{err}");
-        let err = params(&fx.work, &["--push", "-s", "w"]).unwrap_err();
+        let err = params(&fx.work, &["push", "-s", "w"]).unwrap_err();
         assert!(err.contains("-s b"), "{err}");
-        let err = params(&fx.work, &["--push", "-s", "b", "--title", "t"]).unwrap_err();
-        assert!(err.contains("takes no --title"), "{err}");
+        let err = params(&fx.work, &["push", "-s", "b", "--title", "t"]).unwrap_err();
+        assert!(err.contains("unexpected argument '--title'"), "{err}");
 
-        run(&fx.work, &["--commit"]).expect("the opening");
-        run(&fx.work, &["--push", "-s", "b"]).expect("the draft pushed");
+        commit(&fx.work, &[]).expect("the opening");
+        run(&fx.work, &["push", "-s", "b"]).expect("the draft pushed");
         assert!(on_origin("feat-a-cycle"), "the draft's bookmark");
 
         let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
@@ -2978,9 +3907,9 @@ mod tests {
             todo.replace("##### feat: one rung\n\nIts intent.\n\n", ""),
         )
         .expect("write");
-        run(&fx.work, &["--close", "--multi-step"]).expect("closed");
-        run(&fx.work, &["--push", "-s", "b"]).expect("the closed draft pushed");
-        run(&fx.work, &["--land", "main"]).expect("landed here");
+        run(&fx.work, &["close"]).expect("closed");
+        run(&fx.work, &["push", "-s", "b"]).expect("the closed draft pushed");
+        run(&fx.work, &["land", "main"]).expect("landed here");
         assert_ne!(
             cid(&fx.work, "main"),
             cid(&fx.work, "main@origin"),
@@ -2991,32 +3920,29 @@ mod tests {
             "the draft's bookmark still on origin"
         );
 
-        run(&fx.work, &["--push", "-s", "b"]).expect("the target published");
+        run(&fx.work, &["push", "-s", "b"]).expect("the target published");
         assert_eq!(cid(&fx.work, "main"), cid(&fx.work, "main@origin"));
         assert!(
             !on_origin("feat-a-cycle"),
             "the draft's bookmark deleted on origin"
         );
-        run(&fx.work, &["--push", "-s", "b"]).expect("nothing left, no error");
+        run(&fx.work, &["push", "-s", "b"]).expect("nothing left, no error");
     }
 
-    /// A refusal of `--close` names everything it lacks at once.
+    /// `cycle squash` needs the one commit's body, or the pointer, and
+    /// a ladder's closing has its own.
     #[test]
-    fn the_closing_names_all_it_lacks() {
+    fn squash_needs_a_body() {
         let fx = planned("cycle-close-lacks");
-        let err = params(&fx.work, &["--close"]).unwrap_err();
+        params(&fx.work, &["close"]).expect("a ladder's closing has a body");
+        let err = params(&fx.work, &["squash"]).unwrap_err();
         assert!(
-            err.contains("shape") && err.contains("with --single-step, --body or --default-body"),
+            err.contains("--body") && err.contains("--default-body"),
             "{err}"
         );
-        let err = params(&fx.work, &["--close", "--body", "b"]).unwrap_err();
-        assert!(
-            err.contains("shape") && !err.contains("--default-body"),
-            "{err}"
-        );
-        let err = params(&fx.work, &["--close", "--single-step"]).unwrap_err();
-        assert!(err.contains("--body") && !err.contains("shape"), "{err}");
-        params(&fx.work, &["--close", "--multi-step"]).expect("a ladder's closing has a body");
+        params(&fx.work, &["squash", "--default-body"]).expect("the pointer");
+        let err = params(&fx.work, &["squash", "--body", "b", "--default-body"]).unwrap_err();
+        assert!(err.contains("cannot be used with"), "{err}");
     }
 
     /// A cycle title is a Conventional Commit of 50 characters at most,

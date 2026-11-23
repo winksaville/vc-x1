@@ -50,7 +50,7 @@
 //!   left as it is, as `push` leaves new work, and a draft below `@-`
 //!   is committed and not pushed, since push publishes `@-`.
 //! - A cycle's acts are `vc-x1 cycle`'s: its opening, its rungs, its
-//!   closing, and its Land. `cycle --commit` and `cycle --close` make
+//!   closing, and its Land. `rung commit` and `cycle close` make
 //!   their commits by [`commit`] here, and a single-step cycle's
 //!   closing by [`finalize`], and the record's move is [`RecordMove`].
 //! - The line's bookmark advances to the work commit, locally: the
@@ -127,15 +127,15 @@ pub struct CommitArgs {
     #[arg(long, value_name = "STR|@PATH", required = true)]
     pub body: Option<String>,
 
-    /// Retired: the opening, now `cycle --commit`, refused naming it.
+    /// Retired: the opening, now `rung commit`, refused naming it.
     #[arg(long = "opening", value_name = "RETIRED", hide = true, num_args = 0..=1)]
     pub retired_opening: Option<Option<String>>,
 
-    /// Retired: the closing, now `cycle --close`, refused naming it.
+    /// Retired: the closing, now `cycle close`, refused naming it.
     #[arg(long = "closing", value_name = "RETIRED", hide = true, num_args = 0..=1)]
     pub retired_closing: Option<Option<String>>,
 
-    /// Retired: the Land, now `cycle --land`, refused naming it.
+    /// Retired: the Land, now `cycle land`, refused naming it.
     #[arg(long = "land", value_name = "RETIRED", hide = true, num_args = 0..=1)]
     pub retired_land: Option<Option<String>>,
 
@@ -232,7 +232,7 @@ pub struct CommitParams {
     /// repo, each linked by an `ochid:`.
     pub covers: Option<String>,
     /// Commit a work `@` that holds no change, a merge whose parents
-    /// are its content, which `cycle --land --merge` makes.
+    /// are its content, which `cycle land --merge` makes.
     pub allow_empty: bool,
     /// Commit although the version's line is unchanged, the check
     /// `[version]` in the config asks for.
@@ -265,13 +265,9 @@ impl TryFrom<&CommitArgs> for CommitParams {
     /// description is not blank.
     fn try_from(a: &CommitArgs) -> Result<Self, String> {
         for (flag, given, stage) in [
-            ("--opening", a.retired_opening.is_some(), "cycle --commit"),
-            ("--closing", a.retired_closing.is_some(), "cycle --close"),
-            (
-                "--land",
-                a.retired_land.is_some(),
-                "cycle --land <BOOKMARK>",
-            ),
+            ("--opening", a.retired_opening.is_some(), "rung commit"),
+            ("--closing", a.retired_closing.is_some(), "cycle close"),
+            ("--land", a.retired_land.is_some(), "cycle land <BOOKMARK>"),
         ] {
             if given {
                 return Err(format!(
@@ -712,7 +708,7 @@ fn moved_record(text: &str) -> Result<Option<String>, String> {
         return Ok(None);
     }
     let closed = section(text, "## Closed").ok_or_else(|| {
-        format!("cycle --close: {RECORD} has no `## Closed` to move the cycle into")
+        format!("cycle close: {RECORD} has no `## Closed` to move the cycle into")
     })?;
     // A section's content is a cycle's block or the empty marker.
     let content = |l: &str| entry(l) || l == NONE_IN_PROGRESS;
@@ -733,7 +729,7 @@ fn moved_record(text: &str) -> Result<Option<String>, String> {
 #[derive(Debug)]
 pub(crate) struct RecordMove {
     record: PathBuf,
-    /// `TODO.md`'s text after the move, which `cycle --close` trims for
+    /// `TODO.md`'s text after the move, which `cycle close` trims for
     /// a single-step cycle.
     pub(crate) new_record: String,
 }
@@ -745,11 +741,11 @@ impl RecordMove {
     pub(crate) fn plan(repo: &Path) -> Result<Option<Self>, Box<dyn std::error::Error>> {
         let record = repo.join(RECORD);
         if !record.is_file() {
-            info!("cycle --close: no {RECORD}, so no cycle-record moves");
+            info!("cycle close: no {RECORD}, so no cycle-record moves");
             return Ok(None);
         }
         let Some(new_record) = moved_record(&std::fs::read_to_string(&record)?)? else {
-            info!("cycle --close: nothing in progress in {RECORD}, so no cycle-record moves");
+            info!("cycle close: nothing in progress in {RECORD}, so no cycle-record moves");
             return Ok(None);
         };
         Ok(Some(Self { record, new_record }))
@@ -760,9 +756,9 @@ impl RecordMove {
     pub(crate) fn write(&self, dry_run: bool) -> Result<(), Box<dyn std::error::Error>> {
         let record = self.record.display();
         let tag = if dry_run {
-            "cycle --close: [dry-run]"
+            "cycle close: [dry-run]"
         } else {
-            "cycle --close:"
+            "cycle close:"
         };
         info!("{tag} move the In Progress block of {record} into its Closed");
         if dry_run {
@@ -981,7 +977,7 @@ pub(crate) fn finalize(
             }),
             None => {
                 return Err(
-                    "cycle --close: the work @- carries no `ochid:` trailer, so it is not a \
+                    "cycle close: the work @- carries no `ochid:` trailer, so it is not a \
                      pair's commit to squash the closing into"
                         .into(),
                 );
@@ -1048,7 +1044,7 @@ fn plan_bookmarks(
     draft: Option<&Draft>,
 ) -> Result<BookmarkPlan, Box<dyn std::error::Error>> {
     // The work commit's line, the commit included: `@` when `@` is
-    // committed, whose bookmark, `cycle --open`'s, follows it to `@-`,
+    // committed, whose bookmark, `cycle plan`'s, follows it to `@-`,
     // so `main` below it is not the nearest, or the draft itself.
     let (below, target) = match draft {
         None => ("@".to_string(), "@-".to_string()),
@@ -1890,9 +1886,9 @@ mod tests {
     fn the_cycles_flags_are_retired() {
         let fx = Fixture::new("commit-retired-flags");
         for (flag, stage) in [
-            (vec!["--opening"], "cycle --commit"),
-            (vec!["--closing", "@-"], "cycle --close"),
-            (vec!["--land"], "cycle --land"),
+            (vec!["--opening"], "rung commit"),
+            (vec!["--closing", "@-"], "cycle close"),
+            (vec!["--land"], "cycle land"),
         ] {
             let mut argv = vec!["vc-x1", "commit", "-s", "b", "--title", "t", "--body", "b"];
             argv.extend(&flag);

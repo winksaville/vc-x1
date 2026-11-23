@@ -27,8 +27,11 @@ use std::process::ExitCode;
         answers this way. `cargo xtask <tab>` reaches it through cargo's own\n\
         bash completion, which hands a subcommand it does not know to the\n\
         completion registered for `cargo-<name>`, and needs bash-completion\n\
-        2.12 or later. A NAME is completed directly.\n\n\
-        Save it once and source it from ~/.bashrc:\n\n\
+        2.12 or later. A NAME is completed directly.",
+    // Shown by `-h` and `--help` alike, since installing is what a
+    // reader of either came for.
+    after_help = "\
+        Install: save it once and source it from ~/.bashrc:\n\n\
         \x20 cargo xtask completions cx > ~/.config/cargo-xtask-completion.bash\n\
         \x20 echo 'source ~/.config/cargo-xtask-completion.bash' >> ~/.bashrc"
 )]

@@ -533,6 +533,26 @@ fn copy_user_config(src: &Path, dir: &Path) -> Result<(), Box<dyn std::error::Er
     Ok(())
 }
 
+/// Write the cycle-record's files, `TODO.md` and `zTOC.md`, each its
+/// skeleton, the headings `cycle plan` writes a record into, so a new
+/// workspace is ready for its first Todo and its first cycle. A file
+/// there, an adopted repo's, is kept.
+fn write_record_files(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::cycle::record::{LADDER_FILE, LADDER_SKELETON, TODO_SKELETON};
+    for (name, text) in [
+        (crate::commit::RECORD, TODO_SKELETON),
+        (LADDER_FILE, LADDER_SKELETON),
+    ] {
+        let path = dir.join(name);
+        if path.exists() {
+            debug!("init: {} is there, and kept", path.display());
+        } else {
+            write_file(&path, text)?;
+        }
+    }
+    Ok(())
+}
+
 /// Write the dual-mode work-side `.vc-config.md` and `.gitignore`
 /// into `dir`. Used by `create_dual` for the work repo.
 ///
@@ -1550,7 +1570,7 @@ fn undo_colocation(dir: &Path) {
 /// Composes (in order):
 /// - `prepare_local_repo` -> conditional `.vc-config.md` write
 ///   (gated by `--config`) -> `write_por_gitignore` (always) ->
-///   `commit_initial` (`OchidStrategy::None`).
+///   `write_record_files` -> `commit_initial` (`OchidStrategy::None`).
 /// - `push_repo` for work side (no `clean_exclude`).
 /// - No cross-reference (no bot repo), no bot push, no symlink.
 ///
@@ -1572,6 +1592,7 @@ fn create_por(
         Some(ConfigKind::Path(p)) => copy_user_config(p, &plan.project_dir)?,
     }
     write_por_gitignore(&plan.project_dir)?;
+    write_record_files(&plan.project_dir)?;
     steps.begin(Step::CommitWork);
     let work_chid = commit_initial(
         &plan.project_dir,
@@ -1610,7 +1631,8 @@ fn create_por(
 ///
 /// Composes (in order):
 /// - Work side: `prepare_local_repo` -> `write_work_config` ->
-///   `commit_initial` (`OchidStrategy::Placeholder`).
+///   `write_record_files` -> `commit_initial`
+///   (`OchidStrategy::Placeholder`).
 /// - Bot side: `prepare_local_repo` -> `write_bot_config`
 ///   -> `commit_initial` (`OchidStrategy::Placeholder`).
 /// - `cross_ref_ochids`: rewrite both initial commits' placeholder
@@ -1652,6 +1674,7 @@ fn create_dual(
     } else {
         write_work_config(&plan.project_dir, &agent.dir, &agent_repo)?;
     }
+    write_record_files(&plan.project_dir)?;
     steps.begin(Step::CommitWork);
     let work_chid = commit_initial(
         &plan.project_dir,
