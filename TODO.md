@@ -200,6 +200,23 @@ Its tests and the rehearsal's closings follow.
 The ladder's grammar takes bookends alone, `rung next` refuses a bare `--ver` before the opening,
 and `rung commit --record` goes, its tests and README's words with them.
 
+- `ladder_of` takes bookends alone, a plan of the one heading refused, naming the single-step's
+  way, while a branch whose one commit is the cycle title still ladders as `0 (done)`, which `close
+  --squash` makes. `is_one_rung`, `one_rung_record`, and `with_body_items` go.
+- `rung next` loses the bare `--ver` shortcut: before the plan's commit it is refused, `--ver` or
+  not, naming `cycle plan commit` and `cycle close --squash`. `rung commit` loses the one rung's
+  single-step path and `--record`, so with a cycle in progress it commits a ladder's rung, and
+  without one `--title` commits verbatim. `cycle plan commit` loses its one-heading refusal, the
+  grammar refusing that plan now, and `cycle status` its one-rung hints.
+- Tests: `one_heading_is_refused` and `rung_next_before_the_plan_is_refused` replace the one-heading
+  and bare-version tests, `--record`'s test goes, and its refusal is clap's.
+- The rehearsal's cycle 4 is a single-step by the plan, one rung, and `close --squash`, and cycle 6
+  a trapezoid closed then converted by `close --squash`, 90 checks passing. It runs in the agent's
+  sandbox with `HOME` and `XDG_CONFIG_HOME` pointed at a scratch home holding a jj user, so `init`'s
+  symlink lands there: what kept the last two cycles' rehearsal for wink was the real
+  `~/.claude/projects/`, not the script.
+- README's `### rung` still describes the one heading and `--record`, the docs rung's to rewrite.
+
 ##### feat: informal commits iterate on one bookmark
 
 `rung commit --title` with no cycle in progress advances the bookmark on `@-`, `--bookmark [NAME]`

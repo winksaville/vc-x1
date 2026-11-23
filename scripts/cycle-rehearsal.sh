@@ -9,11 +9,11 @@
 #   2. a single-step cycle whose opening is committed first
 #   3. a ladder, closed as a trapezoid, with each way back from a fault
 #      found after the closing tried: fix inside, fix on top, reopen
-#   4. a simple single-step, its plan the one heading, its one rung
-#      committed by `rung commit`
+#   4. a single-step: the plan, one rung, and `cycle close --squash`
 #   5. a commit with no cycle, `rung commit --title`, verbatim, landed
 #      and published by its own `--land main --push`
-#   6. the same with `--record`, the record written and closed in it
+#   6. a trapezoid closed, then converted to one commit by `cycle close
+#      --squash`
 #   7. a ladder made one commit by `cycle close --squash`, its agent commits
 #      re-pointed to it
 #
@@ -272,21 +272,21 @@ check "the ladder is under the closing" "$(above_main "$base" main | head -1)" \
     "feat: a ladder cycle opening"
 check_landed "cycle 3" feat-a-ladder-cycle
 
-step "Cycle 4: a simple single-step, its plan the one heading"
+step "Cycle 4: a single-step, the plan, one rung, and close --squash"
 base=$(cid main)
 run "$VC" cycle plan start --title "fix: one rung"
-# No [version] here, so the one heading is written by hand: the
-# opening's renamed, the closing's subsection removed.
-sed -i 's/^##### fix: one rung opening$/##### fix: one rung/' TODO.md
-sed -i '/^##### fix: one rung closing$/,/^## /{/^## /!d}' TODO.md
+sed -i 's/^##### fix: one rung closing$/##### fix: the one rung\n\nThe rung.\n\n&/' TODO.md
+run "$VC" cycle plan commit -s b
 run "$VC" rung next
-check "the one rung is current" "$(ladder)" "- 0 (current) fix: one rung"
 echo "four" >four.txt
 run "$VC" rung commit -s b --body "The problem.
 
 Solution: the one rung."
+run "$VC" cycle close --squash -s b --body "The problem.
+
+Solution: the one rung."
 check "one commit above main" "$(above_main "$base" @-)" "fix: one rung"
-check "the ladder is the one rung done" "$(ladder)" "- 0 (done) fix: one rung"
+check "the ladder is the one commit done" "$(ladder)" "- 0 (done) fix: one rung"
 check_has "the record is in Closed" "$(sed -n '/^## Closed$/,$p' TODO.md)" "### fix: one rung"
 run "$VC" cycle land main -s b --push
 check_landed "cycle 4" fix-one-rung
@@ -302,20 +302,25 @@ check "one commit above the old main" "$(above_main "$base" main)" "feat: no cyc
 check "the record is untouched" "$(cat TODO.md)" "$before"
 check_landed "cycle 5" feat-no-cycle
 
-step "Cycle 6: a commit with no cycle, its record written"
+step "Cycle 6: a trapezoid closed, then converted by close --squash"
 base=$(cid main)
+run "$VC" cycle plan start --title "feat: converted"
+sed -i 's/^##### feat: converted closing$/##### feat: the converted rung\n\nThe rung.\n\n&/' TODO.md
+run "$VC" cycle plan commit -s b
+run "$VC" rung next
 echo "six" >six.txt
-run "$VC" rung commit -s b --title "feat: recorded" --body "The problem.
+run "$VC" rung commit -s b --body "The problem.
 
-Solution: one commit." --record
-check "one commit above main" "$(above_main "$base" @-)" "feat: recorded"
-check "the ladder is the one rung done" "$(ladder)" "- 0 (done) feat: recorded"
-check_has "the record is in Closed, its solution the body's" \
-    "$(sed -n '/^## Closed$/,$p' TODO.md)" "#### Solution
+Solution: the rung."
+run "$VC" cycle close main -s b
+check "closed as a trapezoid" "$(title @-)" "feat: converted closing"
+run "$VC" cycle close --squash -s b --body "The problem.
 
-one commit."
+Solution: one commit."
+check "one commit above main" "$(above_main "$base" @-)" "feat: converted"
+check "the ladder is the one commit done" "$(ladder)" "- 0 (done) feat: converted"
 run "$VC" cycle land main -s b --push
-check_landed "cycle 6" feat-recorded
+check_landed "cycle 6" feat-converted
 
 step "Cycle 7: a ladder made one commit by cycle close --squash"
 base=$(cid main)

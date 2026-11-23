@@ -8,14 +8,12 @@
 //!   shares, its title the rung's, the ladder it carries marking it
 //!   `(done)` and none current.
 //!
-//! A single-step's plan is one heading, the cycle title, its one rung,
-//! which `next --ver` with a bare version makes of a plan of only its
-//! bookends, and `commit` makes the cycle's one commit by `cycle
-//! squash`'s single-step code.
+//! A single-step is the plan, one rung, and `cycle close --squash`, so
+//! a rung is always a ladder's.
 //!
 //! With no cycle in progress, `commit --title` commits the work `@`
-//! as a cycle of its own, verbatim on a bookmark made for it, and with
-//! `--record` its record written and closed in the commit.
+//! as a cycle of its own, verbatim on a bookmark made for it, with no
+//! record.
 //!
 //! The marker lives in the working copy alone: a commit ends its rung
 //! and starts none, so no commit's tree claims work not yet begun.
@@ -26,8 +24,8 @@ use clap::{Args, Subcommand};
 use log::info;
 
 use super::{
-    CloseCycle, CommitRung, LandCycle, OpenCycle, Running, Where, branch_titles, commit_params,
-    commit_rung, cycle_bookmark, land_checks, land_closed, publish_scope, record, rung_params,
+    CommitRung, LandCycle, Running, Where, branch_titles, commit_params, commit_rung,
+    cycle_bookmark, land_checks, land_closed, publish_scope, record, rung_params,
 };
 use crate::context::Context;
 use crate::jj;
@@ -52,10 +50,7 @@ pub enum RungCommand {
         opening, which is no rung started here.\n\
         With --ver, set the version first, by the command the config's\n\
         `[version] bump` names, `{ver}` the version given, so the dev\n\
-        build under review carries it. A bare version, X.Y.Z, before the\n\
-        opening makes the cycle one commit: a plan of only its bookends\n\
-        becomes the one heading, the cycle title, in TODO.md, and a plan\n\
-        with work rungs is refused. No commit is made."
+        build under review carries it. No commit is made."
     )]
     Next(NextArgs),
 
@@ -74,19 +69,15 @@ pub enum RungCommand {
         publishes the rung on the cycle's bookmark, a draft. With `[version]\n\
         file` and `pattern` in the config, a commit that changes no line of\n\
         the file starting with the pattern is refused, and --same-version\n\
-        commits it as it is. A single-step's one rung, the cycle title,\n\
-        gives --body and is the cycle's one commit, the record moved to\n\
-        `## Closed` in it. The closing is `cycle close`'s. Refused with\n\
-        no rung current.\n\n\
+        commits it as it is. The closing is `cycle close`'s, and a\n\
+        single-step's one commit `cycle close --squash`'s. Refused with no\n\
+        rung current.\n\n\
         With no cycle in progress, --title commits the work @ as a cycle\n\
         of its own: a bookmark made on @, the title's slug or --bookmark's,\n\
         and the pair committed verbatim, --body required, TODO.md and\n\
-        zTOC.md untouched and not needed, main unmoved. --record writes the\n\
-        record too, planned with the one heading, its problem and solution\n\
-        the body's, and closed in the commit. --land <TARGET> lands the\n\
-        commit in the same invocation, as `cycle land` does, and with it\n\
-        --push publishes the target, as it does for a single-step's one\n\
-        rung."
+        zTOC.md untouched and not needed, main unmoved. --land <TARGET>\n\
+        lands the commit in the same invocation, as `cycle land` does, and\n\
+        with it --push publishes the target."
     )]
     Commit(CommitArgs),
 }
@@ -137,15 +128,8 @@ pub struct CommitArgs {
     #[arg(long, value_name = "STR")]
     pub title: Option<String>,
 
-    /// With --title, write the cycle's record too: planned with the one
-    /// heading, its problem and solution from the body, and closed in
-    /// the same commit
-    #[arg(long, requires = "title")]
-    pub record: bool,
-
-    /// Land the commit on TARGET in the same invocation, as `cycle
-    /// land` does, --push then publishing the target: a cycle's one
-    /// commit, or a commit with --title
+    /// With --title, land the commit on TARGET in the same invocation,
+    /// as `cycle land` does, --push then publishing the target
     #[arg(long, value_name = "TARGET")]
     pub land: Option<String>,
 
@@ -154,11 +138,10 @@ pub struct CommitArgs {
 }
 
 /// `rung commit`'s inputs: the commit's, with or without a cycle in
-/// progress, the record asked for, and the Land that follows.
+/// progress, and the Land that follows.
 #[derive(Debug)]
 pub struct RungCommit {
     pub rung: CommitRung,
-    pub record: bool,
     pub land: Option<LandCycle>,
 }
 
@@ -217,11 +200,7 @@ impl TryFrom<&RungArgs> for RungParams {
                     c.same_version,
                     "rung commit",
                 )?;
-                Ok(RungParams::Commit(Box::new(RungCommit {
-                    rung,
-                    record: c.record,
-                    land,
-                })))
+                Ok(RungParams::Commit(Box::new(RungCommit { rung, land })))
             }
         }
     }
@@ -322,43 +301,16 @@ fn next(r: &Running, ver: Option<&str>) -> Result<(), Box<dyn std::error::Error>
         )
         .into());
     }
-    let Some(mut rung) = s.rungs.iter().find(|r| !s.commits.contains(r)).cloned() else {
+    let Some(rung) = s.rungs.iter().find(|r| !s.commits.contains(r)).cloned() else {
         return Err("rung next: every rung is committed, so there is none to start".into());
-    };
-    // A bare version is only ever a cycle's last commit, so before the
-    // opening it says the cycle is one commit: a plan of only its
-    // bookends becomes the one heading, and one with work rungs is
-    // refused.
-    let one = match ver {
-        Some(v) if is_bare(v) && s.commits.is_empty() => {
-            if record::is_one_rung(&s.cycle, &s.rungs) {
-                None
-            } else if s.rungs.len() == 2 {
-                let path = r.work.join(crate::commit::RECORD);
-                let todo = std::fs::read_to_string(&path)
-                    .map_err(|e| format!("rung next: {}: {e}", path.display()))?;
-                let text = record::one_rung_record(&todo, &s.cycle)
-                    .map_err(|e| format!("rung next: {e}"))?;
-                Some((path, text))
-            } else {
-                return Err(format!(
-                    "rung next --ver {v}: a bare version is a cycle's last commit, and before the \
-                     opening it makes the cycle one commit, but the plan has {} work rung{}: give \
-                     {v}-0 for the opening, or remove the work rungs to make it a single-step",
-                    s.rungs.len() - 2,
-                    if s.rungs.len() == 3 { "" } else { "s" }
-                )
-                .into());
-            }
-        }
-        _ => None,
     };
     // The opening is the plan's commit, `cycle plan commit`'s, and no
     // rung `rung next` starts.
-    if one.is_none() && rung == format!("{} opening", s.cycle) {
+    if rung == format!("{} opening", s.cycle) {
         return Err(
             "rung next: the plan is not committed: `cycle plan commit -s <SCOPE>` commits it, the \
-             opening, and `rung next` then starts the first work rung"
+             opening, and `rung next` then starts the first work rung, or for one commit the work \
+             then `cycle close --squash -s <SCOPE> --body ...`"
                 .into(),
         );
     }
@@ -366,35 +318,12 @@ fn next(r: &Running, ver: Option<&str>) -> Result<(), Box<dyn std::error::Error>
         bump(&r.work, ver, r.dry_run, "rung next --ver")
             .map_err(|e| format!("{e}, so no rung is marked"))?;
     }
-    if let Some((path, text)) = &one {
-        rung = s.cycle.clone();
-        if r.dry_run {
-            info!(
-                "rung next: [dry-run] make the bookends in {} the one heading '{rung}', the cycle \
-                 one commit",
-                crate::commit::RECORD
-            );
-            info!("rung next: [dry-run] '{rung}' is current");
-            return Ok(());
-        }
-        std::fs::write(path, text).map_err(|e| format!("rung next: {}: {e}", path.display()))?;
-        info!(
-            "rung next: the bookends in {} are the one heading '{rung}', the cycle one commit",
-            crate::commit::RECORD
-        );
-    }
     write_ladder(r, &s, Some(&rung), "next")?;
     info!(
         "rung next: {}'{rung}' is current",
         if r.dry_run { "[dry-run] " } else { "" }
     );
     Ok(())
-}
-
-/// Whether `ver` is a bare version, `X.Y.Z` with no suffix, a cycle's
-/// last commit under the suffix scheme.
-fn is_bare(ver: &str) -> bool {
-    !ver.contains('-')
 }
 
 /// `rung stop`: clear the `(current)` marker, the edits left alone.
@@ -458,18 +387,6 @@ fn commit_current(ctx: &mut Context, rc: &RungCommit) -> Result<(), Box<dyn std:
         )
         .into());
     }
-    // The simple single-step's one rung is the cycle's one commit, made
-    // as `cycle close --squash` makes a cycle of no commit, the record closed in it.
-    if record::is_one_rung(&s.cycle, &s.rungs) {
-        if c.body.is_none() {
-            return Err(format!(
-                "rung commit: '{rung}' is the cycle's one commit, which holds the work, so it \
-                 gives --body, its problem and solution"
-            )
-            .into());
-        }
-        return super::close(ctx, &one_commit(c, rc.land.clone()), "rung commit");
-    }
     if rc.land.is_some() {
         return Err(format!(
             "rung commit --land: '{rung}' is a rung of a ladder, and a Land is of a cycle closed: \
@@ -484,27 +401,9 @@ fn commit_current(ctx: &mut Context, rc: &RungCommit) -> Result<(), Box<dyn std:
     commit_rung(ctx, &c, "rung commit")
 }
 
-/// The single-step commit `cycle close --squash` makes, from a
-/// rung commit's inputs.
-fn one_commit(c: &CommitRung, land: Option<LandCycle>) -> CloseCycle {
-    CloseCycle {
-        rung: CommitRung {
-            title: None,
-            ..c.clone()
-        },
-        heads: Vec::new(),
-        trapezoid: None,
-        default_body: false,
-        dead_end: false,
-        single_step: true,
-        land,
-    }
-}
-
 /// `rung commit --title` with no cycle in progress: the work `@`
 /// committed as a cycle of its own, on a bookmark made for it, the
-/// record written and closed in the commit with `--record`, and
-/// untouched without. Every check is made before the bookmark is.
+/// record untouched. Every check is made before the bookmark is.
 fn commit_alone(
     ctx: &mut Context,
     rc: &RungCommit,
@@ -531,27 +430,6 @@ fn commit_alone(
         bookmark: bookmark.clone(),
         dry_run,
     };
-    if rc.record {
-        super::open(
-            ctx,
-            &OpenCycle {
-                open,
-                record: Some(title.to_string()),
-                hint: false,
-                ver: None,
-            },
-        )?;
-        if dry_run {
-            info!("{label}: [dry-run] make the record the one heading, then commit it closed");
-            return Ok(());
-        }
-        let path = work.join(crate::commit::RECORD);
-        let todo = std::fs::read_to_string(&path)?;
-        let todo = record::one_rung_record(&todo, title).map_err(|e| format!("{label}: {e}"))?;
-        let todo = record::with_body_items(&todo, &body);
-        std::fs::write(&path, todo).map_err(|e| format!("{label}: {}: {e}", path.display()))?;
-        return super::close(ctx, &one_commit(c, rc.land.clone()), "rung commit");
-    }
     crate::open::open(ctx, &open)?;
     if dry_run {
         info!("{label}: [dry-run] commit the work @ as '{title}' on '{bookmark}'");

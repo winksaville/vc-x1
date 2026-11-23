@@ -6,7 +6,7 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 
 - 0 (done) [feat: the new cycle flow opening](TODO.md#feat-the-new-cycle-flow-opening)
 - 1 (done) [feat: cycle close takes its shape, a trapezoid by default](TODO.md#feat-cycle-close-takes-its-shape-a-trapezoid-by-default)
-- [feat: the one-heading single-step and --record go](TODO.md#feat-the-one-heading-single-step-and---record-go)
+- 2 (done) [feat: the one-heading single-step and --record go](TODO.md#feat-the-one-heading-single-step-and---record-go)
 - [feat: informal commits iterate on one bookmark](TODO.md#feat-informal-commits-iterate-on-one-bookmark)
 - [fix: a re-run Land finishes its push, and messages name the command run](TODO.md#fix-a-re-run-land-finishes-its-push-and-messages-name-the-command-run)
 - [docs: the new cycle flow](TODO.md#docs-the-new-cycle-flow)
