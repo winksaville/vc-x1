@@ -4,18 +4,10 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 
 ## Ladder
 
-- 0 (done) [feat: one cycle flow, plan, rungs, close opening](TODO.md#feat-one-cycle-flow-plan-rungs-close-opening)
-- 1 (done) [feat: vc-x1 rung next, stop and commit](TODO.md#feat-vc-x1-rung-next-stop-and-commit)
-- 2 (done) [feat: cycle stages are subcommands](TODO.md#feat-cycle-stages-are-subcommands)
-- 3 (done) [feat: init writes the record's files](TODO.md#feat-init-writes-the-records-files)
-- 4 (done) [feat: a single-step is one rung](TODO.md#feat-a-single-step-is-one-rung)
-- 5 (done) [feat: rung commit without a cycle](TODO.md#feat-rung-commit-without-a-cycle)
-- 6 (done) [feat: cycle squash makes one commit](TODO.md#feat-cycle-squash-makes-one-commit)
-- 7 (done) [feat: cycle plan start and commit](TODO.md#feat-cycle-plan-start-and-commit)
-- 8 (done) [docs: one cycle flow](TODO.md#docs-one-cycle-flow)
-- 9 (done) [fix: cycle plan start checks --ver before it writes](TODO.md#fix-cycle-plan-start-checks---ver-before-it-writes)
-- 10 (done) [fix: the build docs, completions -h, and Rust 1.100's new warnings](TODO.md#fix-the-build-docs-completions--h-and-rust-1100s-new-warnings)
-- 11 (done) [feat: one cycle flow, plan, rungs, close closing](TODO.md#feat-one-cycle-flow-plan-rungs-close-closing)
+- 0 (done) [feat: vc-x1 delete removes a workspace opening](TODO.md#feat-vc-x1-delete-removes-a-workspace-opening)
+- [feat: delete plans what a workspace holds](TODO.md#feat-delete-plans-what-a-workspace-holds)
+- [feat: delete removes what it planned](TODO.md#feat-delete-removes-what-it-planned)
+- [feat: vc-x1 delete removes a workspace closing](TODO.md#feat-vc-x1-delete-removes-a-workspace-closing)
 
 ## The TOC
 
