@@ -151,8 +151,9 @@ pub enum CycleCommand {
 /// the arguments every stage and every rung act shares.
 #[derive(Args, Debug)]
 pub struct Where {
-    /// The cycle's bookmark, in place of the title's slug
-    #[arg(long, value_name = "NAME")]
+    /// The cycle's bookmark, in place of the title's slug; bare, with
+    /// `rung commit --title`, the title's slug made or moved for it
+    #[arg(long, value_name = "NAME", num_args = 0..=1, default_missing_value = "")]
     pub bookmark: Option<String>,
 
     /// Where: a path in the workspace, its root or either repo, or a
@@ -168,11 +169,24 @@ pub struct Where {
 impl Where {
     /// The cycle this names, and the agent repo of a dual workspace.
     pub(crate) fn running(&self) -> Result<(Running, Option<PathBuf>), String> {
+        if self.bookmark.as_deref() == Some("") {
+            return Err(
+                "--bookmark: a bare --bookmark is `rung commit --title`'s, the title's slug: name \
+                 the bookmark, --bookmark <NAME>"
+                    .into(),
+            );
+        }
+        self.running_bare()
+    }
+
+    /// As [`Where::running`], a bare `--bookmark` taken as none, for the
+    /// one act that reads it, `rung commit --title`.
+    pub(crate) fn running_bare(&self) -> Result<(Running, Option<PathBuf>), String> {
         let (work, agent) = resolve_repos(self.repo.as_deref())?;
         Ok((
             Running {
                 work,
-                bookmark: self.bookmark.clone(),
+                bookmark: self.bookmark.clone().filter(|b| !b.is_empty()),
                 dry_run: self.dry_run.value,
             },
             agent,
@@ -3215,11 +3229,13 @@ mod tests {
     }
 
     /// With no cycle in progress, `rung commit --title` commits the work
-    /// `@` verbatim on a bookmark made for it, the record untouched, and
-    /// `cycle land` lands it. Refused: no `--body`, an empty `@`, and
-    /// `--title` while a cycle is in progress.
+    /// `@` verbatim, the record untouched: the first of a run on the
+    /// bookmark a bare `--bookmark` makes, the title's slug, the next
+    /// advancing it with no flag, and `cycle land` lands the run once.
+    /// Refused: no `--body`, an empty `@`, no flag with `main` on `@-`,
+    /// and `--title` while a cycle is in progress.
     #[test]
-    fn rung_commit_without_a_cycle_is_verbatim() {
+    fn rung_commit_without_a_cycle_iterates_on_one_bookmark() {
         let fx = Fixture::new("cycle-alone");
         let todo = fs::read_to_string(fx.work.join("TODO.md")).unwrap();
         let err = rung(&fx.work, &["commit", "-s", "b"]).unwrap_err();
@@ -3237,7 +3253,14 @@ mod tests {
         assert_eq!(bookmarks_at(&fx.work), "", "nothing made");
 
         fs::write(fx.work.join("abc.txt"), "abc\n").expect("write");
-        rung(&fx.work, &with_body).expect("committed");
+        let err = rung(&fx.work, &with_body).unwrap_err();
+        assert!(
+            err.contains("'main', a target") && err.contains("--bookmark"),
+            "{err}"
+        );
+        let mut first = with_body.clone();
+        first.push("--bookmark");
+        rung(&fx.work, &first).expect("committed");
         assert_eq!(title_of(&fx.work, "@-"), "feat: create abc");
         assert_eq!(
             jj_ok(
@@ -3250,13 +3273,37 @@ mod tests {
             description(&fx.bot, "@-").starts_with("feat: create abc\n"),
             "the agent half is made too"
         );
+
+        fs::write(fx.work.join("def.txt"), "def\n").expect("write");
+        rung(
+            &fx.work,
+            &[
+                "commit",
+                "-s",
+                "b",
+                "--title",
+                "feat: create def",
+                "--body",
+                "b",
+            ],
+        )
+        .expect("the run's second");
+        assert_eq!(
+            jj_ok(
+                &fx.work,
+                &["log", "-r", "@-", "--no-graph", "-T", "local_bookmarks"]
+            ),
+            "feat-create-abc",
+            "the bookmark advanced"
+        );
         assert_eq!(
             fs::read_to_string(fx.work.join("TODO.md")).unwrap(),
             todo,
             "the record is untouched"
         );
         run(&fx.work, &["land", "main"]).expect("landed");
-        assert_eq!(title_of(&fx.work, "main"), "feat: create abc");
+        assert_eq!(title_of(&fx.work, "main"), "feat: create def");
+        assert_eq!(title_of(&fx.work, "main-"), "feat: create abc");
 
         let fx = planned("cycle-alone-in-progress");
         let err = rung(
@@ -3270,6 +3317,69 @@ mod tests {
             err.contains("unexpected argument"),
             "--record is gone: {err}"
         );
+    }
+
+    /// `--bookmark NAME` is moved forward when it is behind `@-`, said;
+    /// sideways it asks, refused with no terminal and moved by `--yes`;
+    /// and `main` is never taken, whatever its place.
+    #[test]
+    fn rung_commit_bookmark_moves_by_direction() {
+        let fx = Fixture::new("cycle-alone-move");
+        let commit_as = |title: &str, file: &str, extra: &[&str]| {
+            fs::write(fx.work.join(file), "x\n").expect("write");
+            let mut args = vec!["commit", "-s", "b", "--title", title, "--body", "b"];
+            args.extend_from_slice(extra);
+            rung(&fx.work, &args)
+        };
+        // `old` behind @-: one commit on main, then `old` left below it.
+        commit_as("feat: one", "one.txt", &["--bookmark", "old"]).expect("one");
+        jj_ok(
+            &fx.work,
+            &["bookmark", "set", "old", "-r", "main", "--allow-backwards"],
+        );
+        commit_as("feat: two", "two.txt", &["--bookmark", "old"]).expect("moved forward");
+        assert_eq!(
+            jj_ok(
+                &fx.work,
+                &[
+                    "log",
+                    "-r",
+                    "old",
+                    "--no-graph",
+                    "-T",
+                    "description.first_line()"
+                ]
+            ),
+            "feat: two",
+            "the bookmark moved forward and advanced"
+        );
+
+        // `side` on another line: asked, refused without a terminal.
+        jj_ok(&fx.work, &["bookmark", "set", "side", "-r", "main"]);
+        jj_ok(&fx.work, &["new", "main", "-m", "a side line"]);
+        fs::write(fx.work.join("side.txt"), "side\n").expect("write");
+        jj_ok(&fx.work, &["bookmark", "set", "side", "-r", "@"]);
+        jj_ok(&fx.work, &["new", "old"]);
+        let err = commit_as("feat: three", "three.txt", &["--bookmark", "side"]).unwrap_err();
+        assert!(err.contains("--yes"), "{err}");
+        commit_as("feat: three", "three.txt", &["--bookmark", "side", "--yes"]).expect("moved");
+        assert_eq!(
+            jj_ok(
+                &fx.work,
+                &[
+                    "log",
+                    "-r",
+                    "side",
+                    "--no-graph",
+                    "-T",
+                    "description.first_line()"
+                ]
+            ),
+            "feat: three"
+        );
+
+        let err = commit_as("feat: four", "four.txt", &["--bookmark", "main"]).unwrap_err();
+        assert!(err.contains("a target"), "{err}");
     }
 
     /// `cycle plan start --ver` sets the opening's version by the

@@ -12,8 +12,11 @@
 //! a rung is always a ladder's.
 //!
 //! With no cycle in progress, `commit --title` commits the work `@`
-//! as a cycle of its own, verbatim on a bookmark made for it, with no
-//! record.
+//! verbatim, with no record, onto the bookmark on `@-`, advancing it, so
+//! a run of them iterates on one bookmark and `cycle land` lands it
+//! once. `--bookmark [NAME]` makes or moves one first, the title's slug
+//! when bare: made when absent, moved forward when behind `@-`, asked
+//! about when sideways or ahead, `--yes` answering, and never a target.
 //!
 //! The marker lives in the working copy alone: a commit ends its rung
 //! and starts none, so no commit's tree claims work not yet begun.
@@ -72,12 +75,17 @@ pub enum RungCommand {
         commits it as it is. The closing is `cycle close`'s, and a\n\
         single-step's one commit `cycle close --squash`'s. Refused with no\n\
         rung current.\n\n\
-        With no cycle in progress, --title commits the work @ as a cycle\n\
-        of its own: a bookmark made on @, the title's slug or --bookmark's,\n\
-        and the pair committed verbatim, --body required, TODO.md and\n\
-        zTOC.md untouched and not needed, main unmoved. --land <TARGET>\n\
-        lands the commit in the same invocation, as `cycle land` does, and\n\
-        with it --push publishes the target."
+        With no cycle in progress, --title commits the work @ verbatim,\n\
+        --body required, TODO.md and zTOC.md untouched and not needed, onto\n\
+        the bookmark on @-, which it advances, so a run of them iterates on\n\
+        one bookmark and `cycle land <TARGET>` lands it once. Refused with no\n\
+        bookmark on @-, several, or `main`, development never done on a\n\
+        target. --bookmark [NAME] makes or moves one first, the title's slug\n\
+        when bare: made on @ when absent, used when on @-, moved forward and\n\
+        said when behind @-, and asked about when sideways or ahead, `[y/N]`,\n\
+        --yes answering and no terminal refused. `main` is never moved.\n\
+        --land <TARGET> lands the commit in the same invocation, as `cycle\n\
+        land` does, and with it --push publishes the target."
     )]
     Commit(CommitArgs),
 }
@@ -133,16 +141,25 @@ pub struct CommitArgs {
     #[arg(long, value_name = "TARGET")]
     pub land: Option<String>,
 
+    /// With --title, move the bookmark --bookmark names when it is
+    /// sideways or ahead of @-, without asking
+    #[arg(long)]
+    pub yes: bool,
+
     #[command(flatten)]
     pub at: Where,
 }
 
 /// `rung commit`'s inputs: the commit's, with or without a cycle in
-/// progress, and the Land that follows.
+/// progress, the Land that follows, and for `--title`, whether
+/// `--bookmark` was given, its name in the running cycle's place, and
+/// whether a sideways move is answered.
 #[derive(Debug)]
 pub struct RungCommit {
     pub rung: CommitRung,
     pub land: Option<LandCycle>,
+    pub bookmark: bool,
+    pub yes: bool,
 }
 
 /// Inputs to the rung op, clap-free.
@@ -170,7 +187,15 @@ impl TryFrom<&RungArgs> for RungParams {
             }),
             RungCommand::Stop(w) => Ok(RungParams::Stop(w.running()?.0)),
             RungCommand::Commit(c) => {
-                let (running, agent) = c.at.running()?;
+                let (running, agent) = match &c.title {
+                    Some(_) => c.at.running_bare()?,
+                    None => c.at.running()?,
+                };
+                if c.yes && c.title.is_none() {
+                    return Err(
+                        "rung commit --yes: it answers --bookmark's move, with --title".into(),
+                    );
+                }
                 if let Some(t) = &c.title {
                     crate::commit::refuse_suffixed(t, "rung commit --title")
                         .map_err(|e| e.replacen("commit ", "", 1))?;
@@ -200,7 +225,12 @@ impl TryFrom<&RungArgs> for RungParams {
                     c.same_version,
                     "rung commit",
                 )?;
-                Ok(RungParams::Commit(Box::new(RungCommit { rung, land })))
+                Ok(RungParams::Commit(Box::new(RungCommit {
+                    rung,
+                    land,
+                    bookmark: c.at.bookmark.is_some(),
+                    yes: c.yes,
+                })))
             }
         }
     }
@@ -402,8 +432,9 @@ fn commit_current(ctx: &mut Context, rc: &RungCommit) -> Result<(), Box<dyn std:
 }
 
 /// `rung commit --title` with no cycle in progress: the work `@`
-/// committed as a cycle of its own, on a bookmark made for it, the
-/// record untouched. Every check is made before the bookmark is.
+/// committed verbatim onto a bookmark, the record untouched: the one
+/// `--bookmark` names, made or moved first, else the one on `@-`. Every
+/// check is made before a bookmark is made or moved.
 fn commit_alone(
     ctx: &mut Context,
     rc: &RungCommit,
@@ -416,7 +447,6 @@ fn commit_alone(
     let body = c.body.clone().ok_or_else(|| {
         format!("{label}: the commit holds the work, so it gives --body, its problem and solution")
     })?;
-    let bookmark = crate::open::bookmark_name(c.running.bookmark.as_deref(), Some(title))?;
     if jj::is_empty(work, "@")? {
         return Err(format!("{label}: the work @ is empty, so there is nothing to commit").into());
     }
@@ -424,13 +454,74 @@ fn commit_alone(
     if let Some(l) = &rc.land {
         land_checks(work, &l.dest, Some("@-"), l.agent.is_none())?;
     }
-    let open = crate::open::OpenParams {
-        work: work.to_path_buf(),
-        agent: c.agent.as_ref().map(|(a, _)| a.clone()),
-        bookmark: bookmark.clone(),
-        dry_run,
+    let target = |name: &str| name == "main" || rc.land.as_ref().is_some_and(|l| l.dest == name);
+    let (bookmark, place) = if rc.bookmark {
+        let name = crate::open::bookmark_name(c.running.bookmark.as_deref(), Some(title))?;
+        if target(&name) {
+            return Err(format!(
+                "{label} --bookmark: '{name}' is a target, and development is never done on one: \
+                 name another"
+            )
+            .into());
+        }
+        let place = placement(work, &name)?;
+        (name, place)
+    } else {
+        let on = jj::local_bookmarks_at(work, "@-")?;
+        let name = match on.as_slice() {
+            [one] => one.clone(),
+            [] => {
+                return Err(format!(
+                    "{label}: no bookmark is on @-, so the commit would advance none: --bookmark \
+                     makes one, the title's slug, or --bookmark <NAME>"
+                )
+                .into());
+            }
+            many => {
+                return Err(format!(
+                    "{label}: several bookmarks are on @-, {}: --bookmark <NAME> says which",
+                    many.join(", ")
+                )
+                .into());
+            }
+        };
+        if target(&name) {
+            return Err(format!(
+                "{label}: the bookmark on @- is '{name}', a target, and development is never done \
+                 on one: --bookmark makes one, the title's slug, or --bookmark <NAME>"
+            )
+            .into());
+        }
+        (name, Place::On)
     };
-    crate::open::open(ctx, &open)?;
+    if let Place::Sideways(at) = &place {
+        info!(
+            "{label}: '{bookmark}' is at {at}, not below @-, and moving it to @- leaves the \
+             commits it reaches that @- does not"
+        );
+        if !dry_run {
+            confirm(rc.yes, ctx.stdin_is_tty, &bookmark)?;
+        }
+    }
+    let dry = if dry_run { "[dry-run] " } else { "" };
+    match &place {
+        Place::Absent => {
+            let open = crate::open::OpenParams {
+                work: work.to_path_buf(),
+                agent: c.agent.as_ref().map(|(a, _)| a.clone()),
+                bookmark: bookmark.clone(),
+                dry_run,
+            };
+            crate::open::open(ctx, &open)?;
+        }
+        Place::On => info!("{label}: {dry}'{bookmark}' is on @-, and the commit advances it"),
+        Place::Behind(at) | Place::Sideways(at) => {
+            info!("{label}: {dry}move '{bookmark}' from {at} to @-, and the commit advances it");
+            if !dry_run {
+                ctx.session(work)?.bookmark_set(&bookmark, "@-")?;
+            }
+        }
+    }
     if dry_run {
         info!("{label}: [dry-run] commit the work @ as '{title}' on '{bookmark}'");
         return Ok(());
@@ -442,6 +533,60 @@ fn commit_alone(
         Some(l) => land_closed(ctx, l, Some(bookmark)),
         None => Ok(()),
     }
+}
+
+/// Where a bookmark `--bookmark` names is, against `@-`.
+#[derive(Debug, PartialEq, Eq)]
+enum Place {
+    /// Not made yet.
+    Absent,
+    /// On `@-`.
+    On,
+    /// Below `@-`, at the short id, moved forward with nothing left.
+    Behind(String),
+    /// Sideways or ahead of `@-`, at the short id, moved only when asked.
+    Sideways(String),
+}
+
+/// Where `name` is against the work `@-`.
+fn placement(work: &Path, name: &str) -> Result<Place, Box<dyn std::error::Error>> {
+    if !jj::local_bookmark_exists(work, name)? {
+        return Ok(Place::Absent);
+    }
+    let own = format!("bookmarks(exact:\"{name}\")");
+    if jj::matches(work, &format!("@- & {own}"))? {
+        return Ok(Place::On);
+    }
+    let at = jj::cid_short_of(work, &own)?;
+    Ok(if jj::matches(work, &format!("{own} & ::@-"))? {
+        Place::Behind(at)
+    } else {
+        Place::Sideways(at)
+    })
+}
+
+/// Ask before a sideways move, unless `--yes`. With no terminal to ask,
+/// it is refused rather than hung, and a declined answer is an error.
+fn confirm(yes: bool, stdin_is_tty: bool, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let label = "rung commit --title";
+    if yes {
+        return Ok(());
+    }
+    if !stdin_is_tty {
+        return Err(format!(
+            "{label}: moving '{name}' sideways asks, and stdin is not a terminal: --yes moves it, \
+             or --bookmark <NAME> names another"
+        )
+        .into());
+    }
+    let answer = crate::common::prompt(&format!("{label}: move '{name}' to @-? [y/N] "))?;
+    let answer = answer.trim().to_ascii_lowercase();
+    if answer != "y" && answer != "yes" {
+        return Err(
+            format!("{label}: declined (got {answer:?}), nothing moved or committed").into(),
+        );
+    }
+    Ok(())
 }
 
 /// The config's `[version] bump` as words, `{ver}` replaced by `ver`,

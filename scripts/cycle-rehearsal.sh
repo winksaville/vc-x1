@@ -10,8 +10,8 @@
 #   3. a ladder, closed as a trapezoid, with each way back from a fault
 #      found after the closing tried: fix inside, fix on top, reopen
 #   4. a single-step: the plan, one rung, and `cycle close --squash`
-#   5. a commit with no cycle, `rung commit --title`, verbatim, landed
-#      and published by its own `--land main --push`
+#   5. commits with no cycle, `rung commit --title`, verbatim, a run of two
+#      on one bookmark, landed and published once
 #   6. a trapezoid closed, then converted to one commit by `cycle close
 #      --squash`
 #   7. a ladder made one commit by `cycle close --squash`, its agent commits
@@ -291,14 +291,21 @@ check_has "the record is in Closed" "$(sed -n '/^## Closed$/,$p' TODO.md)" "### 
 run "$VC" cycle land main -s b --push
 check_landed "cycle 4" fix-one-rung
 
-step "Cycle 5: a commit with no cycle, verbatim"
+step "Cycle 5: commits with no cycle, a run on one bookmark"
 base=$(cid main)
 before=$(cat TODO.md)
 echo "five" >five.txt
+tries "a commit with main on @-" "$VC" rung commit -s b --title "feat: no cycle" --body "b"
 run "$VC" rung commit -s b --title "feat: no cycle" --body "The problem.
 
-Solution: one commit." --land main --push
-check "one commit above the old main" "$(above_main "$base" main)" "feat: no cycle"
+Solution: one commit." --bookmark
+echo "five more" >>five.txt
+run "$VC" rung commit -s b --title "feat: no cycle, again" --body "The problem.
+
+Solution: the run's second."
+run "$VC" cycle land main -s b --push
+check "two commits above the old main" "$(above_main "$base" main)" "feat: no cycle
+feat: no cycle, again"
 check "the record is untouched" "$(cat TODO.md)" "$before"
 check_landed "cycle 5" feat-no-cycle
 

@@ -223,6 +223,22 @@ and `rung commit --record` goes, its tests and README's words with them.
 makes or moves one by the rules above, and `cycle land <target>` lands a bookmark that is no
 cycle's.
 
+- `Where`'s `--bookmark` takes an optional value, bare the title's slug, read only by `rung commit
+  --title` through `running_bare`, every other stage refusing it bare and naming `--bookmark
+  <NAME>`.
+- `commit_alone` takes the bookmark `--bookmark` names, by `placement`: absent, made on `@` as
+  before; on `@-`, used; below `@-`, moved forward and said; sideways or ahead, asked, `[y/N]`,
+  `--yes` answering, refused with no terminal, as `squash-push` asks. Without the flag it takes the
+  one bookmark on `@-`, refused when there is none or several. `main`, or the `--land` target, is
+  refused either way. Every check comes before a bookmark is made or moved, and the commit then
+  advances it.
+- `cycle land` needed nothing: with no cycle in progress, and the closed cycle's bookmark gone, it
+  already lands the one local bookmark besides the target, `crate::land::default_source`.
+- Tests: `rung_commit_without_a_cycle_iterates_on_one_bookmark`, the old verbatim test grown into a
+  run of two landed once, and `rung_commit_bookmark_moves_by_direction`, forward, sideways with and
+  without `--yes`, and `main`. The rehearsal's cycle 5 is a run of two landed once, with a commit on
+  `main`'s `@-` refused first, 90 checks passing.
+
 ##### fix: a re-run Land finishes its push, and messages name the command run
 
 A `cycle land --push` whose push failed finishes on a re-run, its hint naming `cycle push`; every
