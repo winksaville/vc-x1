@@ -119,6 +119,17 @@ the symlink is made in a test's `~/.claude/projects/`:
   no longer exists, which the run says.
 - **Not here**: a GitHub remote's deletion, by hand alone (the design entry), and `rename`, whose
   "find every part of a workspace" is this cycle's plan code, reused there.
+- **Reviews waived to the closing** (wink, 2026-11-23, "Complete the cycle but I'll review before
+  landing on main"): the work rungs and the closing are committed without the per-rung "please
+  review" stop, each still validated. The waiver covers the commits alone: the Land and every push
+  are outside it, wink reviewing the closed cycle first.
+- **The scope names the shape**: every command that writes names its scope, so `delete` takes `-s
+  b` for a dual workspace and `-s p` for a plain repo, and a scope the workspace does not match is
+  refused, one more check that the workspace named is the one meant.
+- **PATH is a root or nothing**: a PATH inside a workspace but not its root is refused, naming the
+  root, so a path typed by hand never reaches a workspace above it, and with no PATH the current
+  directory's workspace is found by the walk up every command makes. A root that holds the home
+  directory is refused.
 - **The title** (wink, 2026-11-23): renamed from **feat: vc-x1 delete removes a workspace from
   this machine**, 56 characters and over the 50 a title keeps to, before the opening's commit, the
   bookmark renamed with it.
@@ -138,6 +149,19 @@ Todo entry moved into this block.
 named, the work-repo, the agent-repo, the symlink, and with `--local-repos` the bare repos, with
 what would stop the run or ask a yes. Nothing is removed, so the plan is reviewed and tested before
 any removal exists.
+
+- `src/delete.rs`: `find_root`, then `plan`, which reads each repo, its `origin` classified as a
+  bare repo here, a path that is not one, a path gone, a URL, or none, its `@`, and the commits
+  `::visible_heads() ~ ::remote_bookmarks() ~ root() ~ @`, the ones no remote bookmark reaches,
+  and the symlink's path, `encode_path` of the root under `~/.claude/projects/`, ours only when it
+  points at the agent-repo. `default_symlink_dir` is now the crate's.
+- `Plan::lines` lists the parts in the order the removal will take them, the symlink, the origins,
+  an agent-repo outside, and the work-repo last, so a run that stops leaves the workspace findable
+  for a second. `Plan::refusals` is the URL remotes under `--local-repos`, and without it the work
+  nowhere else. A run without `--dry-run` says the removal is not built yet.
+- `tests/cli_delete.rs`: a workspace by `init --test-repo` in an isolated home, the dry run with
+  and without `--local-repos` from the root and from inside, the wrong scope, a non-root, no
+  workspace, and uncommitted work refusing, everything left in place each time.
 
 ##### feat: delete removes what it planned
 
