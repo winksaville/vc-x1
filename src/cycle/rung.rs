@@ -459,7 +459,7 @@ fn commit_current(ctx: &mut Context, rc: &RungCommit) -> Result<(), Box<dyn std:
         .into());
     }
     // The simple single-step's one rung is the cycle's one commit, made
-    // as `cycle squash` makes a cycle of no commit, the record closed in it.
+    // as `cycle close --squash` makes a cycle of no commit, the record closed in it.
     if record::is_one_rung(&s.cycle, &s.rungs) {
         if c.body.is_none() {
             return Err(format!(
@@ -484,7 +484,7 @@ fn commit_current(ctx: &mut Context, rc: &RungCommit) -> Result<(), Box<dyn std:
     commit_rung(ctx, &c, "rung commit")
 }
 
-/// The single-step commit `cycle squash` makes, from a
+/// The single-step commit `cycle close --squash` makes, from a
 /// rung commit's inputs.
 fn one_commit(c: &CommitRung, land: Option<LandCycle>) -> CloseCycle {
     CloseCycle {

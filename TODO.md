@@ -152,7 +152,10 @@ In a workspace made by `init --test-repo`, with the cycle's dev build:
     first**'s.
 - **No compatibility**: `cycle squash`, `--record`, and the bare `--ver` go without a warning, as
   the old stage flags did, no cycle in flight using them.
-- **Reviews**: each rung stops for "please review" as usual, no waiver given for this cycle.
+- **Reviews waived to the closing** (wink, 2026-11-23, "complete the cycle but do not close so I
+  can review and tweaks are easier"): the work rungs are committed without the per-rung "please
+  review" stop, each still validated, and the cycle stops before its closing. The waiver covers
+  the rungs' commits alone: the closing, the Land, and every push are outside it.
 
 #### Rungs
 
@@ -168,6 +171,29 @@ Todo entry moved into this block.
 `cycle close <TARGET>` a trapezoid, `--linear`, and `--squash`, `cycle squash`'s code moved under
 it and the command gone, `close --squash` converting a closed draft, the joined heads by `--join`.
 Its tests and the rehearsal's closings follow.
+
+- `CloseArgs` takes the target positionally, a trapezoid's first parent, and `--squash`, `--linear`,
+  and `--join REV,...`, the old positional heads. A bare `cycle close` is refused, naming the three
+  forms, since a target is never assumed. `--squash` conflicts with a target, `--linear`,
+  `--join`, `--dead-end`, and `--title`, and `--default-body` and `--yes` are refused without it,
+  checked in `close_params`, as clap counts a flag at its default as present for `requires`.
+  `--land` takes an optional value, bare landing on the trapezoid's target, and is refused bare
+  with no target. `--squash -s w` is refused, the agent side re-pointed with the work side.
+- `cycle squash`, its `SquashArgs`, and `squash_params` go, `close_params` building the same
+  `SquashCycle` for `--squash`, and every message naming `cycle squash` or `--trapezoid` names
+  `cycle close --squash` or `cycle close <TARGET>`.
+- `squash.rs` is split into the checks, `plan_fold`, the agent re-points and the opening's new
+  description, and `Fold::make`, the rewrite under both repos' snapshots, shared by the squash of a
+  cycle in progress and `convert`, the closed draft's. `convert` finds the cycle `## Closed` holds
+  when none is in progress, takes its closing as one more rung, refuses a closing that is not
+  `<title> closing`, one another bookmark reaches, landed, one that joins more than the target,
+  and a trapezoid whose first parent is not below the opening, its target moved. Then `@` is made
+  again on the opening, the bookmark set on it, the record made a single-step's by
+  `without_closed_rungs` and the ladder one rung, and `finalize` folds and describes it.
+- Tests: `close_is_a_ladders_closing` covers the bare refusal, the clashes, `--default-body` and a
+  bare `--land` without their pair, and `-s w`; `a_closed_draft_squashes_into_one_commit` and
+  `a_closed_draft_on_a_moved_target_is_not_converted` are new; every other test closes by
+  `--linear`, a target, or `--squash`. The rehearsal's closings follow, its run wink's.
 
 ##### feat: the one-heading single-step and --record go
 
