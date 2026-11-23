@@ -44,6 +44,10 @@ pub struct DeleteArgs {
     #[arg(long)]
     pub local_repos: bool,
 
+    /// Remove without asking, for a run with no terminal
+    #[arg(long)]
+    pub yes: bool,
+
     /// The workspace's shape, required: `b|both` a dual workspace,
     /// `p|por` a plain repo
     #[arg(
@@ -65,6 +69,7 @@ pub struct DeleteArgs {
 pub struct DeleteParams {
     pub path: Option<PathBuf>,
     pub local_repos: bool,
+    pub yes: bool,
     pub dual: bool,
     pub dry_run: bool,
 }
@@ -74,6 +79,7 @@ impl From<&DeleteArgs> for DeleteParams {
         DeleteParams {
             path: a.path.clone(),
             local_repos: a.local_repos,
+            yes: a.yes,
             dual: matches!(a.scope, RepoScope::Sides(_)),
             dry_run: a.dry_run.value,
         }
@@ -487,10 +493,10 @@ impl Plan {
     }
 }
 
-/// Find the workspace, plan, and print the plan. The removal is the
-/// next rung's: until it lands a run without `--dry-run` is refused.
+/// Find the workspace, plan, print the plan, and, confirmed, remove
+/// what it names.
 pub fn delete(
-    _ctx: &mut Context,
+    ctx: &mut Context,
     params: &DeleteParams,
     cwd: &Path,
     projects: &Path,
@@ -507,7 +513,92 @@ pub fn delete(
         info!("delete: [dry-run] nothing is removed");
         return Ok(());
     }
-    Err("delete: the removal is not built yet: `--dry-run` shows the plan".into())
+    confirm(params.yes, ctx.stdin_is_tty)?;
+    remove(&plan)?;
+    if cwd.starts_with(&plan.root) {
+        info!("delete: done, and this shell's directory is gone with it: `cd` out of it");
+    } else {
+        info!("delete: done");
+    }
+    Ok(())
+}
+
+/// Ask before removing, unless `--yes`. With no terminal to ask, the
+/// run is refused rather than hung, and a declined answer is an error,
+/// so a script learns nothing was removed.
+fn confirm(yes: bool, stdin_is_tty: bool) -> Result<(), Box<dyn std::error::Error>> {
+    if yes {
+        debug!("delete: --yes, not asked");
+        return Ok(());
+    }
+    if !stdin_is_tty {
+        return Err(
+            "delete: asking requires a terminal (stdin is not interactive): --yes removes \
+             without asking, nothing is removed"
+                .into(),
+        );
+    }
+    let answer = crate::common::prompt("delete: remove these? [y/N] ")?;
+    let answer = answer.trim().to_ascii_lowercase();
+    if answer != "y" && answer != "yes" {
+        return Err(format!("delete: declined (got {answer:?}), nothing is removed").into());
+    }
+    Ok(())
+}
+
+/// Remove the plan's parts in its order: the symlink, so no Claude
+/// Code session writes into a workspace half gone, the origins under
+/// `--local-repos`, an agent-repo outside the work-repo, and the
+/// work-repo last, so a run that stops leaves the workspace findable
+/// and a second run removes the rest. A failure names what is left.
+pub fn remove(plan: &Plan) -> Result<(), Box<dyn std::error::Error>> {
+    // Each step: what it is called, its path, and whether it is the
+    // symlink, a file, rather than a directory.
+    let mut steps: Vec<(String, PathBuf, bool)> = Vec::new();
+    if let Link::Ours(p) = &plan.link {
+        steps.push((format!("the symlink {}", p.display()), p.clone(), true));
+    }
+    if plan.local_repos {
+        for r in &plan.repos {
+            if let Origin::Local(p) = &r.origin {
+                steps.push((
+                    format!("{}'s origin {}", r.label, p.display()),
+                    p.clone(),
+                    false,
+                ));
+            }
+        }
+    }
+    for r in plan.repos.iter().filter(|r| r.outside) {
+        steps.push((
+            format!("the {} repo {}", r.label, r.path.display()),
+            r.path.clone(),
+            false,
+        ));
+    }
+    if plan.root.exists() {
+        steps.push((
+            format!("the work repo {}", plan.root.display()),
+            plan.root.clone(),
+            false,
+        ));
+    }
+    for (i, (name, path, file)) in steps.iter().enumerate() {
+        let done = if *file {
+            std::fs::remove_file(path)
+        } else {
+            std::fs::remove_dir_all(path)
+        };
+        done.map_err(|e| {
+            let left: Vec<&str> = steps[i..].iter().map(|(n, _, _)| n.as_str()).collect();
+            format!(
+                "delete: cannot remove {name}: {e}. Left: {}. A second run removes the rest",
+                left.join(", ")
+            )
+        })?;
+        info!("delete: removed {name}");
+    }
+    Ok(())
 }
 
 #[cfg(test)]

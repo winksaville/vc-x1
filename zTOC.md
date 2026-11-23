@@ -6,7 +6,7 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 
 - 0 (done) [feat: vc-x1 delete removes a workspace opening](TODO.md#feat-vc-x1-delete-removes-a-workspace-opening)
 - 1 (done) [feat: delete plans what a workspace holds](TODO.md#feat-delete-plans-what-a-workspace-holds)
-- [feat: delete removes what it planned](TODO.md#feat-delete-removes-what-it-planned)
+- 2 (done) [feat: delete removes what it planned](TODO.md#feat-delete-removes-what-it-planned)
 - [feat: vc-x1 delete removes a workspace closing](TODO.md#feat-vc-x1-delete-removes-a-workspace-closing)
 
 ## The TOC

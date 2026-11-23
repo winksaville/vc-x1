@@ -113,8 +113,10 @@ the symlink is made in a test's `~/.claude/projects/`:
 - **The symlink** is removed only when it is a symlink pointing at this workspace's agent-repo. A
   real directory there is Claude Code's own and is left, named, as is a link pointing elsewhere.
 - **The order**: the symlink first, so no Claude Code session writes into a workspace half gone,
-  then the agent-repo, then the work-repo, then the bare repos. A failure stops the run and says
-  what is left, and a second run removes the rest, each part looked for again.
+  then the bare repos, an agent-repo outside, and the work-repo last. A failure stops the run and
+  says what is left, and a second run removes the rest, each part looked for again.
+  - Planned as the work-repo before the bare repos, and turned round in the first rung: the
+    work-repo's `.vc-config.md` is how a second run finds the workspace, so it goes last.
 - **Run from inside the workspace**: allowed (wink, 2026-11-23), the shell left in a directory that
   no longer exists, which the run says.
 - **Not here**: a GitHub remote's deletion, by hand alone (the design entry), and `rename`, whose
@@ -165,9 +167,23 @@ any removal exists.
 
 ##### feat: delete removes what it planned
 
-The removal: the plan confirmed, at the terminal or by `--yes`, then the symlink, the agent-repo,
-the work-repo, and the bare repos removed in that order, a second run finishing a run that
+The removal: the plan confirmed, at the terminal or by `--yes`, then the symlink, the bare repos,
+an agent-repo outside, and the work-repo removed in that order, a second run finishing a run that
 stopped. Tests in an isolated home, and README's `### delete`.
+
+- `delete` confirms by `--yes` or a `[y/N]` at the terminal, refused with no terminal and no
+  `--yes`, as `squash-push` asks, and a declined answer is an error, so a script learns nothing
+  went. It then removes, and a run from inside the workspace says the shell's directory went with
+  it.
+- `remove` takes the plan's parts as a list of paths, the symlink a file and the rest directories,
+  and on a failure names the part and everything after it as left.
+- `tests/cli_delete.rs` gains the removal: `--yes` keeping the bare repos and `--local-repos`
+  removing them, the refusal with stdin no terminal, a run from inside, a URL `origin` refusing
+  `--local-repos` and named when the workspace goes, an agent-repo outside removed while a symlink
+  pointing elsewhere stays, and a second run finishing after the symlink and an origin went first.
+- README gains `### delete` after `### symlink`. Its `### Deprecated: the task commands` had the
+  same split link the last cycle fixed in `## Build and install`, `## Tasks](...)` read as a
+  heading, now kept whole.
 
 ##### feat: vc-x1 delete removes a workspace closing
 

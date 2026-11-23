@@ -174,3 +174,172 @@ fn work_nowhere_else_refuses_without_local_repos() {
     );
     all_there(&ws);
 }
+
+/// `--yes` removes the workspace and the symlink and keeps the bare
+/// repos, and `--local-repos --yes` removes them too. A stdin that is
+/// no terminal, without `--yes`, removes nothing.
+#[test]
+fn yes_removes_the_workspace_and_local_repos_its_origins() {
+    let fx = CliFixture::new("delete-removes");
+    let ws = make_ws(&fx);
+    let root = ws.root.to_str().expect("utf-8").to_string();
+
+    let out = text(&run_err(
+        delete(&fx, &fx.base, &["-s", "b", &root]).stdin(std::process::Stdio::null()),
+    ));
+    assert!(out.contains("asking requires a terminal"), "{out}");
+    all_there(&ws);
+
+    let out = text(&run_ok(&mut delete(
+        &fx,
+        &fx.base,
+        &["-s", "b", "--yes", &root],
+    )));
+    assert!(out.contains("delete: done"), "{out}");
+    assert!(!ws.root.exists(), "work repo removed");
+    assert!(ws.link.symlink_metadata().is_err(), "symlink removed");
+    assert!(ws.remotes.join("ws.git").is_dir(), "work origin kept");
+    assert!(
+        ws.remotes.join("ws.agent-session.git").is_dir(),
+        "agent origin kept"
+    );
+
+    let fx = CliFixture::new("delete-removes-local");
+    let ws = make_ws(&fx);
+    let root = ws.root.to_str().expect("utf-8").to_string();
+    run_ok(&mut delete(
+        &fx,
+        &fx.base,
+        &["-s", "b", "--yes", "--local-repos", &root],
+    ));
+    assert!(!ws.root.exists(), "work repo removed");
+    assert!(ws.link.symlink_metadata().is_err(), "symlink removed");
+    assert!(!ws.remotes.join("ws.git").exists(), "work origin removed");
+    assert!(
+        !ws.remotes.join("ws.agent-session.git").exists(),
+        "agent origin removed"
+    );
+    assert!(ws.remotes.is_dir(), "the remotes' directory is kept");
+}
+
+/// A run from inside the workspace removes it and says the shell's
+/// directory went with it.
+#[test]
+fn a_run_from_inside_removes_its_own_workspace() {
+    let fx = CliFixture::new("delete-inside");
+    let ws = make_ws(&fx);
+    let out = text(&run_ok(&mut delete(&fx, &ws.root, &["-s", "b", "--yes"])));
+    assert!(out.contains("this shell's directory is gone"), "{out}");
+    assert!(!ws.root.exists(), "work repo removed");
+}
+
+/// A URL origin is never touched: `--local-repos` over one is refused,
+/// and without it the workspace goes and the URL is only named.
+#[test]
+fn a_url_origin_refuses_local_repos() {
+    let fx = CliFixture::new("delete-url");
+    let ws = make_ws(&fx);
+    let root = ws.root.to_str().expect("utf-8").to_string();
+    common::jj(
+        &fx.home,
+        &ws.root,
+        &[
+            "git",
+            "remote",
+            "set-url",
+            "origin",
+            "https://example.invalid/o/ws.git",
+        ],
+    );
+    let out = text(&run_err(&mut delete(
+        &fx,
+        &fx.base,
+        &["-s", "b", "--yes", "--local-repos", &root],
+    )));
+    assert!(
+        out.contains("is a URL, which delete never touches"),
+        "{out}"
+    );
+    all_there(&ws);
+
+    let out = text(&run_ok(&mut delete(
+        &fx,
+        &fx.base,
+        &["-s", "b", "--yes", &root],
+    )));
+    assert!(
+        out.contains("keep work's origin https://example.invalid/o/ws.git, a URL"),
+        "{out}"
+    );
+    assert!(!ws.root.exists(), "work repo removed");
+}
+
+/// An agent-repo outside the work-repo is removed with it, and a
+/// symlink that points elsewhere is left and named.
+#[test]
+fn an_agent_repo_outside_goes_and_a_foreign_symlink_stays() {
+    let fx = CliFixture::new("delete-outside");
+    let ws = make_ws(&fx);
+    let outside = fx.path("ws-agent");
+    std::fs::rename(ws.root.join(".agent-session"), &outside).expect("move the agent repo");
+    let cfg = ws.root.join(".vc-config.md");
+    let text_cfg = std::fs::read_to_string(&cfg).expect("read config");
+    let moved = text_cfg.replace(
+        "agent = \".agent-session\"",
+        &format!("agent = \"{}\"", outside.display()),
+    );
+    assert_ne!(text_cfg, moved, "the config names the agent repo");
+    std::fs::write(&cfg, moved).expect("write config");
+    let agent_cfg = outside.join(".vc-config.md");
+    let a = std::fs::read_to_string(&agent_cfg).expect("read agent config");
+    std::fs::write(
+        &agent_cfg,
+        a.replace(
+            "work = \"..\"",
+            &format!("work = \"{}\"", ws.root.display()),
+        ),
+    )
+    .expect("write agent config");
+    std::fs::remove_file(&ws.link).expect("remove the symlink");
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(fx.path("elsewhere"), &ws.link).expect("a foreign symlink");
+
+    // The config edit is uncommitted work, so `--local-repos` takes it.
+    let root = ws.root.to_str().expect("utf-8").to_string();
+    let out = text(&run_ok(&mut delete(
+        &fx,
+        &fx.base,
+        &["-s", "b", "--yes", "--local-repos", &root],
+    )));
+    assert!(out.contains("not this workspace"), "{out}");
+    assert!(!ws.root.exists(), "work repo removed");
+    assert!(!outside.exists(), "agent repo outside removed");
+    assert!(
+        ws.link.symlink_metadata().is_ok(),
+        "the foreign symlink stays"
+    );
+}
+
+/// A run that stopped part way is finished by a second: a part already
+/// gone, here the work origin and the symlink, is named as gone and the
+/// rest is removed.
+#[test]
+fn a_second_run_finishes_what_a_first_left() {
+    let fx = CliFixture::new("delete-second-run");
+    let ws = make_ws(&fx);
+    std::fs::remove_file(&ws.link).expect("the symlink, as a first run removes it");
+    std::fs::remove_dir_all(ws.remotes.join("ws.git")).expect("the work origin");
+    let root = ws.root.to_str().expect("utf-8").to_string();
+    let out = text(&run_ok(&mut delete(
+        &fx,
+        &fx.base,
+        &["-s", "b", "--yes", "--local-repos", &root],
+    )));
+    assert!(out.contains("no Claude Code symlink"), "{out}");
+    assert!(out.contains("is gone already"), "{out}");
+    assert!(!ws.root.exists(), "work repo removed");
+    assert!(
+        !ws.remotes.join("ws.agent-session.git").exists(),
+        "agent origin removed"
+    );
+}
