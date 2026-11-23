@@ -950,9 +950,9 @@ push publishes it anyway.
 
 `validate`, `build`, `run`, and `install` ran the work's tasks from `.vc-config.md`'s `[validate]`,
 `[build]`, `[install]`, and `[profile.*]` tables. The tasks are the project's own since 0.85.25,
-`cargo xtask <task>` in a Rust workspace with xtask, else what its [CONTRIBUTING.md >
-## Tasks](CONTRIBUTING.md#tasks) names. Each command still runs, hidden from `vc-x1 -h`, and
-warns first:
+`cargo xtask <task>` in a Rust workspace with xtask, else what its
+[CONTRIBUTING.md](CONTRIBUTING.md#tasks) names. Each command still runs, hidden from `vc-x1 -h`,
+and warns first:
 
 ```text
 warn: Deprecated `vc-x1 build`: use `cargo xtask build` or `cx build` instead
@@ -1394,6 +1394,47 @@ vc-x1 symlink -l
 | `--symlink-dir <PATH>` | Override symlink parent [default: ~/.claude/projects] |
 | `-l, --list` | List contents of symlinked directory after creation |
 | `-y, --yes` | Replace existing symlink without prompting |
+
+### repo delete
+
+`vc-x1 repo` holds what is done to a workspace's repos as a whole, a noun and its verbs as `cycle`
+and `rung` are: `delete` today, `rename` and `move` to come.
+
+Remove a workspace from this machine, the cleanup a test workspace made by `init --test-repo`
+needs. The workspace is found by its `.vc-config.md`: PATH is its root, or the current directory is
+inside it, and a PATH inside a workspace but not its root is refused.
+
+```
+# See what would go, removing nothing
+vc-x1 repo delete -s b --dry-run ~/tmp/my-test
+
+# Remove it, its bare remotes included, without asking
+vc-x1 repo delete -s b --local-repos --yes ~/tmp/my-test
+```
+
+- What goes: the work-repo's directory, the agent-repo's when the config puts it outside, and the
+  Claude Code symlink, `~/.claude/projects/<encoded root>`, when it points at the agent-repo. A
+  symlink pointing elsewhere, or a directory Claude Code made there, is left and named.
+- `--local-repos` adds the bare repos the two `origin`s are, when they are paths on this machine.
+  A remote reached by a URL, GitHub's or any host's, is never touched, and `--local-repos` over one
+  is refused.
+- Work that is nowhere else stops it: without `--local-repos` the remote keeps what was pushed, so
+  uncommitted changes in the work `@`, and commits no remote bookmark reaches, refuse, each named.
+  With it nothing survives, so they are listed as lost. The agent `@` holds the session's data and
+  is listed, never refused.
+- The plan is printed first and asked about. `--yes` removes without asking, and with no terminal
+  and no `--yes` the run is refused. `-s b` names a dual workspace and `-s p` a plain repo, and a
+  scope the workspace does not match is refused.
+- The order is the symlink, the origins, an agent-repo outside, and the work-repo last, so a run
+  that stops leaves the workspace findable and a second run removes the rest.
+- Run from inside the workspace, it removes it and says the shell's directory went with it.
+
+| Flag | Description |
+|------|-------------|
+| `-s, --scope <SCOPE>` | `b` a dual workspace, `p` a plain repo, required |
+| `--local-repos` | Also remove the bare repos the `origin`s are, paths on this machine |
+| `--yes` | Remove without asking |
+| `--dry-run` | Print the plan and remove nothing |
 
 ### sync
 

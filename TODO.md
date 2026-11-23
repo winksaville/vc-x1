@@ -10,31 +10,30 @@ The other files are listed in [zTOC.md](zTOC.md).
 Where the agent was, for the agent that comes next. Ephemeral, never a record, read first at
 acquaint, acted on, and reset to `_None._` by the reader.
 
-- **feat: one cycle flow, plan, rungs, close** closes as a trapezoid on `main`, landed and pushed
-  by its closing's `cycle close --land main --push`, then `cargo xtask install --release` (wink,
-  2026-11-23). Check that
-  `main` is at the landmark and `main@origin` with it on both sides (`vc-x1 sync -s b
-  --dry-run`), that the bookmark `feat-one-cycle-flow-plan-rungs-close` is gone locally and on
-  `origin`, and that `vc-x1 -V` names the landmark at `0.85.26`. The installed `vc-x1` now has
-  `rung` and the stage subcommands, so `vc-x1-dev` is needed only for a cycle's own build.
-- The next three cycles are the top of `## Todo`, in wink's order (2026-11-23): **feat: vc-x1
-  delete removes a workspace from this machine**, **feat: the new cycle flow**, and **feat: init
-  copies a file set**, then **agent-files(proposal): v0.3.1** carrying all three.
+- **feat: vc-x1 delete removes a workspace** is closed as a trapezoid on its bookmark and not
+  landed, nothing pushed: wink reviews it, then the Land, `cycle land main -s b`, and its push, then
+  `cargo xtask install --release`. Check whether the Land was made (`vc-x1 sync -s b --dry-run`,
+  and the bookmark `feat-vc-x1-delete-removes-a-workspace`).
+- The next two cycles are the top of `## Todo`, in wink's order (2026-11-23): **feat: the new cycle
+  flow**, then **feat: init copies a file set**, then **agent-files(proposal): v0.3.1** carrying
+  them.
 - The messages: `m-14` (`cycle land` tags the version) and `m-15` (a clone per member) are pending
   for us, unanswered, and `m-13` is complete, its close owed, with our `m-13-1` owing a line
-  linking the fix this cycle landed, its sha-link the landmark's. The clone `../vc-x1-messages` has
-  its working copy on an August commit under the v0.1.0 README, while `main` is at v0.3.3: a write
-  needs `@` moved to `main` first, wink's to say how.
-- The rehearsal was not run before this Land: `scripts/cycle-rehearsal.sh`, outside the agent's
-  sandbox, is the acceptance check's last part, a failure recorded as a finding citing the
-  landmark.
+  linking the fix **feat: one cycle flow, plan, rungs, close** landed, its sha-link that
+  landmark's. The clone `../vc-x1-messages` has its working copy on an August commit under the
+  v0.1.0 README, while `main` is at v0.3.3: a write needs `@` moved to `main` first, wink's to say
+  how.
+- The rehearsal was not run before **feat: one cycle flow, plan, rungs, close** landed:
+  `scripts/cycle-rehearsal.sh`, outside the agent's sandbox, is that acceptance check's last part,
+  a failure recorded as a finding citing its landmark.
 - Not filed yet: `cycle ladder` refuses while a committed rung's title is being reworked, so a
   retitle needs the ladder edited by hand.
 - **vc-x2 is seeded from vc-x1**'s `## Waiting` condition looks met and was left for wink to
   promote or not.
 - Wink's test workspaces `~/tmp/tv-0-85-25-5-1ead2` and `~/tmp/tv0-85-26-9-37bc`, with their
-  symlinks in `~/.claude/projects/` and bare repos in `~/tmp/remotes`, are wink's to keep or
-  remove, by **feat: vc-x1 delete removes a workspace from this machine** once it lands.
+  symlinks in `~/.claude/projects/` and bare repos in `~/tmp/remotes`, are the acceptance check's
+  hand test: `vc-x1-dev repo delete -s b --dry-run <dir>`, then `--local-repos --yes`, outside the
+  agent's sandbox.
 
 ## In Progress
 
@@ -117,28 +116,6 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 `###` heading, so a citation is a link to its anchor. Long-tail entries live in
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
-
-### feat: vc-x1 delete removes a workspace from this machine
-
-(wink + agent, 2026-11-21, from **feat: one cycle flow, plan, rungs, close**, wanted soon) Every
-test of a cycle makes a workspace by `vc-x1 init --test-repo`, its two repos, its symlink in
-`~/.claude/projects/`, and two bare repos under the test-repo directory, and nothing removes them,
-so `~/tmp` and the symlinks pile up and each is removed by hand, where a slip deletes a real repo.
-
-- **Solution**: `vc-x1 delete` removes the workspace's local repos and its symlink, and, asked
-  for, the local bare repos its remotes are, never a remote reached by a URL.
-- **Acceptance check**: a workspace made by `init --test-repo <DIR>` is removed whole by `vc-x1
-  delete`, the bare repos with them when asked, and one whose remotes are GitHub's keeps them,
-  `delete` removing only what is on this machine.
-- **Test repos only, never real ones** (wink, 2026-11-21): a remote whose `origin` is a local path,
-  a bare repo as `init --test-repo` makes it, is deleted only when asked, a flag such as
-  `--test-repos`, its name open, and a remote reached by a URL, GitHub's or any host's, is never
-  touched, as the design below already says.
-- The design is **Improve init and add rename and delete subcommands**'s `#### delete removes a
-  workspace from this machine` and `#### What stops delete and rename`: the prompt listing what
-  goes and the commits found nowhere else, uncommitted or unpushed work refusing, and commits no
-  bookmark reaches and a half-made workspace each asking a yes. This entry moves delete ahead of
-  that entry's `init` work, wink's order there being `init`, then delete, then rename.
 
 ### feat: the new cycle flow
 
@@ -339,6 +316,9 @@ flow, plan, rungs, close** lands, `--open` becoming `cycle plan`.
   and nothing else.
 - **`rename` and `delete` of a pushed bookmark push**: free while local, and with an `origin`
   bookmark each is a push and takes approval.
+- **A noun and its verbs** (wink, 2026-11-23): `bookmark create|delete|...` has the shape `repo
+  delete` has, and `cycle` and `rung` have, so the hyphenated `delete-bookmark` and
+  `move-bookmark` it replaces are the last verbs first.
 - **No `set`**: jj's `set` is create or move, which is the move of a shared line the habit guards
   against. `list` is cheap and pairs with the `status` and `list` cleanup.
 - **Scope**: `-s w` and `-s p`, `a` and `b` refused, since the agent-repo is a linear journal and
@@ -3010,7 +2990,7 @@ an empty public repo there and a local workspace with no remote.
 
 - It removes the directories and the symlink, and leaves the remote alone. A repo on the remote
   is deleted by hand, but for a local bare repo, a test repo, removed when asked (wink,
-  2026-11-21), moved ahead as **feat: vc-x1 delete removes a workspace from this machine**.
+  2026-11-21), moved ahead as **feat: vc-x1 delete removes a workspace**.
 - Its prompt lists what goes and the commits that are nowhere else.
 - What stops it is below.
 
@@ -4832,6 +4812,13 @@ deliberation moved here whole.
 - **feat: the closing can be taken back**: A closing made without `--land` and found wrong is undone
   by hand in two repos, so one invocation takes it back, the work side by its operation and the
   agent side's content moved back into `@`.
+  - Done by hand in **feat: vc-x1 delete removes a workspace** (2026-11-23), for a rung wink asked
+    for at the closing's review: `jj new <rung before>`, `jj abandon <work closing>`, the cycle's
+    bookmark made again on the rung before, which the abandon had deleted, and `jj squash --from
+    <agent closing> --into @` in the agent-repo, then `jj describe -r @ -m ""` for the description
+    the fold carried. The closing's record, finalized, is re-applied from the abandoned commit by
+    its id. In a dual workspace this is the only way to put a rung before a closing that stands,
+    the agent-repo being linear.
 - **feat: vc-x1 reshapes a draft bookmark**: Reshaping a cycle's bookmark while it is a draft is an
   amend and a force-push typed by hand, so `vc-x1` does both, refusing a bookmark already landed or
   one another branch is stacked on.
@@ -5082,488 +5069,214 @@ own directory) are separate traversals over the same three values today, and fou
 The last cycle's finished record, moved here whole by its closing commit and deleted by the next
 opening ([Cycle-record](AGENTS.md#cycle-record)).
 
-### feat: one cycle flow, plan, rungs, close
+### feat: vc-x1 delete removes a workspace
 
 #### Problem
 
-A rung has an end, its commit, and no start: the commit writes the next rung `(current)` into
-history before any work on it, a prediction an inserted rung makes false. The version is bumped by
-hand at each rung's first step, which the tool checks only at the commit. A cycle's shape is chosen
-by two paths through the tool, a single-step's `--close --single-step` and a ladder's `--commit`
-rungs and `--close --multi-step`, and a ladder cannot be made one commit afterward, since a squash
-discards the change ids the agent commits' `ochid:` trailers name. And the cycle's stages are flags
-of one command, where a rung's acts and a cycle's read as two.
+(wink + agent, 2026-11-21, from **feat: one cycle flow, plan, rungs, close**, wanted soon) Every
+test of a cycle makes a workspace by `vc-x1 init --test-repo`, its two repos, its symlink in
+`~/.claude/projects/`, and two bare repos under the test-repo directory, and nothing removes them,
+so `~/tmp` and the symlinks pile up and each is removed by hand, where a slip deletes a real repo.
+
+- **Solution**: `vc-x1 delete` removes the workspace's local repos and its symlink, and, asked
+  for, the local bare repos its remotes are, never a remote reached by a URL.
+- **Acceptance check**: a workspace made by `init --test-repo <DIR>` is removed whole by `vc-x1
+  delete`, the bare repos with them when asked, and one whose remotes are GitHub's keeps them,
+  `delete` removing only what is on this machine.
+- **Test repos only, never real ones** (wink, 2026-11-21): a remote whose `origin` is a local path,
+  a bare repo as `init --test-repo` makes it, is deleted only when asked, a flag such as
+  `--test-repos`, its name open, and a remote reached by a URL, GitHub's or any host's, is never
+  touched, as the design below already says.
+- The design is **Improve init and add rename and delete subcommands**'s `#### delete removes a
+  workspace from this machine` and `#### What stops delete and rename`: the prompt listing what
+  goes and the commits found nowhere else, uncommitted or unpushed work refusing, and commits no
+  bookmark reaches and a half-made workspace each asking a yes. This entry moves delete ahead of
+  that entry's `init` work, wink's order there being `init`, then delete, then rename.
 
 #### Solution
 
-One flow for every cycle, as built. The plan is a phase of its own: `vc-x1 cycle plan start
---title "<title>"` makes the bookmark and scaffolds the record and the ladder, `--ver` setting the
-opening's version by the config's `[version] bump`, all or nothing, and `cycle plan commit`
-commits the opening with the ladder made from the headings. `rung next --ver <version>` starts a
-work rung, marking it `(current)` in the working copy alone and bumping the version, `rung commit`
-ends it, `(done)` and none current, and `rung stop` clears the marker instead. The cycle ends by
-`cycle close`, a ladder's closing, a trapezoid by `--trapezoid <target>`, or by `cycle squash`, one
-commit under the bare title, the work rungs squashed into the opening and each agent commit
-re-pointed to it, the 1:M shape, so every `ochid:` still resolves. The simple single-step is one
-heading, the cycle title, written by hand or made of the bookends by a bare `rung next --ver`, its
-`rung commit` the cycle's one commit. With no cycle in progress, `rung commit --title` commits the
-work `@` verbatim on a bookmark of its own, `--record` writing and closing a record, `--land` and
-`--push` chained. `init` writes `TODO.md` and `zTOC.md`. The stages are subcommands, `cycle plan
-start|commit`, `ladder`, `status`, `close`, `squash`, `land`, and `push`, and `rung
-next|stop|commit`, the old flags gone, and the agent-files say so, at `v0.3.1-17`.
+As built, `vc-x1 repo delete -s b|p [PATH]` removes a workspace from this machine: the workspace
+whose root is PATH, or the one the current directory is in, found by its `.vc-config.md` as every
+command finds it, a PATH inside one but not its root refused and `-s` matching its shape. What goes
+is the work-repo's directory, the agent-repo's directory when the config puts it outside, and the
+Claude Code symlink `~/.claude/projects/<encoded root>`, when it points at the agent-repo. With
+`--local-repos`, the local bare repos the two `origin`s name go too, and a remote reached by a URL
+is never touched, `--local-repos` refused over one. Work nowhere else, uncommitted or unpushed,
+refuses without `--local-repos` and is listed as lost with it. Nothing is removed until the plan is
+shown and confirmed, `--yes` confirming without a terminal, and `--dry-run` shows it alone. The
+order is the symlink, the bare repos, an agent-repo outside, and the work-repo last, so a second
+run finishes a run that stopped. `repo` is a noun and its verbs, `rename` and `move` to join
+`delete`.
 
 #### Acceptance check
 
-In a fresh `vc-x1 init` workspace, with the cycle's dev build:
+With the cycle's dev build, in a workspace made by `init --test-repo <DIR>`, its home isolated so
+the symlink is made in a test's `~/.claude/projects/`:
 
-- `cycle plan --title "<title>"` makes the bookmark, the record, and the ladder, the version line
-  unchanged and no rung current.
-- `rung next --ver X.Y.Z-0` marks the opening `(current)` and leaves the version line reading
-  `X.Y.Z-0`, and `rung commit` marks it `(done)` with no rung current. No commit on the cycle's
-  branch holds a `(current)` in its `zTOC.md`.
-- `rung commit` with no rung current is refused, naming `rung next`, and on the closing rung,
-  naming `cycle close` and `cycle squash`. `rung next` while a rung is current is refused, and
-  `rung stop` clears the marker, the edits left alone.
-- A simple single-step, `cycle plan`, `rung next --ver X.Y.Z`, `rung commit --body`, leaves one
-  commit above `main` under the bare title, the record in `## Closed` without `#### Rungs`, and
-  the ladder `0 (done) <title>`, and `rung next` rewrote `TODO.md`'s two bookend headings into the
-  one `##### <title>`, the ladder showing it before the review. So does the same with the one
-  heading written by hand and a bare `rung next`, in a workspace with no `[version]`. A bare
-  version on a scaffold whose plan has work rungs is refused.
-- A long single-step, its opening and closing headings kept, `rung next`, the work, and `cycle
-  squash`, leaves the same one commit, as `cycle --close --single-step` does today.
-- A ladder closed by `cycle close --trapezoid main` is a merge of two. Closed by `cycle squash`
-  instead, it is one commit under the bare title, whose `ochid:` names every agent commit of the
-  cycle and each of which names it. `squash` is refused over a rung a target reaches, and without
-  `--yes` over an agent commit `main@origin` reaches.
-- The rehearsal passes, by the subcommands alone.
+- `repo delete --dry-run` lists the work directory, the agent directory, the symlink, and, with
+  `--local-repos`, the two bare repos, and removes nothing.
+- `repo delete --yes` removes the workspace and the symlink and leaves the bare repos, and `delete
+  --local-repos --yes` removes them too.
+- A workspace whose `origin` is a URL is removed with its remote untouched, and `--local-repos` over
+  it is refused, naming the URL, nothing removed.
+- Uncommitted work in the work `@`, or a commit no remote bookmark reaches, refuses without
+  `--local-repos`, naming each, and is listed and asks a yes with it, everything going either way.
+- Without a terminal and without `--yes` the run is refused, nothing removed.
+- A symlink pointing elsewhere, or a directory Claude Code made there, is left and named.
+- Wink's hand test: the test workspaces `~/tmp/tv-0-85-25-5-1ead2` and `~/tmp/tv0-85-26-9-37bc`
+  removed by it.
 
-Result, at the closing (2026-11-23): pass by the tests and the hand test, the rehearsal pending. The
-check was written before rung 7, so its opening by `rung next --ver X.Y.Z-0` is now `cycle plan
-start --ver` and `cycle plan commit`, and its long single-step is `plan start` then `cycle squash`,
-each covered in that form.
+Result, at the closing (2026-11-23): pass, but for wink's hand test, which is wink's to run.
 
-- The tests named in each rung's subsection, every one passing in the closing's full validate.
-- `scripts/cycle-rehearsal.sh`, seven cycles by the subcommands alone, not run before the Land
-  (wink's go, 2026-11-23): the agent's sandbox holds `~/.claude/projects/` read-only, where `init`
-  makes its symlink, so it is wink's to run outside it, and a failure is a finding against the
-  landmark.
-- Wink's hand test in a fresh `init` workspace (2026-11-22, `~/tmp/vc-x1-dev-cycle-test-findings.md`):
-  a two-rung ladder squashed and landed, its agent commits re-pointed; a one-rung trapezoid landed;
-  and two `rung commit --title` commits landed. Its refusals and its two fix requests are findings
-  for the next shape, filed in **feat: the new cycle flow**, none a failure of this check.
+- `tests/cli_repo.rs`, eight tests through the binary in an isolated home, cover the dry run, the
+  removal with and without `--local-repos`, a URL origin, uncommitted work, no terminal, the
+  foreign symlink, an agent-repo outside, a run from inside, and a second run, by `repo delete`
+  since rung 3.
+- By hand at the first closing, that closing's dev build in a scratch workspace with its own home:
+  a commit no remote bookmark reaches refused the dry run, naming it, and with a directory at the
+  symlink's path, `--local-repos --yes` left that directory, named, and removed the rest. Rung 3
+  renamed the command and changed no behavior, its tests passing.
+- Wink's hand test is outside the agent's sandbox, which holds `~/tmp` and `~/.claude/projects/`
+  read-only: `vc-x1-dev repo delete -s b --dry-run <dir>` first, then `--local-repos --yes` for
+  each.
 
 #### Deliberation
 
-- **A cycle before `v0.3.1`**: this runs ahead of **agent-files(proposal): v0.3.1**, so the rule
-  and the tool arrive together and the proposal carries both.
-  - Its first `--open`, on the bookmark `agent-files-proposal-v031`, was undone for this one, its
-    record not yet written.
-- **Split, one subject per cycle** (wink, 2026-11-20): opened as **feat: provisional bookmark, st
-  and list similar**, three subjects, the bookmark first, `status` and `list` alike, and the rung's
-  start, the last grown into the cycle's flow. Each is its own cycle, **feat: the bookmark is made
-  first** and **feat: status and list print @ and @- alike** the top two `## Todo` entries, their
-  deliberation moved whole.
-  - The opening was reworked while local, its record rewritten and its title changed, by `vc-x1
-    squash -s b --title --body`, and the bookmark renamed to the new title's slug.
-- **A rung is started and ended, the first work rung** (wink, 2026-11-19): the opening's commit
-  wrote rung 1 `(current)`, a prediction committed as a fact, which `m-13` accepted to remove and
-  the dead-end **fix: a cycle commit marks no rung current** did not land.
-  - Removing the marker alone was applied first and is not enough (wink): rung 1 is current while
-    its work is in `@`, and only a commit's tree must not say so. A commit ends a rung, and its
-    complement starts one, so `(done)` never starts the next.
-  - The marker lives in the working copy's `zTOC.md` alone, `rung commit` writing the rung `(done)`
-    and none current, and `cycle ladder` keeping a `(current)` it finds and never making one. The
-    state-recording cycle moves it into the record's blocks.
-  - Guessing the rung in flight from a non-empty `@` was weighed and not taken: `@`'s changes need
-    not be the next rung's.
-- **`rung next`, not `rung start`** (wink, 2026-11-20): it takes no rung, marking the first not
-  done, so none is skipped, and an inserted rung gets its heading before its `next`. The commit
-  takes the current rung's title.
-- **`rung next` bumps** (wink, 2026-11-20): `--ver <version>` runs the config's `[version] bump`,
-  `cargo xtask bump {ver}` here, so the project's tool still writes the version and `vc-x1` only
-  invokes it. Without `bump` in the config, `--ver` is refused and the version is bumped by hand,
-  and the commit's version check stays either way.
-  - The bump is at the rung's start, not its commit: a bump at the commit changes `Cargo.toml` and
-    `Cargo.lock` after the validate and the review, a tree no one validated.
-  - `cycle plan` changes no version: the opening is reached by `rung next`, like every rung.
-- **A single-step is one rung, in two styles** (wink, 2026-11-20): a ladder's opening and closing
-  are bookends, and a single-step planned as one commit has none, so its ladder is the one real
-  rung. The long style, a cycle planned as a ladder that needed one commit, keeps its bookends,
-  which a squash folds away.
-  - The simple style's plan is one heading under `#### Rungs`, the cycle title itself, which the
-    ladder's grammar accepts beside the bookended form. `rung next` marks it current and `rung
-    commit`, its `--body` required, commits it as `cycle --close --single-step` did: the bare title,
-    the record moved to `## Closed` without `#### Rungs`, and the ladder `0 (done) <title>`. No
-    `cycle close`.
-  - The shortcut: `rung next --ver X.Y.Z`, a bare version, on a scaffold still holding only its
-    bookends, rewrites them in `TODO.md` into the one heading, the opening's text kept, so the
-    gospel shows the real rung before the review. Under the [suffix
-    scheme](agent-data/versioning.md#suffix-scheme) a bare version is only ever a cycle's last
-    commit, so it can say the shape. Refused when the plan has work rungs, naming both ways on:
-    remove them, or give `X.Y.Z-0`.
-  - Without `[version]` there is no version to give, and the one heading is written by hand, as in
-    wink's test workspace.
-  - The one rung's title is the cycle title, so the commit's title, the rung's, and the record's
-    `###` heading are one, and `git log --grep` finds it. A cycle whose work has a better name is
-    titled by it.
-  - The version stays on `rung next`, not `rung commit`: a bump at the commit changes the tree after
-    the validate and the review.
-  - Considered and replaced: the version alone choosing the shape, the headings left as bookends
-    and the ladder rewritten, which left the gospel showing an opening and a closing for a cycle
-    that has neither.
-- **`cycle squash` makes a ladder one commit** (wink, 2026-11-20): the work rungs squashed into the
-  opening, whose change id jj keeps, under the bare title, the record moved to `## Closed` as a
-  single-step's.
-  - The agent side is re-pointed, not squashed: each agent commit's `ochid:` rewritten to the one
-    work commit, and that commit's naming every agent commit, the 1:M shape the agent-files already
-    allow. Only descriptions change, so the change ids the work commit names stay, and the
-    agent-repo keeps its per-rung history. Squashing the agent side too was simpler and lost that.
-  - The agent side is rewritten first, then the work side.
-  - Refused, with no override, over a work rung a target reaches, its history permanent. A work
-    rung that is only draft-pushed is rewritten, and the next push of the bookmark is a forced push,
-    asked about as today.
-  - Refused without `--yes` over an agent commit `main@origin` reaches: the agent-repo has no draft
-    bookmark, a draft push moving the agent `main` (`src/push.rs`), so the rewrite is a forced push
-    of `main`, which another machine's clone would diverge from.
-  - The rule **A ladder lands as a trapezoid, never squashed** gives way, its reason, the lost
-    change ids, answered by the re-point.
-  - It takes the long single-step too, a branch of the opening alone or none, so `cycle close`'s
-    `--single-step` and `--multi-step` and the commit-count check go with it, `close` always a
-    ladder's closing and the shape said by the headings or by the verb.
-- **The stages are subcommands** (wink, 2026-11-19): `cycle
-  plan|close|squash|land|push|status|ladder` and `rung next|stop|commit`, a cycle's acts and a
-  rung's each a command of their own.
-  - The flags were for chaining, `cycle --close --land main`, which a subcommand keeps with its
-    later stages as flags, `cycle close --land main --push`.
-  - `plan` over `open` (wink): the stage is the plan's, deliberated before its commit.
-  - No compatibility (wink): the old flags go without a warning, since no other cycle is in flight
-    and none starts before the proposal is done.
-  - This record names the stages as they were when each line was written.
+- **What a workspace is**: the directory whose `.vc-config.md` has `[repos] work = "."`, and the
+  agent-repo its `[repos] agent` names, inside or outside it. A plain repo, `-s por`, is the work
+  side alone. A directory with no config is refused: delete removes what vc-x1 made, never a
+  directory it cannot name the parts of.
+- **`--local-repos`** (wink, 2026-11-23, from "a flag such as `--test-repos`, its name open"): the
+  point is that the repos are local, not on a remote host, so the flag says that, not what they are
+  for.
+  - A remote is local when `origin`'s URL is a path, and it is removed only when it is a bare git
+    repo, so a typo in a config cannot point delete at a working tree.
+  - `--local-repos` over a URL remote is refused, not skipped, so no run leaves a user believing the
+    remote went.
+- **What stops it** is **Improve init and add rename and delete subcommands**'s `#### What stops
+  delete and rename`, adjusted for the remotes:
+  - Without `--local-repos`, the remote keeps what was pushed, so work nowhere else refuses:
+    uncommitted changes in the work `@`, and commits no remote bookmark reaches,
+    `~::remote_bookmarks()`, as sync's `local_work` asks. The agent `@` holds session data and is
+    listed, not refused, since a test workspace's session ends with it.
+  - With `--local-repos`, nothing survives anyway, so the same findings are listed and the
+    confirmation asks for them, with no refusal.
+  - A half-made workspace, a repo with no `origin`, is the cleanup delete is wanted for: listed, and
+    confirmed like the rest.
+- **The symlink** is removed only when it is a symlink pointing at this workspace's agent-repo. A
+  real directory there is Claude Code's own and is left, named, as is a link pointing elsewhere.
+- **The order**: the symlink first, so no Claude Code session writes into a workspace half gone,
+  then the bare repos, an agent-repo outside, and the work-repo last. A failure stops the run and
+  says what is left, and a second run removes the rest, each part looked for again.
+  - Planned as the work-repo before the bare repos, and turned round in the first rung: the
+    work-repo's `.vc-config.md` is how a second run finds the workspace, so it goes last.
+- **Run from inside the workspace**: allowed (wink, 2026-11-23), the shell left in a directory that
+  no longer exists, which the run says.
+- **Not here**: a GitHub remote's deletion, by hand alone (the design entry), and `rename`, whose
+  "find every part of a workspace" is this cycle's plan code, reused there.
+- **Reviews waived to the closing** (wink, 2026-11-23, "Complete the cycle but I'll review before
+  landing on main"): the work rungs and the closing are committed without the per-rung "please
+  review" stop, each still validated. The waiver covers the commits alone: the Land and every push
+  are outside it, wink reviewing the closed cycle first.
+- **The scope names the shape**: every command that writes names its scope, so `delete` takes `-s
+  b` for a dual workspace and `-s p` for a plain repo, and a scope the workspace does not match is
+  refused, one more check that the workspace named is the one meant.
+- **PATH is a root or nothing**: a PATH inside a workspace but not its root is refused, naming the
+  root, so a path typed by hand never reaches a workspace above it, and with no PATH the current
+  directory's workspace is found by the walk up every command makes. A root that holds the home
+  directory is refused.
+- **`repo delete`, a noun and its verbs** (wink, 2026-11-23, at the review of the first closing):
+  `vc-x1 delete` became `vc-x1 repo delete`. The commands built since are a noun and its verbs,
+  `cycle plan start` and `rung next`, as jj's are, `jj bookmark delete`, and **feat: the bookmark
+  is made first** plans `vc-x1 bookmark create|delete|rename|move|list`, so a verb first, `delete
+  [bookmark|repo]`, would be the one command the other way round and give `bookmark delete` two
+  spellings. `repo` over `workspace`, which `jj workspace` means otherwise, and over `project`,
+  which only `init`'s help says. `repo rename` and `repo move` join it later.
+  - The first closing was made and taken back by hand for it, before any push: the work closing
+    abandoned, its record re-applied in the second, and the agent closing's content folded back
+    into the agent `@` by `jj squash --from <closing> --into @`, which carried the closing's
+    description onto `@`, cleared again by `jj describe -r @ -m ""`. In a dual workspace the rung
+    could not go under the closing that stood: the agent-repo is linear, and the rung's session
+    came after the closing's agent commit. Filed in **feat: the closing can be taken back**.
+- **The title** (wink, 2026-11-23): renamed from **feat: vc-x1 delete removes a workspace from
+  this machine**, 56 characters and over the 50 a title keeps to, before the opening's commit, the
+  bookmark renamed with it.
 
 #### Rungs
 
 The rung subsections, in the ladder's order. The ladder itself is in `zTOC.md > ## Ladder`.
 
-##### feat: one cycle flow, plan, rungs, close opening
+##### feat: vc-x1 delete removes a workspace opening
 
-The cycle's first commit, carrying its plan: the bookmark and the last cycle's record deleted, no
-`## Todo` entry having been titled for it. Reworked while local, the split moving two of its three
-subjects into `## Todo` and its title changing.
+The cycle's first commit, carrying its plan: the bookmark, the last cycle's record deleted, and the
+Todo entry moved into this block.
 
-##### feat: vc-x1 rung next, stop and commit
+##### feat: delete plans what a workspace holds
 
-`vc-x1 rung next [--ver <version>]` marks the first rung not done `(current)` in the working copy's
-`zTOC.md`, refused while one is current, and with `--ver` runs the config's `[version] bump`, a new
-key, `cargo xtask bump {ver}` in this workspace. `rung stop` clears the marker, the edits left
-alone. `rung commit` commits the current rung, as `cycle --commit` does, its title the rung's,
-writing it `(done)` and none current, refused with no rung current and on the closing. `cycle
---ladder` keeps a `(current)` it finds and makes none, and `cycle --status` shows the current
-rung or names the next. Its agent-files half, the set-aside `nruymrqm`'s, joins the docs rung.
+`vc-x1 delete [PATH] [--local-repos] --dry-run`: the workspace found from its config, each part
+named, the work-repo, the agent-repo, the symlink, and with `--local-repos` the bare repos, with
+what would stop the run or ask a yes. Nothing is removed, so the plan is reviewed and tested before
+any removal exists.
 
-- Its first step was the dead-end's reverted rung **fix: the ladder marks done rungs only**,
-  `ruzplvtp`, applied as it was, so no commit writes `(current)`, and
-  `scripts/cycle-rehearsal.sh` stopped expecting it twice. Its "a `vc-x1` before 0.85.26" reading
-  of an old `(current)` went with the rung: the marker is read again, as the working copy's.
-- The ladder knows the rung started: `ladder_of` takes it and writes `- N (current)`, a marker on
-  a done rung or on no rung dropped as a finding, and `current_of` reads it back from `zTOC.md`.
-  Every commit, `cycle --commit`, `--close`, and `rung commit`, plans its ladder with none current.
-- `cycle --close` is refused while a rung other than the closing is current, so a rung is never
-  left in flight, the opening excepted for `--single-step`, whose one commit it is, and `cycle
-  --open` now says `rung next --ver` starts the opening.
-- `cycle --ladder` needs no bookmark before a commit (wink, 2026-11-20): `TODO.md` is the ladder's
-  source, so with the bookmark not made the ladder is made with no rung done, refused only when
-  the ladder there has a rung done, which it would lose. Found by wink's hand-made test workspace,
-  whose record had no bookmark.
-- `rung commit` names itself in what it says, the shared commit code taking the command's label,
-  so its refusals and progress read `rung commit:`, not `cycle --commit:`, also found by wink's
-  test.
-- `rung` is a command with subcommands in `src/cycle/rung.rs`, a child of `cycle`, so its
-  `commit` is `cycle --commit`'s own code. Running the bump is a new spawn site, register entry 8
-  in `clippy.toml`, its words split at whitespace with no shell, run from the workspace root.
-- `version.bump` is in `vc-config.md`'s schema, the regenerated `vc-config-model.md`, and this
-  workspace's `.vc-config.md`. README's `cycle` section shows the marker and gains `### rung`.
-- Tried on this cycle: `vc-x1-dev rung next --ver 0.85.26-1` ran the bump, a no-op here, and
-  marked this rung `(current)`, which the commit of this rung writes `(done)`.
+- `src/delete.rs`: `find_root`, then `plan`, which reads each repo, its `origin` classified as a
+  bare repo here, a path that is not one, a path gone, a URL, or none, its `@`, and the commits
+  `::visible_heads() ~ ::remote_bookmarks() ~ root() ~ @`, the ones no remote bookmark reaches,
+  and the symlink's path, `encode_path` of the root under `~/.claude/projects/`, ours only when it
+  points at the agent-repo. `default_symlink_dir` is now the crate's.
+- `Plan::lines` lists the parts in the order the removal will take them, the symlink, the origins,
+  an agent-repo outside, and the work-repo last, so a run that stops leaves the workspace findable
+  for a second. `Plan::refusals` is the URL remotes under `--local-repos`, and without it the work
+  nowhere else. A run without `--dry-run` says the removal is not built yet.
+- `tests/cli_delete.rs`: a workspace by `init --test-repo` in an isolated home, the dry run with
+  and without `--local-repos` from the root and from inside, the wrong scope, a non-root, no
+  workspace, and uncommitted work refusing, everything left in place each time.
 
-##### feat: cycle stages are subcommands
+##### feat: delete removes what it planned
 
-`vc-x1 cycle plan|close|land|push|status|ladder` beside `rung next|stop|commit`, each stage's flags
-its own and a later stage chained as a flag, `cycle close --land main --push` and `rung commit
---push`. `cycle --open` becomes `cycle plan`, `cycle --commit` goes to `rung commit`, the old stage
-flags go, and the rehearsal, README, and tests name the subcommands.
+The removal: the plan confirmed, at the terminal or by `--yes`, then the symlink, the bare repos,
+an agent-repo outside, and the work-repo removed in that order, a second run finishing a run that
+stopped. Tests in an isolated home, and README's `### delete`.
 
-- `cycle` is a command with subcommands, `plan`, `ladder`, `status`, `close`, `land`, and `push`,
-  each with its own arguments, so a flag another stage owns is clap's "unexpected argument" and the
-  "takes no" refusals went. `Where`, the bookmark, `-R`, and `--dry-run`, is shared with `rung`'s
-  acts, and `-s` is required by clap on `close`, `land`, and `push`.
-- `cycle --commit` is gone, `rung commit` being the one way a rung is committed, and `rung_params`
-  builds a rung's commit for `rung commit` and `cycle close` alike. The tests commit a rung by that
-  code with a title given, so the title refusals stay tested.
-- A stage's target is positional, `cycle land <TARGET>` and `cycle close [REV,...]`'s heads. `close
-  --land <TARGET>` chains the Land, `--skip` and `--delete-intermediate-bookmarks` requiring it,
-  and `land`'s `--title` and `--body` require `--merge`. `-s w` on `land` and `push` is refused by
-  one message.
-- Every message names the subcommand, `cycle plan`, `cycle close`, and `rung commit` where it said
-  `cycle --open`, `--close`, and `--commit`. `cycle -h` lists the stages, and each stage's long help
-  is its own.
-- The rehearsal starts and commits the opening and each rung by `rung next` and `rung commit`,
-  checks the marker `rung next` writes, and tries `rung commit` with no rung started where it tried
-  an unplanned title. README's `### cycle` shows the subcommands, the commit's details moved to `###
-  rung`, and `vc-config.md`'s `used-by` names them. The agent-files still name the flags until the
-  docs rung.
+- `delete` confirms by `--yes` or a `[y/N]` at the terminal, refused with no terminal and no
+  `--yes`, as `squash-push` asks, and a declined answer is an error, so a script learns nothing
+  went. It then removes, and a run from inside the workspace says the shell's directory went with
+  it.
+- `remove` takes the plan's parts as a list of paths, the symlink a file and the rest directories,
+  and on a failure names the part and everything after it as left.
+- `tests/cli_delete.rs` gains the removal: `--yes` keeping the bare repos and `--local-repos`
+  removing them, the refusal with stdin no terminal, a run from inside, a URL `origin` refusing
+  `--local-repos` and named when the workspace goes, an agent-repo outside removed while a symlink
+  pointing elsewhere stays, and a second run finishing after the symlink and an origin went first.
+- README gains `### delete` after `### symlink`. Its `### Deprecated: the task commands` had the
+  same split link the last cycle fixed in `## Build and install`, `## Tasks](...)` read as a
+  heading, now kept whole.
 
-##### feat: init writes the record's files
+##### feat: delete becomes repo delete
 
-`vc-x1 init` writes `TODO.md` and `zTOC.md` into the work repo's first commit, each a skeleton of
-the headings a cycle's record is written into, so a new workspace takes its first Todo and its
-first `cycle plan` with no file made by hand. `cycle plan` writes the skeleton itself into a
-workspace made before. Found by wink's test of rung 2 in a fresh `init` workspace, first planned as
-`cycle plan` writing the files, then moved to `init` (wink, 2026-11-21), the files the set brings
-being `init`'s to copy later, under **Initialization leaves no bad link**.
+`vc-x1 delete` becomes `vc-x1 repo delete`, a noun and its verbs, as `cycle`, `rung`, jj, and the
+planned `bookmark` are, so `repo rename` and `repo move` join it later (wink, 2026-11-23, at the
+review of the first closing, which was taken back for this rung).
 
-- The skeletons hold the headings alone: `TODO.md`'s `## Continuation notes` reading `_None._`,
-  `## In Progress` reading `_No cycle currently in progress._`, and `## Todo` and `## Closed`
-  empty, so no placeholder is left when a cycle fills them, and `zTOC.md`'s `## Ladder` reading
-  `_None._`. No link into `agent-data/`, which a workspace without the agent-files would not have.
-- `init` writes them in the dual and plain-repo modes alike, in its work-config step, and an
-  adopted directory or repo keeps a record file it has, the other written.
-- `plan_open` reads a missing file as its skeleton, `TODO_SKELETON` or `LADDER_SKELETON`, the
-  ones `init` writes, and plans the record on it, so the skeleton's write and the record's are
-  one edit and a refusal or a dry run writes neither. The refusal that named the two files went.
-- The test fixtures are made by `init`, so the cycle tests that need a workspace without the
-  files remove them first.
+- `src/repo.rs` is the `repo` command, a subcommand enum as `cycle`'s is, `delete` its one, and
+  `src/delete.rs` moved to `src/repo/delete.rs`, every message saying `repo delete:`.
+- `tests/cli_delete.rs` is `tests/cli_repo.rs`, one file per command as the others are, its
+  commands `repo delete`, and README's section is `### repo delete`, naming `rename` and `move` as
+  the verbs to come.
+- **feat: the bookmark is made first** notes that `bookmark` and `repo` share the shape, and **feat:
+  the closing can be taken back** gains this take-back as its case.
 
-##### feat: a single-step is one rung
+##### feat: vc-x1 delete removes a workspace closing
 
-The ladder's grammar accepts a plan of one heading, the cycle title, the simple single-step: `rung
-next` marks it current, and `rung commit --body` commits it under the bare title, the record moved
-to `## Closed` without `#### Rungs` and the ladder `0 (done) <title>`. `rung next --ver X.Y.Z`, a
-bare version, on a scaffold holding only its bookends rewrites them in `TODO.md` into that one
-heading, the opening's text kept, and is refused when the plan has work rungs. The long style,
-bookends kept, stays `cycle close --single-step` until `cycle squash` replaces it.
+The close-out, at `0.85.27`, closed as a trapezoid on `main` and not landed: wink reviews the
+closed cycle before the Land (2026-11-23). It is the second closing: the first was taken back for
+rung 3, its record re-applied here.
 
-- `ladder_of` takes a plan of the one heading, `is_one_rung`, beside the bookended form, its
-  line unlinked whether planned, current, or done, since the heading's anchor is the `###` cycle
-  heading's own. A plan of another lone heading is refused, naming both forms.
-- `one_rung_record` is the rewrite: the opening's heading renamed to the cycle title, its text
-  kept, and the closing's subsection removed to the next heading. `rung next` plans it before the
-  bump, so a refusal changes nothing, and writes it after, then marks the one rung current.
-- The shortcut runs only before the opening, the branch holding no commit: a bare version is also
-  a ladder's closing, which `rung next` reaches the usual way.
-- `rung commit` on the one rung refuses a missing `--body`, then makes the commit by `cycle
-  close`'s single-step code, which now takes the command's label, so its messages read `rung
-  commit:`. `cycle close --single-step` also takes the one rung started, as it takes the opening.
-- `cycle status` names the one rung, and with the bookends alone says a bare `--ver` makes the
-  cycle one commit.
-- The rehearsal gains a fourth cycle, a simple single-step whose one heading is written by hand,
-  this workspace having no `[version]`, committed by `rung commit` and landed. README's `### rung`
-  gains **A single-step is one rung**.
-- Filed while it was in review (wink, 2026-11-21): **feat: init copies a file set**, the top `##
-  Todo` entry, `file-set.toml` at a set's root; `cycle plan [TODO]` and `vc-x1 todo list [START]
-  [-n COUNT]` in **feat: the bookmark is made first**; the rule "Every argument is a flag" going in
-  the docs rung; and **feat: rung commit without a cycle**, the next rung.
-
-##### feat: rung commit without a cycle
-
-With no cycle in progress, `rung commit -s b --title "<title>" --body "..."` makes the bookmark on
-the work `@`, the title's slug or `--bookmark`'s, refused when the name is in use, and commits the
-pair verbatim, `TODO.md` and `zTOC.md` untouched and not required, `main` unmoved. With a cycle in
-progress `--title` is refused, the rung's title being the ladder's. `--record` (wink, 2026-11-21)
-plans the cycle as `cycle plan --title` does, its one heading the title, fills the record's problem
-and solution from the body, and closes it in the same commit, the record in `## Closed` and the
-ladder `0 (done) <title>`. `--land <TARGET>` lands the commit in the same invocation, as `cycle
-close --land` does, its checks made before the commit, `--push` then publishing the target, and
-without it `--push` is the draft push of the bookmark. The version check stays, so a project with
-`[version]` bumps by hand first. Asked for by wink's test in a fresh `init` workspace, `echo abc >
-abc.txt` and the commit (wink, 2026-11-21).
-
-- `rung commit` reads `TODO.md` first: a cycle in progress takes the current rung, as before, and
-  `--title` is refused, and with none `--title` takes the new path and a bare `rung commit` is
-  refused naming both ways on.
-- Every check comes before the bookmark is made, the body, an empty `@`, the version, and the
-  Land's, so a refusal leaves nothing. The bookmark is `cycle plan`'s, by `open`, and the commit
-  `vc-x1 commit`'s, advancing that bookmark, so `main` is not touched until the Land.
-- `--record` runs `cycle plan`'s own code, its "plan the cycle" hint left out, makes the bookends
-  the one heading by `one_rung_record`, writes Problem and Solution from the body by
-  `with_body_items`, the Acceptance check `_None._`, and makes the commit by `cycle close
-  --single-step`'s code, as a single-step's one rung is.
-- `--land` builds the Land as `cycle close --land` does, `-s w` refused, and is refused on a
-  ladder's rung. The push then is the target's, and without `--land` it is the bookmark's draft.
-- The test helper that commits a rung with a title now sets it on `RungCommit`'s rung, and two
-  tests cover the verbatim form, landed by `cycle land`, and `--record --land main`. The
-  rehearsal gains cycles 5 and 6, the verbatim form with `--land main --push` and `--record`, 80
-  checks. README's `### rung` gains **A commit without a cycle**.
-- `RungParams::Commit` holds its inputs boxed, clippy's large-variant lint asking for it.
-- Filed while it was in review (wink, 2026-11-21): **feat: vc-x1 delete removes a workspace from
-  this machine**, the test repos with it when asked and no remote reached by a URL; **feat: lookup
-  says what it searched**; **fix: a local Land moves the agent main in every case**; and the
-  nearest bookmark, `main+N`, in **feat: status and list print @ and @- alike**.
-
-##### feat: cycle squash makes one commit
-
-`vc-x1 cycle squash` squashes the work rungs into the opening under the bare title, after
-rewriting each agent commit's `ochid:` to it, and stamps the work commit's `ochid:` with every
-agent commit, the record moved to `## Closed` and the ladder one entry. Refused over a work rung a
-target reaches, and without `--yes` over an agent commit `main@origin` reaches, with `--land` and
-`--push` chained as on `close`. It takes the long single-step, a branch of the opening alone or
-none, so `cycle close`'s `--single-step` and `--multi-step` and the commit-count check go here,
-`close` always a ladder's closing.
-
-- `cycle squash` is a subcommand of its own, `src/cycle/squash.rs`. With no commit on the branch,
-  or the opening alone, it is the single-step commit `close` already made, `@` committed now or
-  folded in. With work rungs, every check is made first: the first commit the opening, the
-  bookmark on `@` or `@-`, no started rung but the closing, no conflict, the version, the Land's,
-  no commit of the branch that a remote bookmark other than the cycle's reaches, and no agent
-  commit on the agent `main@origin` to rewrite without `--yes`.
-- Then the agent side first: each agent commit a work commit names, whose `ochid:` names a rung,
-  gets its description rewritten to name the opening, deduplicated, the agent `@` skipped, its
-  trailers the push's. The opening gets every agent commit's `ochid:`, each rung is squashed into
-  it oldest first by change id, and the single-step fold writes the record, the ladder, and the
-  bare title. A failure restores both repos, and the Land and the draft push come after.
-- A local bookmark other than the cycle's already keeps its commits off the branch, so "a target
-  reaches" is read as a remote bookmark: `main@origin` and any other pushed name, the cycle's own
-  draft push allowed.
-- `cycle close` loses `--single-step`, `--multi-step`, and `--default-body`, and the count check
-  with them: it is always a ladder's closing, refused with no opening and naming `squash`. The
-  single-step code stays inside `close` for `squash`, a single-step's one rung, and `rung commit
-  --record`. `cycle status` names `squash` where it named `--single-step`.
-- Tests: `close_is_a_ladders_closing`, `a_ladder_squashes_into_one_commit`, the change id kept and
-  each agent commit re-pointed, `squash_rewrites_a_published_agent_commit_only_with_yes`, and
-  `squash_needs_a_body`, the old shape tests replaced. The rehearsal's cycles 1 and 2 squash,
-  cycle 3 closes without `--multi-step`, and cycle 7 squashes a ladder and checks the trailers
-  both ways, 92 checks. README's `close` section loses its shape table, and `squash` gets one.
-- Filed while it was in review (wink, 2026-11-21): the nearest bookmark, `main+N`, in **feat: status
-  and list print @ and @- alike**, and **feat: cycle plan start and commit**, the next rung.
-
-##### feat: cycle plan start and commit
-
-The plan is a phase of its own, started and committed, not a rung (wink, 2026-11-21): `cycle plan
-start --title "<title>"` is today's `cycle plan`, the bookmark and the record's scaffold, with
-`--ver X.Y.Z-0` setting the opening's version at the start as `rung next --ver` does, and `cycle
-plan commit -s b` makes the ladder from the headings and commits the opening, its title and body
-defaulted. `rung next` then starts work rungs alone, refused before the opening is committed and
-naming `cycle plan commit`, so the opening is never `(current)`. `plan start` then `cycle squash` is
-the one-off's path, which `squash` already takes. `cycle ladder` stays, for a rung inserted
-mid-cycle. Open: whether the one-heading single-step, rung 4's bare `--ver`, is then kept or
-dropped, `rung commit --record` using it.
-
-- `cycle plan` takes the subcommands `start` and `commit`. `start` is the old `cycle plan`, its
-  `--ver` running the config's bump last, after the bookmark and the record, so a refusal bumps
-  nothing, and its hint now names `cycle plan commit`. This replaces the deliberation's "`cycle
-  plan` changes no version".
-- `plan commit` is `rung commit`'s code for the opening, `commit_rung` with no title, which already
-  rewrites the ladder from the headings into the commit, so no `cycle ladder` is needed first. It
-  is refused over a committed plan and on the one-heading plan.
-- `rung next` refuses the opening, naming `cycle plan commit`, but for the bare-`--ver` shortcut,
-  which makes the one heading and starts it. The one-heading single-step stays, the open question
-  left for the docs rung or a later cycle.
-- `cycle status` names `cycle plan commit` before the opening, and `cycle plan start` with no
-  cycle. Tests: the rung-flow test commits the plan by `plan commit` and checks `rung next`'s
-  refusal before it, `a_one_off_squashes_after_plan_start` replaces the opening-started
-  single-step, and `plan_start_sets_the_version_and_plan_commit_commits_it` is new. The rehearsal
-  commits each plan by `plan commit`, 91 checks, and README's `### cycle` shows the two steps.
-
-##### docs: one cycle flow
-
-The agent-files, to `v0.3.1-17`: the per-rung flow starts each rung by `rung next`, which bumps,
-and ends it by `rung commit`, a commit marking its rung `(done)` and none `(current)`, from the
-set-aside `nruymrqm`, whose bookmark is then deleted. Cycle shape says the version or the verb
-chooses the shape, the rules **Shape named, count checked** and **A ladder lands as a trapezoid,
-never squashed** rewritten, the 1:M re-point named, and every invocation names the subcommands,
-the rationale with them. The state-recording Todo loses `m-13`'s fix and `--rung-start` to this
-cycle, and the `v0.3.1` Todo's gathered list gains this cycle's rules. The rule "Every argument is
-a flag" goes (wink, 2026-11-21), a command's operand being a positional where it reads one way,
-`cycle land <TARGET>` and `cycle close [REV,...]` since rung 2: `jj.md`'s line and README's
-`### Every argument is a flag` rewritten to keep what a flag is still for, the names that mean the
-same everywhere, and the positionals retired before stay refused.
-
-- `AGENTS.md`: Terminology names `cycle` and `rung` and the shape by the ending stage; the rules
-  **Shape named, count checked** and the never-squashed clause become **One commit or a ladder**,
-  **Commit by the tool** names `cycle plan commit`, `rung commit`, `cycle close`, and `cycle
-  squash`, **The ladder is the tool's** names `rung next`'s working-copy marker, and **The version
-  is the project's** names `--ver`. Cycle shape is rewritten whole, Cycle-record's ladder says
-  `(current)` is the working copy's, Opening is the plan's start and commit, the per-rung flow's
-  step 1 is `rung next --ver` and step 7 `rung commit`, and Committing vs pushing, A cycle is local
-  by default, Pushing, At rest, and Close-out name the subcommands, `rung commit --title` without a
-  cycle among them.
-- `rationale.md`: Cycle shape's why is the ending stage, with **A ladder may be squashed, its agent
-  side re-pointed** and **Stages are subcommands**, the named-shape paragraph marked superseded;
-  Opening gains **The plan is started and committed**; the per-rung flow gains the `--ver` and the
-  rung-marker whys; and the closed block keeps `(done)` alone.
-- `jj.md`'s create, close, Land, and close-out shapes name the subcommands, the one-commit shape
-  `cycle squash`'s in place of "Squash is not a shape", and its "Every argument is a flag" line
-  goes. `notes.md`'s In Progress block and zTOC format, and `cycle-model.md`'s who-writes-what and
-  specimens, name `(current)` as the working copy's and the subcommands.
-- The set-aside `nruymrqm` was written when no commit and no working copy marked a rung current;
-  its intent, no commit marking one, is taken, its text not, and its bookmark
-  `aside/fix-a-cycle-commit-marks-no-rung-current` is deleted.
-- The agent-files version is `v0.3.1-17`, `CONTRIBUTING.md` dating it, and the `v0.3.1` Todo's
-  gathered list gains this cycle's rules. The state-recording Todo notes the rung lifecycle and
-  `m-13`'s fix landed here, its rung renamed to what is left, `agent-at` and `--insert`.
-- The rule's removal reaches the code: the retired-positional refusal reads "a flag naming what the
-  word is" in place of "every argument is a flag", and `commit` and `push`'s help with it. README's
-  section is **Flags mean the same everywhere**.
-
-##### fix: cycle plan start checks --ver before it writes
-
-`cycle plan start --ver` in a workspace with no `[version] bump` made the bookmark and wrote the
-record before the bump refused, labelled `rung next --ver`, so a refusal left half a plan (wink's
-test, 2026-11-22). The config's bump is checked with the plan's other refusals, before anything is
-made, and a bump command that fails after the plan is written puts `TODO.md` and `zTOC.md` back
-and deletes the bookmark, so `plan start` is all or nothing, each message naming `cycle plan start
---ver`.
-
-- `bump_words` and `bump` take the label of the command that asked, so `plan start`'s messages
-  name `cycle plan start --ver` and `rung next`'s keep theirs, its "so no rung is marked" added by
-  the caller.
-- `plan start` checks the bump's config, the `bump` key and its `{ver}`, beside its other refusals,
-  before the bookmark and the record. The command's own failure, which no check foresees, comes
-  after the record is written, so the files are put back as they were, a skeleton the plan made
-  removed, and the bookmark deleted, the refusal saying the plan is undone.
-- `plan_start_ver_makes_nothing_when_the_bump_cannot_run` covers both, a config with no bump and
-  one whose bump is `false {ver}`.
-
-##### fix: the build docs, completions -h, and Rust 1.100's new warnings
-
-Inserted by wink, 2026-11-23, from reading README and a validate on Rust 1.100. README's `## Build
-and install` says how to build and install, its split link no longer read as a heading, and names
-`cx`, an alias or a script, and how its completion is installed. `cargo xtask completions -h` shows
-the install steps, which only `--help` did. Rust 1.100's two new warnings, clippy's and cargo's,
-failed the full validate on code this cycle did not touch.
-
-- README's opening sentence says what the section is for, the manifest's `[package].name` dropped,
-  and the link to `CONTRIBUTING.md#tasks` holds no `## `, so a rewrap cannot make it a heading.
-- `completions`' install lines moved from its `long_about` to `after_help`, which clap prints for
-  `-h` and `--help` alike.
-- `lookup`'s window loop walks the slice it prints, `(from..).zip(&entries[from..=to])`, clippy's
-  `needless_range_loop`.
-- `tests/cli_xtask.rs`: the virtual workspace's members take its version, `bin()` given the
-  version line, and the two `version` answers are read from stdout alone, since the bare
-  workspace's manifest warns of a version no member uses, filed as **fix: a new workspace's
-  manifest warns of an unused version**.
-- Filed: **feat: a cycle is taken up on another machine by one command**, wink having asked for the
-  commands after a sync, and **feat: the new cycle flow**, wink's shape and test findings of
-  2026-11-22. `## Todo` opens with the next three cycles in wink's order (2026-11-23): **feat: vc-x1
-  delete removes a workspace from this machine**, so the tests of the next two clean up after
-  themselves, **feat: the new cycle flow**, and **feat: init copies a file set**.
-
-##### feat: one cycle flow, plan, rungs, close closing
-
-The close-out, at `0.85.26`, closed as a trapezoid on `main` and landed there (wink, 2026-11-23,
-"it's working good enough"), the next shape filed rather than built here.
-
-- The Solution says what was built, and the acceptance check records its result and the forms it
-  was run in, since rung 7 changed how the opening is made.
-- `notes/agent-files-size.md` gains this cycle's row, `v0.3.1-17` at 2066 lines, and its window
-  slides.
-- Nothing in the block needs a `notes/` file to outlive the cycle: its rules are in the
-  agent-files since the docs rung, and the design it leaves open is in **feat: the new cycle
-  flow**.
-- The continuation notes are rewritten for the next session.
-- Found at the closing: `scripts/cycle-rehearsal.sh` reports a failed command as `FAILED (exit
-  0)`, its `$?` read after `if !`, which negates it, filed in **feat: the new cycle flow**, whose
-  tests run the rehearsal.
+- The Solution says what was built, the scope, the order, and `repo` among it, and the acceptance
+  check records its result, two of its items checked by hand since no test covers them.
+- No agent-file changed, so `notes/agent-files-size.md` gains no row, and nothing in the block
+  needs a `notes/` file: the command's account is README's `### repo delete`.
+- The continuation notes say the cycle is closed and waiting on wink's review and Land, and that
+  the two test workspaces can now go by `repo delete`.
 
 # References
 

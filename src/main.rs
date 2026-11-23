@@ -36,6 +36,7 @@ mod open;
 mod options_flags;
 mod pair;
 mod push;
+mod repo;
 mod repo_utils;
 mod run_cmd;
 mod show;
@@ -487,6 +488,9 @@ pub(crate) enum Commands {
 
     /// Create Claude Code project symlink
     Symlink(symlink::SymlinkArgs),
+
+    /// A workspace's repos as a whole: `delete` removes one from this machine
+    Repo(repo::RepoArgs),
 
     /// Fetch and sync a set of repos to their remotes
     #[command(long_about = format!("Fetch and sync a set of repos to their remotes.\n\n\
@@ -1035,6 +1039,7 @@ fn main() -> ExitCode {
         Commands::Clone(args) => args.dispatch(&mut ctx),
         Commands::Init(args) => args.dispatch(&mut ctx),
         Commands::Symlink(args) => args.dispatch(&mut ctx),
+        Commands::Repo(args) => args.dispatch(&mut ctx),
         Commands::Sync(args) => args.dispatch(&mut ctx),
         Commands::SquashPush(args) => args.dispatch(&mut ctx),
         Commands::Config(args) => args.dispatch(&mut ctx),

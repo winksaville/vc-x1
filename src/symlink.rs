@@ -230,7 +230,7 @@ impl SymLink {
 /// `~/.claude/projects/`: the standard Claude Code symlink
 /// directory. Shared default for `install` and the
 /// `vc-x1 symlink` subcommand.
-fn default_symlink_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
+pub(crate) fn default_symlink_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let home =
         std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
     Ok(PathBuf::from(home).join(".claude").join("projects"))
