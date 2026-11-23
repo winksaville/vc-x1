@@ -1,4 +1,4 @@
-//! The `delete` subcommand: remove a workspace from this machine.
+//! `vc-x1 repo delete`: remove a workspace from this machine.
 //!
 //! - The workspace is found by its `.vc-config.md`, as every command
 //!   finds it: PATH is its root, or the current directory is inside
@@ -95,7 +95,7 @@ impl SubcommandRunner for DeleteArgs {
 
     /// Run the `delete` op.
     fn run(ctx: &mut Context, params: &Self::Params) -> Result<(), Box<dyn std::error::Error>> {
-        debug!("delete: enter {params:?}");
+        debug!("repo delete: enter {params:?}");
         let cwd = std::env::current_dir()?;
         let projects = crate::symlink::default_symlink_dir()?;
         delete(ctx, params, &cwd, &projects)
@@ -173,12 +173,12 @@ pub fn find_root(path: Option<&Path>, cwd: &Path) -> Result<PathBuf, String> {
             };
             let p = p
                 .canonicalize()
-                .map_err(|e| format!("delete: '{}' cannot be read: {e}", p.display()))?;
+                .map_err(|e| format!("repo delete: '{}' cannot be read: {e}", p.display()))?;
             match crate::common::find_workspace_root_from(&p) {
                 Some(r) if r == p => r,
                 Some(r) => {
                     return Err(format!(
-                        "delete: '{}' is inside the workspace at '{}', not its root: name the \
+                        "repo delete: '{}' is inside the workspace at '{}', not its root: name the \
                          root to delete it",
                         p.display(),
                         r.display()
@@ -186,7 +186,7 @@ pub fn find_root(path: Option<&Path>, cwd: &Path) -> Result<PathBuf, String> {
                 }
                 None => {
                     return Err(format!(
-                        "delete: '{}' is no workspace, having no `.vc-config.md`",
+                        "repo delete: '{}' is no workspace, having no `.vc-config.md`",
                         p.display()
                     ));
                 }
@@ -194,7 +194,7 @@ pub fn find_root(path: Option<&Path>, cwd: &Path) -> Result<PathBuf, String> {
         }
         None => crate::common::find_workspace_root_from(cwd).ok_or_else(|| {
             format!(
-                "delete: '{}' is in no workspace, having no `.vc-config.md` above it: name \
+                "repo delete: '{}' is in no workspace, having no `.vc-config.md` above it: name \
                  the workspace's root",
                 cwd.display()
             )
@@ -205,7 +205,7 @@ pub fn find_root(path: Option<&Path>, cwd: &Path) -> Result<PathBuf, String> {
         && home.starts_with(&root)
     {
         return Err(format!(
-            "delete: the workspace at '{}' holds the home directory '{}', and is not removed",
+            "repo delete: the workspace at '{}' holds the home directory '{}', and is not removed",
             root.display(),
             home.display()
         ));
@@ -280,7 +280,7 @@ fn read_repo(
 pub fn link_of(root: &Path, agent: Option<&Path>, projects: &Path) -> Result<Link, String> {
     let name = crate::symlink::encode_path(
         root.to_str()
-            .ok_or_else(|| format!("delete: '{}' is not valid UTF-8", root.display()))?,
+            .ok_or_else(|| format!("repo delete: '{}' is not valid UTF-8", root.display()))?,
     );
     let path = projects.join(name);
     let Ok(meta) = path.symlink_metadata() else {
@@ -289,8 +289,12 @@ pub fn link_of(root: &Path, agent: Option<&Path>, projects: &Path) -> Result<Lin
     if !meta.is_symlink() {
         return Ok(Link::NotSymlink(path));
     }
-    let target = std::fs::read_link(&path)
-        .map_err(|e| format!("delete: cannot read the symlink '{}': {e}", path.display()))?;
+    let target = std::fs::read_link(&path).map_err(|e| {
+        format!(
+            "repo delete: cannot read the symlink '{}': {e}",
+            path.display()
+        )
+    })?;
     let resolved = target.canonicalize().unwrap_or_else(|_| target.clone()); // OK: a dangling link compares as written
     let ours = agent.is_some_and(|a| a.canonicalize().map(|a| a == resolved).unwrap_or(false)); // OK: an agent-repo gone is not this link's
     Ok(if ours {
@@ -312,14 +316,14 @@ pub fn plan(
     match (params.dual, agent.is_some()) {
         (true, false) => {
             return Err(format!(
-                "delete -s b: the workspace at '{}' is a plain repo: `-s p` deletes it",
+                "repo delete -s b: the workspace at '{}' is a plain repo: `-s p` deletes it",
                 root.display()
             )
             .into());
         }
         (false, true) => {
             return Err(format!(
-                "delete -s p: the workspace at '{}' is a dual workspace: `-s b` deletes it",
+                "repo delete -s p: the workspace at '{}' is a dual workspace: `-s b` deletes it",
                 root.display()
             )
             .into());
@@ -335,7 +339,7 @@ pub fn plan(
             repos.extend(read_repo(&label_of(&agent), true, &agent, false)?);
         } else if agent.starts_with(&root) || root.starts_with(&agent) {
             return Err(format!(
-                "delete: the agent-repo '{}' and the work-repo '{}' hold each other, which no \
+                "repo delete: the agent-repo '{}' and the work-repo '{}' hold each other, which no \
                  workspace vc-x1 makes does: nothing is removed",
                 agent.display(),
                 root.display()
@@ -424,7 +428,7 @@ impl Plan {
     /// The lines that say what goes and what stays.
     pub fn lines(&self) -> Vec<String> {
         let mut out = vec![format!(
-            "delete: the workspace at '{}'",
+            "repo delete: the workspace at '{}'",
             self.root.display()
         )];
         match &self.link {
@@ -507,18 +511,22 @@ pub fn delete(
     }
     let refusals = plan.refusals();
     if !refusals.is_empty() {
-        return Err(format!("delete: nothing is removed:\n  {}", refusals.join("\n  ")).into());
+        return Err(format!(
+            "repo delete: nothing is removed:\n  {}",
+            refusals.join("\n  ")
+        )
+        .into());
     }
     if params.dry_run {
-        info!("delete: [dry-run] nothing is removed");
+        info!("repo delete: [dry-run] nothing is removed");
         return Ok(());
     }
     confirm(params.yes, ctx.stdin_is_tty)?;
     remove(&plan)?;
     if cwd.starts_with(&plan.root) {
-        info!("delete: done, and this shell's directory is gone with it: `cd` out of it");
+        info!("repo delete: done, and this shell's directory is gone with it: `cd` out of it");
     } else {
-        info!("delete: done");
+        info!("repo delete: done");
     }
     Ok(())
 }
@@ -528,20 +536,20 @@ pub fn delete(
 /// so a script learns nothing was removed.
 fn confirm(yes: bool, stdin_is_tty: bool) -> Result<(), Box<dyn std::error::Error>> {
     if yes {
-        debug!("delete: --yes, not asked");
+        debug!("repo delete: --yes, not asked");
         return Ok(());
     }
     if !stdin_is_tty {
         return Err(
-            "delete: asking requires a terminal (stdin is not interactive): --yes removes \
+            "repo delete: asking requires a terminal (stdin is not interactive): --yes removes \
              without asking, nothing is removed"
                 .into(),
         );
     }
-    let answer = crate::common::prompt("delete: remove these? [y/N] ")?;
+    let answer = crate::common::prompt("repo delete: remove these? [y/N] ")?;
     let answer = answer.trim().to_ascii_lowercase();
     if answer != "y" && answer != "yes" {
-        return Err(format!("delete: declined (got {answer:?}), nothing is removed").into());
+        return Err(format!("repo delete: declined (got {answer:?}), nothing is removed").into());
     }
     Ok(())
 }
@@ -592,11 +600,11 @@ pub fn remove(plan: &Plan) -> Result<(), Box<dyn std::error::Error>> {
         done.map_err(|e| {
             let left: Vec<&str> = steps[i..].iter().map(|(n, _, _)| n.as_str()).collect();
             format!(
-                "delete: cannot remove {name}: {e}. Left: {}. A second run removes the rest",
+                "repo delete: cannot remove {name}: {e}. Left: {}. A second run removes the rest",
                 left.join(", ")
             )
         })?;
-        info!("delete: removed {name}");
+        info!("repo delete: removed {name}");
     }
     Ok(())
 }

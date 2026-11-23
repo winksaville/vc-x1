@@ -13,7 +13,6 @@ mod config_md;
 mod config_schema;
 mod context;
 mod cycle;
-mod delete;
 mod delete_bookmark;
 mod deprecated;
 mod desc;
@@ -37,6 +36,7 @@ mod open;
 mod options_flags;
 mod pair;
 mod push;
+mod repo;
 mod repo_utils;
 mod run_cmd;
 mod show;
@@ -489,16 +489,8 @@ pub(crate) enum Commands {
     /// Create Claude Code project symlink
     Symlink(symlink::SymlinkArgs),
 
-    /// Remove a workspace from this machine
-    #[command(
-        long_about = "Remove a workspace from this machine: the work repo's directory, \
-        the agent repo's when it is outside, and the Claude Code symlink when it points at the \
-        agent repo. --local-repos also removes the bare repos the origins are when they are \
-        paths here, and a remote reached by a URL is never touched. Work that is nowhere else, \
-        uncommitted or unpushed, refuses unless --local-repos, which removes it all. The plan is \
-        printed first, and --dry-run prints it alone."
-    )]
-    Delete(delete::DeleteArgs),
+    /// A workspace's repos as a whole: `delete` removes one from this machine
+    Repo(repo::RepoArgs),
 
     /// Fetch and sync a set of repos to their remotes
     #[command(long_about = format!("Fetch and sync a set of repos to their remotes.\n\n\
@@ -1047,7 +1039,7 @@ fn main() -> ExitCode {
         Commands::Clone(args) => args.dispatch(&mut ctx),
         Commands::Init(args) => args.dispatch(&mut ctx),
         Commands::Symlink(args) => args.dispatch(&mut ctx),
-        Commands::Delete(args) => args.dispatch(&mut ctx),
+        Commands::Repo(args) => args.dispatch(&mut ctx),
         Commands::Sync(args) => args.dispatch(&mut ctx),
         Commands::SquashPush(args) => args.dispatch(&mut ctx),
         Commands::Config(args) => args.dispatch(&mut ctx),

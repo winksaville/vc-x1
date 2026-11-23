@@ -1,4 +1,4 @@
-//! CLI subprocess integration tests for `vc-x1 delete`.
+//! CLI subprocess integration tests for `vc-x1 repo delete`.
 //!
 //! Each test makes a workspace with `vc-x1 init --test-repo` under a
 //! `CliFixture`, whose isolated `HOME` holds the Claude Code symlink
@@ -52,10 +52,10 @@ fn make_ws(fx: &CliFixture) -> Ws {
     }
 }
 
-/// `vc-x1 delete <args>` from `dir`.
+/// `vc-x1 repo delete <args>` from `dir`.
 fn delete(fx: &CliFixture, dir: &Path, args: &[&str]) -> std::process::Command {
     let mut c = fx.cmd();
-    c.arg("delete").args(args).current_dir(dir);
+    c.args(["repo", "delete"]).args(args).current_dir(dir);
     c
 }
 

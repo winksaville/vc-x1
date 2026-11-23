@@ -1395,7 +1395,10 @@ vc-x1 symlink -l
 | `-l, --list` | List contents of symlinked directory after creation |
 | `-y, --yes` | Replace existing symlink without prompting |
 
-### delete
+### repo delete
+
+`vc-x1 repo` holds what is done to a workspace's repos as a whole, a noun and its verbs as `cycle`
+and `rung` are: `delete` today, `rename` and `move` to come.
 
 Remove a workspace from this machine, the cleanup a test workspace made by `init --test-repo`
 needs. The workspace is found by its `.vc-config.md`: PATH is its root, or the current directory is
@@ -1403,10 +1406,10 @@ inside it, and a PATH inside a workspace but not its root is refused.
 
 ```
 # See what would go, removing nothing
-vc-x1 delete -s b --dry-run ~/tmp/my-test
+vc-x1 repo delete -s b --dry-run ~/tmp/my-test
 
 # Remove it, its bare remotes included, without asking
-vc-x1 delete -s b --local-repos --yes ~/tmp/my-test
+vc-x1 repo delete -s b --local-repos --yes ~/tmp/my-test
 ```
 
 - What goes: the work-repo's directory, the agent-repo's when the config puts it outside, and the

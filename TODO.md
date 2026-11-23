@@ -61,7 +61,7 @@ so `~/tmp` and the symlinks pile up and each is removed by hand, where a slip de
 
 #### Solution
 
-`vc-x1 delete [PATH]` removes a workspace from this machine: the workspace at PATH, the current
+`vc-x1 repo delete [PATH]` removes a workspace from this machine: the workspace at PATH, the current
 directory's by default, found by its `.vc-config.md` as every command finds it. What goes is the
 work-repo's directory, the agent-repo's directory when the config puts it outside, and the Claude
 Code symlink `~/.claude/projects/<encoded root>`, when it points at the agent-repo. With
@@ -74,9 +74,9 @@ confirmed, `--yes` confirming without a terminal, and `--dry-run` shows it alone
 With the cycle's dev build, in a workspace made by `init --test-repo <DIR>`, its home isolated so
 the symlink is made in a test's `~/.claude/projects/`:
 
-- `delete --dry-run` lists the work directory, the agent directory, the symlink, and, with
+- `repo delete --dry-run` lists the work directory, the agent directory, the symlink, and, with
   `--local-repos`, the two bare repos, and removes nothing.
-- `delete --yes` removes the workspace and the symlink and leaves the bare repos, and `delete
+- `repo delete --yes` removes the workspace and the symlink and leaves the bare repos, and `delete
   --local-repos --yes` removes them too.
 - A workspace whose `origin` is a URL is removed with its remote untouched, and `--local-repos` over
   it is refused, naming the URL, nothing removed.
@@ -132,6 +132,19 @@ the symlink is made in a test's `~/.claude/projects/`:
   root, so a path typed by hand never reaches a workspace above it, and with no PATH the current
   directory's workspace is found by the walk up every command makes. A root that holds the home
   directory is refused.
+- **`repo delete`, a noun and its verbs** (wink, 2026-11-23, at the review of the first closing):
+  `vc-x1 delete` became `vc-x1 repo delete`. The commands built since are a noun and its verbs,
+  `cycle plan start` and `rung next`, as jj's are, `jj bookmark delete`, and **feat: the bookmark
+  is made first** plans `vc-x1 bookmark create|delete|rename|move|list`, so a verb first, `delete
+  [bookmark|repo]`, would be the one command the other way round and give `bookmark delete` two
+  spellings. `repo` over `workspace`, which `jj workspace` means otherwise, and over `project`,
+  which only `init`'s help says. `repo rename` and `repo move` join it later.
+  - The first closing was made and taken back by hand for it, before any push: the work closing
+    abandoned, its record re-applied in the second, and the agent closing's content folded back
+    into the agent `@` by `jj squash --from <closing> --into @`, which carried the closing's
+    description onto `@`, cleared again by `jj describe -r @ -m ""`. In a dual workspace the rung
+    could not go under the closing that stood: the agent-repo is linear, and the rung's session
+    came after the closing's agent commit. Filed in **feat: the closing can be taken back**.
 - **The title** (wink, 2026-11-23): renamed from **feat: vc-x1 delete removes a workspace from
   this machine**, 56 characters and over the 50 a title keeps to, before the opening's commit, the
   bookmark renamed with it.
@@ -184,6 +197,20 @@ stopped. Tests in an isolated home, and README's `### delete`.
 - README gains `### delete` after `### symlink`. Its `### Deprecated: the task commands` had the
   same split link the last cycle fixed in `## Build and install`, `## Tasks](...)` read as a
   heading, now kept whole.
+
+##### feat: delete becomes repo delete
+
+`vc-x1 delete` becomes `vc-x1 repo delete`, a noun and its verbs, as `cycle`, `rung`, jj, and the
+planned `bookmark` are, so `repo rename` and `repo move` join it later (wink, 2026-11-23, at the
+review of the first closing, which was taken back for this rung).
+
+- `src/repo.rs` is the `repo` command, a subcommand enum as `cycle`'s is, `delete` its one, and
+  `src/delete.rs` moved to `src/repo/delete.rs`, every message saying `repo delete:`.
+- `tests/cli_delete.rs` is `tests/cli_repo.rs`, one file per command as the others are, its
+  commands `repo delete`, and README's section is `### repo delete`, naming `rename` and `move` as
+  the verbs to come.
+- **feat: the bookmark is made first** notes that `bookmark` and `repo` share the shape, and **feat:
+  the closing can be taken back** gains this take-back as its case.
 
 ##### feat: vc-x1 delete removes a workspace closing
 
@@ -462,6 +489,9 @@ flow, plan, rungs, close** lands, `--open` becoming `cycle plan`.
   and nothing else.
 - **`rename` and `delete` of a pushed bookmark push**: free while local, and with an `origin`
   bookmark each is a push and takes approval.
+- **A noun and its verbs** (wink, 2026-11-23): `bookmark create|delete|...` has the shape `repo
+  delete` has, and `cycle` and `rung` have, so the hyphenated `delete-bookmark` and
+  `move-bookmark` it replaces are the last verbs first.
 - **No `set`**: jj's `set` is create or move, which is the move of a shared line the habit guards
   against. `list` is cheap and pairs with the `status` and `list` cleanup.
 - **Scope**: `-s w` and `-s p`, `a` and `b` refused, since the agent-repo is a linear journal and
@@ -4955,6 +4985,13 @@ deliberation moved here whole.
 - **feat: the closing can be taken back**: A closing made without `--land` and found wrong is undone
   by hand in two repos, so one invocation takes it back, the work side by its operation and the
   agent side's content moved back into `@`.
+  - Done by hand in **feat: vc-x1 delete removes a workspace** (2026-11-23), for a rung wink asked
+    for at the closing's review: `jj new <rung before>`, `jj abandon <work closing>`, the cycle's
+    bookmark made again on the rung before, which the abandon had deleted, and `jj squash --from
+    <agent closing> --into @` in the agent-repo, then `jj describe -r @ -m ""` for the description
+    the fold carried. The closing's record, finalized, is re-applied from the abandoned commit by
+    its id. In a dual workspace this is the only way to put a rung before a closing that stands,
+    the agent-repo being linear.
 - **feat: vc-x1 reshapes a draft bookmark**: Reshaping a cycle's bookmark while it is a draft is an
   amend and a force-push typed by hand, so `vc-x1` does both, refusing a bookmark already landed or
   one another branch is stacked on.
