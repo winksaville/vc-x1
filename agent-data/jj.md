@@ -155,12 +155,12 @@ cycle's record. It refuses a name in use, locally or on `origin`, and a cycle al
 `@` holding edits or not. The bookmark follows the change, so `vc-x1 cycle plan commit` commits the
 opening on it, and every later rung advances it and no other.
 
-**Close**: `vc-x1 cycle close -s b`, from the work `@` on the cycle's tip, makes a ladder's closing
-commit, a merge of the target and the tip with `--trapezoid <target>`, and `vc-x1 cycle squash -s b
---body "..."` makes the cycle one commit instead, `@` committed now or folded into the opening, the
-rungs squashed into it and the agent side re-pointed. The target is read where it is now, so one
-that moved is joined. The record moves to `## Closed`
-and the ladder is rewritten in the same commit.
+**Close**: `vc-x1 cycle close <target> -s b`, from the work `@` on the cycle's tip, makes a ladder's
+closing commit, a merge of the target and the tip, `--linear` a plain closing instead, and `vc-x1
+cycle close --squash -s b --body "..."` makes the cycle one commit, `@` committed now or folded into
+the opening, the rungs squashed into it and the agent side re-pointed, a closed draft converted the
+same way. The target is read where it is now, so one that moved is joined. The record moves to
+`## Closed` and the ladder is rewritten in the same commit.
 
 **Land**, once the close-out is approved: the sequence that makes the cycle permanent. Its `vc-x1
 push` is the push under [Approval per push](../AGENTS.md#before-any-push), with the closing words
@@ -227,14 +227,15 @@ is one commit and lands as it is:
   `git log --first-parent` reads one commit per cycle while every rung stays reachable. It joins a
   target that moved. With one rung the figure is a triangle.
 - **linear**, one commit per rung on the target, the closing a plain commit on the ladder, is
-  `cycle close` without `--trapezoid`, the user's to ask for. A Land of it refuses a
+  `cycle close --linear`, the user's to ask for. A Land of it refuses a
   target that moved, since joining one would rewrite the reviewed ladder or need a merge.
 
-- **one commit**, the ladder squashed by `cycle squash`: each rung folded into the opening, whose
-  change id is kept, after every agent-repo commit naming a rung is re-pointed to it, so no
+- **one commit**, the ladder squashed by `cycle close --squash`: each rung folded into the opening,
+  whose change id is kept, after every agent-repo commit naming a rung is re-pointed to it, so no
   `ochid:` is left dangling ([Cycle shape](../AGENTS.md#cycle-shape)). It drops the rungs from the
   history, the user's to ask for, and is refused over a rung a remote bookmark other than the
-  cycle's reaches.
+  cycle's reaches. On a closed draft it converts the closing too, refused when the trapezoid's
+  target moved since.
 
 **Preview before closing.** The cycle's net change is the tree diff from `<base>` to the tip,
 whatever shape the commits between are in: `jj diff --from <base> --to <tip>`, or the gitk range

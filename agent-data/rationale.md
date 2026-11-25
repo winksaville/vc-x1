@@ -51,7 +51,7 @@ ladders](#local-ladders). "Project layer" (2026-10-18), the project's own agent-
 the one file it named became local ([custom.md](#custommd)). "Trunk" (2026-11-10), the one bookmark
 every cycle was assumed to land on, `[cycle] trunk` else `main`, retired for the target, named on
 the command each time. "`--onto`" (2026-11-11), the closing's flag for the target, retired with
-`commit --closing` for `cycle close --trapezoid <target>` and `cycle land <target>`.
+`commit --closing` for `cycle close <target>`, a trapezoid's, and `cycle land <target>`.
 
 **No target is assumed** (wink, 2026-11-10) because a bookmark made is likely, not certainly, the
 one a cycle lands on, and a release branch is a target as much as `main` is. A default would guess,
@@ -168,14 +168,17 @@ intact and lets the `ochid:` trailers ride along: they carry change ids, which s
 
 ### Cycle shape
 
-The stage that ends a cycle says its shape, `cycle squash` one commit and `cycle close` a ladder,
-so no title is read, no count is guessed at, and a cycle need not decide its shape before its end
-(wink + agent, 2026-11-20). A dead end lands because its commits are named by agent-repo trailers,
+The stage that ends a cycle says its shape, `cycle close`, a trapezoid by default, `--linear`, or
+`--squash` one commit, so no title is read, no count is guessed at, and a cycle need not decide its
+shape before its end (wink + agent, 2026-11-20). One ending stage, its shape an option (wink,
+2026-11-23), where `cycle squash` was a second: a cycle closed as a trapezoid could not then be made
+one commit, and `close --squash` on the closed draft now converts it, as the trapezoid and linear
+closings were to convert. A dead end lands because its commits are named by agent-repo trailers,
 and landing keeps every rung reachable.
 
 **A ladder may be squashed, its agent side re-pointed** (wink, 2026-11-20): the rule "a ladder lands
 as a trapezoid, never squashed" stood because a squash kept one rung's change id and left every
-agent commit naming the others dangling. `cycle squash` keeps the opening's change id and rewrites
+agent commit naming the others dangling. `close --squash` keeps the opening's change id and rewrites
 the description of each agent commit naming a rung to name it, the 1:M shape the links already
 allowed, so every `ochid:` resolves and the agent-repo keeps its per-rung history. A rung a remote
 bookmark other than the cycle's reaches is never rewritten, its history published, and an agent
@@ -185,7 +188,8 @@ commit `main@origin` reaches is rewritten only with `--yes`, the next agent push
 subcommand keeps with its later stages as flags, `cycle close --land main --push`, and as flags
 every stage shared one argument list, a flag another stage owned refused by hand. `cycle plan
 start|commit`, `ladder`, `status`, `close`, `squash`, `land`, and `push`, with `rung
-next|stop|commit` for a rung's acts, superseding the next paragraph.
+next|stop|commit` for a rung's acts, superseding the next paragraph, `squash` since folded into
+`close` as its option.
 
 **One command, its stages flags** (wink, 2026-11-11): `commit` made a rung, an opening, a closing
 that was a merge or a rewrite in place, moved the record, landed, pushed, and described an older
@@ -207,8 +211,21 @@ it. Named at the closing, the shape is still decided only when it is known, and 
 wrong name into a refusal. Found testing in `~/tmp/wt-21-6`.
 
 **Linear is the user's to ask for**: a trapezoid joins a target that moved and keeps one commit per
-cycle on the first-parent line, so the rules close with `--trapezoid`, and the flag being the
-trapezoid's is wink's design (2026-11-10), a closing without it being a plain commit.
+cycle on the first-parent line, so the rules close with one. It is the default with no flag, the
+target named as `cycle close <target>`, a bare `cycle close` refused since a target is never
+assumed, and `--linear` asks for the plain commit (wink, 2026-11-23), where `--trapezoid <target>`
+had asked for the merge and no flag made it linear (wink, 2026-11-10).
+
+**A single-step is the plan, one rung, and `close --squash`** (wink, 2026-11-23): the one-heading
+plan, the bare `rung next --ver` that made it, and `rung commit --record` were three more ways to
+one commit, each a shape the ladder's grammar, `rung next`, and `rung commit` carried. With `plan
+start` then `close --squash` a recorded single-step needs neither a hand edit nor `[version]`.
+
+**Informal commits iterate on one bookmark** (wink, 2026-11-23): `rung commit --title` advances the
+bookmark on `@-`, so a run of commits with no record is one branch and one Land, where each had
+made a bookmark of its own. A bookmark is moved forward freely, nothing stranded, sideways only when
+asked, as jj gates it by `--allow-backwards`, and never a target, since development is never done
+on one.
 
 ### Unplanned work
 

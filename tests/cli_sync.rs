@@ -63,7 +63,7 @@ fn setup_peer_push(tag: &str) -> PeerPush {
     run_ok(
         fx.cmd()
             .current_dir(&fx.base)
-            .args(["init", "--target", "./tr"])
+            .args(["init", "./tr"])
             .arg("--repo")
             .arg(format!("local={}", fx.base.display())),
     );

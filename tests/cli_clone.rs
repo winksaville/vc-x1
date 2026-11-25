@@ -18,7 +18,7 @@ fn clone_into_dot_slash_name_links_the_normalized_path() {
     run_ok(
         fx.cmd()
             .current_dir(&fx.base)
-            .args(["init", "--target", "./tr"])
+            .args(["init", "./tr"])
             .arg("--repo")
             .arg(format!("local={}", fx.base.display())),
     );
@@ -74,7 +74,6 @@ fn clone_without_remote_agent_repo_names_it_from_the_agent_dir() {
             .current_dir(&fx.base)
             .args([
                 "init",
-                "--target",
                 "./tr",
                 "--agent-dir",
                 ".claude",

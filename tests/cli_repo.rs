@@ -34,7 +34,6 @@ fn make_ws(fx: &CliFixture) -> Ws {
     run_ok(
         fx.cmd()
             .arg("init")
-            .arg("--target")
             .arg(&root)
             .arg("--test-repo")
             .arg(&remotes),

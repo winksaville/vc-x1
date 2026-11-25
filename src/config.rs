@@ -160,7 +160,7 @@ fn account_help(name: &str) -> String {
         .map(|p| p.display().to_string())
         .unwrap_or_else(|_| "~/.config/vc-x1/config.toml".to_string()); // OK: the path is only shown
     format!(
-        "A URL target, `--target git@github.com:<owner>/<repo>.git`, needs no config. Else \
+        "A URL target, `vc-x1 init git@github.com:<owner>/<repo>.git`, needs no config. Else \
          the user config is {path}, and the least account is:\n\n  [account.{name}]\n  \
          repo.default = \"remote\"\n  repo.category.remote = \"git@github.com:<owner>\""
     )

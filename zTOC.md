@@ -4,11 +4,14 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 
 ## Ladder
 
-- 0 (done) [feat: vc-x1 delete removes a workspace opening](TODO.md#feat-vc-x1-delete-removes-a-workspace-opening)
-- 1 (done) [feat: delete plans what a workspace holds](TODO.md#feat-delete-plans-what-a-workspace-holds)
-- 2 (done) [feat: delete removes what it planned](TODO.md#feat-delete-removes-what-it-planned)
-- 3 (done) [feat: delete becomes repo delete](TODO.md#feat-delete-becomes-repo-delete)
-- 4 (done) [feat: vc-x1 delete removes a workspace closing](TODO.md#feat-vc-x1-delete-removes-a-workspace-closing)
+- 0 (done) [feat: the new cycle flow opening](TODO.md#feat-the-new-cycle-flow-opening)
+- 1 (done) [feat: cycle close takes its shape, a trapezoid by default](TODO.md#feat-cycle-close-takes-its-shape-a-trapezoid-by-default)
+- 2 (done) [feat: the one-heading single-step and --record go](TODO.md#feat-the-one-heading-single-step-and---record-go)
+- 3 (done) [feat: informal commits iterate on one bookmark](TODO.md#feat-informal-commits-iterate-on-one-bookmark)
+- 4 (done) [feat: init takes its target positionally](TODO.md#feat-init-takes-its-target-positionally)
+- 5 (done) [fix: a re-run Land finishes its push, and messages name the command run](TODO.md#fix-a-re-run-land-finishes-its-push-and-messages-name-the-command-run)
+- 6 (done) [docs: the new cycle flow](TODO.md#docs-the-new-cycle-flow)
+- 7 (done) [feat: the new cycle flow closing](TODO.md#feat-the-new-cycle-flow-closing)
 
 ## The TOC
 

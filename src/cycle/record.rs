@@ -349,14 +349,13 @@ pub(crate) fn ladder_of(
         }
     }
     let (opening, closing) = (format!("{cycle} opening"), format!("{cycle} closing"));
-    let one = is_one_rung(cycle, rungs);
-    if !one && rungs.first() != Some(&opening) {
+    if rungs.first() != Some(&opening) {
         return Err(format!(
-            "the first rung under `#### Rungs` is not the cycle's opening, '{opening}', nor is \
-             it the cycle title alone, a single-step's one rung"
+            "the first rung under `#### Rungs` is not the cycle's opening, '{opening}': a \
+             single-step is the plan, one rung, and `cycle close --squash`"
         ));
     }
-    if !one && (rungs.len() < 2 || rungs.last() != Some(&closing)) {
+    if rungs.len() < 2 || rungs.last() != Some(&closing) {
         return Err(format!(
             "the last rung under `#### Rungs` is not the cycle's closing, '{closing}'"
         ));
@@ -414,7 +413,7 @@ pub(crate) fn ladder_of(
         .iter()
         .enumerate()
         .map(|(i, r)| {
-            let link = if one { r.clone() } else { rung_link(r) };
+            let link = rung_link(r);
             if commits.contains(r) {
                 if let Some(n) = next
                     && n < i
@@ -433,100 +432,6 @@ pub(crate) fn ladder_of(
         })
         .collect();
     Ok(Ladder { lines, findings })
-}
-
-/// Whether `rungs` is a simple single-step's plan, the one heading, the
-/// cycle title itself.
-pub(crate) fn is_one_rung(cycle: &str, rungs: &[String]) -> bool {
-    matches!(rungs, [only] if only == cycle)
-}
-
-/// `TODO.md`'s text with a plan of only its bookends, the cycle title
-/// plus " opening" and " closing", made the simple single-step's one
-/// heading, the cycle title: the opening's heading renamed, its text
-/// kept, and the closing's subsection removed to the next heading of
-/// its level or above. Refused when the plan is not the bookends alone.
-pub(crate) fn one_rung_record(text: &str, cycle: &str) -> Result<String, String> {
-    let rungs = rung_titles(text)?;
-    let (opening, closing) = (format!("{cycle} opening"), format!("{cycle} closing"));
-    if rungs != [opening.clone(), closing.clone()] {
-        return Err(format!(
-            "the plan under `#### Rungs` is not the bookends alone, '{opening}' and '{closing}'"
-        ));
-    }
-    let (start, end) = section(text, "## In Progress")
-        .ok_or_else(|| format!("{RECORD} has no `## In Progress`"))?;
-    let body = &text[start..end];
-    let heading = |l: &str| {
-        ["# ", "## ", "### ", "#### ", "##### "]
-            .iter()
-            .any(|h| l.starts_with(h))
-    };
-    let named = |l: &str, t: &str| l.strip_prefix("##### ").map(str::trim) == Some(t);
-    let lines: Vec<(usize, &str)> = prose_lines(body)
-        .skip_while(|(_, l)| l.trim_end() != "#### Rungs")
-        .collect();
-    let open = lines.iter().find(|(_, l)| named(l, &opening));
-    let close = lines.iter().position(|(_, l)| named(l, &closing));
-    let (Some(&(open_at, open_line)), Some(close)) = (open, close) else {
-        return Err(format!(
-            "{RECORD}'s bookend headings were not found to rewrite"
-        ));
-    };
-    let close_from = lines[close].0;
-    let close_to = lines[close + 1..]
-        .iter()
-        .find(|(_, l)| heading(l))
-        .map_or(body.len(), |(at, _)| *at);
-    let mut new = body.to_string();
-    // The later span first, so the earlier offsets stand.
-    new.replace_range(close_from..close_to, "");
-    new.replace_range(
-        open_at..open_at + open_line.len(),
-        &format!("##### {cycle}"),
-    );
-    Ok(format!("{}{new}{}", &text[..start], &text[end..]))
-}
-
-/// `TODO.md`'s text with the cycle in progress's Problem and Solution
-/// written from a commit's `body` where they still read the
-/// scaffold's placeholder: the paragraphs before the one opening
-/// "Solution:" its problem, and that one on its solution, a pointer
-/// paragraph, `See details in ...`, left out. The Acceptance check
-/// reads `_None._`, the commit being its own.
-pub(crate) fn with_body_items(text: &str, body: &str) -> String {
-    let paragraphs: Vec<&str> = body
-        .split("\n\n")
-        .map(str::trim)
-        .filter(|p| !p.is_empty() && !p.starts_with("See details in "))
-        .collect();
-    let at = paragraphs.iter().position(|p| p.starts_with("Solution:"));
-    let (problem, solution) = match at {
-        Some(i) => (
-            paragraphs[..i].join("\n\n"),
-            paragraphs[i..]
-                .join("\n\n")
-                .trim_start_matches("Solution:")
-                .trim()
-                .to_string(),
-        ),
-        None => (paragraphs.join("\n\n"), String::new()),
-    };
-    let Some((start, end)) = section(text, "## In Progress") else {
-        return text.to_string();
-    };
-    let mut block = text[start..end].to_string();
-    for (item, with) in [
-        ("Problem", problem.as_str()),
-        ("Solution", solution.as_str()),
-        ("Acceptance check", "_None._"),
-    ] {
-        let placeholder = format!("#### {item}\n\n{TO_WRITE}\n");
-        if !with.is_empty() {
-            block = block.replacen(&placeholder, &format!("#### {item}\n\n{with}\n"), 1);
-        }
-    }
-    format!("{}{block}{}", &text[..start], &text[end..])
 }
 
 /// A ladder line with its link reduced to the title it shows,
@@ -1079,71 +984,19 @@ The last cycle's record.
 
     /// The rung started is marked `(current)`, numbered, and one done
     /// or no rung keeps no marker, said as a finding.
-    /// A plan of one heading, the cycle title, is the simple
-    /// single-step's one rung, unlinked, started and then done.
+    /// A plan of one heading, the cycle title, is refused: a single-step
+    /// is the plan, one rung, and `cycle close --squash`. The one commit
+    /// that makes still ladders as one rung, done.
     #[test]
-    fn one_heading_is_a_single_steps_one_rung() {
+    fn one_heading_is_refused() {
         let one = titles(&["feat: c"]);
-        let plain = ladder_of("feat: c", &one, &[], None).expect("made");
-        assert_eq!(plain.lines, ["- feat: c"]);
-        let started = ladder_of("feat: c", &one, &[], Some("feat: c")).expect("made");
-        assert_eq!(started.lines, ["- 0 (current) feat: c"]);
-        let done = ladder_of("feat: c", &one, &one, None).expect("made");
+        let err = ladder_of("feat: c", &one, &[], None).unwrap_err();
+        assert!(
+            err.contains("not the cycle's opening") && err.contains("cycle close --squash"),
+            "{err}"
+        );
+        let done = ladder_of("feat: c", &rungs(), &one, None).expect("made");
         assert_eq!(done.lines, ["- 0 (done) feat: c"]);
-        let err = ladder_of("feat: c", &titles(&["feat: other"]), &[], None).unwrap_err();
-        assert!(err.contains("the cycle title alone"), "{err}");
-        assert_eq!(
-            current_of("## Ladder\n\n- 0 (current) feat: c\n"),
-            Some("feat: c".into())
-        );
-    }
-
-    /// A plan of only its bookends becomes the one heading, the
-    /// opening's text kept and the closing's subsection gone, and a plan
-    /// with work rungs is refused.
-    #[test]
-    fn the_bookends_become_the_one_heading() {
-        let record = "\
-## In Progress
-
-### feat: c
-
-#### Rungs
-
-##### feat: c opening
-
-The plan.
-
-##### feat: c closing
-
-Closing out the cycle.
-
-## Todo
-";
-        let one = one_rung_record(record, "feat: c").expect("rewritten");
-        assert_eq!(
-            one,
-            "\
-## In Progress
-
-### feat: c
-
-#### Rungs
-
-##### feat: c
-
-The plan.
-
-## Todo
-"
-        );
-        assert_eq!(rung_titles(&one).expect("rungs"), ["feat: c"]);
-        let laddered = record.replace(
-            "##### feat: c closing",
-            "##### feat: work\n\nIt.\n\n##### feat: c closing",
-        );
-        let err = one_rung_record(&laddered, "feat: c").unwrap_err();
-        assert!(err.contains("bookends alone"), "{err}");
     }
 
     #[test]

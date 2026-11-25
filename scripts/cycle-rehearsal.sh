@@ -9,12 +9,12 @@
 #   2. a single-step cycle whose opening is committed first
 #   3. a ladder, closed as a trapezoid, with each way back from a fault
 #      found after the closing tried: fix inside, fix on top, reopen
-#   4. a simple single-step, its plan the one heading, its one rung
-#      committed by `rung commit`
-#   5. a commit with no cycle, `rung commit --title`, verbatim, landed
-#      and published by its own `--land main --push`
-#   6. the same with `--record`, the record written and closed in it
-#   7. a ladder made one commit by `cycle squash`, its agent commits
+#   4. a single-step: the plan, one rung, and `cycle close --squash`
+#   5. commits with no cycle, `rung commit --title`, verbatim, a run of two
+#      on one bookmark, landed and published once
+#   6. a trapezoid closed, then converted to one commit by `cycle close
+#      --squash`
+#   7. a ladder made one commit by `cycle close --squash`, its agent commits
 #      re-pointed to it
 #
 # Usage: scripts/cycle-rehearsal.sh [DIR]
@@ -44,8 +44,12 @@ step() { say; say "== $*"; }
 # Run a command that must succeed, its output kept in the log.
 run() {
     say "  \$ $*" | tee -a "$LOG"
-    if ! "$@" >>"$LOG" 2>&1; then
-        say "  FAILED (exit $?): $*, see $LOG"
+    # The status is kept before it is tested: `$?` after `if !` is the
+    # negation's, always 0.
+    local rc=0
+    "$@" >>"$LOG" 2>&1 || rc=$?
+    if [ "$rc" -ne 0 ]; then
+        say "  FAILED (exit $rc): $*, see $LOG"
         failed=$((failed + 1))
         return 1
     fi
@@ -125,7 +129,7 @@ if [ -L "$LINK" ]; then rm "$LINK"; fi
 rm -rf "$ROOT"
 mkdir -p "$ROOT"
 : >"$LOG"
-run "$VC" init --target "$WS" --test-repo "$ROOT/remotes" || exit 1
+run "$VC" init "$WS" --test-repo "$ROOT/remotes" || exit 1
 cd "$WS" || exit 1
 
 cat >TODO.md <<'EOF'
@@ -171,7 +175,7 @@ check_has "open wrote the scaffold" "$(cat TODO.md)" "### feat: one commit"
 check "open wrote the ladder" "$(ladder | head -1)" \
     "- [feat: one commit opening](TODO.md#feat-one-commit-opening)"
 echo "one" >work.txt
-run "$VC" cycle squash -s b --body "The problem.
+run "$VC" cycle close --squash -s b --body "The problem.
 
 Solution: the one commit." --land main --push
 check "one commit above the old main" "$(above_main 'main@origin-' main)" "feat: one commit"
@@ -189,7 +193,7 @@ check_has "the opening has the default body" "$(jjw log -r @- --no-graph -T desc
     'Opens the cycle "fix: opened first".'
 opening=$(jjw log -r @- --no-graph -T 'change_id.short(12)')
 echo "two" >>work.txt
-run "$VC" cycle squash -s b --default-body
+run "$VC" cycle close --squash -s b --default-body
 check "the closing is squashed into the opening" "$(above_main "$base" @-)" "fix: opened first"
 check "the opening's change is kept" "$(jjw log -r @- --no-graph -T 'change_id.short(12)')" \
     "$opening"
@@ -229,7 +233,7 @@ check "main has not moved" "$(cid main)" "$base"
 run "$VC" push -s b
 check "the draft push published the cycle's bookmark" "$(remote_bookmarks)" \
     "feat-a-ladder-cycle main "
-run "$VC" cycle close -s b --trapezoid main
+run "$VC" cycle close main -s b
 check "the closing is titled" "$(title @-)" "feat: a ladder cycle closing"
 check "the closing is a merge of two" "$(nparents @-)" "2"
 check "every rung is done" "$(ladder | grep -c '(done)')" "4"
@@ -261,7 +265,7 @@ tries "reopen, a fix rung started by \`rung next\`" "$VC" rung next
 tries "reopen, a fix rung by \`rung commit\`" "$VC" rung commit -s b --body "Why.
 
 Solution: how."
-tries "reopen, the closing made again" "$VC" cycle close -s b --trapezoid main
+tries "reopen, the closing made again" "$VC" cycle close main -s b
 check "the cycle closed again" "$(title @-)" "feat: a ladder cycle closing"
 check "the fix is a rung of it" "$(above_main "$base" @- | grep -c '^fix: the fault$')" "1"
 
@@ -272,52 +276,64 @@ check "the ladder is under the closing" "$(above_main "$base" main | head -1)" \
     "feat: a ladder cycle opening"
 check_landed "cycle 3" feat-a-ladder-cycle
 
-step "Cycle 4: a simple single-step, its plan the one heading"
+step "Cycle 4: a single-step, the plan, one rung, and close --squash"
 base=$(cid main)
 run "$VC" cycle plan start --title "fix: one rung"
-# No [version] here, so the one heading is written by hand: the
-# opening's renamed, the closing's subsection removed.
-sed -i 's/^##### fix: one rung opening$/##### fix: one rung/' TODO.md
-sed -i '/^##### fix: one rung closing$/,/^## /{/^## /!d}' TODO.md
+sed -i 's/^##### fix: one rung closing$/##### fix: the one rung\n\nThe rung.\n\n&/' TODO.md
+run "$VC" cycle plan commit -s b
 run "$VC" rung next
-check "the one rung is current" "$(ladder)" "- 0 (current) fix: one rung"
 echo "four" >four.txt
 run "$VC" rung commit -s b --body "The problem.
 
 Solution: the one rung."
+run "$VC" cycle close --squash -s b --body "The problem.
+
+Solution: the one rung."
 check "one commit above main" "$(above_main "$base" @-)" "fix: one rung"
-check "the ladder is the one rung done" "$(ladder)" "- 0 (done) fix: one rung"
+check "the ladder is the one commit done" "$(ladder)" "- 0 (done) fix: one rung"
 check_has "the record is in Closed" "$(sed -n '/^## Closed$/,$p' TODO.md)" "### fix: one rung"
 run "$VC" cycle land main -s b --push
 check_landed "cycle 4" fix-one-rung
 
-step "Cycle 5: a commit with no cycle, verbatim"
+step "Cycle 5: commits with no cycle, a run on one bookmark"
 base=$(cid main)
 before=$(cat TODO.md)
 echo "five" >five.txt
+tries "a commit with main on @-" "$VC" rung commit -s b --title "feat: no cycle" --body "b"
 run "$VC" rung commit -s b --title "feat: no cycle" --body "The problem.
 
-Solution: one commit." --land main --push
-check "one commit above the old main" "$(above_main "$base" main)" "feat: no cycle"
+Solution: one commit." --bookmark
+echo "five more" >>five.txt
+run "$VC" rung commit -s b --title "feat: no cycle, again" --body "The problem.
+
+Solution: the run's second."
+run "$VC" cycle land main -s b --push
+check "two commits above the old main" "$(above_main "$base" main)" "feat: no cycle
+feat: no cycle, again"
 check "the record is untouched" "$(cat TODO.md)" "$before"
 check_landed "cycle 5" feat-no-cycle
 
-step "Cycle 6: a commit with no cycle, its record written"
+step "Cycle 6: a trapezoid closed, then converted by close --squash"
 base=$(cid main)
+run "$VC" cycle plan start --title "feat: converted"
+sed -i 's/^##### feat: converted closing$/##### feat: the converted rung\n\nThe rung.\n\n&/' TODO.md
+run "$VC" cycle plan commit -s b
+run "$VC" rung next
 echo "six" >six.txt
-run "$VC" rung commit -s b --title "feat: recorded" --body "The problem.
+run "$VC" rung commit -s b --body "The problem.
 
-Solution: one commit." --record
-check "one commit above main" "$(above_main "$base" @-)" "feat: recorded"
-check "the ladder is the one rung done" "$(ladder)" "- 0 (done) feat: recorded"
-check_has "the record is in Closed, its solution the body's" \
-    "$(sed -n '/^## Closed$/,$p' TODO.md)" "#### Solution
+Solution: the rung."
+run "$VC" cycle close main -s b
+check "closed as a trapezoid" "$(title @-)" "feat: converted closing"
+run "$VC" cycle close --squash -s b --body "The problem.
 
-one commit."
+Solution: one commit."
+check "one commit above main" "$(above_main "$base" @-)" "feat: converted"
+check "the ladder is the one commit done" "$(ladder)" "- 0 (done) feat: converted"
 run "$VC" cycle land main -s b --push
-check_landed "cycle 6" feat-recorded
+check_landed "cycle 6" feat-converted
 
-step "Cycle 7: a ladder made one commit by cycle squash"
+step "Cycle 7: a ladder made one commit by cycle close --squash"
 base=$(cid main)
 run "$VC" cycle plan start --title "feat: squashed ladder"
 sed -i 's/^##### feat: squashed ladder closing$/##### feat: its rung\n\nIts intent.\n\n&/' TODO.md
@@ -329,7 +345,7 @@ run "$VC" rung commit -s b --body "Why.
 
 Solution: how."
 agents=$(jjw log -r "$base..@-" --no-graph -T 'description' | sed -n 's/^ochid: //p' | sort | tr '\n' ' ')
-run "$VC" cycle squash -s b --body "The problem.
+run "$VC" cycle close --squash -s b --body "The problem.
 
 Solution: one commit."
 check "one commit above main" "$(above_main "$base" @-)" "feat: squashed ladder"

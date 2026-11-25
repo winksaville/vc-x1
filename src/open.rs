@@ -35,6 +35,9 @@ pub struct OpenParams {
     /// The bookmark's name.
     pub bookmark: String,
     pub dry_run: bool,
+    /// The command that makes the bookmark, its messages' label:
+    /// `cycle plan` or `rung commit --title`.
+    pub label: &'static str,
 }
 
 /// The bookmark's name: `--bookmark`'s, else the bare title's slug,
@@ -61,12 +64,13 @@ pub(crate) fn bookmark_name(named: Option<&str>, title: Option<&str>) -> Result<
 /// where its `origin` was last fetched, and make the bookmark on the
 /// work `@`.
 pub fn open(ctx: &mut Context, params: &OpenParams) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("cycle plan: enter {params:?}");
+    let label = params.label;
+    debug!("{label}: enter {params:?}");
     let work = params.work.as_path();
     let name = &params.bookmark;
     if jj::local_bookmark_exists(work, name)? {
         return Err(format!(
-            "cycle plan: the bookmark '{name}' exists in {} already, and open moves none: name another, \
+            "{label}: the bookmark '{name}' exists in {} already, and open moves none: name another, \
              --bookmark <NAME>",
             work.display()
         )
@@ -74,20 +78,20 @@ pub fn open(ctx: &mut Context, params: &OpenParams) -> Result<(), Box<dyn std::e
     }
     if let Some(at) = jj::remote_bookmark_targets(work, "origin")?.get(name.as_str()) {
         return Err(format!(
-            "cycle plan: the bookmark '{name}' is on origin at {at} already, so a new one would shadow \
+            "{label}: the bookmark '{name}' is on origin at {at} already, so a new one would shadow \
              it: name another, --bookmark <NAME>"
         )
         .into());
     }
     for repo in std::iter::once(work).chain(params.agent.as_deref()) {
-        warn_if_behind(repo)?;
+        warn_if_behind(repo, label)?;
     }
     let at = jj::chid_of(work, "@")?;
     if params.dry_run {
-        info!("cycle plan: [dry-run] create '{name}' on the work @ {at}, locally");
+        info!("{label}: [dry-run] create '{name}' on the work @ {at}, locally");
         return Ok(());
     }
-    info!("cycle plan: create '{name}' on the work @ {at}, locally");
+    info!("{label}: create '{name}' on the work @ {at}, locally");
     ctx.session(work)?.bookmark_set(name, "@")?;
     Ok(())
 }
@@ -95,7 +99,7 @@ pub fn open(ctx: &mut Context, params: &OpenParams) -> Result<(), Box<dyn std::e
 /// Warn when `repo`'s `main` is not where its `origin` was last
 /// fetched, offline, since the opening syncs first by the rules and a
 /// Land onto a target that moved is refused anyway.
-fn warn_if_behind(repo: &Path) -> Result<(), Box<dyn std::error::Error>> {
+fn warn_if_behind(repo: &Path, label: &str) -> Result<(), Box<dyn std::error::Error>> {
     if !jj::local_bookmark_exists(repo, "main")? {
         return Ok(());
     }
@@ -103,7 +107,7 @@ fn warn_if_behind(repo: &Path) -> Result<(), Box<dyn std::error::Error>> {
         crate::common::bookmark_publish_state(repo, "main")?
     {
         warn!(
-            "cycle plan: 'main' in {} is at {} and origin's at {} as last fetched: `vc-x1 sync -s b` \
+            "{label}: 'main' in {} is at {} and origin's at {} as last fetched: `vc-x1 sync -s b` \
              brings it up to date",
             repo.display(),
             short(&local),
@@ -139,6 +143,7 @@ mod tests {
             agent: Some(fx.bot.clone()),
             bookmark: bookmark_name(bookmark, title).expect("a name"),
             dry_run,
+            label: "cycle plan",
         }
     }
 

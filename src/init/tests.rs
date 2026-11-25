@@ -16,7 +16,7 @@ fn parse(args: &[&str]) -> InitArgs {
 
 #[test]
 fn defaults() {
-    let args = parse(&["vc-x1", "init", "--target", "https://github.com/owner/repo"]);
+    let args = parse(&["vc-x1", "init", "https://github.com/owner/repo"]);
     assert_eq!(
         args.target.as_deref(),
         Some("https://github.com/owner/repo")
@@ -36,7 +36,6 @@ fn all_opts() {
     let args = parse(&[
         "vc-x1",
         "init",
-        "--target",
         "https://github.com/owner/repo",
         "--name",
         "my-dir",
@@ -71,11 +70,11 @@ fn all_opts() {
 
 #[test]
 fn target_required_at_parse_time() {
-    // --target is required. Missing it errors.
+    // The TARGET is required. Missing it errors.
     let err = Cli::try_parse_from(["vc-x1", "init"])
         .unwrap_err()
         .to_string();
-    assert!(err.contains("--target"), "got: {err}");
+    assert!(err.contains("<TARGET>"), "got: {err}");
 }
 
 #[test]
@@ -262,13 +261,13 @@ fn tmp_root(tag: &str) -> PathBuf {
 
 #[test]
 fn target_url_form_accepted() {
-    let args = parse(&["vc-x1", "init", "--target", "git@github.com:u/p.git"]);
+    let args = parse(&["vc-x1", "init", "git@github.com:u/p.git"]);
     assert_eq!(args.target.as_deref(), Some("git@github.com:u/p.git"));
 }
 
 #[test]
 fn target_owner_name_form_accepted() {
-    let args = parse(&["vc-x1", "init", "--target", "https://github.com/owner/repo"]);
+    let args = parse(&["vc-x1", "init", "https://github.com/owner/repo"]);
     assert_eq!(
         args.target.as_deref(),
         Some("https://github.com/owner/repo")
@@ -277,39 +276,32 @@ fn target_owner_name_form_accepted() {
 
 #[test]
 fn target_path_form_accepted() {
-    let args = parse(&["vc-x1", "init", "--target", "./tf1"]);
+    let args = parse(&["vc-x1", "init", "./tf1"]);
     assert_eq!(args.target.as_deref(), Some("./tf1"));
 }
 
 #[test]
 fn target_bare_name_form_accepted() {
-    let args = parse(&["vc-x1", "init", "--target", "tf1"]);
+    let args = parse(&["vc-x1", "init", "tf1"]);
     assert_eq!(args.target.as_deref(), Some("tf1"));
 }
 
 #[test]
 fn name_flag_accepted() {
-    let args = parse(&[
-        "vc-x1",
-        "init",
-        "--target",
-        "owner/repo",
-        "--name",
-        "custom-dir",
-    ]);
+    let args = parse(&["vc-x1", "init", "owner/repo", "--name", "custom-dir"]);
     assert_eq!(args.target.as_deref(), Some("owner/repo"));
     assert_eq!(args.name.as_deref(), Some("custom-dir"));
 }
 
 #[test]
 fn account_flag_parses() {
-    let args = parse(&["vc-x1", "init", "--target", "tf1", "--account", "work"]);
+    let args = parse(&["vc-x1", "init", "tf1", "--account", "work"]);
     assert_eq!(args.account.value.as_deref(), Some("work"));
 }
 
 #[test]
 fn repo_cat_only_parses() {
-    let args = parse(&["vc-x1", "init", "--target", "tf1", "--repo", "remote"]);
+    let args = parse(&["vc-x1", "init", "tf1", "--repo", "remote"]);
     let sel = args.repo.value.expect("--repo set");
     assert_eq!(sel.category, "remote");
     assert!(sel.value.is_none());
@@ -317,14 +309,7 @@ fn repo_cat_only_parses() {
 
 #[test]
 fn repo_cat_value_parses() {
-    let args = parse(&[
-        "vc-x1",
-        "init",
-        "--target",
-        "tf1",
-        "--repo",
-        "remote=git@github.com:u",
-    ]);
+    let args = parse(&["vc-x1", "init", "tf1", "--repo", "remote=git@github.com:u"]);
     let sel = args.repo.value.expect("--repo set");
     assert_eq!(sel.category, "remote");
     assert_eq!(sel.value.as_deref(), Some("git@github.com:u"));
@@ -332,29 +317,30 @@ fn repo_cat_value_parses() {
 
 #[test]
 fn por_scope_parses() {
-    let args = parse(&["vc-x1", "init", "--target", "tf1", "-s", "por"]);
+    let args = parse(&["vc-x1", "init", "tf1", "-s", "por"]);
     assert!(args.por.is_por());
 }
 
-/// The retired positionals and `--por` parse, hidden, and are refused
-/// naming their flags.
+/// The retired forms parse, hidden, and are refused naming what took
+/// their place: `--target` the positional, a second positional `--name`,
+/// and `--por` `--scope por`.
 #[test]
 fn the_retired_forms_are_refused_naming_their_flags() {
     use crate::subcommand::SubcommandRunner;
+    let err = parse(&["vc-x1", "init", "--target", "tf1"])
+        .to_params()
+        .err();
+    let err = err.expect("refused");
+    assert!(err.ends_with("`vc-x1 init tf1`"), "{err}");
     let err = parse(&["vc-x1", "init", "https://h/o/r", "dir"])
         .to_params()
         .err();
     let err = err.expect("refused");
-    assert!(
-        err.ends_with("`--target https://h/o/r --name dir`"),
-        "{err}"
-    );
-    let err = parse(&["vc-x1", "init", "--target", "tf1", "--por"])
-        .to_params()
-        .err();
+    assert!(err.ends_with("`--name dir`"), "{err}");
+    let err = parse(&["vc-x1", "init", "tf1", "--por"]).to_params().err();
     let err = err.expect("refused");
     assert!(err.ends_with("`--scope por`"), "{err}");
-    let err = parse(&["vc-x1", "init", "--target", "tf1", "-s", "work"])
+    let err = parse(&["vc-x1", "init", "tf1", "-s", "work"])
         .to_params()
         .err();
     assert!(err.expect("refused").contains("`both` or `por`"));
@@ -363,7 +349,7 @@ fn the_retired_forms_are_refused_naming_their_flags() {
 /// `--use-template` is gone, not kept hidden, so completion never offers it.
 #[test]
 fn use_template_is_gone() {
-    let args = ["vc-x1", "init", "--target", "tf1", "--use-template", "t"];
+    let args = ["vc-x1", "init", "tf1", "--use-template", "t"];
     assert!(Cli::try_parse_from(args).is_err());
 }
 
@@ -454,8 +440,9 @@ use std::collections::HashMap;
 /// only the fields it cares about.
 fn args_for(target: &str) -> InitArgs {
     InitArgs {
-        retired: vec![],
         target: Some(target.to_string()),
+        retired: vec![],
+        target_flag: None,
         test_repo: None,
         name: None,
         account: AccountOption::default(),
@@ -1135,7 +1122,7 @@ fn adopt_refuses_a_taken_upstream_and_a_missing_agent_remote() {
 #[test]
 fn upstream_needs_a_test_repo_and_adopt() {
     let parse = |extra: &[&str]| {
-        let mut argv = vec!["vc-x1", "init", "--target", "./t1"];
+        let mut argv = vec!["vc-x1", "init", "./t1"];
         argv.extend_from_slice(extra);
         Cli::try_parse_from(argv)
     };
@@ -1322,7 +1309,6 @@ fn agent_repo_conflicts_with_agent_suffix() {
     let err = Cli::try_parse_from([
         "vc-x1",
         "init",
-        "--target",
         "tf1",
         "--agent-repo",
         "x",
@@ -1338,13 +1324,12 @@ fn agent_repo_conflicts_with_agent_suffix() {
 fn agent_suffix_must_open_with_a_dot_or_dash() {
     for bad in ["agent", ".", "-", "_agent", ".a/b"] {
         assert!(
-            Cli::try_parse_from(["vc-x1", "init", "--target", "tf1", "--agent-suffix", bad])
-                .is_err(),
+            Cli::try_parse_from(["vc-x1", "init", "tf1", "--agent-suffix", bad]).is_err(),
             "{bad:?} is refused"
         );
     }
     for good in [".agent-session", "-agent"] {
-        let args = parse(&["vc-x1", "init", "--target", "tf1", "--agent-suffix", good]);
+        let args = parse(&["vc-x1", "init", "tf1", "--agent-suffix", good]);
         assert_eq!(args.agent_suffix.as_deref(), Some(good));
     }
 }
@@ -1355,11 +1340,11 @@ fn agent_suffix_must_open_with_a_dot_or_dash() {
 fn agent_dir_is_one_name_inside_the_project() {
     for bad in ["", ".", "..", "a/b", ".git", ".jj"] {
         assert!(
-            Cli::try_parse_from(["vc-x1", "init", "--target", "tf1", "--agent-dir", bad]).is_err(),
+            Cli::try_parse_from(["vc-x1", "init", "tf1", "--agent-dir", bad]).is_err(),
             "{bad:?} is refused"
         );
     }
-    let args = parse(&["vc-x1", "init", "--target", "tf1", "--agent-dir", ".sess"]);
+    let args = parse(&["vc-x1", "init", "tf1", "--agent-dir", ".sess"]);
     assert_eq!(args.agent_dir.as_deref(), Some(".sess"));
 }
 
@@ -2003,15 +1988,7 @@ fn test_repos_share_a_remotes_directory() {
 /// a plain init's params keep their symlink.
 #[test]
 fn a_test_repo_takes_a_target() {
-    let cli = Cli::try_parse_from([
-        "vc-x1",
-        "init",
-        "--test-repo",
-        "./remotes",
-        "--target",
-        "./wt4",
-    ])
-    .unwrap();
+    let cli = Cli::try_parse_from(["vc-x1", "init", "--test-repo", "./remotes", "./wt4"]).unwrap();
     let Some(Commands::Init(args)) = cli.command else {
         panic!("expected init");
     };
@@ -2057,7 +2034,7 @@ fn a_test_repo_refuses_what_it_cannot_mean() {
     assert!(url.contains("is a URL"), "{url}");
     let url = test_repo(|a| a.target = Some("https://github.com/o/n".into())).unwrap();
     assert!(
-        url.starts_with("--target") && url.contains("is a URL"),
+        url.starts_with("the target") && url.contains("is a URL"),
         "{url}"
     );
 }

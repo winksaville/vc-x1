@@ -68,19 +68,9 @@ use log::error;
 
 use crate::subcommand::SubcommandRunner;
 
-/// Name this invocation was launched under: `argv[0]`'s basename,
-/// falling back to the compiled bin name when argv is empty or
-/// unreadable. Runtime on purpose: the binary's on-disk name is
-/// the manifest's per-line package name, and a copy or rename
-/// afterwards still self-reports the name it actually runs as,
-/// which no compile-time constant can know.
+/// Name this invocation was launched under, [`logging::invoked_name`].
 fn invoked_name() -> String {
-    std::env::args_os()
-        .next()
-        .as_deref()
-        .and_then(|p| Path::new(p).file_name())
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_else(|| env!("CARGO_BIN_NAME").to_string())
+    logging::invoked_name().to_string()
 }
 
 /// Banner string emitted as the first line of every run (stderr,

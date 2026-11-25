@@ -275,7 +275,10 @@ pub(crate) fn not_at_origin(
     let scope = if plain { "p" } else { "b" };
     // `-r` publishes the bookmark where it is, which `--bookmark` does
     // only when it sits at the work `@-`.
-    let push = format!("`vc-x1 push -s {scope} -r {onto}` publishes it first");
+    let push = format!(
+        "`vc-x1 cycle push -s {scope}` publishes it when it is a Land made here, and `vc-x1 push \
+         -s {scope} -r {onto}` when it is not"
+    );
     let Some(remote) = remote else {
         return Ok(format!(
             "{label}: '{onto}' is at {} locally and is not on origin, so a Land has nothing \
