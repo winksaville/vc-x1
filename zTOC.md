@@ -10,7 +10,7 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 - 3 (done) [feat: informal commits iterate on one bookmark](TODO.md#feat-informal-commits-iterate-on-one-bookmark)
 - 4 (done) [feat: init takes its target positionally](TODO.md#feat-init-takes-its-target-positionally)
 - 5 (done) [fix: a re-run Land finishes its push, and messages name the command run](TODO.md#fix-a-re-run-land-finishes-its-push-and-messages-name-the-command-run)
-- [docs: the new cycle flow](TODO.md#docs-the-new-cycle-flow)
+- 6 (done) [docs: the new cycle flow](TODO.md#docs-the-new-cycle-flow)
 - [feat: the new cycle flow closing](TODO.md#feat-the-new-cycle-flow-closing)
 
 ## The TOC

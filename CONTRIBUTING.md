@@ -40,10 +40,10 @@ What an agent working here reads beyond the agent-files, read at acquaint after 
 ([Acquaint](AGENTS.md#acquaint)). It is the project's layer over the agent-files, committed, so
 every clone has it, and a workspace's `custom.md`, local and gitignored, overrides it.
 
-- Agent-files: vc-x1's are the `v0.3.1-17` draft of `### agent-files(proposal): v0.3.1` in
+- Agent-files: vc-x1's are the `v0.3.1-18` draft of `### agent-files(proposal): v0.3.1` in
   [TODO.md](TODO.md), adopted locally (2026-11-03, `-1` and `-2` 2026-11-04, `-8` to `-10`
   2026-11-11, `-11` to `-13` 2026-11-13, `-14` and `-15` 2026-11-16, `-16` 2026-11-18, `-17`
-  2026-11-21). The proposal stays open, to be made formal by the next cycle.
+  2026-11-21, `-18` 2026-11-25). The proposal stays open, to be made formal by the next cycle.
 - Messaging: the projects of the family message each other through the `../vc-x1-messages` repo,
   beside the work-repo, a clone of `https://github.com/winksaville/vc-x1-messages.git`. A
   workspace without it clones it there. Its `README.md` is the protocol and it governs.

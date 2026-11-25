@@ -149,7 +149,7 @@ vc-x1 check anchors [OPTS]                # Check a markdown file's own links
 vc-x1 check agent [OPTS]                  # Check the agent repo is published
 vc-x1 config [OPTS]                       # Print the settable config keys
 vc-x1 clone --from URL [--name N] [OPTS]  # Clone a project, dual or with -s por plain
-vc-x1 init --target T [OPTS]              # Create a project, dual or with -s por plain
+vc-x1 init T [OPTS]                        # Create a project, dual or with -s por plain
 vc-x1 symlink [--target P] [OPTS]         # Create Claude Code project symlink
 vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
 vc-x1 squash-push -s a [--bookmark NAME]  # Squash @ into @-, advance a bookmark, push
@@ -1257,10 +1257,10 @@ it, at `.agent-session` unless `--agent-dir` names another directory. Both repos
 with `git` and `jj`, configured with `.vc-config.md`, and pushed to GitHub. The work repo ignores
 the agent repo's directory, and its config records where the agent repo is and what its remote
 calls it, so `vc-x1 clone` fetches both. `-s por` creates a plain single repo instead, and a URL
-`--target` needs no user config, the way to a plain repo with none:
+target needs no user config, the way to a plain repo with none:
 
 ```
-vc-x1 init --target git@github.com:owner/my-project.git -s por
+vc-x1 init git@github.com:owner/my-project.git -s por
 ```
 
 The agent repo's remote name is the work repo's name plus `.agent-session`, beside the work repo
@@ -1274,43 +1274,43 @@ under the same owner:
 
 ```
 # Create public project in current directory (GitHub via gh)
-vc-x1 init --target my-project
+vc-x1 init my-project
 
 # A URL or a path target. A slashed target with no path prefix
 # (`myorg/my-project`) is refused: it reads equally as a path and
 # as the retired owner/name shorthand.
-vc-x1 init --target https://github.com/myorg/my-project
-vc-x1 init --target ~/projects/my-project
-vc-x1 init --target ./sub/dir/my-project
+vc-x1 init https://github.com/myorg/my-project
+vc-x1 init ~/projects/my-project
+vc-x1 init ./sub/dir/my-project
 
 # Create private repos
-vc-x1 init --target my-project --private
+vc-x1 init my-project --private
 
 # Local bare remotes instead of GitHub (offline; used by fixtures)
-vc-x1 init --target my-project --repo local=/path/to/parent
+vc-x1 init my-project --repo local=/path/to/parent
 
 # A throwaway test repo: the workspace at the target, its bare remotes in
 # remotes/wt4.git and remotes/wt4.agent-session.git, and nothing leaves this machine
-vc-x1 init --test-repo ./remotes --target ./wt4
+vc-x1 init ./wt4 --test-repo ./remotes
 
 # Preview without executing
-vc-x1 init --target my-project --dry-run
+vc-x1 init my-project --dry-run
 
 # Convert an existing plain directory into a dual workspace
-vc-x1 init --target . --adopt
+vc-x1 init . --adopt
 
 # Rehearse converting an existing repo, a clone or `cargo new`'s: its remotes in
 # remotes/, the old origin kept as `upstream`, and nothing leaves this machine
-vc-x1 init --test-repo ./remotes --target ./t1 --adopt --upstream
+vc-x1 init ./t1 --test-repo ./remotes --adopt --upstream
 
 # Name the agent repo's directory and its remote
-vc-x1 init --target my-project --agent-dir .sessions --agent-suffix -sessions
-vc-x1 init --target my-project --agent-repo my-project.claude
+vc-x1 init my-project --agent-dir .sessions --agent-suffix -sessions
+vc-x1 init my-project --agent-repo my-project.claude
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--target <URL\|PATH\|NAME>` | What to create: a URL, a path, or a bare NAME, required |
+| `<TARGET>` | What to create: a URL, a path, or a bare NAME, the one positional, required |
 | `--test-repo <REMOTES>` | Make the target a throwaway test repo, its remotes `<name>.git` and `<name>.agent-session.git` in REMOTES, so test repos share it |
 | `--name <NAME>` | Repo directory name override (URL form only) |
 | `--account <NAME>` | Pick `[account.<a>]` from user config |
@@ -1362,8 +1362,9 @@ grows the target into a dual workspace:
   included, stays as it was.
 - A dual-repo workspace is refused, having nothing to grow.
 
-`--adopt` is refused with `-s por`, and on a `--target` that does not exist. The old `<TARGET> [NAME]` positionals are refused, naming `--target` and `--name`, and
-`--por` is refused, naming `--scope por`.
+`--adopt` is refused with `-s por`, and on a target that does not exist. `--target` is refused,
+naming the positional, a second positional, the old `<TARGET> [NAME]`, is refused naming `--name`,
+and `--por` is refused, naming `--scope por`.
 
 Requires `gh` (authenticated) and `jj` to be installed (`gh` is skipped under `--repo local=...`).
 
@@ -1833,11 +1834,11 @@ stands. A failure after the first commit restores both repos from `jj op` snapsh
 
 Run a cycle by its stages, each a subcommand, beside [`rung`](#rung)'s acts, which run each work
 rung: `plan start` and `plan commit`, the plan a phase of its own and its commit the opening, then
-`rung next` and `rung commit` for each work rung, then `close`, or `squash` to make the cycle one
-commit, `land`, and `push`, with `ladder` to rewrite the ladder and
-`status` to say where the cycle stands. A later stage chains as a flag, so `cycle close -s b
---land main --push` closes, lands, and publishes in one invocation. `-s` is required with `close`,
-`squash`, `land`, and `push`, as on every command that writes, and the other stages take none.
+`rung next` and `rung commit` for each work rung, then `close`, its shape a trapezoid, `--linear`,
+or `--squash` one commit, then `land` and `push`, with `ladder` to rewrite the ladder and `status` to
+say where the cycle stands. A later stage chains as a flag, so `cycle close main -s b --land --push`
+closes, lands, and publishes in one invocation. `-s` is required with `close`, `land`, and `push`,
+as on every command that writes, and the other stages take none.
 
 ```bash
 vc-x1 cycle plan start --title "feat: a cycle" --ver 0.86.0-0  # the bookmark, the record, the version
@@ -1847,13 +1848,13 @@ vc-x1 cycle ladder                                      # the ladder, from the r
 vc-x1 cycle plan commit -s b                            # the plan committed, the opening
 vc-x1 rung next --ver 0.86.0-1                          # start the first work rung
 vc-x1 rung commit -s b --body @body.txt                 # a work rung
-vc-x1 cycle close -s b                                  # a ladder's closing, linear
-vc-x1 cycle close -s b --trapezoid main                 # a merge, main its first parent
-vc-x1 cycle squash -s b --body @body.txt                # the cycle made one commit
+vc-x1 cycle close main -s b                             # a trapezoid, main its first parent
+vc-x1 cycle close --linear -s b                         # a plain closing on the ladder
+vc-x1 cycle close --squash -s b --body @body.txt        # the cycle made one commit
 vc-x1 cycle land main -s b                              # land the closed cycle, locally
 vc-x1 cycle land main -s b --push                       # and publish it
 vc-x1 cycle push -s b                                   # publish what the cycle's state calls for
-vc-x1 cycle close -s b --trapezoid main --land main --push  # close, land, publish
+vc-x1 cycle close main -s b --land --push               # close, land on main, publish
 vc-x1 cycle land main -s b --merge                      # join a main that moved, then land
 vc-x1 cycle status                                      # where the cycle stands, and what is next
 ```
@@ -1889,10 +1890,9 @@ where, a workspace or a plain repo.
 rewritten into the commit, the opening `(done)`, and the working copies are committed under the
 cycle title plus " opening", with `[opening] body` from the config, `{title}` the cycle title, or a
 body naming the cycle and its record, a `--body` given taking its place. It is refused when the
-plan is committed already, and on a plan of [the one heading](#a-single-step-is-one-rung), which
-has no opening. The opening is no rung `rung next` starts, so the ladder never shows it current.
-`-s`, `--push`, and `--same-version` are as on [`rung commit`](#rung). A one-off skips it: `plan
-start`, the work, and `squash`, which commits the work `@` as the cycle's one commit.
+plan is committed already. The opening is no rung `rung next` starts, so the ladder never shows it
+current. `-s`, `--push`, and `--same-version` are as on [`rung commit`](#rung). A one-off skips it:
+`plan start`, the work, and `close --squash`, which commits the work `@` as the cycle's one commit.
 
 `ladder` makes the ladder in `zTOC.md` from the rung headings of the cycle in progress, the
 `##### ` headings under `#### Rungs` in `TODO.md`, in their order. A rung is written once, as its
@@ -1918,49 +1918,59 @@ and is refused only when the ladder there has a rung done, which it would lose.
 The grammar is strict, and each of these is refused with nothing edited: a commit on the branch
 whose title is no rung's, so an unplanned rung gets its heading before its commit, a rung written
 twice, a ladder whose first rung is not the cycle title plus " opening" or whose last is not it plus
-" closing", unless it is the one heading of [a single-step](#a-single-step-is-one-rung), and a line
+" closing", a single-step being the plan, one rung, and `close --squash`, and a line
 of the ladder already there that is not a rung, a left-margin `- ` with a number and marker or
 neither and a link whose slug is its title's. A done rung below one not done is a warning.
 `--dry-run` prints the ladder and writes none.
 
-`close [REV,...]` closes a ladder from the work `@`, which is on the cycle's tip, the bookmark on
-`@` or `@-`, by its closing commit, above the opening and any work rungs. The acceptance check is
-run first, by hand, and again after. With no commit on the branch there is no opening to follow,
-and it is refused, naming `squash`.
+`close` ends the cycle from the work `@`, which is on the cycle's tip, the bookmark on `@` or
+`@-`, and its shape is said here and only here. The acceptance check is run first, by hand, and
+again after.
 
-- The closing is the cycle title plus " closing", with `[closing] body` from the config, or a body
-  naming the cycle and its record when the key is absent. `--dead-end` titles it " dead-end
-  closing". A `--title` or `--body` given is used as written.
-- It is linear by default, a plain commit on `@`'s own parents. `--trapezoid <TARGET>` makes it a
-  merge whose first parent is the target, read where it is now, so a target that moved is joined,
-  and each `REV` listed is another head joined, a parent after `@`'s own, so a bushy tree closes
-  in one merge.
+| Form | The end |
+|---|---|
+| `close <TARGET>` | a trapezoid, the default: the closing a merge whose first parent is TARGET |
+| `close --linear` | the closing a plain commit on `@`'s own parents |
+| `close --squash --body ...` | the cycle one commit under the bare cycle title |
+
+A bare `close` is refused, a target being named each time and never assumed.
+
+- A trapezoid's or a linear closing is the cycle title plus " closing", with `[closing] body` from
+  the config, or a body naming the cycle and its record when the key is absent. `--dead-end`
+  titles it " dead-end closing". A `--title` or `--body` given is used as written. With no commit
+  on the branch there is no opening to follow, and it is refused, naming `--squash`.
+- The target is read where it is now, so one that moved is joined, and `--join REV,...` joins
+  other heads, each a parent after `@`'s own, so a bushy tree closes in one merge.
 - It carries the record: the ladder is rewritten, every rung done, and the `## In Progress` block
   moves to `## Closed`. Both files are put back and the repo restored when the commit is not made.
   `-s`, `--push`, and `--same-version` are as on [`rung commit`](#rung).
 
-`squash` makes the cycle one commit under the bare cycle title, its closing in it, whatever the
+`--squash` makes the cycle one commit under the bare cycle title, its closing in it, whatever the
 branch holds:
 
-| Commits on the branch | What `squash` does |
+| Commits on the branch | What `--squash` does |
 |---|---|
 | none | the work `@` committed now as the one commit |
 | the opening alone | `@` folded into the opening, which keeps its change id and trailer |
 | the opening and work rungs | each rung squashed into the opening, then `@` folded in |
+| a closed draft, not landed | its closing squashed in with the rungs, from an empty `@` on it |
 
 - The agent side is re-pointed, not squashed: each agent commit naming a rung is rewritten first,
   its description alone, to name the one work commit, and that commit names every agent commit,
   so the agent-repo keeps its per-rung history and every `ochid:` still resolves.
 - The ladder is rewritten to the one rung, `0 (done) <title>`, and the record moves to `## Closed`
-  without its `#### Rungs`, since the one commit has none.
+  without its `#### Rungs`, since the one commit has none, a closed draft's record rewritten so in
+  place.
 - The commit holds the work, so `--body` is required, and `--default-body` is the waiver, the
   pointer at the record.
 - Refused, nothing rewritten: a work commit that a remote bookmark other than the cycle's reaches,
-  its history published, and without `--yes` an agent commit `main@origin` reaches, whose rewrite
-  makes the next agent push a forced one. A rung only draft-pushed is rewritten, and the next
-  push of the cycle's bookmark is forced, asked about then.
-- `-s` is `b` or `p`, the agent side being rewritten with the work side. `--land <TARGET>` and
-  `--push` chain as on `close`.
+  its history published; without `--yes` an agent commit `main@origin` reaches, whose rewrite
+  makes the next agent push a forced one; and a closed draft whose trapezoid's target moved since
+  the cycle opened, the one commit then a tree no rung validated. A rung only draft-pushed is
+  rewritten, and the next push of the cycle's bookmark is forced, asked about then.
+- `-s` is `b` or `p`, the agent side being rewritten with the work side. It takes no TARGET,
+  `--linear`, `--join`, `--dead-end`, or `--title`, and `--land <TARGET>` and `--push` chain as on
+  a trapezoid.
 
 `land <TARGET>` lands a closed cycle on the destination: the agent `@` is committed when the
 cycle's commits name it, the destination is fast-forwarded to the cycle's last commit, and the
@@ -1977,10 +1987,11 @@ cycle forked is refused naming the ways on:
   commit, made from an empty `@` on that commit, titled the cycle title plus " merge" unless
   `--title` and `--body` say otherwise, and then landed. Its tree is one no rung validated, which
   asking for it accepts. A conflicted merge is undone and refused, the resolving being by hand.
-- The closing made again as a trapezoid, `cycle close --trapezoid <TARGET>`.
+- The closing made again as a trapezoid, `cycle close <TARGET>`.
 - A rebase, by `jj rebase`, every rung then validated again.
 
-`close --land <TARGET>` lands the closing just made, in the same invocation, its checks made
+`close <TARGET> --land` lands the closing just made on its target, in the same invocation,
+`--land <TARGET>` with `--linear` or `--squash`, its checks made
 before the closing is, so a destination that cannot be landed on closes nothing. `--push`
 publishes the destination, the work repo first, and deletes the cycle's bookmark on `origin`, and
 it refuses a push that would be forced, which `push` and `squash-push` ask about. Without `--land`
@@ -2017,7 +2028,7 @@ the committed source, installed off the PATH by `cargo xtask install --release -
 binary that ships:
 
 ```bash
-vc-x1 cycle close -s b --trapezoid main  # the closing, main unmoved
+vc-x1 cycle close main -s b             # the closing, main unmoved
 mkdir -p tmp/candidate                     # install --dir takes a directory that exists
 cargo xtask install --release --dir tmp/candidate  # its release build, the plain name, off the PATH
 tmp/candidate/vc-x1 -V                     # the closing's commit, clean
@@ -2043,7 +2054,7 @@ ladder:
   - 0 (done) feat: a cycle opening
   - 1 (done) feat: one rung
   - 2 (current) feat: a cycle closing
-next: 'feat: a cycle closing' is started: `cycle close -s <SCOPE>` makes it, `--trapezoid <TARGET>` a merge, or `cycle squash -s <SCOPE> --body ...` makes the cycle one commit
+next: 'feat: a cycle closing' is started: `cycle close <TARGET> -s <SCOPE>` makes it a trapezoid, `--linear` a plain closing, or `cycle close --squash -s <SCOPE> --body ...` makes the cycle one commit
 ```
 
 The ladder is the one the rung headings, the commits, and the rung marked `(current)` make, with a
@@ -2114,8 +2125,8 @@ vc-x1 rung commit -s b --body "..." # commit it, (done), none current
   a rung is current and when every rung is committed. With `--ver` it first runs the config's
   `[version] bump`, `{ver}` the version given, from the workspace root, so the dev build under
   review carries the rung's version, and a bump that fails marks nothing. Without `bump` in the
-  config `--ver` is refused, and the version is bumped by hand. A bare version, `X.Y.Z`, before the
-  opening says the cycle is one commit: see [A single-step is one rung](#a-single-step-is-one-rung).
+  config `--ver` is refused, and the version is bumped by hand. Before the plan's commit it is
+  refused, naming `cycle plan commit`, and `cycle close --squash` for one commit.
 - `stop` clears the marker, the work `@` left as it is.
 - `commit` commits the current rung, its title the rung's, and the ladder it carries marks the rung
   `(done)` and none current. Refused with no rung current, naming `next`, and on the closing, which
@@ -2144,55 +2155,58 @@ nothing.
 left in flight. `--bookmark` names the cycle's bookmark when it is not the title's slug, and `-R`
 says where.
 
-#### A single-step is one rung
+#### A single-step
 
-A cycle planned as one commit has no opening or closing, so its plan is one heading under `####
-Rungs`, the cycle title itself, and its ladder that one rung, unlinked, since its heading's anchor
-is the cycle's own:
-
-```bash
-vc-x1 cycle plan start --title "fix: a typo"  # the bookends, as for any cycle
-vc-x1 rung next --ver 0.86.1             # a bare version: the bookends become the one heading
-vc-x1 rung commit -s b --body @body.txt  # the cycle's one commit, the record closed in it
-```
-
-- A bare `--ver` before the opening, on a plan of only its bookends, rewrites them in `TODO.md`
-  into the one heading, the opening's text kept and the closing's subsection removed, so the
-  record shows the real rung before the review. Under the suffix scheme a bare version is only
-  ever a cycle's last commit, so it can say the shape. A plan with work rungs is refused, naming
-  both ways on, `X.Y.Z-0` for the opening or the work rungs removed. Without `[version]` the one
-  heading is written by hand, and a bare `rung next` starts it.
-- `rung commit` on the one rung needs `--body`, since the commit holds the work, and makes it as
-  `cycle squash` does: the bare cycle title, the record moved to `## Closed` without
-  its `#### Rungs`, and the ladder `0 (done) <title>`. No `cycle close` follows, and `cycle land`
-  lands it.
-- A cycle planned as a ladder that needed one commit keeps its bookends, the long style, and
-  `cycle squash` makes its one commit.
-
-#### A commit without a cycle
-
-With no cycle in progress, `--title` makes the work `@` a cycle of its own, with no plan step:
+A cycle of one commit is planned as any cycle, its plan's bookends and one work rung, and made one
+commit by `cycle close --squash`:
 
 ```bash
-echo abc > abc.txt
-vc-x1 rung commit -s b --title "feat: create abc" --body @body.txt   # on its own bookmark
-vc-x1 cycle land main -s b --push                                     # landed and published
-vc-x1 rung commit -s b --title "feat: create abc" --body @body.txt --land main --push  # in one
-vc-x1 rung commit -s b --title "feat: create abc" --body @body.txt --record  # the record too
+vc-x1 cycle plan start --title "fix: a typo" --ver 0.86.1-0  # the bookends, as for any cycle
+# one ##### heading under #### Rungs, between the bookends
+vc-x1 cycle plan commit -s b                                 # the opening
+vc-x1 rung next --ver 0.86.1-1                               # the one rung
+vc-x1 rung commit -s b --body @body.txt
+vc-x1 cycle close --squash -s b --body @body.txt             # the cycle's one commit
 ```
 
-- The bookmark is made on `@`, the title's slug or `--bookmark`'s, refused when the name is in
-  use, and the pair is committed verbatim, `--body` required, so `main` moves only at the Land.
-- `TODO.md` and `zTOC.md` are left as they are and need not exist. `--record` writes the record
-  instead: planned with the one heading, as `cycle plan start --title` would, a `## Todo` entry of the
-  title moved in, its Problem and Solution written from the body, the paragraphs before
-  `Solution:` and that one, and closed in the commit, the ladder `0 (done) <title>`.
+The one commit is under the bare cycle title, its record in `## Closed` without `#### Rungs` and
+the ladder `0 (done) <title>`, and `cycle land` lands it. A one-off skips the rung: `plan start`,
+the work, and `close --squash`. The ladder's grammar takes the bookends alone, so a plan of one
+heading, the cycle title, is refused, naming this way.
+
+#### Commits without a cycle
+
+With no cycle in progress, `--title` commits the work `@` verbatim, with no record, onto the
+bookmark on `@-`, which it advances, so a run of them iterates on one bookmark and lands once:
+
+```bash
+vc-x1 rung commit -s b --title "fix: a" --body @a.txt --bookmark  # fix-a made on @, committed
+vc-x1 rung commit -s b --title "fix: b" --body @b.txt             # fix-a advanced
+vc-x1 cycle land main -s b --push                                 # the run landed and published
+vc-x1 rung commit -s b --title "fix: c" --body @c.txt --bookmark --land main --push  # in one
+```
+
+- With no `--bookmark` the commit takes the one bookmark on `@-`, refused with none, several, or
+  `main`, development never done on a target.
+- `--bookmark [NAME]`, the title's slug when bare, makes or moves one first:
+
+  | NAME is | Then |
+  |---|---|
+  | absent | made on `@` |
+  | on `@-` | used |
+  | behind `@-` | moved forward, and said |
+  | sideways or ahead of `@-` | asked, `[y/N]`, `--yes` answering, refused with no terminal |
+  | `main`, or the `--land` target | refused |
+
+- `TODO.md` and `zTOC.md` are left as they are and need not exist, a stale record cleared by hand
+  in a commit of the run. `cycle land <TARGET>` lands the run, the one local bookmark besides the
+  target.
 - `--land <TARGET>` lands the commit in the same invocation, its checks made before the commit,
-  and `--push` then publishes the target. It lands a single-step's one rung the same way, and is
-  refused on a ladder's rung, which `cycle close --land` lands.
-- Every check is made before the bookmark: an empty `@`, the version check when the config has
-  `[version]`, and the Land's. With a cycle in progress `--title` is refused, a rung's title being
-  the ladder's.
+  and `--push` then publishes the target. It is refused on a ladder's rung, which `cycle close
+  --land` lands.
+- Every check is made before a bookmark is made or moved: an empty `@`, the version check when the
+  config has `[version]`, and the Land's. With a cycle in progress `--title` is refused, a rung's
+  title being the ladder's.
 
 ### trailers
 
@@ -2396,7 +2410,7 @@ full design and [per-step record](./notes/chores/chores-05.md#per-step-record) f
 ### Testing push + squash-push
 
 Always test against a throwaway fixture, never the live workspace. Scaffold one with `vc-x1 init
---test-repo <REMOTES> --target <PATH>` or `vc-x1 init --target <TARGET> --repo local=<PARENT>` (no
+<PATH> --test-repo <REMOTES>` or `vc-x1 init <TARGET> --repo local=<PARENT>` (no
 GitHub, no network), then run the complete flow end-to-end. Several test repos may share one REMOTES,
 and a second clone
 of one's remote stands in for another person. The
@@ -2419,7 +2433,7 @@ writes and push in one shot.
 
 ```bash
 parent=$(mktemp -u /tmp/vc-x1-test-XXXXXX)
-vc-x1 init --target "$parent/work" --repo local="$parent"
+vc-x1 init "$parent/work" --repo local="$parent"
 work="$parent/work"
 bot="$parent/work/.claude"
 
@@ -2472,7 +2486,7 @@ using its bot repo:
 
 ```bash
 parent=$(mktemp -u /tmp/vc-x1-guard-XXXXXX)
-vc-x1 init --target "$parent/work" --repo local="$parent"
+vc-x1 init "$parent/work" --repo local="$parent"
 bot="$parent/work/.claude"
 
 # example 1, refusal: journal described on @ WITH an ochid

@@ -291,6 +291,22 @@ The agent-files to `v0.3.1-18`, Cycle shape, the per-rung flow, Committing vs pu
 `jj.md`'s close-out shapes, and the rationale, README's `### cycle` and `### rung`, and the
 rehearsal rewritten for the new flow.
 
+- `AGENTS.md`: Terminology's Cycle and Target, the rules **One commit or a ladder** and **Commit by
+  the tool**, Cycle shape rewritten whole, a trapezoid the default on a named target, `--linear`,
+  `--squash` one commit, and a closed draft converted, Opening's one-off, the per-rung flow's end,
+  Committing vs pushing's informal run on one bookmark, A cycle is local by default's 1:M, and
+  Close-out's shapes.
+- `jj.md`'s Close and its close-out shapes, `cycle-model.md`'s who-writes-what and specimens, and
+  `rationale.md`: Cycle shape's one ending stage, why linear is asked for, the single-step's one
+  way, and informal commits on one bookmark, the old forms kept where they are history.
+- The agent-files version is `v0.3.1-18`, `agent-data/agent-files-v0.3.1-18`, and `CONTRIBUTING.md`
+  dates it.
+- README: `### cycle`'s stages and examples, `close`'s shape table, `--squash`'s table with the
+  closed draft, the status sample, `### rung`'s `#### A single-step` and `#### Commits without a
+  cycle`, its bookmark table, and `### init`'s every example, flag row, and refusal, the target
+  positional. `check anchors` passes over the edited files, 146 links.
+- The rehearsal was rewritten with each rung, so nothing of it is left here.
+
 ##### feat: the new cycle flow closing
 
 Closing out the cycle.

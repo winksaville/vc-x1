@@ -31,7 +31,7 @@ took.
 Cycle: one change, run from its plan to its closing as one commit or a ladder of them, each made
 by `vc-x1 cycle`, whose stages are its subcommands, and `vc-x1 rung`, a rung's acts ([Cycle
 protocol](#cycle-protocol)). A single-step cycle is one commit and a multi-step one more, the shape
-said by the stage that ends it, `cycle squash` or `cycle close` ([Cycle shape](#cycle-shape)).
+said by the stage that ends it, `cycle close` and its option ([Cycle shape](#cycle-shape)).
 Both run on a bookmark, and both stay on this machine until the Land unless the user decides
 otherwise.
 
@@ -42,7 +42,7 @@ the command. Land is onto the cycle's target, a fast-forward unless the user ask
 Before it the cycle is a draft on its bookmark, after it the commits are permanent.
 
 Target: the bookmark a cycle lands on, named on the command each time, `cycle land <target>` and
-a trapezoid's `--trapezoid <target>`, stored nowhere, and never assumed, since a bookmark made is
+a trapezoid's `cycle close <target>`, stored nowhere, and never assumed, since a bookmark made is
 likely, not certainly, the one a cycle lands on. `main` by convention, and a release branch is a
 target as much as `main` is.
 
@@ -101,16 +101,16 @@ silently.
   agent-files](#a-sessions-rules-are-its-own-agent-files)).
 - Bookmark per cycle: a cycle runs on one topic bookmark in the work-repo, and `main` advances
   only when the cycle lands ([Cycles run on a bookmark](#cycles-run-on-a-bookmark)).
-- One commit or a ladder: `cycle squash` makes the cycle one commit, its agent side re-pointed,
-  and `cycle close` makes a ladder's closing, a trapezoid by default ([Cycle
+- One commit or a ladder: `cycle close <target>` makes a ladder's closing, a trapezoid by default,
+  `--linear` a plain one, and `--squash` the cycle one commit, its agent side re-pointed ([Cycle
   shape](#cycle-shape)).
 - Local by default: a cycle's commits stay on this machine until the Land, and the user decides when
   each side commits and publishes ([A cycle is local by default](#a-cycle-is-local-by-default)).
 - Read the step before the action: [The per-rung flow](#the-per-rung-flow) before commit work,
   [Before any push](#before-any-push) before a push, from the file, not from memory.
 - Commit by the tool: a cycle's commits are made only by `vc-x1 cycle` and `vc-x1 rung`, the plan
-  by `cycle plan commit`, a rung by `rung commit`, and the end by `cycle close` or `cycle squash`
-  ([Committing vs pushing](#committing-vs-pushing)).
+  by `cycle plan commit`, a rung by `rung commit`, and the end by `cycle close` ([Committing vs
+  pushing](#committing-vs-pushing)).
 - The ladder is the tool's: a rung is written once, as its heading under `#### Rungs`, and no
   marker is typed, `rung next` marking a rung `(current)` in the working copy alone
   ([Cycle-record](#cycle-record)).
@@ -212,36 +212,37 @@ bookmarks][llb].
 
 ### Cycle shape
 
-A cycle's shape is said by the stage that ends it: `cycle squash` makes it one commit and `cycle
-close` makes a ladder's closing, so nothing is decided before the end and no count is guessed at
-([why](agent-data/rationale.md#cycle-shape)).
+A cycle's shape is said by the stage that ends it, `cycle close`, and only there: a trapezoid by
+default, `--linear`, or `--squash` one commit, so nothing is decided before the end and no count is
+guessed at ([why](agent-data/rationale.md#cycle-shape)).
 
 - Every cycle starts with `vc-x1 cycle plan start`, which makes its bookmark on the work `@` and
   writes its record, a single-step cycle included. `cycle plan commit` commits the plan, the
   cycle's opening, and `rung next` and `rung commit` then run each work rung.
-- One commit: `cycle squash --body "..."` makes the cycle one commit under the bare cycle title,
-  its closing in it, whatever the branch holds. With no commit the work `@` is committed now, so a
-  one-off is `plan start`, the work, and `squash`. With the opening and rungs, each rung is
-  squashed into the opening, whose change id is kept, after the agent side is re-pointed: each
-  agent commit naming a rung is rewritten, its description alone, to name the one work commit,
-  which names every agent commit, the 1:M shape, so every `ochid:` still resolves and the agent-repo
-  keeps its per-rung history. A work commit a remote bookmark other than the cycle's reaches is
-  never rewritten, and an agent commit `main@origin` reaches only with `--yes`.
-- A simple single-step plans the one rung alone, a heading of the bare cycle title under `####
-  Rungs`, `rung next --ver X.Y.Z` with a bare version making it of the bookends, and `rung commit
-  --body` makes the cycle's one commit, as `squash` makes it.
-- A ladder: `cycle close` makes the closing commit, from the work `@` on the cycle's tip, refused
-  with no opening. `--trapezoid <target>` makes it the merge of the target and the tip, the default
-  close-out, each revision listed, `cycle close <REV,...>`, another head joined, and `--land
-  <target>` lands it in the same invocation. Without `--trapezoid` the closing is linear, a plain
-  commit on the ladder, which is the user's to ask for.
+- A trapezoid, the default close-out: `cycle close <target>` makes the closing a merge of the
+  target, its first parent, and the tip, `--join <REV,...>` another head joined, and `--land`, bare,
+  lands it on the target in the same invocation. The target is named each time, a bare `cycle
+  close` refused. `--linear` makes the closing a plain commit on the ladder, the user's to ask for.
+- One commit: `cycle close --squash --body "..."` makes the cycle one commit under the bare cycle
+  title, its closing in it, whatever the branch holds. With no commit the work `@` is committed now,
+  so a one-off is `plan start`, the work, and `close --squash`, and a single-step is the plan, one
+  rung, and `close --squash`. With the opening and rungs, each rung is squashed into the opening,
+  whose change id is kept, after the agent side is re-pointed: each agent commit naming a rung is
+  rewritten, its description alone, to name the one work commit, which names every agent commit,
+  the 1:M shape, so every `ochid:` still resolves and the agent-repo keeps its per-rung history. A
+  work commit a remote bookmark other than the cycle's reaches is never rewritten, and an agent
+  commit `main@origin` reaches only with `--yes`.
+- A closed draft converts: `close --squash` on a cycle closed and not landed, from an empty `@` on
+  its closing, squashes the closing in with the rungs and makes the closed record a single-step's,
+  refused when the trapezoid's target moved since.
 - The titles and bodies default. The opening's is the cycle title plus " opening" and `[opening]
   body`, a ladder's closing the title plus " closing" and `[closing] body`, and the one commit of
-  `squash` gives its `--body`, since it holds the work. A work rung gives its body, its title the
+  `--squash` gives its `--body`, since it holds the work. A work rung gives its body, its title the
   ladder's.
 - A dead end still closes and lands: a cycle abandoned after its opening keeps what is worth
   keeping, reverts the rest, and records what was tried, why it stopped, and what replaces it. Its
-  closing is `cycle close --dead-end`, titled with the cycle title plus " dead-end closing".
+  closing is `cycle close <target> --dead-end`, titled with the cycle title plus " dead-end
+  closing".
 
 ### Unplanned work
 
@@ -296,8 +297,8 @@ The plan is a phase of its own, started by `cycle plan start` and committed by `
 commit`, its commit the cycle's opening: the record `plan start` scaffolds is deliberated and
 laddered before it is committed, so the opening's review is of the plan, where a wrong direction
 costs the least. The user is free to commit the setup first. A one-off does all of it in its one
-commit, `cycle squash` after `plan start` ([Cycle shape](#cycle-shape)). Before the plan's commit
-([why](agent-data/rationale.md#opening)):
+commit, `cycle close --squash` after `plan start` ([Cycle shape](#cycle-shape)). Before the plan's
+commit ([why](agent-data/rationale.md#opening)):
 
 1. Sync: sync both repos ([Sync](#sync)), whatever the cycle's form.
 2. Open: `vc-x1 cycle plan start --title "<bare cycle title>"` makes the bookmark on the work `@`,
@@ -362,7 +363,7 @@ status` says where the cycle stands and which rung is next:
    pushing](#committing-vs-pushing)). The opening is `vc-x1 cycle plan commit -s b` and needs
    neither title nor body. The ladder is rewritten into the commit, the rung `(done)` and none
    current, so no marker is typed or flipped, and `rung next` starts the next. The end is `vc-x1
-   cycle close -s b` or `cycle squash -s b` ([Cycle shape](#cycle-shape),
+   cycle close <target> -s b`, `--linear`, or `--squash` ([Cycle shape](#cycle-shape),
    [Close-out](#close-out)). A rung that
    changes the artifact then installs its dev build again, so the next rung runs the committed
    code, not the working copy's ([Dev artifact name](agent-data/versioning.md#dev-artifact-name)).
@@ -371,16 +372,19 @@ status` says where the cycle stands and which rung is next:
 ### Committing vs pushing
 
 A cycle's commits are made *by* `vc-x1 cycle` and `vc-x1 rung`, the plan by `cycle plan commit`, a
-rung by `rung commit`, and the end by `cycle close` or `cycle squash`, never by `jj commit`, and
+rung by `rung commit`, and the end by `cycle close`, never by `jj commit`, and
 published only by a push ([why](agent-data/rationale.md#committing-vs-pushing)).
 
-- `cycle plan commit`, `rung commit`, `cycle close`, `cycle squash`, and `cycle land` stay on this
+- `cycle plan commit`, `rung commit`, `cycle close`, and `cycle land` stay on this
   machine and need no approval. Each names its scope, `-s`, as every command that writes does: `b`
   the pair, `w` the work half, and `p` a plain repo.
 - `--push` on any of them publishes, exactly like `vc-x1 push`, as does `squash-push`. On a commit
   it is a draft push, of the cycle's bookmark, and with `--land` it is the publish, of the target.
-- With no cycle in progress, `rung commit --title "..." --body "..."` commits the work `@` as a
-  cycle of its own, on a bookmark made for it, its record written and closed only with `--record`.
+- With no cycle in progress, `rung commit --title "..." --body "..."` commits the work `@`
+  verbatim, with no record, onto the bookmark on `@-`, advancing it, so a run of them iterates on
+  one bookmark and `cycle land <target>` lands it once. `--bookmark [NAME]` makes or moves one
+  first, the title's slug when bare: made when absent, moved forward when behind `@-`, asked about
+  when sideways or ahead, `--yes` answering, and never a target, `main` among them.
 - `vc-x1 squash` continues a rung, folding the working copy into it. `squash --title --body` is the
   sanctioned re-describe of `@-`. `vc-x1 commit` is the plain commit of a pair, for work outside a
   cycle, and `commit -r REV --title --body` describes a commit made by hand.
@@ -398,8 +402,8 @@ committed and when either is published, at any rung, every push still taking its
   commit holding the session to that moment, and the plan's bookmark created and not pushed.
 - Any mix of work and agent commits is valid. `rung commit -s b` makes a 1:1 pair, `rung commit -s
   w` rungs then `commit -s a --covers <REVSET>` or the Land make N:1, and several agent commits
-  naming one work commit make 1:M, as `cycle squash` leaves a squashed ladder. The rule is the
-  links: a work commit's `ochid:` names each agent change it pairs with, an agent commit's names
+  naming one work commit make 1:M, as `cycle close --squash` leaves a squashed ladder. The rule is
+  the links: a work commit's `ochid:` names each agent change it pairs with, an agent commit's names
   each work commit it covers, each below an `orepo:` naming the other repo, and a squash folds into
   a commit an `ochid:` names, never that commit away, since jj keeps the change id of the commit
   squashed into ([Cross-repo linking](agent-data/jj.md#cross-repo-linking-ochid-trailers)).
@@ -474,14 +478,15 @@ does all of it in its one commit, step 5 aside ([Cycle shape](#cycle-shape)):
      belongs to
    - the block is moved whole to `## Closed`, leaving `## In Progress` reading
      `_No cycle currently in progress._`, and `zTOC.md`'s ladder is rewritten with every marker
-     final, both by `vc-x1 cycle close` or `cycle squash`.
+     final, both by `vc-x1 cycle close`.
 3. Validate: full validation, and update `notes/README.md` if functionality changed.
 4. Size: when an agent-file changed, record the line count in `notes/agent-files-size.md`,
    smaller being the quasi-goal. A cycle that touched none adds no row.
 5. Close-out shape ([Close-out shapes](agent-data/jj.md#close-out-shapes)): a ladder closes as a
-   trapezoid, `cycle close -s b --trapezoid <target>`, the closing commit carrying the shape, so
-   nothing is reshaped at Land, or is made one commit by `cycle squash -s b --body "..."`, the
-   user's to ask for.
+   trapezoid, `cycle close <target> -s b`, the closing commit carrying the shape, so nothing is
+   reshaped at Land, or as a plain closing by `--linear`, or is made one commit by `cycle close
+   --squash -s b --body "..."`, the last two the user's to ask for. A closed draft is made one
+   commit by `--squash` before its Land.
 6. Continuation notes: anything the next agent needs is written into `TODO.md > ## Continuation
    notes`, the first section, before the closing commit, which carries them, so the work-repo is
    clean from the Land on. A fact known only after the Land is not written: the note names what the

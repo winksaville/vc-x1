@@ -16,8 +16,8 @@ Who writes what:
   rung's number its position and `(done)` computed from the commits, so no marker is typed, and
   `rung next` marks the rung it starts `(current)` in the working copy alone.
 - `cycle plan commit` commits the plan, the opening, and `rung commit` each work rung.
-- `cycle close` moves the block to `## Closed`, and `cycle squash`, the cycle made one commit, moves
-  it without its `#### Rungs`.
+- `cycle close <target>` moves the block to `## Closed`, and `cycle close --squash`, the cycle made
+  one commit, moves it without its `#### Rungs`.
 
 ## A ladder, mid-run
 
@@ -103,12 +103,12 @@ subsections, the work rung started by `rung next` and not yet committed:
 - [refactor: extract config loader closing](TODO.md#refactor-extract-config-loader-closing)
 ```
 
-Its closing, `cycle close --trapezoid main`, makes the closing commit, every marker
+Its closing, `cycle close main`, a trapezoid, makes the closing commit, every marker
 `(done)` and the block moved whole to `## Closed`, its `#### Rungs` kept.
 
 ## A single-step cycle, closed
 
-The `version flag` cycle, one commit made by `cycle squash`, as `TODO.md > ## Closed`
+The `version flag` cycle, one commit made by `cycle close --squash`, as `TODO.md > ## Closed`
 holds it:
 
 ```
