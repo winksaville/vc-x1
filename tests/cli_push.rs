@@ -19,7 +19,7 @@ fn small_limit_workspace(tag: &str) -> (CliFixture, PathBuf, PathBuf) {
     run_ok(
         fx.cmd()
             .current_dir(&fx.base)
-            .args(["init", "--target", "./tr"])
+            .args(["init", "./tr"])
             .arg("--repo")
             .arg(format!("local={}", fx.base.display())),
     );
@@ -201,7 +201,7 @@ fn cli_commit_records_its_run_in_both_repos() {
     run_ok(
         fx.cmd()
             .current_dir(&fx.base)
-            .args(["init", "--target", "./tr"])
+            .args(["init", "./tr"])
             .arg("--repo")
             .arg(format!("local={}", fx.base.display())),
     );

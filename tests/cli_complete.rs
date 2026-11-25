@@ -39,13 +39,13 @@ fn path_arguments_complete() {
     std::fs::write(dir.join("notes.md"), "notes\n").expect("write notes");
 
     let cases: &[(&[&str], &str)] = &[
-        (&["init", "--target", "sr"], "src/"),
+        (&["init", "sr"], "src/"),
         (&["clone", "--from", "sr"], "src/"),
         (&["symlink", "--target", "sr"], "src/"),
         (&["lookup", "--line", "no"], "notes.md"),
         (&["lookup", "-s", "work", "--line", "no"], "notes.md"),
-        (&["init", "--target", "x", "--config", "no"], "notes.md"),
-        (&["init", "--target", "x", "--test-repo", "sr"], "src/"),
+        (&["init", "x", "--config", "no"], "notes.md"),
+        (&["init", "x", "--test-repo", "sr"], "src/"),
         (&["config", "--file", "no"], "notes.md"),
         (&["check", "config", "--file", "no"], "notes.md"),
         // Already a `PathBuf`, so it completed before the hints.

@@ -65,8 +65,8 @@ impl From<&InitArgs> for InitParams {
     /// directly (or post-edit the field).
     fn from(a: &InitArgs) -> Self {
         Self {
-            // OK: clap requires --target unless the retired positionals
-            // were given, and `to_params` refuses those first
+            // OK: clap requires TARGET unless the retired --target was
+            // given, and `to_params` refuses that first
             target: a.target.clone().unwrap_or_default(),
             name: a.name.clone(),
             account: a.account.value.clone(),

@@ -29,12 +29,7 @@ use crate::url::{Target, derive_name, parse_target};
 /// CLI args for `vc-x1 init`.
 #[derive(Args, Debug)]
 pub struct InitArgs {
-    /// Retired: `TARGET [NAME]`, now `--target` and `--name`, refused
-    /// naming them.
-    #[arg(value_name = "RETIRED", hide = true, num_args = 0..=2)]
-    pub retired: Vec<String>,
-
-    /// What to create: URL, path, or bare NAME.
+    /// What to create: URL, path, or bare NAME, the one positional.
     ///
     /// - URL: `git@host:owner/name(.git)?`, `https://...(.git)?`,
     ///   used as-is, config not consulted.
@@ -47,22 +42,30 @@ pub struct InitArgs {
     /// refused: it reads equally as a path and as the retired
     /// owner/name shorthand, so pass `./owner/name` or a URL.
     #[arg(
-        long = "target",
-        value_name = "URL|PATH|NAME",
+        value_name = "TARGET",
         value_hint = ValueHint::AnyPath,
-        required_unless_present = "retired",
+        required_unless_present = "target_flag",
         verbatim_doc_comment
     )]
     pub target: Option<String>,
 
-    /// Make `--target` a throwaway test repo, its bare remotes in
+    /// Retired: a second positional, the old `TARGET NAME`, refused
+    /// naming `--name`.
+    #[arg(value_name = "RETIRED", hide = true, num_args = 0..)]
+    pub retired: Vec<String>,
+
+    /// Retired: `--target`, the target positional now, refused naming it.
+    #[arg(long = "target", value_name = "TARGET", hide = true)]
+    pub target_flag: Option<String>,
+
+    /// Make the target a throwaway test repo, its bare remotes in
     /// REMOTES, so nothing leaves this machine.
     ///
     /// The remotes are named by the repo, `<name>.git` and
     /// `<name>.agent-session.git`, so several test repos share one
     /// REMOTES, and a name already there is refused. REMOTES is
     /// always a path, so `tmp/remotes` needs no `./`. Not with a URL
-    /// `--target`, or what names a remote. With `--adopt` the target
+    /// target, or what names a remote. With `--adopt` the target
     /// is an existing repo or directory, an origin it has replaced by
     /// REMOTES and kept only by `--upstream`.
     #[arg(
@@ -1311,7 +1314,7 @@ impl InitArgs {
                 ));
             }
         }
-        // Only a URL is refused: `tmp/remotes`, ambiguous to `--target`, is
+        // Only a URL is refused: `tmp/remotes`, ambiguous as a target, is
         // a path here, since a test repo's remotes are never on GitHub.
         if let Ok(Target::Url(_)) = parse_target(path) {
             return Err(format!(
@@ -1322,8 +1325,8 @@ impl InitArgs {
             && let Ok(Target::Url(_)) = parse_target(target)
         {
             return Err(format!(
-                "--target '{target}' is a URL, and a test repo is a path: nothing leaves \
-                 this machine"
+                "the target '{target}' is a URL, and a test repo is a path: nothing leaves this \
+                 machine"
             ));
         }
         Ok(())
@@ -1336,12 +1339,17 @@ impl SubcommandRunner for InitArgs {
     /// Refuse the retired positionals and `--por`, else delegate to
     /// the `From<&InitArgs>` impl in [`crate::init::params`].
     fn to_params(&self) -> Result<Self::Params, String> {
-        crate::options_flags::retired_positional::refuse_two(
-            "init",
-            &self.retired,
-            "--target",
-            "--name",
-        )?;
+        if let Some(t) = &self.target_flag {
+            return Err(format!(
+                "init --target: the target is positional now: `vc-x1 init {t}`"
+            ));
+        }
+        if let Some(name) = self.retired.first() {
+            return Err(format!(
+                "init: the one positional is the TARGET, and '{name}' is a second: the directory \
+                 name is `--name {name}`"
+            ));
+        }
         self.por.check("init")?;
         self.check_test_repo()?;
         Ok(InitParams::from(self))

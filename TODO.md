@@ -239,6 +239,28 @@ cycle's.
   without `--yes`, and `main`. The rehearsal's cycle 5 is a run of two landed once, with a commit on
   `main`'s `@-` refused first, 90 checks passing.
 
+##### feat: init takes its target positionally
+
+`vc-x1 init <TARGET>`, the target the one required positional, `--target` refused naming it, and
+a second positional, the old `TARGET NAME`, refused naming `--name` (wink, 2026-11-25, inserted
+from merging **feat: init takes its target positionally and finishes what it starts** into **feat:
+init copies a file set and finishes what it starts**, which keeps `--from` and the rest).
+
+- `InitArgs` takes the target as its positional, `TARGET`, required unless the hidden `--target`
+  is given, which `to_params` refuses naming `vc-x1 init <TARGET>`. A second positional, the old
+  `TARGET NAME`, is hidden and refused naming `--name`, where the retired slot refused `TARGET
+  [NAME]` naming `--target` and `--name`, so the positional `init` once had comes back with its
+  name a flag.
+- The help and messages say "the target" where they said `--target`, and `config`'s hint names
+  `vc-x1 init git@github.com:<owner>/<repo>.git`. `support/fixtures/build-dr-1.py`, the fixture
+  builder an ignored test runs, calls `init <PATH>`.
+- Tests: every `init --target X` is `init X`, in the unit tests, the CLI tests of `init`, `clone`,
+  `push`, `sync`, `repo`, and completion, and the two test helpers, and the retired-forms test
+  checks the three refusals. The rehearsal makes its workspace by `init <WS>`, 90 checks passing.
+- The merged Todo, **feat: init copies a file set and finishes what it starts**, keeps `--from`,
+  the symlink preflight, adopting a directory holding only `.claude/`, and `.claude/` kept out of
+  the initial commit, with the shape `vc-x1 init <TARGET> [--from <SOURCE>]`.
+
 ##### fix: a re-run Land finishes its push, and messages name the command run
 
 A `cycle land --push` whose push failed finishes on a re-run, its hint naming `cycle push`; every
@@ -329,7 +351,7 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### feat: init copies a file set
+### feat: init copies a file set and finishes what it starts
 
 (wink + agent, 2026-11-21, from **feat: one cycle flow, plan, rungs, close**, gathered from
 **Initialization leaves no bad link** and **agent-files(proposal): v0.3.1**) A new workspace gets
@@ -361,6 +383,29 @@ the new cycle flow** (wink, 2026-11-23), so the files it copies describe the new
 - **Scope**, open: whether `agent-files copy` and `diff` read the manifest in this cycle, so the set
   is defined once, and how much of `vc-dr-apply.sh` retires here, its base skeleton, `--lang`, and
   `xtask copy`, or stays for **Initialization leaves no bad link**.
+- **Finishes what it starts** (wink + agent, 2026-11-19, merged here 2026-11-25 from **feat: init
+  takes its target positionally and finishes what it starts**, whose positional target became
+  **feat: the new cycle flow**'s rung **feat: init takes its target positionally**). So `vc-x1 init
+  ../hello` makes a workspace of a directory a Claude Code session was already started in, as
+  `../help` was, tried by dry run there: `init --adopt --test-repo <REMOTES> --dry-run` planned all
+  ten steps and found none of what would stop it.
+  - **Preflight checks the symlink path.** A session started in the directory first makes
+    `~/.claude/projects/<mangled-path>` a real directory, holding its transcript and `memory/`, and
+    the symlink step refuses a path that "exists and is not a symlink", the last step, after the
+    push. Preflight refuses it with nothing made, or init moves the directory's transcripts into
+    the new agent-repo and replaces it with the symlink, the session first exited.
+  - **A directory holding only `.claude/` is adopted without `--adopt`**, since a session started
+    there leaves it, or the refusal names `--adopt`.
+  - **`.claude/` stays out of the initial commit**: the work `.gitignore` ignores only
+    `/.claude/settings.local.json`, so an adopted `.claude/.cc-writes/` is committed and pushed. The
+    wider rule is **Every repo's .gitignore ignores .claude, and settings stay out of
+    agent-repos**, and this needs at least the adopted directory's `.claude/` kept out.
+  - Related: **init defaults to --local**, a bare `init` publishing a public GitHub repo today.
+  - The acceptance: `vc-x1 init ../hello`, with `--test-repo` and then to GitHub with `--private`,
+    in a directory a session was started in, leaves a dual workspace whose symlink holds that
+    session's transcript, and nothing of `.claude/` committed.
+- **The shape** (wink + agent, 2026-11-25): `vc-x1 init <TARGET> [--from <SOURCE>]`, the source a
+  flag since it is optional and two positionals read like `cp`, easy to swap.
 
 ### fix: a new workspace's manifest warns of an unused version
 
@@ -635,12 +680,13 @@ version the set's, and writes into this entry, each as a `####` change with its 
   `agent-files copy` and `diff` read the source's manifest, a project's config only narrowing it,
   so the set is defined once, where `AGENTS.md`'s Terminology, `agent_files.rs`, and the script
   each restate it today.
-  - Designed and made by **feat: init copies a file set** (wink, 2026-11-21), the cycle before
-    this one, which this proposal then carries.
+  - Designed and made by **feat: init copies a file set and finishes what it starts** (wink,
+    2026-11-21), the cycle before this one, which this proposal then carries.
 
-`init --from DIR` and the manifest are **feat: init copies a file set**'s, the cycle before. Left
-for the cycle after: `xtask copy` in the same command, retiring `vc-dr-apply.sh`, with the agent
-repo's starters, which want a side in the manifest, from **Initialization leaves no bad link**.
+`init --from DIR` and the manifest are **feat: init copies a file set and finishes what it
+starts**'s, the cycle before. Left for the cycle after: `xtask copy` in the same command, retiring
+`vc-dr-apply.sh`, with the agent repo's starters, which want a side in the manifest, from
+**Initialization leaves no bad link**.
 Left for a later proposal: **Durable messaging between projects**, the family's protocol and not
 the set's, and **The family leaves the committed config**, **init and clone take --custom**, and
 **Every repo's .gitignore ignores .claude**, each shaped by those.
@@ -1149,33 +1195,6 @@ Each run on its own:
 
 - A rung inserted before pushed rungs: a `jj.md` recipe, once **lookup is tested on a reordered
   ladder** has its results.
-
-### feat: init takes its target positionally and finishes what it starts
-
-(wink + agent, 2026-11-19) So `vc-x1 init ../hello` makes a workspace of a directory a Claude Code
-session was already started in, as `../help` was. Tried by dry run on `../help`, where
-`init --target ../help --adopt --test-repo <REMOTES> --dry-run` planned all ten steps and found
-none of what would stop it:
-
-- **The target is positional**, `init <TARGET>`, its one required argument, `--target` gone. The
-  rule "Every argument is a flag" it would have bent goes in **feat: one cycle flow, plan, rungs,
-  close**'s docs rung (wink, 2026-11-21).
-- **Preflight checks the symlink path.** A session started in the directory first makes
-  `~/.claude/projects/<mangled-path>` a real directory, holding its transcript and `memory/`, and
-  the symlink step refuses a path that "exists and is not a symlink", the last step, after the
-  push. Preflight refuses it with nothing made, or init moves the directory's transcripts into the
-  new agent-repo and replaces it with the symlink, the session first exited.
-- **A directory holding only `.claude/` is adopted without `--adopt`**, since a session started
-  there leaves it, or the refusal names `--adopt`.
-- **`.claude/` stays out of the initial commit**: the work `.gitignore` ignores only
-  `/.claude/settings.local.json`, so an adopted `.claude/.cc-writes/` is committed and pushed. The
-  wider rule is **Every repo's .gitignore ignores .claude, and settings stay out of agent-repos**,
-  and this needs at least the adopted directory's `.claude/` kept out.
-- Related: **init defaults to --local**, a bare `init` publishing a public GitHub repo today, and
-  **Initialization leaves no bad link**, init copying no agent-files.
-- The acceptance: `vc-x1 init ../hello`, with `--test-repo` and then to GitHub with `--private`,
-  in a directory a session was started in, leaves a dual workspace whose symlink holds that
-  session's transcript, and nothing of `.claude/` committed.
 
 ### feat: squash-push refuses an agent push that names unpublished work
 

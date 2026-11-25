@@ -224,6 +224,7 @@ impl Fixture {
         let work_path = base.join("work");
         let args = InitArgs {
             retired: vec![],
+            target_flag: None,
             target: Some(work_path.to_string_lossy().into_owned()),
             test_repo: None,
             name: None,
@@ -322,6 +323,7 @@ impl FixturePor {
         let work_path = base.join("work");
         let args = InitArgs {
             retired: vec![],
+            target_flag: None,
             target: Some(work_path.to_string_lossy().into_owned()),
             test_repo: None,
             name: None,

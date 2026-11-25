@@ -27,7 +27,6 @@ fn cli_init_por_creates_layout() {
     run_ok(
         fx.cmd()
             .arg("init")
-            .arg("--target")
             .arg(&work_str)
             .args(["-s", "por"])
             .arg(format!("--repo=local={base_str}")),
@@ -65,7 +64,6 @@ fn cli_init_dual_creates_layout() {
     run_ok(
         fx.cmd()
             .arg("init")
-            .arg("--target")
             .arg(&work_str)
             .arg(format!("--repo=local={base_str}")),
     );
@@ -145,7 +143,6 @@ fn cli_init_adopt_plain_directory() {
     let out = run_ok(
         fx.cmd()
             .arg("init")
-            .arg("--target")
             .arg(&work)
             .arg("--adopt")
             .arg(format!("--repo=local={}", fx.base.display())),
@@ -177,7 +174,6 @@ fn cli_init_adopt_single_repo_workspace() {
     run_ok(
         fx.cmd()
             .arg("init")
-            .arg("--target")
             .arg(&work)
             .args(["-s", "por"])
             .arg(format!("--repo=local={}", fx.base.display())),
@@ -185,13 +181,7 @@ fn cli_init_adopt_single_repo_workspace() {
 
     let origin_before = git_rev(&fx.path("remote.git"), "main");
 
-    let out = run_ok(
-        fx.cmd()
-            .arg("init")
-            .arg("--target")
-            .arg(&work)
-            .arg("--adopt"),
-    );
+    let out = run_ok(fx.cmd().arg("init").arg(&work).arg("--adopt"));
     let text = output_text(&out);
 
     assert!(
@@ -229,16 +219,13 @@ fn cli_init_existing_target_refusals() {
     std::fs::create_dir_all(&work).expect("mkdir work");
     let local = format!("--repo=local={}", fx.base.display());
 
-    let text = output_text(&run_err(
-        fx.cmd().arg("init").arg("--target").arg(&work).arg(&local),
-    ));
+    let text = output_text(&run_err(fx.cmd().arg("init").arg(&work).arg(&local)));
     assert!(text.contains("pass --adopt"), "{text}");
 
     let missing = fx.path("missing");
     let text = output_text(&run_err(
         fx.cmd()
             .arg("init")
-            .arg("--target")
             .arg(&missing)
             .arg("--adopt")
             .arg(&local),
@@ -259,7 +246,6 @@ fn cli_init_trailers_pass_check_desc() {
     run_ok(
         fx.cmd()
             .arg("init")
-            .arg("--target")
             .arg(&fresh)
             .arg(&local)
             .args(["--agent-dir", ".sess"]),
@@ -273,7 +259,6 @@ fn cli_init_trailers_pass_check_desc() {
     run_ok(
         fx.cmd()
             .arg("init")
-            .arg("--target")
             .arg(&adopted)
             .arg("--adopt")
             .arg(format!("--repo=local={}", fx.path("bares").display()))

@@ -125,7 +125,7 @@ if [ -L "$LINK" ]; then rm "$LINK"; fi
 rm -rf "$ROOT"
 mkdir -p "$ROOT"
 : >"$LOG"
-run "$VC" init --target "$WS" --test-repo "$ROOT/remotes" || exit 1
+run "$VC" init "$WS" --test-repo "$ROOT/remotes" || exit 1
 cd "$WS" || exit 1
 
 cat >TODO.md <<'EOF'
