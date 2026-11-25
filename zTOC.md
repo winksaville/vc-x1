@@ -4,14 +4,13 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 
 ## Ladder
 
-- 0 (done) [feat: the new cycle flow opening](TODO.md#feat-the-new-cycle-flow-opening)
-- 1 (done) [feat: cycle close takes its shape, a trapezoid by default](TODO.md#feat-cycle-close-takes-its-shape-a-trapezoid-by-default)
-- 2 (done) [feat: the one-heading single-step and --record go](TODO.md#feat-the-one-heading-single-step-and---record-go)
-- 3 (done) [feat: informal commits iterate on one bookmark](TODO.md#feat-informal-commits-iterate-on-one-bookmark)
-- 4 (done) [feat: init takes its target positionally](TODO.md#feat-init-takes-its-target-positionally)
-- 5 (done) [fix: a re-run Land finishes its push, and messages name the command run](TODO.md#fix-a-re-run-land-finishes-its-push-and-messages-name-the-command-run)
-- 6 (done) [docs: the new cycle flow](TODO.md#docs-the-new-cycle-flow)
-- 7 (done) [feat: the new cycle flow closing](TODO.md#feat-the-new-cycle-flow-closing)
+- 0 (done) [feat: init copies a file set and finishes what it starts opening](TODO.md#feat-init-copies-a-file-set-and-finishes-what-it-starts-opening)
+- [feat: a set lists its files in file-set.toml](TODO.md#feat-a-set-lists-its-files-in-file-settoml)
+- [feat: init --from copies a set by its manifest](TODO.md#feat-init---from-copies-a-set-by-its-manifest)
+- [feat: agent-files copy and diff read the manifest](TODO.md#feat-agent-files-copy-and-diff-read-the-manifest)
+- [fix: init refuses a taken symlink path up front](TODO.md#fix-init-refuses-a-taken-symlink-path-up-front)
+- [fix: init adopts a .claude-only directory](TODO.md#fix-init-adopts-a-claude-only-directory)
+- [feat: init copies a file set and finishes what it starts closing](TODO.md#feat-init-copies-a-file-set-and-finishes-what-it-starts-closing)
 
 ## The TOC
 
