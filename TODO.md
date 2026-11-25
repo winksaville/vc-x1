@@ -267,6 +267,24 @@ A `cycle land --push` whose push failed finishes on a re-run, its hint naming `c
 hint names `argv[0]`; `rung commit --title` says `rung commit:`; and the rehearsal keeps a failed
 command's status.
 
+- `cycle land` first asks `landed_here`: no cycle in progress, the target ahead of `origin`, and on
+  it the closed cycle's bookmark, the Land having stopped before deleting it, or its landmark. Then
+  `finish_land` deletes the bookmark locally, `--skip` keeping it, and with `--push` publishes by
+  `cycle push`, which with the bookmark gone takes the landed-here branch and deletes the draft on
+  `origin`. A target `origin` has, or one holding no Land of the cycle, is landed as any is.
+  `not_at_origin`'s hint names `vc-x1 cycle push` for a Land made here and `vc-x1 push -r` for any
+  other.
+- `invoked_name` moves to `logging.rs`, the banner's and the logger's, and the logger gives every
+  `` `vc-x1 `` a message names, a command in backticks, the invoked name, so every hint, errors
+  included, says what was run, one place rather than every message. A file named for the binary,
+  `vc-x1.md`, is left.
+- `open` takes the label of the command that makes the bookmark, `cycle plan` or `rung commit
+  --title`, its messages naming it.
+- The rehearsal's `run` keeps the status before testing it, so a failure says its real exit code.
+- Tests: `a_land_whose_push_failed_is_finished_by_a_rerun` and `a_hint_names_the_command_run`. The
+  rehearsal passes, 90 checks, its log naming `vc-x1-dev` in every hint and `rung commit --title:`
+  on the bookmark line.
+
 ##### docs: the new cycle flow
 
 The agent-files to `v0.3.1-18`, Cycle shape, the per-rung flow, Committing vs pushing, Close-out,

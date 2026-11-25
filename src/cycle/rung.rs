@@ -511,6 +511,7 @@ fn commit_alone(
                 agent: c.agent.as_ref().map(|(a, _)| a.clone()),
                 bookmark: bookmark.clone(),
                 dry_run,
+                label,
             };
             crate::open::open(ctx, &open)?;
         }

@@ -673,6 +673,7 @@ fn plan_start_params(a: &PlanStartArgs) -> Result<CycleParams, String> {
             agent,
             bookmark,
             dry_run: running.dry_run,
+            label: "cycle plan",
         },
         record: match (&a.title, a.no_record) {
             (Some(t), false) => Some(t.trim().to_string()),
@@ -1610,9 +1611,100 @@ fn moved(dest: &str, at: &str) -> String {
     )
 }
 
-/// `cycle land`: land the closed cycle on the destination.
+/// `cycle land`: land the closed cycle on the destination, or, when
+/// it is landed here already and its publish was not made, a push that
+/// failed, finish it: the cycle's bookmark deleted, and with `--push`
+/// the target published, so a re-run of `cycle land --push` is the way
+/// on, as the refusal used to say it was not.
 fn land(ctx: &mut Context, l: &LandCycle) -> Result<(), Box<dyn std::error::Error>> {
-    land_closed(ctx, l, None)
+    match landed_here(l)? {
+        Some((cycle, source)) => finish_land(ctx, l, &cycle, source),
+        None => land_closed(ctx, l, None),
+    }
+}
+
+/// A Land made here and not published: the closed cycle's title, and
+/// its bookmark when it still stands.
+type LandedHere = (String, Option<String>);
+
+/// The cycle landed on the target here and not published: the closed
+/// cycle's title, and its bookmark when it still stands, the Land having
+/// stopped before deleting it. `None` when the target is where `origin`
+/// has it, or holds no Land of the closed cycle, the Land then made as
+/// any is.
+fn landed_here(l: &LandCycle) -> Result<Option<LandedHere>, Box<dyn std::error::Error>> {
+    let work = l.running.work.as_path();
+    let path = work.join(crate::commit::RECORD);
+    let Ok(todo) = std::fs::read_to_string(&path) else {
+        return Ok(None);
+    };
+    if record::cycle_title(&todo).is_ok() {
+        return Ok(None);
+    }
+    let Some(cycle) = record::closed_title(&todo) else {
+        return Ok(None);
+    };
+    if !jj::local_bookmark_exists(work, &l.dest)? {
+        return Ok(None);
+    }
+    let at = jj::cid_of(work, &l.dest)?;
+    let remote = jj::remote_bookmark_targets(work, "origin")?;
+    if remote.get(&l.dest) == Some(&at) {
+        return Ok(None);
+    }
+    let source = l
+        .running
+        .bookmark
+        .clone()
+        .unwrap_or_else(|| crate::check::anchors::anchor_slug(&cycle));
+    if jj::local_bookmark_exists(work, &source)? {
+        return Ok((jj::cid_of(work, &source)? == at).then_some((cycle, Some(source))));
+    }
+    Ok(landed_bookmarks(work, &cycle)?
+        .contains(&l.dest)
+        .then_some((cycle, None)))
+}
+
+/// Finish a Land made here whose publish was not: the cycle's bookmark,
+/// when it stands, deleted locally as the Land would have, `--skip`
+/// keeping it, then with `--push` the target published by `cycle push`.
+fn finish_land(
+    ctx: &mut Context,
+    l: &LandCycle,
+    cycle: &str,
+    source: Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let work = l.running.work.as_path();
+    info!(
+        "cycle land: '{cycle}' is landed on '{}' here already, and not published, so the Land is \
+         finished",
+        l.dest
+    );
+    if let Some(source) = &source
+        && l.skip.is_none()
+    {
+        crate::delete_bookmark::delete_bookmark(
+            ctx,
+            work,
+            source,
+            Some(crate::delete_bookmark::Keep::Remote),
+            l.running.dry_run,
+        )?;
+    }
+    if l.push {
+        return push(
+            ctx,
+            &PushCycle {
+                running: l.running.clone(),
+                agent: l.agent.clone(),
+            },
+        );
+    }
+    info!(
+        "cycle land: `vc-x1 cycle push -s {}` publishes it",
+        if l.agent.is_some() { "b" } else { "p" }
+    );
+    Ok(())
 }
 
 /// Land the cycle whose last commit is made, its bookmark the one
@@ -3985,6 +4077,49 @@ mod tests {
             closing,
             "nothing rewritten"
         );
+    }
+
+    /// A Land made here whose publish was not made, as a push that
+    /// failed leaves it, the target ahead of origin and the cycle's
+    /// bookmark still on it, is finished by `cycle land --push` again:
+    /// the bookmark deleted and the target published, where it used to be
+    /// refused as a target with commits not yet published.
+    #[test]
+    fn a_land_whose_push_failed_is_finished_by_a_rerun() {
+        let fx = planned("cycle-land-rerun");
+        commit(&fx.work, &[]).expect("the opening");
+        fs::write(fx.work.join("work.txt"), "work\n").expect("write");
+        commit(&fx.work, &["--title", "feat: one rung", "--body", "b"]).expect("the rung");
+        run(&fx.work, &["close", "main"]).expect("closed");
+        run(&fx.work, &["land", "main"]).expect("landed here");
+        jj_ok(&fx.work, &["bookmark", "set", "feat-a-cycle", "-r", "main"]);
+        let landed = jj_ok(
+            &fx.work,
+            &["log", "-r", "main", "--no-graph", "-T", "commit_id"],
+        );
+        assert_ne!(
+            jj_ok(
+                &fx.work,
+                &["log", "-r", "main@origin", "--no-graph", "-T", "commit_id"]
+            ),
+            landed,
+            "not published yet"
+        );
+
+        run(&fx.work, &["land", "main", "--push"]).expect("finished");
+        assert_eq!(
+            jj_ok(
+                &fx.work,
+                &["log", "-r", "main@origin", "--no-graph", "-T", "commit_id"]
+            ),
+            landed,
+            "the target is published"
+        );
+        assert!(
+            !jj::local_bookmark_exists(&fx.work, "feat-a-cycle").expect("bookmarks"),
+            "the cycle's bookmark is deleted"
+        );
+        run(&fx.work, &["land", "main", "--push"]).unwrap_err();
     }
 
     /// An agent commit `main@origin` reaches is rewritten only with

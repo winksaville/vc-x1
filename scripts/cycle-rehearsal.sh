@@ -44,8 +44,12 @@ step() { say; say "== $*"; }
 # Run a command that must succeed, its output kept in the log.
 run() {
     say "  \$ $*" | tee -a "$LOG"
-    if ! "$@" >>"$LOG" 2>&1; then
-        say "  FAILED (exit $?): $*, see $LOG"
+    # The status is kept before it is tested: `$?` after `if !` is the
+    # negation's, always 0.
+    local rc=0
+    "$@" >>"$LOG" 2>&1 || rc=$?
+    if [ "$rc" -ne 0 ]; then
+        say "  FAILED (exit $rc): $*, see $LOG"
         failed=$((failed + 1))
         return 1
     fi

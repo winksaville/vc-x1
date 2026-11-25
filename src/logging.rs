@@ -76,7 +76,7 @@ impl Log for CliLogger {
             return;
         }
 
-        let msg = format!("{}", record.args());
+        let msg = named(&format!("{}", record.args()));
 
         // Write to log file if configured: captures all levels
         if let Some(ref file) = self.log_file
@@ -118,6 +118,42 @@ impl Log for CliLogger {
             let _ = f.flush();
         }
     }
+}
+
+/// Name this invocation was launched under: `argv[0]`'s basename,
+/// falling back to the compiled bin name when argv is empty or
+/// unreadable. Runtime on purpose: the binary's on-disk name is
+/// the manifest's per-line package name, and a copy or rename
+/// afterwards still self-reports the name it actually runs as,
+/// which no compile-time constant can know.
+pub(crate) fn invoked_name() -> &'static str {
+    static NAME: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    NAME.get_or_init(|| {
+        std::env::args_os()
+            .next()
+            .as_deref()
+            .and_then(|p| std::path::Path::new(p).file_name())
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| env!("CARGO_BIN_NAME").to_string()) // OK: no argv, the built name
+    })
+}
+
+/// `msg` with each command it names run as the invocation was, so a
+/// hint read under `vc-x1-dev` says `vc-x1-dev`: every `` `vc-x1 ``,
+/// a command in backticks, takes the invoked name. One place rather
+/// than every message, the messages written with the binary's name.
+fn named(msg: &str) -> String {
+    rename_commands(msg, invoked_name())
+}
+
+/// `msg` with every `` `vc-x1 `` made `` `<name> ``, unchanged when
+/// `name` is the binary's own.
+fn rename_commands(msg: &str, name: &str) -> String {
+    let own = env!("CARGO_BIN_NAME");
+    if name == own {
+        return msg.to_string();
+    }
+    msg.replace(&format!("`{own} "), &format!("`{name} "))
 }
 
 /// The indent of a wrapped message's later lines, so the first line,
@@ -234,6 +270,19 @@ mod tests {
 
     /// A long message breaks between words, its later lines indented,
     /// none wider than the width unless one word is.
+    /// A command a message names takes the invoked name, and only a
+    /// command, in backticks: a file named for the binary is left.
+    #[test]
+    fn a_hint_names_the_command_run() {
+        let own = env!("CARGO_BIN_NAME");
+        let msg = format!("`{own} push -s b` publishes it, as {own}.md says");
+        assert_eq!(rename_commands(&msg, own), msg);
+        assert_eq!(
+            rename_commands(&msg, "vc-x1-dev"),
+            format!("`vc-x1-dev push -s b` publishes it, as {own}.md says")
+        );
+    }
+
     #[test]
     fn a_long_message_wraps_between_words() {
         let msg = "error: cycle plan: /home/wink/tmp/t17 has no TODO.md or zTOC.md, and a \
