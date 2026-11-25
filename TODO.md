@@ -95,6 +95,21 @@ continuation notes:
   - The agent's view: the manifest, data that travels with the set, since the list describes the
     set and not one workspace, and a `.vc-config.md` table only narrowing it. The plan below
     assumes it.
+- One module for a list of files (wink + agent, 2026-11-25, at the first rung's review): a list
+  of files under a root is a common need, met twice already, by `agent_files::diff::set_files`
+  and `xtask_cmd::files`, so `file_set` is the one module for it, in three layers.
+  - Declare: a list of path entries, each a relative path inside the root.
+  - Resolve: the entries against a root, as the set of files there, a missing file simply absent.
+  - Compare and copy: two roots by a resolved set.
+  - Mechanism is the module's and policy the caller's: what a kind means, replace, write when
+    absent, or only when asked, stays with `init` and `agent-files`.
+  - The module depends on `std` and `toml_edit` alone, its errors strings, so it lifts into a crate
+    of the workspace when a second package, xtask for one, needs it.
+  - Moving `xtask copy` onto it is out of this cycle, the Todo **refactor: xtask copy lists its
+    files by file_set**.
+- A directory entry is recursive (wink, 2026-11-25): it stands for every file beneath it, at any
+  depth, where `set_files` took the plain files directly under `agent-data/`, since `notes/` and
+  `xtask/` need the depth and `agent-data/` holds no directory.
 - Where a starter's text comes from, open: an adopter's own `CONTRIBUTING.md` and `notes/` hold
   its project's content, so a starter cannot be copied from the path it is written to.
   - The agent's view: an entry may name a `from`, the template's path in the set, and the
@@ -146,19 +161,42 @@ Todo entry moved into this block.
 
 Nothing says what a set is but code and a script. A `file_set` module reads `file-set.toml`, each
 entry a path, a kind, and an optional `from`, refusing an unknown kind or a path leaving the set,
-and vc-x1's own `file-set.toml` is written, a test holding every path it names to exist.
+and vc-x1's own `file-set.toml` is written, a test holding every path it names to exist. An
+entry's path is resolved against a root into the files it stands for, a directory recursively.
+
+- The format is `[[file]]` tables, read by `toml_edit`, already a dependency, since `toml_simple`
+  reads flat keys alone.
+- A manifest is read strictly: an unknown key or kind, a path that is absolute or holds `.` or
+  `..`, a path listed twice, and a manifest with no entry are each refused, naming the file and
+  the entry.
+- A directory entry is recursive: `file_set::resolve` gives a file as itself and a directory as
+  every file beneath it, at any depth, each relative to the root, sorted. A path that is not
+  there gives nothing, so a set missing a file is a smaller set, and a symlink is taken as a file
+  and never followed, so the walk stays under the root.
+- The module holds the first two layers the deliberation names, declare and resolve, and nothing
+  of vc-x1's own but the kinds. Compare and copy are the next rung's.
+- `README.md` is a starter beside the Todo's list, since the script writes one, and the skeleton's
+  `version.toml` is not listed, a workspace's version being its build's.
+- `custom.md` is read from the skeleton's template, not the adopter's own, which is local to its
+  workspace and gitignored. `agent-files copy -c`, which copies the adopter's, is the rung **feat:
+  agent-files copy and diff read the manifest**'s to reconcile.
+- Nothing calls the module yet, so it carries an `expect(dead_code)` the next rung's first call
+  makes clippy refuse, and so remove.
 
 ##### feat: init --from copies a set by its manifest
 
 A new workspace gets no rules from `init`. `init --from <SOURCE>`, with `--file-set PATH` and
 `--custom`, copies the set into the work-repo before its initial commit, as one more step of the
 plan, printed by the dry run: verbatim replaced, starters written where absent, `{name}` filled.
+The copy is `file_set`'s, over the files `resolve` gives, a directory entry taken at every depth,
+and what each kind does with them is `init`'s.
 
 ##### feat: agent-files copy and diff read the manifest
 
-`agent-files copy` and `diff` hold the set as constants. They read the source's `file-set.toml`,
-its verbatim entries the set and its optional ones `--custom`'s, falling back to the constants for
-a copy of the set that has none.
+`agent-files copy` and `diff` hold the set as constants and list, compare, and copy it by code of
+their own. They read the source's `file-set.toml`, its verbatim entries the set and its optional
+ones `--custom`'s, falling back to the constants for a copy of the set that has none, and
+`set_files`, `compare`, and the copy move onto `file_set`, so the set is listed by one module.
 
 ##### fix: init refuses a taken symlink path up front
 
@@ -289,6 +327,18 @@ cycle of one `-s b` commit, `cycle land main -s b`, and `vc-x1 st -sb` showing `
 - An agent commit that does not descend from the agent `main` is refused, naming it, rather than
   moved over, since the agent-repo is a linear journal.
 - Likely a single-step cycle.
+
+### refactor: xtask copy lists its files by file_set
+
+(wink + agent, 2026-11-25, from **feat: init copies a file set and finishes what it starts**)
+`xtask copy` walks `xtask/` by `xtask_cmd::files`, a list of files under a root made by code of its
+own, where `file_set` now declares, resolves, compares, and copies such a list.
+
+- **Solution**: `xtask/` is one verbatim directory entry, resolved and compared by `file_set`, the
+  `Cargo.toml` member, the cargo alias, and the version comparison staying `xtask copy`'s own.
+- **Acceptance check**: `xtask_cmd::files` is gone, and `xtask copy`'s tests pass unchanged.
+- If xtask's own package comes to need the module, `file_set` moves into a crate of the workspace
+  first.
 
 ### fix: cycle ladder takes a committed rung's new title
 

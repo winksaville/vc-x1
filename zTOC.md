@@ -5,7 +5,7 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 ## Ladder
 
 - 0 (done) [feat: init copies a file set and finishes what it starts opening](TODO.md#feat-init-copies-a-file-set-and-finishes-what-it-starts-opening)
-- [feat: a set lists its files in file-set.toml](TODO.md#feat-a-set-lists-its-files-in-file-settoml)
+- 1 (done) [feat: a set lists its files in file-set.toml](TODO.md#feat-a-set-lists-its-files-in-file-settoml)
 - [feat: init --from copies a set by its manifest](TODO.md#feat-init---from-copies-a-set-by-its-manifest)
 - [feat: agent-files copy and diff read the manifest](TODO.md#feat-agent-files-copy-and-diff-read-the-manifest)
 - [fix: init refuses a taken symlink path up front](TODO.md#fix-init-refuses-a-taken-symlink-path-up-front)
