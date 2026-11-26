@@ -1,0 +1,69 @@
+# file-set.toml: the files a set holds, the one list of them.
+#
+# A set is what an adopter carries and a new workspace starts from. Each [[file]] is an entry:
+#
+# - path: where it is written, relative to the workspace root, a file or a directory, a
+#   directory standing for every file beneath it, at any depth.
+# - kind: what a copy does with it.
+#   - verbatim: kept identical, diffed, and replaced on copy.
+#   - starter: written only when absent and never replaced, its shape the set's and its content
+#     the project's, `{name}` filled with the project's name.
+#   - optional: copied only when asked for, the source's own file, as it is.
+# - from: where its text is read in the set, when that is not `path`, so a starter's template is
+#   not the adopter's own file.
+#
+# gitignore is the lines a workspace's .gitignore needs for the set, each added where it is
+# lacking: the scratch directories the agent-files name, and custom.md, which is local.
+
+gitignore = ["/tmp", "/tmp-durable", "/custom.md"]
+
+# The agent-files.
+
+[[file]]
+path = "AGENTS.md"
+kind = "verbatim"
+
+[[file]]
+path = "agent-data/"
+kind = "verbatim"
+
+# The project's own files, each started from the set's template.
+
+[[file]]
+path = "CONTRIBUTING.md"
+kind = "starter"
+from = "scripts/vc-dr-apply-base/work/CONTRIBUTING.md"
+
+[[file]]
+path = "README.md"
+kind = "starter"
+from = "scripts/vc-dr-apply-base/work/README.md"
+
+[[file]]
+path = "TODO.md"
+kind = "starter"
+from = "scripts/vc-dr-apply-base/work/TODO.md"
+
+[[file]]
+path = "zTOC.md"
+kind = "starter"
+from = "scripts/vc-dr-apply-base/work/zTOC.md"
+
+[[file]]
+path = "notes/"
+kind = "starter"
+from = "scripts/vc-dr-apply-base/work/notes/"
+
+[[file]]
+path = "LICENSE-APACHE"
+kind = "starter"
+
+[[file]]
+path = "LICENSE-MIT"
+kind = "starter"
+
+# What is local to one workspace, the source's own when it is asked for.
+
+[[file]]
+path = "custom.md"
+kind = "optional"

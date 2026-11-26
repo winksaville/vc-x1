@@ -10,35 +10,43 @@ The other files are listed in [zTOC.md](zTOC.md).
 Where the agent was, for the agent that comes next. Ephemeral, never a record, read first at
 acquaint, acted on, and reset to `_None._` by the reader.
 
-- **feat: the new cycle flow** closes as a trapezoid on `main`, landed and pushed by its closing's
-  `cycle close main -s b --land --push` (wink, 2026-11-25). Check that `main` is at the landmark and
-  `main@origin` with it on both sides (`vc-x1 sync -s b --dry-run`), that the bookmark
-  `feat-the-new-cycle-flow` is gone locally and on `origin`, and whether `vc-x1 -V` names the
-  landmark at `0.85.28`: the release install, `cargo xtask install --release`, is wink's after the
-  push. Until it is made the installed `vc-x1` has the old forms, `cycle squash` and `--trapezoid`,
-  and `vc-x1-dev` the new.
-- The next cycle is **feat: init copies a file set and finishes what it starts**, the top of `##
-  Todo` but for this one, then **agent-files(proposal): v0.3.1** carrying it and the last three
-  cycles (wink, 2026-11-25).
+- **feat: init copies a file set and finishes what it starts** closes as a trapezoid on `main`,
+  landed locally by its closing's `cycle close main -s b --land` and not pushed (wink, 2026-11-25:
+  "close, land on main and I'll review"). Check where it stands, `vc-x1 sync -s b --dry-run`:
+  `main` at the landmark and ahead of `main@origin` until wink publishes, by `vc-x1 squash-push -s
+  b` or his own, the bookmark `feat-init-copies-a-file-set-and-finishes-what-it-starts` gone
+  locally and never on `origin`, and whether `vc-x1 -V` names the landmark at `0.85.29`.
+- The release install is wink's and two landmarks behind: `vc-x1 -V` read `0.85.27` when this
+  cycle closed. Until `cargo xtask install --release` runs the installed `vc-x1` has the old forms,
+  `cycle squash` and `--trapezoid`, and no `init --from`, and `vc-x1-dev` the new, so a cycle's
+  stages run by `vc-x1-dev`.
+- The closing was not reviewed before its commit, by wink's word, so his review of it, the
+  `README.md` sections **The file set** and **A directory a Claude Code session was started in**
+  among it, comes after the Land, and a fix is a cycle on top.
+- The next cycle is **agent-files(proposal): v0.3.1**, carrying this one, the three before it, and
+  **agent-files(proposal): a link stays on one line** (wink, 2026-11-25). The top of `## Todo`,
+  **feat: a workspace made by init --from is a set**, was filed first at this cycle's close.
+- Wink's hand test of this cycle, outside the agent's sandbox: `vc-x1-dev init ../hello`, with
+  `--test-repo` and then to GitHub with `--private`, in a directory a Claude Code session was
+  started in. The preflight refuses first, naming `~/.claude/projects/<mangled-path>`, and with
+  that directory moved aside init needs no `--adopt` and commits nothing of `.claude/`.
 - The messages: `m-14` (`cycle land` tags the version) and `m-15` (a clone per member) are pending
   for us, unanswered, and `m-13` is complete, its close owed, with our `m-13-1` owing a line
   linking the fix **feat: one cycle flow, plan, rungs, close** landed, its sha-link that
   landmark's. The clone `../vc-x1-messages` has its working copy on an August commit under the
   v0.1.0 README, while `main` is at v0.3.3: a write needs `@` moved to `main` first, wink's to say
   how.
-- The rehearsal runs in the agent's sandbox with `HOME` and `XDG_CONFIG_HOME` at a scratch home
-  holding a jj user (`[user] name` and `email` in `.config/jj/config.toml`), so `init`'s symlink
-  lands there: `HOME=<scratch>/home XDG_CONFIG_HOME=<scratch>/home/.config
-  scripts/cycle-rehearsal.sh <scratch>/run`. It passed for this cycle, and the run the last two
-  cycles left for wink is moot, their flow replaced by this one.
-- Not filed yet: `cycle ladder` refuses while a committed rung's title is being reworked, so a
-  retitle needs the ladder edited by hand.
-- **vc-x2 is seeded from vc-x1**'s `## Waiting` condition looks met and was left for wink to
-  promote or not.
+- A scratch home for a rehearsal or an `init` in the agent's sandbox: `HOME` and `XDG_CONFIG_HOME`
+  at a directory holding a jj user (`[user] name` and `email` in `.config/jj/config.toml`), so
+  `init`'s symlink lands there: `HOME=<scratch>/home XDG_CONFIG_HOME=<scratch>/home/.config
+  scripts/cycle-rehearsal.sh <scratch>/run`.
+- **vc-x2 is seeded from vc-x1**'s `## Waiting` condition looks met and is wink's to promote or
+  not, asked at this cycle's opening and not answered (2026-11-25).
 - Wink's test workspaces `~/tmp/tv-0-85-25-5-1ead2` and `~/tmp/tv0-85-26-9-37bc`, with their
-  symlinks in `~/.claude/projects/` and bare repos in `~/tmp/remotes`, are the acceptance check's
-  hand test: `vc-x1-dev repo delete -s b --dry-run <dir>`, then `--local-repos --yes`, outside the
-  agent's sandbox.
+  symlinks in `~/.claude/projects/` and bare repos in `~/tmp/remotes`, are **feat: the new cycle
+  flow**'s hand test, wink's to run outside the agent's sandbox: `vc-x1-dev repo delete -s b
+  --dry-run <dir>`, then `--local-repos --yes`. `~/tmp/t29-3-8c8d` is this cycle's, made at the
+  `agent-files` rung's review.
 
 ## In Progress
 
@@ -122,61 +130,24 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
 
-### feat: init copies a file set and finishes what it starts
+### feat: a workspace made by init --from is a set
 
-(wink + agent, 2026-11-21, from **feat: one cycle flow, plan, rungs, close**, gathered from
-**Initialization leaves no bad link** and **agent-files(proposal): v0.3.1**) A new workspace gets
-its files from `scripts/vc-dr-apply.sh`, and what a set holds is restated in `AGENTS.md`'s
-Terminology, `src/agent_files/`, and the script, so no command makes a whole workspace and no one
-list says what a set is. `cycle plan` needs only `TODO.md` and `zTOC.md`, which `init` writes since
-**feat: init writes the record's files**, so this cycle builds on that one. It runs after **feat:
-the new cycle flow** (wink, 2026-11-23), so the files it copies describe the new style.
+(wink + agent, 2026-11-25, from **feat: init copies a file set and finishes what it starts**) A workspace
+made by `init --from <SOURCE>` holds the set's files and not the set: no `file-set.toml`, and none
+of the templates its starters were read from, `scripts/vc-dr-apply-base/work/` in vc-x1. So it
+cannot be the `--from` of another `init`, and `agent-files diff` and `copy` from it fall back to
+the built-in list, where an adopter is meant to carry a copy of the set a new repo can start from.
 
-- **Solution**: the set declares itself in `file-set.toml` at its root, each entry a path and a
-  kind, and `vc-x1 init --from DIR` copies a set by it into the workspace it makes.
-- **Acceptance check**, provisional: a workspace made by `vc-x1 init --from <an adopter's
-  work-repo>` holds the source's verbatim files identical, its starters written, and `init`'s own
-  `TODO.md` and `zTOC.md`, and `cycle plan` plans a cycle in it with no file made by hand.
-- **The kinds** (wink, 2026-11-21, `verbatim` where it was "set"):
-  - verbatim: kept identical, diffed, and replaced on copy, `AGENTS.md` and `agent-data/`.
-  - starter: written only when absent, `{name}` filled, never replaced, its shape the set's and
-    its content the project's, `CONTRIBUTING.md`, `notes/`, `LICENSE-*`, `TODO.md`, and `zTOC.md`.
-  - optional: copied only when asked, `custom.md`.
-- **The record files are `init`'s own** (wink, 2026-11-21): `init` writes an empty `TODO.md` and
-  `zTOC.md`, so the manifest's starters of those names find them there and are skipped, and every
-  new workspace starts with no Todo and no ladder.
-- **The manifest `init` reads** (wink, 2026-11-21): `DIR/file-set.toml` by default, at the set's
-  root and not in `agent-data/`, and `--file-set PATH` names another, so a set can be copied by a
-  list other than its own.
-- **Where the list comes from**, open (wink, 2026-11-21): not hard-coded, wink suggesting a table
-  in `.vc-config.md`. The agent's view: the manifest, data that travels with the set, since the
-  list describes the set and not one workspace, and a `.vc-config.md` table only narrowing it.
-- **Scope**, open: whether `agent-files copy` and `diff` read the manifest in this cycle, so the set
-  is defined once, and how much of `vc-dr-apply.sh` retires here, its base skeleton, `--lang`, and
-  `xtask copy`, or stays for **Initialization leaves no bad link**.
-- **Finishes what it starts** (wink + agent, 2026-11-19, merged here 2026-11-25 from **feat: init
-  takes its target positionally and finishes what it starts**, whose positional target became
-  **feat: the new cycle flow**'s rung **feat: init takes its target positionally**). So `vc-x1 init
-  ../hello` makes a workspace of a directory a Claude Code session was already started in, as
-  `../help` was, tried by dry run there: `init --adopt --test-repo <REMOTES> --dry-run` planned all
-  ten steps and found none of what would stop it.
-  - **Preflight checks the symlink path.** A session started in the directory first makes
-    `~/.claude/projects/<mangled-path>` a real directory, holding its transcript and `memory/`, and
-    the symlink step refuses a path that "exists and is not a symlink", the last step, after the
-    push. Preflight refuses it with nothing made, or init moves the directory's transcripts into
-    the new agent-repo and replaces it with the symlink, the session first exited.
-  - **A directory holding only `.claude/` is adopted without `--adopt`**, since a session started
-    there leaves it, or the refusal names `--adopt`.
-  - **`.claude/` stays out of the initial commit**: the work `.gitignore` ignores only
-    `/.claude/settings.local.json`, so an adopted `.claude/.cc-writes/` is committed and pushed. The
-    wider rule is **Every repo's .gitignore ignores .claude, and settings stay out of
-    agent-repos**, and this needs at least the adopted directory's `.claude/` kept out.
-  - Related: **init defaults to --local**, a bare `init` publishing a public GitHub repo today.
-  - The acceptance: `vc-x1 init ../hello`, with `--test-repo` and then to GitHub with `--private`,
-    in a directory a session was started in, leaves a dual workspace whose symlink holds that
-    session's transcript, and nothing of `.claude/` committed.
-- **The shape** (wink + agent, 2026-11-25): `vc-x1 init <TARGET> [--from <SOURCE>]`, the source a
-  flag since it is optional and two positionals read like `cp`, easy to swap.
+- **Solution**, open: the manifest and the templates are part of what is copied, the manifest
+  listing itself and its templates as verbatim, the templates then needing a home that is the
+  set's and not vc-x1's `scripts/`, `agent-data/` or a directory of their own.
+- **Acceptance check**: a workspace made by `init --from <vc-x1>` is the `--from` of a second
+  `init`, the second workspace's verbatim files and starters identical to the first's as made,
+  and `agent-files diff` between the two reads the manifest and names no difference.
+- The built-in list in `agent_files::SetPaths` goes once every copy of the set carries a
+  manifest.
+- Bears on **Initialization leaves no bad link**, whose skeleton this makes part of the set, and
+  on how much of `vc-dr-apply.sh` is left.
 
 ### fix: a new workspace's manifest warns of an unused version
 
@@ -218,6 +189,29 @@ cycle of one `-s b` commit, `cycle land main -s b`, and `vc-x1 st -sb` showing `
 - An agent commit that does not descend from the agent `main` is refused, naming it, rather than
   moved over, since the agent-repo is a linear journal.
 - Likely a single-step cycle.
+
+### refactor: xtask copy lists its files by file_set
+
+(wink + agent, 2026-11-25, from **feat: init copies a file set and finishes what it starts**)
+`xtask copy` walks `xtask/` by `xtask_cmd::files`, a list of files under a root made by code of its
+own, where `file_set` now declares, resolves, compares, and copies such a list.
+
+- **Solution**: `xtask/` is one verbatim directory entry, resolved and compared by `file_set`, the
+  `Cargo.toml` member, the cargo alias, and the version comparison staying `xtask copy`'s own.
+- **Acceptance check**: `xtask_cmd::files` is gone, and `xtask copy`'s tests pass unchanged.
+- If xtask's own package comes to need the module, `file_set` moves into a crate of the workspace
+  first.
+
+### fix: cycle ladder takes a committed rung's new title
+
+(wink + agent, 2026-11-25, from **feat: the new cycle flow**) `cycle ladder` refuses while a
+committed rung's title is being reworked, its heading under `#### Rungs` no longer the title of the
+commit on the branch, so a retitle needs `zTOC.md`'s ladder edited by hand.
+
+- **Solution**, open: the ladder is made from the headings while a rework is under way, the rung
+  whose commit no heading names reported and not refused, or the refusal names the way through.
+- **Acceptance check**: a local rung's heading retitled, `cycle ladder` rewrites the ladder with the
+  new title, and the rung's commit, re-described to it, is `(done)`.
 
 ### feat: the bookmark is made first
 
@@ -268,11 +262,12 @@ flow, plan, rungs, close** lands, `--open` becoming `cycle plan`.
       millisecond of a 53 ms `cycle ladder`, so a cache keyed on the file's time would cost more
       than it saves. What it saves is the agent's reading, the whole of `TODO.md` some 90k
       tokens.
-- **Rungs, provisional**: **feat: vc-x1 bookmark and its subcommands**, `delete-bookmark` and
-  `move-bookmark` replaced; **feat: cycle plan inherits the bookmark on @**, the record's name read
-  by every stage, and the scaffold no longer claiming a `## Todo` entry when there was none;
-  **docs: the bookmark is made first**, Opening, Cycles run on a bookmark and its why, jj.md's
-  Create, and `cycle-model.md`'s Who writes what.
+- **Rungs, provisional**:
+  - **feat: vc-x1 bookmark and its subcommands**, `delete-bookmark` and `move-bookmark` replaced.
+  - **feat: cycle plan inherits the bookmark on @**, the record's name read by every stage, and
+    the scaffold no longer claiming a `## Todo` entry when there was none.
+  - **docs: the bookmark is made first**, Opening, Cycles run on a bookmark and its why, jj.md's
+    Create, and `cycle-model.md`'s Who writes what.
 - **A `bookmark` command, not a provisional `--open`**: making a bookmark is its own command, and
   `cycle plan` inherits it.
   - The state-recording Todo's design, `--open` without `--title`, a `### (untitled)` heading, and a
@@ -393,6 +388,32 @@ up that way, wink asking the agent for the commands. A fresh `vc-x1 clone` leave
   committed, its `continue` fetching a `wip/` ref, and **clone takes -b for the work-repo's
   bookmark** the same for a clone. The three may be one cycle.
 
+### agent-files(proposal): a link stays on one line
+
+(wink + agent, 2026-11-25, from **feat: init copies a file set and finishes what it starts**) A
+link's text wraps with the prose around it, `[Working` ending one line and `practices](...)`
+opening the next, as 128 links do today, 65 of them in the agent-files. A search for the link's
+text then misses it, a previewer may not join it, and `check anchors` has a bug of its own for a
+citation after a wrapped code span. Wink read one in `custom.md` and was not sure it was valid.
+
+- **Solution**: a rule in `prose.md`'s Line widths, a check, and a sweep.
+  - A link, text and destination, is never split across lines.
+  - A link that does not fit the line within the prose width starts the next line.
+  - A link longer than the width alone is the exception to it, as a URL is already.
+  - `check anchors` refuses a link that spans a line.
+- **Acceptance check**: `check anchors` over the agent-files reports no link spanning a line, and
+  refuses a file given one.
+- **The short lines are a fair trade** (wink, 2026-11-25): a line broken early before a link is
+  ragged in the source alone, never rendered.
+- **What follows a moved link**, open: the agent reads the rule as letting the text after a link
+  go on along its line while it fits, the line after taking it only when the link fills its own.
+  Wink's "on the next line by itself" may mean a moved link is always alone on its line.
+- **The sweep**: the agent-files by the cycle that makes the rule, `TODO.md` (32), `notes/` (16),
+  `README.md` (11), and the skeleton's templates (2) as a cycle touches each or by a sweep of its
+  own, as the semicolons went. `custom.md`'s one was joined by hand, the file being local.
+- Closes **validate-anchors finds a citation that follows a wrapped code span** by rule.
+- To be carried by **agent-files(proposal): v0.3.1**.
+
 ### agent-files(proposal): v0.3.1
 
 (wink + agent, 2026-10-18, restructured 2026-10-20) Small rule fixes learned by running v0.3.0,
@@ -423,13 +444,16 @@ version the set's, and writes into this entry, each as a `####` change with its 
   word saying what follows the commit, the body's pointer as the heading's own line, nested
   subcommands allowed with `cycle`'s stages flags for chaining, and `zTOC.md`'s TOC linking the
   todo list.
-- From **feat: one cycle flow, plan, rungs, close**, its docs rung's `v0.3.1-17`: the stages as
-  subcommands, `cycle plan start|commit`, `close`, `squash`, `land`, `push`, `status`, and
-  `ladder`, beside `rung next|stop|commit`; the plan a phase of its own; `(current)` the working
-  copy's alone; `--ver` running the config's bump at a step's start; the shape said by the ending
-  stage, the rules **Shape named, count checked** and **A ladder lands as a trapezoid, never
-  squashed** become **One commit or a ladder**, a squashed ladder's agent side re-pointed; and
-  "Every argument is a flag" gone, a positional allowed where it reads one way.
+- From **feat: one cycle flow, plan, rungs, close**, its docs rung's `v0.3.1-17`:
+  - The stages as subcommands, `cycle plan start|commit`, `close`, `squash`, `land`, `push`,
+    `status`, and `ladder`, beside `rung next|stop|commit`.
+  - The plan a phase of its own.
+  - `(current)` the working copy's alone.
+  - `--ver` running the config's bump at a step's start.
+  - The shape said by the ending stage, the rules **Shape named, count checked** and **A ladder
+    lands as a trapezoid, never squashed** become **One commit or a ladder**, a squashed ladder's
+    agent side re-pointed.
+  - "Every argument is a flag" gone, a positional allowed where it reads one way.
 - **agent-files(proposal): dry runs interleave**, the dry-run convention into `code.md`.
 - **agent-files(proposal): vc-x1 is the interface, jj the engine**, the rule **jj, not git**
   becoming vc-x1 in a cycle, a reach for raw jj a vc-x1 gap.
@@ -1655,7 +1679,7 @@ vc-x1 works from the line's `@-`, `push` moving its bookmark there and `commit -
 (wink + agent, 2026-11-04) The Land of **feat: test repos, vc-dr-apply, and the v0.3.1-(0,1,2)
 agent-files** took three commands, `land`, `push -s b --bookmark main`, and `delete-bookmark`, where
 `land -s b --onto main --push` does all three, and its close-out four more, `commit --closing`,
-`commit -s a --covers`, `trailers --update`, and `push -s b`, where `commit --closing … --land
+`commit -s a --covers`, `trailers --update`, and `push -s b`, where `commit --closing ... --land
 --push` does them and the Land too. The agent followed `jj.md`'s numbered Land list, which names
 `land --push` only as "steps 2 and 3 as one" and not its deleting the topic on `origin`. The
 agent-files draft `v0.3.1-3`, wink's call.
@@ -5019,308 +5043,313 @@ own directory) are separate traversals over the same three values today, and fou
 The last cycle's finished record, moved here whole by its closing commit and deleted by the next
 opening ([Cycle-record](AGENTS.md#cycle-record)).
 
-### feat: the new cycle flow
+### feat: init copies a file set and finishes what it starts
 
 #### Problem
 
-(wink + agent, 2026-11-23, from **feat: one cycle flow, plan, rungs, close** and wink's test
-findings of 2026-11-22) The flow that cycle built has two ends, `cycle close` and `cycle squash`,
-so a cycle closed as a ladder cannot then be made one commit, and three ways to make a single-step,
-the one-heading plan, `plan start` then `squash`, and `rung commit --title --record`. Wink's shape
-(2026-11-23) is two flows:
-
-- Formal, a cycle with a record: `cycle plan`, then each rung implemented and committed by `rung
-  commit`, iterated, then `cycle close`, its shape an option, `--squash` making it one commit, and
-  `--land <target>` and `--push` chained or run after as `cycle land` and `cycle push`.
-- Informal, commits with no record: the work, code and `TODO.md` and `zTOC.md` edited by hand like
-  any file, committed by `rung commit`, iterated.
-
-- **Solution**, provisional: `cycle squash` becomes `cycle close --squash`, and `close --squash` on
-  a closed draft converts it, as the trapezoid and linear closings were to convert (the `v0.3.1`
-  proposal's **The closing is a trapezoid or linear, and converts**), with no `--yes`, a local draft
-  taking no approval. A single-step is `cycle plan`, one rung, and `close --squash`, so the
-  one-heading single-step, `rung next`'s bare `--ver`, and `rung commit --record` go. The
-  agent-files say so, into `v0.3.1`.
-- **Acceptance check**, provisional: in a workspace made by `init --test-repo`, a ladder closed by
-  `close --trapezoid main` and then `close --squash` is one commit whose agent commits are
-  re-pointed; a single-step by `cycle plan`, one rung, and `close --squash` lands; and informal
-  commits iterate and land, `TODO.md` edited in one of them.
-- **Settled at the opening** (wink, 2026-11-23): the plan stays `plan start` and `plan commit`;
-  `rung next` stays; informal commits iterate on one bookmark, landed once; and `cycle close` is a
-  trapezoid by default, `--squash` one commit and `--linear` the plain commit on the ladder.
-- **Wink's findings it answers** (`~/tmp/vc-x1-dev-cycle-test-findings.md`, 2026-11-22):
-  - Squash of a closed, unlanded cycle: `close --squash` on the draft. The refusal's hint, "`cycle
-    plan start` opens one", deletes that cycle's record when followed, so it names the closed
-    cycle instead.
-  - `--record` refusing an empty work `@`, and an informal commit leaving the last cycle's record:
-    `--record` goes, and an informal commit clears a stale record by hand in the same commit, the
-    tool leaving the files untouched.
-  - `rung next` before the plan: the plan is its own phase, and the informal path is `rung commit`.
-- **Wink's findings it carries**:
-  - `cycle land --push` whose push failed is refused on a re-run, the target already moved
-    locally: the re-run finishes the Land and pushes, rather than the fast-forward undone, and the
-    hint names `cycle push -s b`. Its agent `main` left unmoved is **fix: a local Land moves the
-    agent main in every case**.
-  - Messages name the command run: `rung commit --title`'s bookmark line says `cycle plan:`, and
-    hints say `vc-x1` where `vc-x1-dev` ran, `argv[0]` as the banner has it.
-  - `scripts/cycle-rehearsal.sh`'s `run` reports a failed command as `FAILED (exit 0)`, its `$?`
-    read after `if !`, which negates it, so the status is to be kept before the test (found at
-    **feat: one cycle flow, plan, rungs, close**'s closing).
+(wink + agent, 2026-11-21, from **feat: one cycle flow, plan, rungs, close**, gathered from
+**Initialization leaves no bad link** and **agent-files(proposal): v0.3.1**) A new workspace gets
+its files from `scripts/vc-dr-apply.sh`, and what a set holds is restated in `AGENTS.md`'s
+Terminology, `src/agent_files/`, and the script, so no command makes a whole workspace and no one
+list says what a set is. And `init` in a directory a Claude Code session was started in fails at
+its last step, after the push, the symlink path already a real directory.
 
 #### Solution
 
-Two flows, each with one way through it, as built, and `init`'s target positional beside them.
+A set declares itself in `file-set.toml` at its root: each entry a path, a kind, verbatim,
+starter, or optional, and where its text is read when that is not its path, with the `.gitignore`
+lines the set needs. `vc-x1 init <TARGET> --from <SOURCE>` copies a set by it into the work repo
+before its first commit, `-c` taking the source's own `custom.md`, and `agent-files copy` and
+`diff` read the same list. One module, `file_set`, declares, resolves, compares, and copies a
+list of files, a directory at every depth. `init` refuses a taken symlink path in its preflight,
+adopts a directory holding only `.claude/` with no flag, and keeps an adopted directory's
+`.claude/` out of the first commit.
 
-- Formal: `cycle plan start` and `cycle plan commit`, then each rung by `rung next`, the work, and
-  `rung commit`, then `cycle close`, a trapezoid by default, `--squash` one commit, `--linear` the
-  plain closing on the ladder, `--land` and `--push` chained or run after. `cycle squash` goes, its
-  code `close --squash`'s, and `close --squash` on a closed draft converts it. A single-step is the
-  plan, one rung, and `close --squash`, so the one-heading single-step, `rung next`'s bare `--ver`,
-  and `rung commit --record` go.
-- Informal: `rung commit --title "..." --body "..."` with no cycle in progress commits the work
-  `@` onto the bookmark on `@-` and advances it, and `--bookmark [NAME]` makes or moves one first,
-  the title's slug when no NAME: made when absent, moved forward when behind, asked about when
-  sideways, `--yes` answering, never a target. A run of them is landed once by `cycle land
-  <target>`, which already landed the one bookmark besides the target.
-- `vc-x1 init <TARGET>`, inserted at the review: the target the one positional, `--target` and a
-  second positional refused naming what replaced them. `--from` stays with **feat: init copies a
-  file set and finishes what it starts**, which the two init Todos were merged into.
-- Carried: a Land whose push failed finishes on a re-run, every hint names the binary that was run,
-  by the logger, `rung commit --title` names itself, and the rehearsal reports a failure's real
-  status. The agent-files say all of it, at `v0.3.1-18`, and README with them.
+A workspace so made is not yet a set itself, holding neither the manifest nor the templates, the
+Todo **feat: a workspace made by init --from is a set**. `scripts/vc-dr-apply.sh` stays, working,
+and the agent-files' own text is the next cycle's.
 
 #### Acceptance check
 
-In a workspace made by `init --test-repo`, with the cycle's dev build:
+Passed at the closing, 2026-11-25, in the agent's sandbox with the dev build of the last rung's
+commit, in a scratch home, as one script that fails on any step:
 
-- A ladder closed by a bare `cycle close <target>` is a trapezoid, by `--linear` a plain commit on
-  the ladder, and by `--squash` one commit under the bare title whose `ochid:` names every agent
-  commit, each naming it. A trapezoid closed, then `close --squash`, is the same one commit.
-- A single-step, `plan start`, `plan commit`, one rung, and `close --squash`, lands as one commit.
-- `cycle squash`, `rung commit --record`, and a bare `rung next --ver X.Y.Z` before the opening are
-  gone, each refused by clap or naming its replacement.
-- Informal: `rung commit --title --bookmark` makes the bookmark and commits, a second `rung commit
-  --title` advances it, `cycle land main` lands both and deletes it, and a commit with no bookmark
-  on `@-`, or one on `main`, is refused. `--bookmark NAME` behind `@-` is moved forward and said,
-  and sideways asks, `--yes` answering it.
-- A `cycle land --push` whose push failed, re-run once the remote takes it, pushes and finishes.
-- Every message's hint names the binary run, `vc-x1-dev` under the dev build.
-- `scripts/cycle-rehearsal.sh`, rewritten for the new flow, passes, wink running it outside the
-  agent's sandbox.
-
-Result, at the closing (2026-11-25): pass.
-
-- The rehearsal, 90 checks, 0 failed, on the closing's dev build: cycle 3 a trapezoid by `cycle
-  close main`, cycle 4 a single-step by the plan, one rung, and `close --squash`, cycle 5 an
-  informal run of two landed once, its commit on `main`'s `@-` refused first, cycle 6 a trapezoid
-  converted by `close --squash`, and cycle 7 a ladder made one commit, its trailers checked both
-  ways. Its log names `vc-x1-dev` in every hint. It ran in the agent's sandbox, `HOME` and
-  `XDG_CONFIG_HOME` pointed at a scratch home holding a jj user, so wink's run is not needed.
-- The tests: `--linear` and the bare-close, clash, and `-s w` refusals in
-  `close_is_a_ladders_closing`; the removed forms in `one_heading_is_refused`,
-  `rung_next_before_the_plan_is_refused`, and clap's own refusal of `cycle squash` and `--record`;
-  the bookmark's moves in `rung_commit_bookmark_moves_by_direction`; the Land re-run in
-  `a_land_whose_push_failed_is_finished_by_a_rerun`; and the hint's name in
-  `a_hint_names_the_command_run`, every one passing in the full validate.
+- Passed: a workspace made by `vc-x1-dev init <TARGET> --test-repo <REMOTES> --from <vc-x1's
+  work-repo>` holds the source's verbatim files identical, `agent-files diff` against the source
+  reading 0 of 15 differ, its starters written with `{name}` filled, `init`'s own `TODO.md` and
+  `zTOC.md`, no `custom.md`, and a clean working copy: 23 written, 2 kept, 3 `.gitignore` lines.
+- Passed: in that workspace `cycle plan start` and `cycle plan commit -s b` plan a cycle, with no
+  file made by hand, and `cycle status` shows its opening done.
+- Changed, then passed: the check read "a second `init --adopt --from` over it, a starter edited
+  first, leaves the starter as edited", which cannot run, a dual workspace being refused as
+  having nothing to adopt. What it meant to ask is asked of a plain directory holding its own
+  `CONTRIBUTING.md` and an old `AGENTS.md`: adopted with `--from`, the starter is kept and the
+  verbatim file replaced.
+- Passed: a directory holding only `.claude/`, its `~/.claude/projects/<mangled-path>` a real
+  directory, is refused by `init` with nothing made, the refusal naming the path, and with that
+  directory moved aside becomes a dual workspace with no flag, nothing of `.claude/` committed,
+  all of it on disk, and the symlink made.
+- Not run: wink's, outside the sandbox, `vc-x1-dev init ../hello`, with `--test-repo` and then to
+  GitHub with `--private`, in a directory a session was started in. It is in the continuation
+  notes.
 
 #### Deliberation
 
-- **The target of a trapezoid by default** (wink, 2026-11-23, at the plan's review: "positional
-  target and --join are fine"): a target is never assumed (Terminology, Target), so a bare `cycle
-  close` cannot make a trapezoid without one. So `cycle close <TARGET>`, the target positional and
-  required for the trapezoid, refused beside `--squash` and `--linear`, which need none, and the
-  joined heads, today's positional `[REV]...`, move to `--join REV,...`. `--land` with no value then
-  lands on that target, `cycle close main --land --push` reading as it does, and `--land <TARGET>`
-  stays for `--squash` and `--linear`.
-- **`close --squash` converts a closed draft**: the closing commit, a trapezoid's merge or a linear
-  closing, is squashed with the rungs into the opening, and its agent commit re-pointed with theirs,
-  when nothing of the cycle is on a remote bookmark but its own and the target has not moved since
-  the closing's first parent. A moved target is refused, naming `cycle land --merge` or a rebase,
-  since the one commit would be a tree no rung validated.
-- **The one-heading single-step goes**: rung 4 of **feat: one cycle flow, plan, rungs, close** made
-  it and rung 7 left it open. With `plan start` then `close --squash` a recorded single-step needs
-  neither a hand edit nor `[version]`, so it, the bare `--ver` that made it, and `--record`, which
-  used it, go, and the ladder's grammar takes bookends alone again.
-- **Informal commits iterate on one bookmark** (wink): `rung commit --title` advances the bookmark
-  on `@-`, and is refused when there is none, or when it is `main` or another target, since
-  development is never done on one. `--bookmark` takes an optional value, wink's `--title+bm`
-  spelled as the flag that means the same everywhere: bare, the title's slug, or NAME.
-  - NAME absent: made on `@`. On `@-`: used. Behind `@-`: moved forward and said, nothing
-    stranded. Sideways or ahead: asked, `[y/N]`, `--yes` answering, refused with no terminal, as
-    jj's `--allow-backwards` gates it (wink). A target: refused whatever the direction.
-  - `cycle land <target>` with no cycle in progress lands the bookmark on `@-`, the run's, and
-    deletes it, as it does a cycle's.
-  - `move-bookmark`'s `--allow-backwards` becoming `--yes` is **feat: the bookmark is made
-    first**'s.
-- **No compatibility**: `cycle squash`, `--record`, and the bare `--ver` go without a warning, as
-  the old stage flags did, no cycle in flight using them.
-- **Reviews waived to the closing** (wink, 2026-11-23, "complete the cycle but do not close so I
-  can review and tweaks are easier"): the work rungs are committed without the per-rung "please
-  review" stop, each still validated, and the cycle stops before its closing. The waiver covers
-  the rungs' commits alone: the closing, the Land, and every push are outside it.
+- The kinds (wink, 2026-11-21, `verbatim` where it was "set"): an entry is one of three.
+  - verbatim: kept identical, diffed, and replaced on copy, `AGENTS.md` and `agent-data/`.
+  - starter: written only when absent, `{name}` filled, never replaced, its shape the set's and
+    its content the project's, `CONTRIBUTING.md`, `notes/`, `LICENSE-*`, `TODO.md`, and `zTOC.md`.
+  - optional: copied only when asked, `custom.md`.
+- The record files are `init`'s own (wink, 2026-11-21): `init` writes an empty `TODO.md` and
+  `zTOC.md`, so the manifest's starters of those names find them there and are skipped, and every
+  new workspace starts with no Todo and no ladder.
+- The manifest `init` reads (wink, 2026-11-21): `SOURCE/file-set.toml` by default, at the set's
+  root and not in `agent-data/`, and `--file-set PATH` names another, so a set can be copied by a
+  list other than its own.
+- The shape (wink + agent, 2026-11-25): `vc-x1 init <TARGET> [--from <SOURCE>]`, the source a flag
+  since it is optional and two positionals read like `cp`, easy to swap.
+- The list is the manifest's (wink, 2026-11-21, settled at the plan's review): not hard-coded,
+  and not the table in `.vc-config.md` wink first suggested, since the list describes the set and
+  not one workspace, data that travels with the set, a `.vc-config.md` table only narrowing it.
+- One module for a list of files (wink + agent, 2026-11-25, at the first rung's review): a list
+  of files under a root is a common need, met twice already, by `agent_files::diff::set_files`
+  and `xtask_cmd::files`, so `file_set` is the one module for it, in three layers.
+  - Declare: a list of path entries, each a relative path inside the root.
+  - Resolve: the entries against a root, as the set of files there, a missing file simply absent.
+  - Compare and copy: two roots by a resolved set.
+  - Mechanism is the module's and policy the caller's: what a kind means, replace, write when
+    absent, or only when asked, stays with `init` and `agent-files`.
+  - The module depends on `std` and `toml_edit` alone, its errors strings, so it lifts into a crate
+    of the workspace when a second package, xtask for one, needs it.
+  - Moving `xtask copy` onto it is out of this cycle, the Todo **refactor: xtask copy lists its
+    files by file_set**.
+- A directory entry is recursive (wink, 2026-11-25): it stands for every file beneath it, at any
+  depth, where `set_files` took the plain files directly under `agent-data/`, since `notes/` and
+  `xtask/` need the depth and `agent-data/` holds no directory.
+- A starter's text is read at its `from` (settled at the plan's review): an adopter's own `CONTRIBUTING.md` and `notes/` hold
+  its project's content, so a starter cannot be copied from the path it is written to.
+  - An entry may name a `from`, the template's path in the set, and the
+    templates stay where they are, `scripts/vc-dr-apply-base/work/`, until the script retires. A
+    starter with no `from`, `LICENSE-*`, is copied from its own path.
+- The agent side is out of this cycle (settled at the plan's review): the script also gives the new agent-repo the source agent-repo's
+  `LICENSE-*`, `README.md`, and `memory/MEMORY.md`.
+  - The manifest lists the work side alone, since the agent-repo's files are not the set's.
+- `agent-files copy` and `diff` read the manifest in this cycle (settled at the plan's review).
+  - It is a rung, their verbatim and optional entries replacing the constants
+    in `src/agent_files/diff.rs`, since "no one list says what a set is" is the problem.
+- None of `vc-dr-apply.sh` retires here (settled at the plan's review): its base skeleton,
+  `--lang`, and `xtask copy`.
+  - The script stays, working, for **Initialization leaves no bad
+    link**, and `--lang` and `xtask copy` have no place in a manifest of kinds.
+- The agent-files' own text is the next cycle's (settled at the plan's review): `AGENTS.md`'s
+  Terminology names `scripts/vc-dr-apply.sh` as what applies a set.
+  - It is left to **agent-files(proposal): v0.3.1**, the next cycle, which carries
+    this one, so this cycle bumps no agent-files version. `file-set.toml` is not an agent-file.
+- The symlink path is refused, not cleared (settled at the plan's review): preflight refuses a
+  real directory there with nothing made, where `init` might have moved that directory's
+  transcripts into the new agent-repo and replaced it with the symlink.
+  - The evidence (wink + agent, 2026-11-19): in `../help`, a directory a session was started in,
+    `init --adopt --test-repo <REMOTES> --dry-run` planned all ten steps and found none of what
+    would stop it.
+  - It refuses, naming the path and what clears it, since the session whose
+    transcripts they are may be running, and a move is the follow-up when the refusal proves a
+    nuisance.
+- `.claude/` stays out of the initial commit: the work `.gitignore` ignores only
+  `/.claude/settings.local.json`, so an adopted `.claude/.cc-writes/` is committed and pushed. The
+  wider rule is **Every repo's .gitignore ignores .claude, and settings stay out of agent-repos**,
+  and this cycle keeps the adopted directory's `.claude/` out and no more.
+- A directory holding only `.claude/` is adopted without `--adopt`, since a session started there
+  leaves it and the directory is otherwise empty.
+- The title is kept (wink, 2026-11-25, at the last rung): the cycle title is 56 characters, over
+  the 50 a title keeps to, as `plan start` warned, its bookmark the slug, and the bookends carry
+  it, a rename after the opening leaving the pair unlike.
+- The shape is a trapezoid on `main`, landed locally in the closing's own invocation and not
+  pushed (wink, 2026-11-25: "keep the title, trapezoid", then "go, close, land on main and I'll
+  review").
+- The closing's review is waived to after the Land (wink, the same word). The waiver covers the
+  closing commit's work review and the local Land. It covers no push, each still wink's to
+  approve, and no release install.
+- Related and not taken: **init defaults to --local**, a bare `init` publishing a public GitHub
+  repo today.
 
 #### Rungs
 
 The rung subsections, in the ladder's order. The ladder itself is in `zTOC.md > ## Ladder`.
 
-##### feat: the new cycle flow opening
+##### feat: init copies a file set and finishes what it starts opening
 
 The cycle's first commit, carrying its plan: the bookmark, the last cycle's record deleted, and the
 Todo entry moved into this block.
 
-##### feat: cycle close takes its shape, a trapezoid by default
+##### feat: a set lists its files in file-set.toml
 
-`cycle close <TARGET>` a trapezoid, `--linear`, and `--squash`, `cycle squash`'s code moved under
-it and the command gone, `close --squash` converting a closed draft, the joined heads by `--join`.
-Its tests and the rehearsal's closings follow.
+Nothing says what a set is but code and a script. A `file_set` module reads `file-set.toml`, each
+entry a path, a kind, and an optional `from`, refusing an unknown kind or a path leaving the set,
+and vc-x1's own `file-set.toml` is written, a test holding every path it names to exist. An
+entry's path is resolved against a root into the files it stands for, a directory recursively.
 
-- `CloseArgs` takes the target positionally, a trapezoid's first parent, and `--squash`, `--linear`,
-  and `--join REV,...`, the old positional heads. A bare `cycle close` is refused, naming the three
-  forms, since a target is never assumed. `--squash` conflicts with a target, `--linear`,
-  `--join`, `--dead-end`, and `--title`, and `--default-body` and `--yes` are refused without it,
-  checked in `close_params`, as clap counts a flag at its default as present for `requires`.
-  `--land` takes an optional value, bare landing on the trapezoid's target, and is refused bare
-  with no target. `--squash -s w` is refused, the agent side re-pointed with the work side.
-- `cycle squash`, its `SquashArgs`, and `squash_params` go, `close_params` building the same
-  `SquashCycle` for `--squash`, and every message naming `cycle squash` or `--trapezoid` names
-  `cycle close --squash` or `cycle close <TARGET>`.
-- `squash.rs` is split into the checks, `plan_fold`, the agent re-points and the opening's new
-  description, and `Fold::make`, the rewrite under both repos' snapshots, shared by the squash of a
-  cycle in progress and `convert`, the closed draft's. `convert` finds the cycle `## Closed` holds
-  when none is in progress, takes its closing as one more rung, refuses a closing that is not
-  `<title> closing`, one another bookmark reaches, landed, one that joins more than the target,
-  and a trapezoid whose first parent is not below the opening, its target moved. Then `@` is made
-  again on the opening, the bookmark set on it, the record made a single-step's by
-  `without_closed_rungs` and the ladder one rung, and `finalize` folds and describes it.
-- Tests: `close_is_a_ladders_closing` covers the bare refusal, the clashes, `--default-body` and a
-  bare `--land` without their pair, and `-s w`; `a_closed_draft_squashes_into_one_commit` and
-  `a_closed_draft_on_a_moved_target_is_not_converted` are new; every other test closes by
-  `--linear`, a target, or `--squash`. The rehearsal's closings follow, its run wink's.
+- The format is `[[file]]` tables, read by `toml_edit`, already a dependency, since `toml_simple`
+  reads flat keys alone.
+- A manifest is read strictly: an unknown key or kind, a path that is absolute or holds `.` or
+  `..`, a path listed twice, and a manifest with no entry are each refused, naming the file and
+  the entry.
+- A directory entry is recursive: `file_set::resolve` gives a file as itself and a directory as
+  every file beneath it, at any depth, each relative to the root, sorted. A path that is not
+  there gives nothing, so a set missing a file is a smaller set, and a symlink is taken as a file
+  and never followed, so the walk stays under the root.
+- The module holds the first two layers the deliberation names, declare and resolve, and nothing
+  of vc-x1's own but the kinds. Compare and copy are the next rung's.
+- `README.md` is a starter beside the Todo's list, since the script writes one, and the skeleton's
+  `version.toml` is not listed, a workspace's version being its build's.
+- `custom.md` is read from the skeleton's template, not the adopter's own, which is local to its
+  workspace and gitignored. `agent-files copy -c`, which copies the adopter's, is the rung **feat:
+  agent-files copy and diff read the manifest**'s to reconcile.
+- Nothing calls the module yet, so it carries an `expect(dead_code)` the next rung's first call
+  makes clippy refuse, and so remove.
 
-##### feat: the one-heading single-step and --record go
+##### feat: init --from copies a set by its manifest
 
-The ladder's grammar takes bookends alone, `rung next` refuses a bare `--ver` before the opening,
-and `rung commit --record` goes, its tests and README's words with them.
+A new workspace gets no rules from `init`. `init --from <SOURCE>`, with `--file-set PATH` and
+`--custom`, copies the set into the work-repo before its initial commit, as one more step of the
+plan, printed by the dry run: verbatim replaced, starters written where absent, `{name}` filled.
+The copy is `file_set`'s, over the files `resolve` gives, a directory entry taken at every depth,
+and what each kind does with them is `init`'s.
 
-- `ladder_of` takes bookends alone, a plan of the one heading refused, naming the single-step's
-  way, while a branch whose one commit is the cycle title still ladders as `0 (done)`, which `close
-  --squash` makes. `is_one_rung`, `one_rung_record`, and `with_body_items` go.
-- `rung next` loses the bare `--ver` shortcut: before the plan's commit it is refused, `--ver` or
-  not, naming `cycle plan commit` and `cycle close --squash`. `rung commit` loses the one rung's
-  single-step path and `--record`, so with a cycle in progress it commits a ladder's rung, and
-  without one `--title` commits verbatim. `cycle plan commit` loses its one-heading refusal, the
-  grammar refusing that plan now, and `cycle status` its one-rung hints.
-- Tests: `one_heading_is_refused` and `rung_next_before_the_plan_is_refused` replace the one-heading
-  and bare-version tests, `--record`'s test goes, and its refusal is clap's.
-- The rehearsal's cycle 4 is a single-step by the plan, one rung, and `close --squash`, and cycle 6
-  a trapezoid closed then converted by `close --squash`, 90 checks passing. It runs in the agent's
-  sandbox with `HOME` and `XDG_CONFIG_HOME` pointed at a scratch home holding a jj user, so `init`'s
-  symlink lands there: what kept the last two cycles' rehearsal for wink was the real
-  `~/.claude/projects/`, not the script.
-- README's `### rung` still describes the one heading and `--record`, the docs rung's to rewrite.
+- The mechanism is `file_set`'s: `files_of` pairs each file of an entry with where a copy writes
+  it, a directory's files beneath the entry's path wherever a `from` reads them, and `copy_file`
+  copies one, told whether a different file there is replaced or kept, given a fill for the text,
+  and keeping the source's permissions, so a script stays one.
+- The policy is `init`'s, `src/init/set.rs`: verbatim is replaced with no fill, a starter is
+  written only when absent with `{name}` filled by the directory's name, and an optional entry is
+  left out, or with `--custom` written as a starter is, so a `custom.md` there is never replaced.
+- The copy is a step of its own, after the config and `init`'s `TODO.md` and `zTOC.md`, before the
+  first commit, so the set is in that commit, a starter of a name `init` writes is kept out, and
+  the dry run prints the step with the set and its manifest.
+- The dry run lists the set's files after the steps (wink, at the review: "can I run some code to
+  see the list?"), one a line, its kind, where it is written, and where it is read when that is
+  another path, so `init <TARGET> --from <SOURCE> --dry-run` shows what a set holds with nothing
+  made.
+- The preflight refuses, with nothing made, a source that is no directory or is the target, a
+  manifest that does not parse, and an entry the copy takes that has no file in the source, since
+  a set listing what it lacks would make a workspace missing it. `resolve` itself stays lenient,
+  for a diff of two copies.
+- A verbatim file only in the destination is left there. `init` deletes nothing, and the delete
+  `agent-files copy` does is the next rung's.
+- The flags are `-s por`'s as much as a dual workspace's, a plain repo taking a set the same way.
+- `-c` is `--custom` (wink, at the review), as `agent-files copy` and `diff` spell it.
+- The source is read as its working copy holds it, with no `--landed` yet, the script's reading of
+  a revision by `git archive`.
+- The manifest holds the set's `.gitignore` lines (wink, at the review): `gitignore`, a list
+  before the entries, vc-x1's `/tmp`, `/tmp-durable`, and `/custom.md`, the script's
+  `gitignore-lines`. The copy step adds each the work `.gitignore` lacks, after the files, so
+  `--custom`'s `custom.md` is ignored before the first commit and stays local. The adding is
+  `file_set::add_lines`, which `init`'s own two lines now go through as well.
 
-##### feat: informal commits iterate on one bookmark
+##### feat: agent-files copy and diff read the manifest
 
-`rung commit --title` with no cycle in progress advances the bookmark on `@-`, `--bookmark [NAME]`
-makes or moves one by the rules above, and `cycle land <target>` lands a bookmark that is no
-cycle's.
+`agent-files copy` and `diff` hold the set as constants and list, compare, and copy it by code of
+their own. They read the source's `file-set.toml`, its verbatim entries the set and its optional
+ones `--custom`'s, falling back to the constants for a copy of the set that has none, and
+`set_files`, `compare`, and the copy move onto `file_set`, so the set is listed by one module.
 
-- `Where`'s `--bookmark` takes an optional value, bare the title's slug, read only by `rung commit
-  --title` through `running_bare`, every other stage refusing it bare and naming `--bookmark
-  <NAME>`.
-- `commit_alone` takes the bookmark `--bookmark` names, by `placement`: absent, made on `@` as
-  before; on `@-`, used; below `@-`, moved forward and said; sideways or ahead, asked, `[y/N]`,
-  `--yes` answering, refused with no terminal, as `squash-push` asks. Without the flag it takes the
-  one bookmark on `@-`, refused when there is none or several. `main`, or the `--land` target, is
-  refused either way. Every check comes before a bookmark is made or moved, and the commit then
-  advances it.
-- `cycle land` needed nothing: with no cycle in progress, and the closed cycle's bookmark gone, it
-  already lands the one local bookmark besides the target, `crate::land::default_source`.
-- Tests: `rung_commit_without_a_cycle_iterates_on_one_bookmark`, the old verbatim test grown into a
-  run of two landed once, and `rung_commit_bookmark_moves_by_direction`, forward, sideways with and
-  without `--yes`, and `main`. The rehearsal's cycle 5 is a run of two landed once, with a commit on
-  `main`'s `@-` refused first, 90 checks passing.
+- The set `diff` and `copy` take is `SetPaths`, read from the source's `file-set.toml`, a diff's
+  `--from` side: its verbatim entries, and its optional ones with `-c`. A source with no manifest
+  is the built-in set, `AGENTS.md`, `agent-data/`, and `custom.md` on request, as before, so an
+  older copy of the set still diffs, and a manifest that does not parse is an error, never the
+  built-in set in its place. Each command says which it read.
+- A path is read at itself on both sides, never at an entry's `from`. That settles the first
+  rung's open point: `from` names the template a new workspace starts from, `init`'s, and two
+  copies of a set share the file at its path, so `agent-files copy -c` still copies the adopter's
+  own `custom.md`.
+- With `--from`, `custom.md` is the source's own (wink, at the review: "with --from means get it
+  from --from"). `init --from <SOURCE> -c` wrote the skeleton's stub where `agent-files diff -c`
+  compared the source's own `custom.md`, so a workspace just made differed from its source by the
+  whole file. The manifest's `custom.md` entry loses its `from`, and `init` writes an optional
+  file as the source holds it, nothing filled, and only when none is there. This revises the two
+  rungs before, which read the template and filled `{name}`.
+  - A source with no `custom.md` refuses `-c` in the preflight, as any entry with no file does.
+  - The manifest's own test asks no optional file to be in the tree, `custom.md` being gitignored
+    and so absent from a clone.
+  - `-c` with no `--from` stays refused by the parser, naming `--from`, there being no set to
+    take a `custom.md` from.
+- A starter is no part of a diff or a copy, its content each project's own, so `CONTRIBUTING.md`
+  and `notes/` are never compared, as they never were.
+- `agent-data/` is now taken at every depth, where `set_files` took the plain files directly under
+  it. It holds no directory today, so nothing changes for a set as it is.
+- The third layer is in `file_set`: `compare` gives how the files a list of paths stands for
+  differ between two roots, and `covers` whether a path is one of them, which the copy's
+  dirty-working-copy guard asks. `diff::compare` maps that onto its states and adds the project
+  layer's rows, and `copy::apply` copies by `file_set::copy_file`. `set_files` and `in_set` are
+  gone.
+- Left: `agent-files size` lists the set by code of its own, `AGENTS.md`, `custom.md`, and the
+  plain files of `agent-data/`, its table's columns bound to those names. **feat:
+  agent-files-size should exclude custom.md** is the entry that reworks it.
 
-##### feat: init takes its target positionally
+##### fix: init refuses a taken symlink path up front
 
-`vc-x1 init <TARGET>`, the target the one required positional, `--target` refused naming it, and
-a second positional, the old `TARGET NAME`, refused naming `--name` (wink, 2026-11-25, inserted
-from merging **feat: init takes its target positionally and finishes what it starts** into **feat:
-init copies a file set and finishes what it starts**, which keeps `--from` and the rest).
+A real directory at `~/.claude/projects/<mangled-path>` stops `init` at its last step, after the
+push. The preflight checks the path and refuses with nothing made.
 
-- `InitArgs` takes the target as its positional, `TARGET`, required unless the hidden `--target`
-  is given, which `to_params` refuses naming `vc-x1 init <TARGET>`. A second positional, the old
-  `TARGET NAME`, is hidden and refused naming `--name`, where the retired slot refused `TARGET
-  [NAME]` naming `--target` and `--name`, so the positional `init` once had comes back with its
-  name a flag.
-- The help and messages say "the target" where they said `--target`, and `config`'s hint names
-  `vc-x1 init git@github.com:<owner>/<repo>.git`. `support/fixtures/build-dr-1.py`, the fixture
-  builder an ignored test runs, calls `init <PATH>`.
-- Tests: every `init --target X` is `init X`, in the unit tests, the CLI tests of `init`, `clone`,
-  `push`, `sync`, `repo`, and completion, and the two test helpers, and the retired-forms test
-  checks the three refusals. The rehearsal makes its workspace by `init <WS>`, 90 checks passing.
-- The merged Todo, **feat: init copies a file set and finishes what it starts**, keeps `--from`,
-  the symlink preflight, adopting a directory holding only `.claude/`, and `.claude/` kept out of
-  the initial commit, with the shape `vc-x1 init <TARGET> [--from <SOURCE>]`.
+- The check is `symlink::check`, the path `install` would take, probed the same way: anything
+  there that is no symlink is refused, and a symlink, whatever it points at, is left to `install`,
+  which keeps or replaces it as before.
+- The refusal names the path once, says a session started in the target made it, and says what
+  clears it: exit the session, move the directory aside, run `init` again. It was first written
+  with the `mv` command spelled out, the mangled path three times over, and shortened at the
+  review (wink). `init` moves nothing itself, the session whose directory it is perhaps still
+  running.
+- It runs only when `init` would make the symlink, a dual workspace from the command line, so
+  `-s por` and the test fixtures, which make none, are not asked.
+- Left: `clone` installs the same symlink as its last step and is not given the check here.
 
-##### fix: a re-run Land finishes its push, and messages name the command run
+##### fix: init adopts a .claude-only directory
 
-A `cycle land --push` whose push failed finishes on a re-run, its hint naming `cycle push`; every
-hint names `argv[0]`; `rung commit --title` says `rung commit:`; and the rehearsal keeps a failed
-command's status.
+A directory a session was started in holds `.claude/`, so `init` refuses it without `--adopt` and
+commits `.claude/.cc-writes/` with it. Such a directory is taken as empty, and its `.claude/` is
+ignored by the work `.gitignore`.
 
-- `cycle land` first asks `landed_here`: no cycle in progress, the target ahead of `origin`, and on
-  it the closed cycle's bookmark, the Land having stopped before deleting it, or its landmark. Then
-  `finish_land` deletes the bookmark locally, `--skip` keeping it, and with `--push` publishes by
-  `cycle push`, which with the bookmark gone takes the landed-here branch and deletes the draft on
-  `origin`. A target `origin` has, or one holding no Land of the cycle, is landed as any is.
-  `not_at_origin`'s hint names `vc-x1 cycle push` for a Land made here and `vc-x1 push -r` for any
-  other.
-- `invoked_name` moves to `logging.rs`, the banner's and the logger's, and the logger gives every
-  `` `vc-x1 `` a message names, a command in backticks, the invoked name, so every hint, errors
-  included, says what was run, one place rather than every message. A file named for the binary,
-  `vc-x1.md`, is left.
-- `open` takes the label of the command that makes the bookmark, `cycle plan` or `rung commit
-  --title`, its messages naming it.
-- The rehearsal's `run` keeps the status before testing it, so a failure says its real exit code.
-- Tests: `a_land_whose_push_failed_is_finished_by_a_rerun` and `a_hint_names_the_command_run`. The
-  rehearsal passes, 90 checks, its log naming `vc-x1-dev` in every hint and `rung commit --title:`
-  on the bookmark line.
+- A directory holding `.claude/` and nothing else is adopted without `--adopt`, since that is what
+  a session started in an empty directory leaves. One holding anything more still needs the flag,
+  its content being someone's to hand over, and `-s por`, which takes no `--adopt`, takes no such
+  directory either.
+- A plain directory holding `.claude/`, adopted either way, has `/.claude` added to the work
+  `.gitignore`, so nothing of it is in the first commit and all of it stays on disk. A repo that
+  is adopted keeps its own choice, its `.claude/` tracked or not as its history has it.
+- A fresh workspace is unchanged, ignoring `/.claude/settings.local.json` alone, the rest of a
+  `.claude/` made later being the project's to commit. The wider rule, **Every repo's .gitignore
+  ignores .claude, and settings stay out of agent-repos**, stays a Todo.
+- The dry run says so: the header reads "adopting", and the config step ends "its .claude/
+  ignored".
+- With the rung before, a session's directory is refused first for its symlink path, and once
+  that is moved aside `init <TARGET>` makes the workspace with no flag.
 
-##### docs: the new cycle flow
+##### docs: touched files pay their semicolons
 
-The agent-files to `v0.3.1-18`, Cycle shape, the per-rung flow, Committing vs pushing, Close-out,
-`jj.md`'s close-out shapes, and the rationale, README's `### cycle` and `### rung`, and the
-rehearsal rewritten for the new flow.
+A file a cycle edits owes its prose semicolons and untypeable punctuation whole, paid in a rung of
+its own before the closing. Of the eighteen files this cycle touched three owe: `TODO.md`, in two
+other entries' lists and one `...`, and the doc comments of `src/agent_files.rs` and
+`src/init/params.rs`. Each is rejoined by the prose rule, a list as sub-bullets and a pair of
+claims with a comma and a conjunction.
 
-- `AGENTS.md`: Terminology's Cycle and Target, the rules **One commit or a ladder** and **Commit by
-  the tool**, Cycle shape rewritten whole, a trapezoid the default on a named target, `--linear`,
-  `--squash` one commit, and a closed draft converted, Opening's one-off, the per-rung flow's end,
-  Committing vs pushing's informal run on one bookmark, A cycle is local by default's 1:M, and
-  Close-out's shapes.
-- `jj.md`'s Close and its close-out shapes, `cycle-model.md`'s who-writes-what and specimens, and
-  `rationale.md`: Cycle shape's one ending stage, why linear is asked for, the single-step's one
-  way, and informal commits on one bookmark, the old forms kept where they are history.
-- The agent-files version is `v0.3.1-18`, `agent-data/agent-files-v0.3.1-18`, and `CONTRIBUTING.md`
-  dates it.
-- README: `### cycle`'s stages and examples, `close`'s shape table, `--squash`'s table with the
-  closed draft, the status sample, `### rung`'s `#### A single-step` and `#### Commits without a
-  cycle`, its bookmark table, and `### init`'s every example, flag row, and refusal, the target
-  positional. `check anchors` passes over the edited files, 146 links.
-- The rehearsal was rewritten with each rung, so nothing of it is left here.
+##### feat: init copies a file set and finishes what it starts closing
 
-##### feat: the new cycle flow closing
+Closing out the cycle.
 
-The close-out, at `0.85.28`, closed as a trapezoid on `main`, landed, and pushed in one invocation,
-`cycle close main -s b --land --push` (wink, 2026-11-25, "close, land on main, and push as single
-command"), the release install after it wink's, since nothing follows the final push.
-
-- The Solution says what was built, `init`'s positional target among it, and the acceptance check
-  records its result, the rehearsal run in the sandbox for the first time.
-- `notes/agent-files-size.md` gains this cycle's row, `v0.3.1-18`, and its window slides.
-- Nothing in the block needs a `notes/` file: the agent-files and README carry the flow, and the
-  rationale its whys.
-- The continuation notes are rewritten for the session after the Land.
+- An acceptance check is tried when it is written. One of this cycle's five could not run, an
+  `init --adopt` over a dual workspace, and it stood in the record from the opening to the
+  closing, through five reviews. A check the opening states is run then, or as soon as the rung
+  it needs lands, in a form that fails, as this one now is, a script whose every step exits.
+- What a flag reads is asked at the rung that adds it. `-c` took the template under `init` and
+  the source's own file under `agent-files`, each deliberate and the pair a surprise, found by
+  wink's hand test two rungs on. The second rung's review listed the choice, and a line in the
+  dry run naming where each file is read would have shown it sooner, which the list now does.
+- `README.md` was owed by the rungs that changed what `init` and `agent-files` do, and was paid
+  here, in the closing, with its own semicolons: **The file set** and **A directory a Claude Code
+  session was started in** under `### init`, the flags' rows, and the manifest's paragraph under
+  `### agent-files`. A rung that changes a command's surface carries its `README.md`.
+- A made workspace is not a set, the cycle's largest gap, found at the third rung's trial and
+  filed first in `## Todo`.
+- No agent-file changed, so `notes/agent-files-size.md` gets no row.
 
 # References
 

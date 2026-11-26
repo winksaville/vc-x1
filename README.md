@@ -535,6 +535,12 @@ The agent-files set is `AGENTS.md`, the files under `agent-data/`, and the proje
 `custom.md`, as [AGENTS.md](AGENTS.md#terminology) defines it. The group runs before the
 workspace loads, so it answers in a plain repo too.
 
+`diff` and `copy` take the set from the manifest of their `--from` side, its `file-set.toml`
+([The file set](#the-file-set)): the verbatim entries, a directory's files at every depth, and
+the optional ones with `-c`, each read at its own path on both sides. A starter is the
+project's own and never compared or copied. A `--from` with no manifest is the built-in set
+above, and one whose manifest does not parse is an error. Each says which list it read.
+
 `agent-files version` prints the set version, the name of the `agent-data/agent-files-vX.Y.Z`
 file with its prefix removed, bare, one per line when a bump left several, and fails outside a
 workspace or in one without the file.
@@ -1327,12 +1333,80 @@ vc-x1 init my-project --agent-repo my-project.claude
 | `--push-retries <N>` | Max push retries after repo creation [default: 5] |
 | `--push-retry-delay <N>` | Seconds between push retries [default: 3] |
 | `--config <none\|PATH>` | Override the canned config write, under the name the source's carrier calls for |
+| `--from <SOURCE>` | Copy the file set of SOURCE, a directory, into the work repo before its first commit ([The file set](#the-file-set)) |
+| `--file-set <PATH>` | The manifest `--from` copies by [default: SOURCE/file-set.toml] |
+| `-c, --custom` | With `--from`, copy the set's optional files too, SOURCE's own `custom.md` for one |
 
 init makes a bare workspace, the repos with only `.vc-config.md` and `.gitignore` in them, and the
 work repo with the cycle-record's `TODO.md` and `zTOC.md` too, each a skeleton of the headings a
 cycle's record is written into, so a first Todo can be written and [`cycle plan start`](#cycle) run with
 no file made by hand. A record file an adopted directory or repo has is kept. What else goes in the
-workspace is applied afterwards. `--use-template`, which copied template directories in, is gone.
+workspace is a file set's, copied by `--from`. `--use-template`, which copied template directories
+in, is gone.
+
+#### The file set
+
+A file set is the files a project carries for a new workspace to start from, and its manifest,
+`file-set.toml` at its root, is the one list of them. `init <TARGET> --from <SOURCE>` copies the
+set of SOURCE, as its working copy holds it, into the work repo, as a step of its own after the
+config and before the first commit, so the set is in that commit:
+
+```toml
+gitignore = ["/tmp", "/tmp-durable", "/custom.md"]
+
+[[file]]
+path = "AGENTS.md"
+kind = "verbatim"
+
+[[file]]
+path = "agent-data/"
+kind = "verbatim"
+
+[[file]]
+path = "CONTRIBUTING.md"
+kind = "starter"
+from = "scripts/vc-dr-apply-base/work/CONTRIBUTING.md"
+
+[[file]]
+path = "custom.md"
+kind = "optional"
+```
+
+- `path` is where the entry is written, a file or a directory, a directory standing for every
+  file beneath it at any depth.
+- `kind` is what a copy does with it:
+  - `verbatim` is written, replacing a different file there.
+  - `starter` is written only when no file is there, `{name}` filled with the project's name, so
+    its shape is the set's and its content the project's. `TODO.md` and `zTOC.md` are init's own,
+    written first, so a starter of those names is kept out.
+  - `optional` is left out, and with `-c`/`--custom` SOURCE's own file is written as it is, only
+    when no file is there.
+- `from` is where the entry's text is read in the set when that is not `path`, a starter's
+  template.
+- `gitignore` is the lines the work repo's `.gitignore` is given where it lacks them, so
+  `custom.md` stays local.
+
+A set that cannot be copied is refused before anything is made: a SOURCE that is no directory or
+is the target, a manifest that does not parse, an unknown key or kind, a path that leaves the set,
+and an entry the copy takes with no file in SOURCE. `--dry-run` lists the step, each file with its
+kind and where it is read, and the `.gitignore` lines:
+
+```
+vc-x1 init ./hello --test-repo ./remotes --from ../vc-x1 --dry-run
+vc-x1 init ./hello --test-repo ./remotes --from ../vc-x1 -c
+```
+
+#### A directory a Claude Code session was started in
+
+A session started in a directory leaves a `.claude/` there, and makes
+`~/.claude/projects/<mangled-path>`, the path init links to the agent repo, a real directory.
+
+- A directory holding `.claude/` and nothing else is adopted with no `--adopt`, taken as empty.
+- A plain directory adopted with a `.claude/` gets `/.claude` in the work repo's `.gitignore`, so
+  nothing of it is in the first commit and all of it stays on disk.
+- A real directory at the symlink path is refused in the preflight, with nothing made, where it
+  once stopped init at its last step, after the push: exit the session, move the directory aside,
+  and run init again.
 
 **`--adopt`**. Without it an existing TARGET is refused, named by what it holds. With it, init
 grows the target into a dual workspace:
@@ -1698,7 +1772,7 @@ vc-x1: clean
 
 | Flag | Description |
 |------|-------------|
-| `--bookmark <NAME>` | Bookmark to advance and push [default: the line's own, see above]; the old positional is refused, naming this flag |
+| `--bookmark <NAME>` | Bookmark to advance and push [default: the line's own, see above]. The old positional is refused, naming this flag |
 | `-R, --repo <PATH>` | Path to jj repo [default: .] |
 | `--squash [<SOURCE,TARGET>]` | Squash pair [default: @,@-] |
 | `-y, --yes` | Act without asking, once the precheck found work, and confirm a forced push |
@@ -1963,11 +2037,14 @@ branch holds:
   place.
 - The commit holds the work, so `--body` is required, and `--default-body` is the waiver, the
   pointer at the record.
-- Refused, nothing rewritten: a work commit that a remote bookmark other than the cycle's reaches,
-  its history published; without `--yes` an agent commit `main@origin` reaches, whose rewrite
-  makes the next agent push a forced one; and a closed draft whose trapezoid's target moved since
-  the cycle opened, the one commit then a tree no rung validated. A rung only draft-pushed is
-  rewritten, and the next push of the cycle's bookmark is forced, asked about then.
+- Refused, nothing rewritten:
+  - a work commit that a remote bookmark other than the cycle's reaches, its history published
+  - without `--yes`, an agent commit `main@origin` reaches, whose rewrite makes the next agent
+    push a forced one
+  - a closed draft whose trapezoid's target moved since the cycle opened, the one commit then a
+    tree no rung validated
+- A rung only draft-pushed is rewritten, and the next push of the cycle's bookmark is forced,
+  asked about then.
 - `-s` is `b` or `p`, the agent side being rewritten with the work side. It takes no TARGET,
   `--linear`, `--join`, `--dead-end`, or `--title`, and `--land <TARGET>` and `--push` chain as on
   a trapezoid.

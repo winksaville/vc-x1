@@ -6,7 +6,8 @@
 //! - `plan`: what a copy would do, from `diff::compare`'s rows:
 //!   copy what differs or is only in SRC, delete what is only in
 //!   DST, and never touch custom.md unless asked, or TODO.md at
-//!   all.
+//!   all. The set is what SRC's `file-set.toml` says, its verbatim
+//!   entries, and its optional ones on request ([`SetPaths`]).
 //! - `apply`: do it. The jj working copy around DST must be clean
 //!   in the set's paths first, so the copy's changes are the only
 //!   ones there and a `jj diff` reads as the re-sync.
@@ -17,8 +18,10 @@ use std::process::ExitCode;
 use clap::Args;
 use log::{error, info};
 
-use super::diff::{self, AGENT_DATA, State};
+use super::SetPaths;
+use super::diff::{self, State};
 use crate::common;
+use crate::file_set;
 
 /// CLI args for `agent-files copy`.
 #[derive(Args, Debug)]
@@ -67,8 +70,13 @@ impl std::fmt::Display for Step {
 /// order: a copy for each file that differs or exists only in
 /// `src`, a delete for each that exists only in `dst`. Nothing for
 /// the project layer when it is not asked for.
-pub fn plan(src: &Path, dst: &Path, custom: bool) -> Result<Vec<Step>, Box<dyn std::error::Error>> {
-    Ok(diff::compare(src, dst, custom)?
+pub fn plan(
+    src: &Path,
+    dst: &Path,
+    paths: &SetPaths,
+    custom: bool,
+) -> Result<Vec<Step>, Box<dyn std::error::Error>> {
+    Ok(diff::compare(src, dst, paths, custom)?
         .into_iter()
         .filter_map(|(path, state)| match state {
             State::Differs | State::OnlyInA => Some(Step::Copy(path)),
@@ -78,16 +86,13 @@ pub fn plan(src: &Path, dst: &Path, custom: bool) -> Result<Vec<Step>, Box<dyn s
         .collect())
 }
 
-/// Run the steps: copy creates `agent-data/` when it is missing,
-/// delete removes the file only.
+/// Run the steps: copy makes the directories a file needs, by
+/// `file_set`'s copy, and delete removes the file only.
 pub fn apply(src: &Path, dst: &Path, steps: &[Step]) -> Result<(), Box<dyn std::error::Error>> {
     for step in steps {
         match step {
             Step::Copy(path) => {
-                if let Some(parent) = dst.join(path).parent() {
-                    std::fs::create_dir_all(parent)?;
-                }
-                std::fs::copy(src.join(path), dst.join(path))
+                file_set::copy_file(&src.join(path), &dst.join(path), true, None)
                     .map_err(|e| format!("copy {path}: {e}"))?;
             }
             Step::Delete(path) => {
@@ -98,22 +103,14 @@ pub fn apply(src: &Path, dst: &Path, steps: &[Step]) -> Result<(), Box<dyn std::
     Ok(())
 }
 
-/// True when `path`, relative to a set directory, is one the copy
-/// may touch: AGENTS.md, anything under `agent-data/`, and
-/// custom.md when `custom`.
-fn in_set(path: &str, custom: bool) -> bool {
-    path == diff::AGENTS_MD
-        || path.starts_with(&format!("{AGENT_DATA}/"))
-        || (custom && path == diff::CUSTOM_MD)
-}
-
-/// The changed paths inside `dst`'s set in the jj working copy
-/// around it, which a copy would mix its own changes with. `None`
+/// The changed paths inside `dst`'s set, the files `paths` covers,
+/// in the jj working copy around it, which a copy would mix its own changes with. `None`
 /// when `dst` is not inside a jj repo. `dst` may be a subdirectory
 /// of the repo, the payload inside the template repo being one, so
 /// the repo's paths are matched under `dst`'s prefix.
 fn dirty_set_paths(
     dst: &Path,
+    paths: &SetPaths,
     custom: bool,
 ) -> Result<Option<Vec<String>>, Box<dyn std::error::Error>> {
     let dst = dst.canonicalize()?;
@@ -136,7 +133,7 @@ fn dirty_set_paths(
             .into_iter()
             .filter_map(|(letter, p)| {
                 p.strip_prefix(&prefix)
-                    .filter(|rel| in_set(rel, custom))
+                    .filter(|rel| paths.covers(rel, custom))
                     .map(|_| format!("{letter} {p}"))
             })
             .collect(),
@@ -194,7 +191,9 @@ impl CopyArgs {
             dst.source,
             if custom { ", custom.md included" } else { "" }
         );
-        match dirty_set_paths(&dst.path, custom)? {
+        let paths = SetPaths::of(&src.path)?;
+        info!("agent-files copy: {}", paths.described());
+        match dirty_set_paths(&dst.path, &paths, custom)? {
             None => info!("{} is not in a jj repo: no working-copy guard", dst.shown),
             Some(dirty) if !dirty.is_empty() => {
                 return Err(format!(
@@ -207,7 +206,7 @@ impl CopyArgs {
             }
             Some(_) => {}
         }
-        let steps = plan(&src.path, &dst.path, custom)?;
+        let steps = plan(&src.path, &dst.path, &paths, custom)?;
         if steps.is_empty() {
             info!("already the same, nothing to do");
             return Ok(());
@@ -227,6 +226,7 @@ impl CopyArgs {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agent_files::diff::AGENT_DATA;
     use crate::test_helpers::Fixture;
     use clap::Parser;
 
@@ -270,6 +270,7 @@ mod tests {
     #[test]
     fn plan_and_apply_mirror_the_set() {
         let base = crate::test_helpers::unique_base("af-copy");
+        let set = SetPaths::builtin();
         let src = base.join("src");
         let dst = base.join("dst");
         seed(
@@ -292,7 +293,7 @@ mod tests {
                 ("agent-data/stale.md", "gone\n"),
             ],
         );
-        let steps = plan(&src, &dst, false).unwrap();
+        let steps = plan(&src, &dst, &set, false).unwrap();
         assert_eq!(
             steps,
             vec![
@@ -304,7 +305,7 @@ mod tests {
         assert_eq!(steps[0].to_string(), "copy   AGENTS.md");
         assert_eq!(steps[2].to_string(), "delete agent-data/stale.md");
         apply(&src, &dst, &steps).unwrap();
-        let rows = diff::compare(&src, &dst, false).unwrap();
+        let rows = diff::compare(&src, &dst, &set, false).unwrap();
         assert!(rows.iter().all(|(_, s)| !s.differs()), "{rows:?}");
         assert_eq!(
             std::fs::read_to_string(dst.join("custom.md")).unwrap(),
@@ -314,8 +315,8 @@ mod tests {
             std::fs::read_to_string(dst.join("TODO.md")).unwrap(),
             "my todo\n"
         );
-        assert!(plan(&src, &dst, false).unwrap().is_empty());
-        let steps = plan(&src, &dst, true).unwrap();
+        assert!(plan(&src, &dst, &set, false).unwrap().is_empty());
+        let steps = plan(&src, &dst, &set, true).unwrap();
         assert_eq!(steps, vec![Step::Copy("custom.md".to_string())]);
         apply(&src, &dst, &steps).unwrap();
         assert_eq!(
@@ -323,7 +324,7 @@ mod tests {
             "theirs\n"
         );
         // Outside any jj repo there is no guard to consult.
-        assert_eq!(dirty_set_paths(&dst, false).unwrap(), None);
+        assert_eq!(dirty_set_paths(&dst, &set, false).unwrap(), None);
         let _ = std::fs::remove_dir_all(&base);
     }
 
@@ -335,6 +336,7 @@ mod tests {
     #[test]
     fn dirty_guard_sees_the_destination_set() {
         let fx = Fixture::new("af-copy-guard");
+        let set = SetPaths::builtin();
         seed(
             &fx.work,
             &[
@@ -349,25 +351,148 @@ mod tests {
             &[("AGENTS.md", "rules\n"), ("agent-data/p.md", "p\n")],
         );
         crate::jj::commit(&fx.work, "test: seed the sets").unwrap();
-        assert_eq!(dirty_set_paths(&fx.work, false).unwrap(), Some(vec![]));
+        assert_eq!(
+            dirty_set_paths(&fx.work, &set, false).unwrap(),
+            Some(vec![])
+        );
         std::fs::write(fx.work.join("README.md"), "other\n").unwrap();
         std::fs::write(fx.work.join("custom.md"), "edited\n").unwrap();
-        assert_eq!(dirty_set_paths(&fx.work, false).unwrap(), Some(vec![]));
         assert_eq!(
-            dirty_set_paths(&fx.work, true).unwrap(),
+            dirty_set_paths(&fx.work, &set, false).unwrap(),
+            Some(vec![])
+        );
+        assert_eq!(
+            dirty_set_paths(&fx.work, &set, true).unwrap(),
             Some(vec!["M custom.md".to_string()])
         );
         std::fs::write(fx.work.join("agent-data/a.md"), "b\n").unwrap();
         assert_eq!(
-            dirty_set_paths(&fx.work, false).unwrap(),
+            dirty_set_paths(&fx.work, &set, false).unwrap(),
             Some(vec!["M agent-data/a.md".to_string()])
         );
         // The subdirectory's guard sees only its own set.
-        assert_eq!(dirty_set_paths(&sub, false).unwrap(), Some(vec![]));
+        assert_eq!(dirty_set_paths(&sub, &set, false).unwrap(), Some(vec![]));
         std::fs::write(sub.join("agent-data/p.md"), "q\n").unwrap();
         assert_eq!(
-            dirty_set_paths(&sub, false).unwrap(),
+            dirty_set_paths(&sub, &set, false).unwrap(),
             Some(vec!["M payload/agent-data/p.md".to_string()])
         );
+    }
+
+    /// With a manifest in the source the set is what it says: its
+    /// verbatim entries, a directory's files at every depth, its
+    /// optional ones with `-c`, each at its own path whatever `from`
+    /// it names, and never a starter. A file only the destination
+    /// has beneath a verbatim directory is deleted.
+    #[test]
+    fn the_manifest_says_what_a_copy_takes() {
+        let base = crate::test_helpers::unique_base("af-copy-manifest");
+        let src = base.join("src");
+        let dst = base.join("dst");
+        let seed_deep = |dir: &Path, files: &[(&str, &str)]| {
+            for (path, content) in files {
+                let path = dir.join(path);
+                std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+                std::fs::write(path, content).unwrap();
+            }
+        };
+        seed_deep(
+            &src,
+            &[
+                (
+                    "file-set.toml",
+                    r#"
+[[file]]
+path = "rules.md"
+kind = "verbatim"
+[[file]]
+path = "docs/"
+kind = "verbatim"
+[[file]]
+path = "CONTRIBUTING.md"
+kind = "starter"
+[[file]]
+path = "local.md"
+kind = "optional"
+from = "skel/local.md"
+"#,
+                ),
+                ("rules.md", "new rules\n"),
+                ("docs/a.md", "a\n"),
+                ("docs/deep/b.md", "b\n"),
+                ("CONTRIBUTING.md", "theirs\n"),
+                ("local.md", "their layer\n"),
+                ("skel/local.md", "a template\n"),
+                ("AGENTS.md", "not in this set\n"),
+            ],
+        );
+        seed_deep(
+            &dst,
+            &[
+                ("rules.md", "old rules\n"),
+                ("docs/deep/stale.md", "gone\n"),
+                ("CONTRIBUTING.md", "ours\n"),
+                ("local.md", "my layer\n"),
+            ],
+        );
+        let set = SetPaths::of(&src).unwrap();
+        assert_eq!(set.manifest, Some(src.join("file-set.toml")));
+        assert_eq!(set.taken(false), ["rules.md", "docs"]);
+        assert_eq!(set.taken(true), ["rules.md", "docs", "local.md"]);
+        assert!(set.covers("docs/deep/b.md", false));
+        assert!(!set.covers("local.md", false) && set.covers("local.md", true));
+        assert!(!set.covers("CONTRIBUTING.md", true));
+        assert!(set.described().ends_with("file-set.toml"));
+
+        let steps = plan(&src, &dst, &set, false).unwrap();
+        assert_eq!(
+            steps,
+            vec![
+                Step::Copy("docs/a.md".to_string()),
+                Step::Copy("docs/deep/b.md".to_string()),
+                Step::Delete("docs/deep/stale.md".to_string()),
+                Step::Copy("rules.md".to_string()),
+            ]
+        );
+        apply(&src, &dst, &steps).unwrap();
+        let read = |file: &str| std::fs::read_to_string(dst.join(file)).unwrap();
+        assert_eq!(read("docs/deep/b.md"), "b\n");
+        assert_eq!(
+            read("CONTRIBUTING.md"),
+            "ours\n",
+            "a starter is the project's"
+        );
+        assert_eq!(read("local.md"), "my layer\n", "not asked for");
+        assert!(!dst.join("AGENTS.md").exists(), "not in this set");
+        assert!(plan(&src, &dst, &set, false).unwrap().is_empty());
+
+        let steps = plan(&src, &dst, &set, true).unwrap();
+        assert_eq!(steps, vec![Step::Copy("local.md".to_string())]);
+        apply(&src, &dst, &steps).unwrap();
+        assert_eq!(
+            read("local.md"),
+            "their layer\n",
+            "its own path, not `from`"
+        );
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// A source with no manifest is the built-in set, and one whose
+    /// manifest does not parse is an error naming it, never the
+    /// built-in set in its place.
+    #[test]
+    fn no_manifest_is_the_built_in_set_and_a_bad_one_an_error() {
+        let base = crate::test_helpers::unique_base("af-copy-no-manifest");
+        std::fs::create_dir_all(&base).unwrap();
+        let set = SetPaths::of(&base).unwrap();
+        assert_eq!(set, SetPaths::builtin());
+        assert!(set.described().starts_with("the built-in set"));
+        std::fs::write(base.join("file-set.toml"), "[[file]]\nkind = \"nope\"\n").unwrap();
+        let err = SetPaths::of(&base).unwrap_err();
+        assert!(
+            err.contains("file-set.toml") && err.contains("unknown kind"),
+            "{err}"
+        );
+        let _ = std::fs::remove_dir_all(&base);
     }
 }

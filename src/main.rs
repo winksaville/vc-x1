@@ -17,6 +17,7 @@ mod delete_bookmark;
 mod deprecated;
 mod desc;
 mod desc_helpers;
+mod file_set;
 mod fix_desc;
 mod fix_todo;
 #[cfg(test)]
