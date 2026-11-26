@@ -1404,6 +1404,11 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
         gh(&["auth", "status"], Path::new("."))
             .map_err(|_| "gh is not installed or not authenticated (run: gh auth login)")?;
     }
+    // The symlink is the last step, after the push, so a path it
+    // cannot take is refused here, with nothing made.
+    if plan.agent.is_some() && create_symlink {
+        symlink::check(&plan.project_dir)?;
+    }
     if let Some(agent) = &plan.agent
         && agent.path.exists()
     {

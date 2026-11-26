@@ -260,6 +260,36 @@ pub fn install(project_dir: &Path) -> Result<SymLink, Box<dyn std::error::Error>
     Ok(sl)
 }
 
+/// Refuse a `project_dir` whose symlink path is taken by something
+/// that is no symlink, before `init` makes anything, where
+/// [`install`], init's last step, would refuse it after the push.
+pub fn check(project_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    Ok(check_in(project_dir, &default_symlink_dir()?)?)
+}
+
+/// [`check`] against the symlink directory `symlink_dir`.
+///
+/// Claude Code makes `<symlink_dir>/<encoded project_dir>` a real
+/// directory, holding its transcripts, for a session started in
+/// `project_dir` before the workspace is one. A symlink there,
+/// whatever it points at, is [`install`]'s to keep or replace.
+pub(crate) fn check_in(project_dir: &Path, symlink_dir: &Path) -> Result<(), String> {
+    let cwd = crate::common::normalize_path(project_dir);
+    let cwd_str = cwd
+        .to_str()
+        .ok_or_else(|| format!("'{}' is not valid UTF-8", cwd.display()))?;
+    let path = symlink_dir.join(encode_path(cwd_str));
+    match probe(&path) {
+        Some(None) => Err(format!(
+            "'{}' exists and is not a symlink: a Claude Code session started in the target made \
+             it, and init links that path to the agent repo. Exit the session, move the \
+             directory aside, and run init again",
+            path.display()
+        )),
+        _ => Ok(()),
+    }
+}
+
 /// Default symlink target: the workspace config's bot dir name,
 /// honoring a legacy-schema declaration (the clone
 /// backward-compat path), falling back to `.claude` when no
@@ -540,6 +570,41 @@ mod tests {
 
         let sl = SymLink::with_meta(cwd, target, symlink_dir, None).unwrap();
         assert_eq!(sl.abs_target, PathBuf::from("/tmp/my-claude"));
+    }
+
+    /// The path a session's real directory holds is refused, naming
+    /// it once and what clears it, and a free path, or a symlink
+    /// there, passes.
+    #[cfg(unix)]
+    #[test]
+    fn check_refuses_a_real_directory_at_the_symlink_path() {
+        let base = crate::test_helpers::unique_base("symlink-check");
+        let projects = base.join("projects");
+        let project = base.join("hello");
+        let taken = projects.join(encode_path(project.to_str().unwrap()));
+        std::fs::create_dir_all(&projects).unwrap();
+        assert_eq!(check_in(&project, &projects), Ok(()));
+
+        std::fs::create_dir_all(taken.join("memory")).unwrap();
+        let err = check_in(&project, &projects).unwrap_err();
+        assert!(
+            err.starts_with(&format!(
+                "'{}' exists and is not a symlink",
+                taken.display()
+            )),
+            "{err}"
+        );
+        assert_eq!(
+            err.matches(taken.to_str().unwrap()).count(),
+            1,
+            "the path is said once: {err}"
+        );
+        assert!(err.contains("move the directory aside"), "{err}");
+
+        std::fs::remove_dir_all(&taken).unwrap();
+        std::os::unix::fs::symlink(base.join("elsewhere"), &taken).unwrap();
+        assert_eq!(check_in(&project, &projects), Ok(()));
+        std::fs::remove_dir_all(&base).unwrap();
     }
 
     #[test]

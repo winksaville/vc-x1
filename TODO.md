@@ -266,6 +266,18 @@ ones `--custom`'s, falling back to the constants for a copy of the set that has 
 A real directory at `~/.claude/projects/<mangled-path>` stops `init` at its last step, after the
 push. The preflight checks the path and refuses with nothing made.
 
+- The check is `symlink::check`, the path `install` would take, probed the same way: anything
+  there that is no symlink is refused, and a symlink, whatever it points at, is left to `install`,
+  which keeps or replaces it as before.
+- The refusal names the path once, says a session started in the target made it, and says what
+  clears it: exit the session, move the directory aside, run `init` again. It was first written
+  with the `mv` command spelled out, the mangled path three times over, and shortened at the
+  review (wink). `init` moves nothing itself, the session whose directory it is perhaps still
+  running.
+- It runs only when `init` would make the symlink, a dual workspace from the command line, so
+  `-s por` and the test fixtures, which make none, are not asked.
+- Left: `clone` installs the same symlink as its last step and is not given the check here.
+
 ##### fix: init adopts a .claude-only directory
 
 A directory a session was started in holds `.claude/`, so `init` refuses it without `--adopt` and
