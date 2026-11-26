@@ -7,7 +7,8 @@
 //! - verbatim: written, and a different file there replaced.
 //! - starter: written only when no file is there, `{name}` filled
 //!   with the project's name.
-//! - optional: left out, and with `--custom` written as a starter is.
+//! - optional: left out, and with `--custom` the source's own file
+//!   is written as it is, only when no file is there.
 //!
 //! The manifest's `gitignore` lines are added to the work repo's
 //! `.gitignore` where it lacks them, so what the set means to keep
@@ -38,7 +39,9 @@ pub struct SetOptions {
     /// - verbatim: written, replacing a different file there.
     /// - starter: written only when no file is there, `{name}` filled
     ///   with the project's name.
-    /// - optional: left out unless `--custom` asks for it.
+    /// - optional: left out unless `--custom` asks for it, and then
+    ///   SOURCE's own file, as it is, written only when no file is
+    ///   there.
     ///
     /// SOURCE is read as its working copy holds it.
     #[arg(
@@ -59,8 +62,8 @@ pub struct SetOptions {
     )]
     pub file_set: Option<PathBuf>,
 
-    /// Copy the set's optional entries too, custom.md for one, each
-    /// written only when no file is there.
+    /// Copy the set's optional entries too, SOURCE's own custom.md
+    /// for one, each as it is and only when no file is there.
     #[arg(short = 'c', long, requires = "from")]
     pub custom: bool,
 }
@@ -190,7 +193,8 @@ impl SetPlan {
         for entry in self.taken() {
             let (replace, fill): (bool, Option<Fill>) = match entry.kind {
                 Kind::Verbatim => (true, None),
-                Kind::Starter | Kind::Optional => (false, Some(&fill)),
+                Kind::Starter => (false, Some(&fill)),
+                Kind::Optional => (false, None),
             };
             for file in file_set::files_of(&self.root, entry)? {
                 let outcome = file_set::copy_file(

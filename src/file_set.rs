@@ -31,6 +31,9 @@
 //! there as its caller says. What a kind does with those is the
 //! caller's, so the module holds the mechanism alone.
 //!
+//! [`compare`] says how the files a list of paths stands for differ
+//! between two roots, and [`covers`] whether a path is one of them.
+//!
 //! [`parse`] refuses what it does not know, an unknown key or kind, a
 //! path that leaves the set, and a path listed twice, since a
 //! manifest read loosely copies something other than what it says.
@@ -303,6 +306,48 @@ pub fn add_lines(path: &Path, lines: &[String]) -> Result<usize, String> {
     Ok(missing.len())
 }
 
+/// How one file compares across two roots.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Compared {
+    Same,
+    Differs,
+    OnlyInA,
+    OnlyInB,
+}
+
+/// Every file `paths` stand for under `a` or `b`, with how the two
+/// sides compare, sorted by path. Each path is resolved on both
+/// sides, a directory at every depth, so a file only one side has
+/// is found.
+pub fn compare(a: &Path, b: &Path, paths: &[&str]) -> Result<Vec<(String, Compared)>, String> {
+    let (mut in_a, mut in_b) = (BTreeSet::new(), BTreeSet::new());
+    for path in paths {
+        in_a.extend(resolve(a, path)?);
+        in_b.extend(resolve(b, path)?);
+    }
+    let read = |root: &Path, file: &str| {
+        std::fs::read(root.join(file)).map_err(|e| format!("{}: {e}", root.join(file).display()))
+    };
+    let mut out = Vec::new();
+    for file in in_a.union(&in_b) {
+        let state = match (in_a.contains(file), in_b.contains(file)) {
+            (true, false) => Compared::OnlyInA,
+            (false, true) => Compared::OnlyInB,
+            _ if read(a, file)? == read(b, file)? => Compared::Same,
+            _ => Compared::Differs,
+        };
+        out.push((file.clone(), state));
+    }
+    Ok(out)
+}
+
+/// Whether `file` is one `path` stands for: `path` itself, or a file
+/// beneath it when `path` is a directory.
+pub fn covers(path: &str, file: &str) -> bool {
+    file.strip_prefix(path)
+        .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+}
+
 /// One file of an entry, as a copy takes it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FileOf {
@@ -517,6 +562,54 @@ kind = "optional"
         std::fs::remove_dir_all(&root).unwrap();
     }
 
+    /// Two roots compare by the files a list of paths stands for on
+    /// either side, a directory at every depth, a file outside the
+    /// list left out, and a path covers itself and what is beneath it.
+    #[test]
+    fn two_roots_compare_by_a_list_of_paths() {
+        let base = crate::test_helpers::unique_base("file-set-compare");
+        let (a, b) = (base.join("a"), base.join("b"));
+        let seed = |root: &Path, files: &[(&str, &str)]| {
+            for (file, text) in files {
+                let path = root.join(file);
+                std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+                std::fs::write(path, text).unwrap();
+            }
+        };
+        seed(
+            &a,
+            &[
+                ("one.md", "same\n"),
+                ("dir/x.md", "new\n"),
+                ("dir/sub/y.md", "a's\n"),
+                ("other.md", "unlisted\n"),
+            ],
+        );
+        seed(
+            &b,
+            &[
+                ("one.md", "same\n"),
+                ("dir/x.md", "old\n"),
+                ("dir/sub/z.md", "b's\n"),
+            ],
+        );
+        let rows = compare(&a, &b, &["one.md", "dir", "absent"]).unwrap();
+        assert_eq!(
+            rows,
+            [
+                ("dir/sub/y.md".to_string(), Compared::OnlyInA),
+                ("dir/sub/z.md".to_string(), Compared::OnlyInB),
+                ("dir/x.md".to_string(), Compared::Differs),
+                ("one.md".to_string(), Compared::Same),
+            ]
+        );
+        assert!(covers("dir", "dir/sub/y.md"));
+        assert!(covers("one.md", "one.md"));
+        assert!(!covers("dir", "dirt/x.md"));
+        assert!(!covers("one.md", "one.md.bak"));
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
     /// A file is given the lines it lacks and no other, after a
     /// newline it lacked, and a file that is not there is made.
     #[test]
@@ -657,7 +750,9 @@ kind = "optional"
     fn our_own_manifest_names_what_is_there() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
         let set = load(&root.join(MANIFEST)).unwrap();
-        for e in &set.entries {
+        // An optional file is local, custom.md gitignored, so a clone
+        // need not hold it.
+        for e in set.entries.iter().filter(|e| e.kind != Kind::Optional) {
             assert!(
                 root.join(e.source()).exists(),
                 "{} is read from {}, which is not there",

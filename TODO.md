@@ -228,6 +228,39 @@ their own. They read the source's `file-set.toml`, its verbatim entries the set 
 ones `--custom`'s, falling back to the constants for a copy of the set that has none, and
 `set_files`, `compare`, and the copy move onto `file_set`, so the set is listed by one module.
 
+- The set `diff` and `copy` take is `SetPaths`, read from the source's `file-set.toml`, a diff's
+  `--from` side: its verbatim entries, and its optional ones with `-c`. A source with no manifest
+  is the built-in set, `AGENTS.md`, `agent-data/`, and `custom.md` on request, as before, so an
+  older copy of the set still diffs, and a manifest that does not parse is an error, never the
+  built-in set in its place. Each command says which it read.
+- A path is read at itself on both sides, never at an entry's `from`. That settles the first
+  rung's open point: `from` names the template a new workspace starts from, `init`'s, and two
+  copies of a set share the file at its path, so `agent-files copy -c` still copies the adopter's
+  own `custom.md`.
+- With `--from`, `custom.md` is the source's own (wink, at the review: "with --from means get it
+  from --from"). `init --from <SOURCE> -c` wrote the skeleton's stub where `agent-files diff -c`
+  compared the source's own `custom.md`, so a workspace just made differed from its source by the
+  whole file. The manifest's `custom.md` entry loses its `from`, and `init` writes an optional
+  file as the source holds it, nothing filled, and only when none is there. This revises the two
+  rungs before, which read the template and filled `{name}`.
+  - A source with no `custom.md` refuses `-c` in the preflight, as any entry with no file does.
+  - The manifest's own test asks no optional file to be in the tree, `custom.md` being gitignored
+    and so absent from a clone.
+  - `-c` with no `--from` stays refused by the parser, naming `--from`, there being no set to
+    take a `custom.md` from.
+- A starter is no part of a diff or a copy, its content each project's own, so `CONTRIBUTING.md`
+  and `notes/` are never compared, as they never were.
+- `agent-data/` is now taken at every depth, where `set_files` took the plain files directly under
+  it. It holds no directory today, so nothing changes for a set as it is.
+- The third layer is in `file_set`: `compare` gives how the files a list of paths stands for
+  differ between two roots, and `covers` whether a path is one of them, which the copy's
+  dirty-working-copy guard asks. `diff::compare` maps that onto its states and adds the project
+  layer's rows, and `copy::apply` copies by `file_set::copy_file`. `set_files` and `in_set` are
+  gone.
+- Left: `agent-files size` lists the set by code of its own, `AGENTS.md`, `custom.md`, and the
+  plain files of `agent-data/`, its table's columns bound to those names. **feat:
+  agent-files-size should exclude custom.md** is the entry that reworks it.
+
 ##### fix: init refuses a taken symlink path up front
 
 A real directory at `~/.claude/projects/<mangled-path>` stops `init` at its last step, after the

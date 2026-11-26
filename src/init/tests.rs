@@ -852,7 +852,7 @@ fn a_set(base: &Path) -> PathBuf {
         ("agent-data/deep/er.md", "deeper\n"),
         ("skel/CONTRIBUTING.md", "# Contributing to {name}\n"),
         ("skel/TODO.md", "# The set's Todo\n"),
-        ("skel/custom.md", "# custom.md of {name}\n"),
+        ("custom.md", "the set's own {name}\n"),
         (
             "file-set.toml",
             r#"
@@ -874,7 +874,6 @@ from = "skel/TODO.md"
 [[file]]
 path = "custom.md"
 kind = "optional"
-from = "skel/custom.md"
 "#,
         ),
     ] {
@@ -982,7 +981,11 @@ fn from_replaces_verbatim_and_keeps_a_starter() {
     let read = |file: &str| std::fs::read_to_string(work.join(file)).unwrap();
     assert_eq!(read("AGENTS.md"), "the rules\n", "verbatim, replaced");
     assert_eq!(read("CONTRIBUTING.md"), "# Ours\n", "a starter, kept");
-    assert_eq!(read("custom.md"), "# custom.md of work\n");
+    assert_eq!(
+        read("custom.md"),
+        "the set's own {name}\n",
+        "the source's own, as it is"
+    );
     let files = crate::test_helpers::jj_ok_at(&work, &["file", "list", "-r", "@-"]);
     assert!(
         !files.lines().any(|l| l == "custom.md"),

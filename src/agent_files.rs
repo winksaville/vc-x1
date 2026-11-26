@@ -19,6 +19,9 @@
 //!   ([`copy`]) making this set that copy, and `size` ([`size`])
 //!   counting the set's lines and sliding the table that records
 //!   them.
+//! - `SetPaths`: the paths `diff` and `copy` take as the set, read
+//!   from the source's `file-set.toml` ([`crate::file_set`]) or, for
+//!   a copy of the set that has none, the built-in list.
 //! - `WorkspaceAgentFiles` / `config_at(root)`: the work side's
 //!   `[agent-files.diff]` and `[agent-files.copy]` tables, the
 //!   per-workspace defaults for the `diff` and `copy` operands and
@@ -78,6 +81,91 @@ pub fn report_line(work_root: Option<&Path>) -> String {
             } else {
                 format!("agent-files {}", vs.join(", "))
             }
+        }
+    }
+}
+
+/// The paths `diff` and `copy` take as the set, each a file or a
+/// directory, a directory standing for every file beneath it.
+///
+/// Both are read at the path itself on either side, never at a
+/// manifest entry's `from`, which names the template a new workspace
+/// starts from and not a file two copies of the set share. A
+/// manifest's starters are no part of it, their content being each
+/// project's own.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SetPaths {
+    /// Kept identical: compared, and made the same by a copy.
+    pub verbatim: Vec<String>,
+    /// The project layer: compared and copied only when asked, by
+    /// `-c`/`--custom`.
+    pub optional: Vec<String>,
+    /// The manifest the paths were read from, `None` for the
+    /// built-in list.
+    pub manifest: Option<std::path::PathBuf>,
+}
+
+impl SetPaths {
+    /// The built-in list, what the set was before a manifest said:
+    /// `AGENTS.md` and `agent-data/`, with `custom.md` on request.
+    pub fn builtin() -> Self {
+        Self {
+            verbatim: vec![diff::AGENTS_MD.to_string(), diff::AGENT_DATA.to_string()],
+            optional: vec![diff::CUSTOM_MD.to_string()],
+            manifest: None,
+        }
+    }
+
+    /// The paths of the set in `dir`, the source of a copy or a
+    /// diff's first side: its `file-set.toml`'s verbatim and optional
+    /// entries, or the built-in list when it has no manifest. A
+    /// manifest that does not parse is an error, never the fallback.
+    pub fn of(dir: &Path) -> Result<Self, String> {
+        let manifest = dir.join(crate::file_set::MANIFEST);
+        if !manifest.is_file() {
+            return Ok(Self::builtin());
+        }
+        let set = crate::file_set::load(&manifest)?;
+        let of_kind = |kind| -> Vec<String> {
+            set.entries
+                .iter()
+                .filter(|e| e.kind == kind)
+                .map(|e| e.path.clone())
+                .collect()
+        };
+        Ok(Self {
+            verbatim: of_kind(crate::file_set::Kind::Verbatim),
+            optional: of_kind(crate::file_set::Kind::Optional),
+            manifest: Some(manifest),
+        })
+    }
+
+    /// The paths compared or copied: the verbatim ones, and the
+    /// optional ones with `custom`.
+    pub fn taken(&self, custom: bool) -> Vec<&str> {
+        let optional = self.optional.iter().filter(|_| custom);
+        self.verbatim
+            .iter()
+            .chain(optional)
+            .map(String::as_str)
+            .collect()
+    }
+
+    /// Whether `file` is one a copy may touch.
+    pub fn covers(&self, file: &str, custom: bool) -> bool {
+        self.taken(custom)
+            .iter()
+            .any(|path| crate::file_set::covers(path, file))
+    }
+
+    /// Where the list came from, for a command's header.
+    pub fn described(&self) -> String {
+        match &self.manifest {
+            Some(path) => format!("the set by {}", path.display()),
+            None => format!(
+                "the built-in set, the source holding no {}",
+                crate::file_set::MANIFEST
+            ),
         }
     }
 }

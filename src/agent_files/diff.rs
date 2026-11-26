@@ -11,18 +11,20 @@
 //! - `resolve_custom`: the flag, else the command's `custom` key,
 //!   else the built-in.
 //! - `compare`: the union of both sides' set files with each one's
-//!   state, and `report` renders it. The exit status is non-zero
+//!   state, the files those `SetPaths` names, listed and compared by
+//!   [`crate::file_set`], and `report` renders it. The exit status is non-zero
 //!   when anything differs, as `diff`'s is, so a script can ask
 //!   "is a re-sync a copy?" without reading.
 
-use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::Args;
 use log::{error, info};
 
+use super::SetPaths;
 use crate::common;
+use crate::file_set::{self, Compared};
 
 /// The set's fixed members beside `agent-data/`.
 pub const AGENTS_MD: &str = "AGENTS.md";
@@ -210,57 +212,34 @@ pub fn resolve_custom(flag: bool, no_flag: bool, key_value: Option<bool>, defaul
     }
 }
 
-/// The set's files under `dir`, as relative paths: AGENTS.md, the
-/// plain files directly under `agent-data/`, and custom.md when
-/// `custom`. A missing file is simply absent, so an empty
-/// directory is an empty set.
-pub fn set_files(dir: &Path, custom: bool) -> BTreeSet<String> {
-    let mut out = BTreeSet::new();
-    if dir.join(AGENTS_MD).is_file() {
-        out.insert(AGENTS_MD.to_string());
-    }
-    if custom && dir.join(CUSTOM_MD).is_file() {
-        out.insert(CUSTOM_MD.to_string());
-    }
-    if let Ok(entries) = std::fs::read_dir(dir.join(AGENT_DATA)) {
-        for e in entries.flatten() {
-            if e.path().is_file()
-                && let Some(name) = e.file_name().to_str()
-            {
-                out.insert(format!("{AGENT_DATA}/{name}"));
-            }
-        }
-    }
-    out
-}
-
-/// Every set file on either side with its state, sorted by path.
-/// custom.md rides along as the project layer when it is not
-/// compared and either side has it.
+/// Every set file on either side with its state, sorted by path:
+/// the files `paths` names, a directory's at every depth, a missing
+/// one simply absent. The optional files ride along as the project
+/// layer, after the rest, when they are not compared and either side
+/// has one.
 pub fn compare(
     a: &Path,
     b: &Path,
+    paths: &SetPaths,
     custom: bool,
 ) -> Result<Vec<(String, State)>, Box<dyn std::error::Error>> {
-    let in_a = set_files(a, custom);
-    let in_b = set_files(b, custom);
-    let mut out = Vec::new();
-    for path in in_a.union(&in_b) {
-        let state = match (in_a.contains(path), in_b.contains(path)) {
-            (true, false) => State::OnlyInA,
-            (false, true) => State::OnlyInB,
-            _ => {
-                if std::fs::read(a.join(path))? == std::fs::read(b.join(path))? {
-                    State::Same
-                } else {
-                    State::Differs
-                }
-            }
-        };
-        out.push((path.clone(), state));
-    }
-    if !custom && (a.join(CUSTOM_MD).is_file() || b.join(CUSTOM_MD).is_file()) {
-        out.push((CUSTOM_MD.to_string(), State::ProjectLayer));
+    let mut out: Vec<(String, State)> = file_set::compare(a, b, &paths.taken(custom))?
+        .into_iter()
+        .map(|(file, compared)| {
+            let state = match compared {
+                Compared::Same => State::Same,
+                Compared::Differs => State::Differs,
+                Compared::OnlyInA => State::OnlyInA,
+                Compared::OnlyInB => State::OnlyInB,
+            };
+            (file, state)
+        })
+        .collect();
+    if !custom {
+        let optional: Vec<&str> = paths.optional.iter().map(String::as_str).collect();
+        for (file, _) in file_set::compare(a, b, &optional)? {
+            out.push((file, State::ProjectLayer));
+        }
     }
     Ok(out)
 }
@@ -325,7 +304,9 @@ impl DiffArgs {
             "agent-files diff: {} ({}) against {} ({})",
             a.shown, a.source, b.shown, b.source
         );
-        let rows = compare(&a.path, &b.path, custom)?;
+        let paths = SetPaths::of(&a.path)?;
+        info!("agent-files diff: {}", paths.described());
+        let rows = compare(&a.path, &b.path, &paths, custom)?;
         info!("{}", report(&rows, &a.shown, &b.shown).trim_end());
         Ok(!rows.iter().any(|(_, s)| s.differs()))
     }
@@ -459,7 +440,8 @@ mod tests {
                 ("agent-data/agent-files-v0.1.0", ""),
             ],
         );
-        let rows = compare(&a, &b, false).unwrap();
+        let set = SetPaths::builtin();
+        let rows = compare(&a, &b, &set, false).unwrap();
         assert_eq!(
             rows,
             vec![
@@ -492,11 +474,16 @@ mod tests {
         assert!(line("AGENTS.md ")[width..].starts_with("same"), "{text}");
         assert!(line("custom.md ")[width..].starts_with("project"), "{text}");
         assert!(text.ends_with("3 of 5 differ\n"), "{text}");
-        let rows = compare(&a, &b, true).unwrap();
+        let rows = compare(&a, &b, &set, true).unwrap();
         assert!(rows.contains(&("custom.md".to_string(), State::Differs)));
         assert!(report(&rows, "x", "y").ends_with("4 of 6 differ\n"));
-        let rows = compare(&a, &a, true).unwrap();
+        let rows = compare(&a, &a, &set, true).unwrap();
         assert!(rows.iter().all(|(_, s)| *s == State::Same));
         assert!(report(&rows, "x", "y").ends_with("0 of 5 differ\n"));
+        // A directory is compared at every depth.
+        std::fs::create_dir_all(a.join("agent-data/deep")).unwrap();
+        std::fs::write(a.join("agent-data/deep/d.md"), "deep\n").unwrap();
+        let rows = compare(&a, &b, &set, false).unwrap();
+        assert!(rows.contains(&("agent-data/deep/d.md".to_string(), State::OnlyInA)));
     }
 }

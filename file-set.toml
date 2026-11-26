@@ -8,7 +8,7 @@
 #   - verbatim: kept identical, diffed, and replaced on copy.
 #   - starter: written only when absent and never replaced, its shape the set's and its content
 #     the project's, `{name}` filled with the project's name.
-#   - optional: copied only when asked for.
+#   - optional: copied only when asked for, the source's own file, as it is.
 # - from: where its text is read in the set, when that is not `path`, so a starter's template is
 #   not the adopter's own file.
 #
@@ -62,9 +62,8 @@ kind = "starter"
 path = "LICENSE-MIT"
 kind = "starter"
 
-# What is local to one workspace.
+# What is local to one workspace, the source's own when it is asked for.
 
 [[file]]
 path = "custom.md"
 kind = "optional"
-from = "scripts/vc-dr-apply-base/work/custom.md"
