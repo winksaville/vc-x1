@@ -54,7 +54,7 @@ impl Steps {
                 format!("Colocate the git repo {work_dir} with jj, its history kept"),
             ));
         }
-        let prepare_work = if params.adopt {
+        let prepare_work = if plan.adopting {
             format!("Init the work repo (jj, colocated) in {work_dir}, adopting its content")
         } else {
             format!("Create {work_dir} and init the work repo (jj, colocated)")
@@ -86,6 +86,11 @@ impl Steps {
                 "Copy {} as the work repo's config and write its .gitignore",
                 p.display()
             ),
+        };
+        let config_work = if plan.session_dir {
+            format!("{config_work}, its .claude/ ignored")
+        } else {
+            config_work
         };
         let config_work = format!("{config_work}, then TODO.md and zTOC.md where absent");
         list.push((Step::ConfigWork, config_work));

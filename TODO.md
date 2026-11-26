@@ -284,6 +284,21 @@ A directory a session was started in holds `.claude/`, so `init` refuses it with
 commits `.claude/.cc-writes/` with it. Such a directory is taken as empty, and its `.claude/` is
 ignored by the work `.gitignore`.
 
+- A directory holding `.claude/` and nothing else is adopted without `--adopt`, since that is what
+  a session started in an empty directory leaves. One holding anything more still needs the flag,
+  its content being someone's to hand over, and `-s por`, which takes no `--adopt`, takes no such
+  directory either.
+- A plain directory holding `.claude/`, adopted either way, has `/.claude` added to the work
+  `.gitignore`, so nothing of it is in the first commit and all of it stays on disk. A repo that
+  is adopted keeps its own choice, its `.claude/` tracked or not as its history has it.
+- A fresh workspace is unchanged, ignoring `/.claude/settings.local.json` alone, the rest of a
+  `.claude/` made later being the project's to commit. The wider rule, **Every repo's .gitignore
+  ignores .claude, and settings stay out of agent-repos**, stays a Todo.
+- The dry run says so: the header reads "adopting", and the config step ends "its .claude/
+  ignored".
+- With the rung before, a session's directory is refused first for its symlink path, and once
+  that is moved aside `init <TARGET>` makes the workspace with no flag.
+
 ##### feat: init copies a file set and finishes what it starts closing
 
 Closing out the cycle.
@@ -599,6 +614,32 @@ up that way, wink asking the agent for the commands. A fresh `vc-x1 clone` leave
 - **A parked head is durable and continues on any machine** is the same need for work not yet
   committed, its `continue` fetching a `wip/` ref, and **clone takes -b for the work-repo's
   bookmark** the same for a clone. The three may be one cycle.
+
+### agent-files(proposal): a link stays on one line
+
+(wink + agent, 2026-11-25, from **feat: init copies a file set and finishes what it starts**) A
+link's text wraps with the prose around it, `[Working` ending one line and `practices](...)`
+opening the next, as 128 links do today, 65 of them in the agent-files. A search for the link's
+text then misses it, a previewer may not join it, and `check anchors` has a bug of its own for a
+citation after a wrapped code span. Wink read one in `custom.md` and was not sure it was valid.
+
+- **Solution**: a rule in `prose.md`'s Line widths, a check, and a sweep.
+  - A link, text and destination, is never split across lines.
+  - A link that does not fit the line within the prose width starts the next line.
+  - A link longer than the width alone is the exception to it, as a URL is already.
+  - `check anchors` refuses a link that spans a line.
+- **Acceptance check**: `check anchors` over the agent-files reports no link spanning a line, and
+  refuses a file given one.
+- **The short lines are a fair trade** (wink, 2026-11-25): a line broken early before a link is
+  ragged in the source alone, never rendered.
+- **What follows a moved link**, open: the agent reads the rule as letting the text after a link
+  go on along its line while it fits, the line after taking it only when the link fills its own.
+  Wink's "on the next line by itself" may mean a moved link is always alone on its line.
+- **The sweep**: the agent-files by the cycle that makes the rule, `TODO.md` (32), `notes/` (16),
+  `README.md` (11), and the skeleton's templates (2) as a cycle touches each or by a sweep of its
+  own, as the semicolons went. `custom.md`'s one was joined by hand, the file being local.
+- Closes **validate-anchors finds a citation that follows a wrapped code span** by rule.
+- To be carried by **agent-files(proposal): v0.3.1**.
 
 ### agent-files(proposal): v0.3.1
 

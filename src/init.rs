@@ -793,6 +793,15 @@ pub(crate) struct InitPlan {
     /// Under `--test-repo`, the URL of the adopted repo's `origin`,
     /// which REMOTES replaces: removed, or kept by `--upstream`.
     pub replaced_origin: Option<String>,
+    /// The target is a plain directory holding a `.claude/`, a Claude
+    /// Code session's, set once the target is read: the work repo's
+    /// `.gitignore` then ignores `/.claude`, so the session's files
+    /// are not in the first commit.
+    pub session_dir: bool,
+    /// The target is adopted: by `--adopt`, or a directory holding
+    /// `.claude/` alone, which is taken as empty. Set once the target
+    /// is read.
+    pub adopting: bool,
 }
 
 /// What the work side of a plan starts from.
@@ -1158,6 +1167,8 @@ fn plan_local(
         work_start: WorkStart::Fresh,
         remote_error: None,
         replaced_origin: None,
+        session_dir: false,
+        adopting: false,
     })
 }
 
@@ -1185,6 +1196,8 @@ fn build_plan(
         work_start: WorkStart::Fresh,
         remote_error: None,
         replaced_origin: None,
+        session_dir: false,
+        adopting: false,
     })
 }
 
@@ -1377,7 +1390,16 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     // --- Preflight ---
     info!("Preflight checks...");
 
-    check_target_state(&plan.project_dir, &state, params.adopt)?;
+    // A directory holding `.claude/` alone is what a Claude Code
+    // session started there leaves, so it is taken as an empty one. A
+    // plain repo takes no `--adopt`, and so not this either.
+    plan.session_dir =
+        state == adopt::TargetState::PlainDir && adopt::holds_claude(&plan.project_dir);
+    plan.adopting = params.adopt
+        || (plan.session_dir
+            && plan.agent.is_some()
+            && adopt::holds_only_claude(&plan.project_dir));
+    check_target_state(&plan.project_dir, &state, plan.adopting)?;
     let set = set::SetPlan::new(&params.set, &plan.project_dir)?;
     let adopting_repo = matches!(
         state,
@@ -1498,7 +1520,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
 
     let steps = steps::Steps::new(&plan, params, set.as_ref(), visibility, create_symlink);
     if params.dry_run {
-        if params.adopt {
+        if plan.adopting {
             info!(
                 "Dry run, adopting {}, {}, would execute:",
                 plan.project_dir.display(),
@@ -1696,6 +1718,10 @@ fn create_dual(
         write_work_gitignore(&plan.project_dir, &agent.dir)?;
     } else {
         write_work_config(&plan.project_dir, &agent.dir, &agent_repo)?;
+    }
+    if plan.session_dir {
+        let line = [format!("/{}", adopt::CLAUDE_DIR)];
+        crate::file_set::add_lines(&plan.project_dir.join(".gitignore"), &line)?;
     }
     write_record_files(&plan.project_dir)?;
     if let Some(set) = set {
@@ -2008,7 +2034,9 @@ fn plan_test_adopt(
 /// one it can grow. A dual workspace has nothing to grow.
 ///
 /// - A plain directory is adopted: both repos are created around its
-///   content, which becomes the work repo's first commit.
+///   content, which becomes the work repo's first commit. One holding
+///   `.claude/` alone is adopted without the flag, the caller passing
+///   `adopting` for it.
 /// - A repo with no workspace config, or a single-repo workspace, is
 ///   adopted: the agent side grows beside it, and its history stays.
 fn check_target_state(

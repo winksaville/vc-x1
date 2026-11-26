@@ -788,6 +788,109 @@ fn adopt_refuses_an_existing_agent_directory() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
+// ---------- a directory a Claude Code session was started in ----------
+
+/// A directory holding `.claude/` alone is adopted without `--adopt`,
+/// nothing of `.claude/` is in the first commit, and it is still
+/// there, ignored.
+#[test]
+fn a_claude_only_directory_is_adopted_and_its_claude_ignored() {
+    use crate::test_helpers::jj_ok_at;
+
+    let base = crate::test_helpers::unique_base("init-claude-only");
+    let work = base.join("work");
+    std::fs::create_dir_all(work.join(".claude/.cc-writes")).unwrap();
+    std::fs::write(work.join(".claude/.cc-writes/a"), "a session's\n").unwrap();
+    std::fs::write(work.join(".claude/settings.json"), "{}\n").unwrap();
+
+    init_from(&base, super::set::SetOptions::default(), false)
+        .expect("a .claude-only directory needs no --adopt");
+
+    let files = jj_ok_at(&work, &["file", "list", "-r", "@-"]);
+    assert!(
+        !files.lines().any(|l| l.starts_with(".claude")),
+        "nothing of .claude/ is committed: {files}"
+    );
+    assert!(files.lines().any(|l| l == ".vc-config.md"), "{files}");
+    assert!(work.join(".claude/.cc-writes/a").exists(), "and it is kept");
+    let gitignore = std::fs::read_to_string(work.join(".gitignore")).unwrap();
+    assert!(gitignore.lines().any(|l| l == "/.claude"), "{gitignore}");
+    assert!(
+        jj_ok_at(&work, &["diff", "--summary"]).trim().is_empty(),
+        "nothing left uncommitted"
+    );
+    assert!(work.join(".agent-session/.jj").exists(), "a dual workspace");
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+/// A directory holding `.claude/` and anything else still needs
+/// `--adopt`, and adopted, its content is committed and its
+/// `.claude/` is not.
+#[test]
+fn a_directory_with_claude_and_more_needs_adopt_and_keeps_claude_out() {
+    use crate::test_helpers::jj_ok_at;
+
+    let base = crate::test_helpers::unique_base("init-claude-and-more");
+    let work = base.join("work");
+    std::fs::create_dir_all(work.join(".claude")).unwrap();
+    std::fs::write(work.join(".claude/settings.json"), "{}\n").unwrap();
+    std::fs::write(work.join("notes.txt"), "a record\n").unwrap();
+
+    let err = init_from(&base, super::set::SetOptions::default(), false)
+        .expect_err("refused")
+        .to_string();
+    assert!(err.contains("pass --adopt"), "{err}");
+    assert!(!work.join(".jj").exists(), "nothing made");
+
+    init_from(&base, super::set::SetOptions::default(), true).expect("adopted");
+    let files = jj_ok_at(&work, &["file", "list", "-r", "@-"]);
+    assert!(files.lines().any(|l| l == "notes.txt"), "{files}");
+    assert!(
+        !files.lines().any(|l| l.starts_with(".claude")),
+        "nothing of .claude/ is committed: {files}"
+    );
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+/// What holds `.claude/` alone: a directory with that one entry, not
+/// an empty one, one with more, or one where `.claude` is a file. A
+/// directory with no `.claude/` gets no line for it.
+#[test]
+fn only_a_claude_directory_alone_is_taken_as_empty() {
+    use super::adopt::{holds_claude, holds_only_claude};
+
+    let base = crate::test_helpers::unique_base("init-holds-claude");
+    let dir = |name: &str| {
+        let d = base.join(name);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    };
+    let empty = dir("empty");
+    assert!(!holds_claude(&empty) && !holds_only_claude(&empty));
+
+    let only = dir("only");
+    std::fs::create_dir_all(only.join(".claude")).unwrap();
+    assert!(holds_claude(&only) && holds_only_claude(&only));
+
+    let more = dir("more");
+    std::fs::create_dir_all(more.join(".claude")).unwrap();
+    std::fs::write(more.join("a.txt"), "a\n").unwrap();
+    assert!(holds_claude(&more) && !holds_only_claude(&more));
+
+    let file = dir("file");
+    std::fs::write(file.join(".claude"), "not a directory\n").unwrap();
+    assert!(!holds_claude(&file) && !holds_only_claude(&file));
+    assert!(!holds_only_claude(&base.join("absent")));
+
+    // A fresh workspace, with no `.claude/`, is not given the line.
+    let fresh = crate::test_helpers::unique_base("init-no-claude");
+    init_from(&fresh, super::set::SetOptions::default(), false).expect("fresh");
+    let gitignore = std::fs::read_to_string(fresh.join("work/.gitignore")).unwrap();
+    assert!(!gitignore.lines().any(|l| l == "/.claude"), "{gitignore}");
+    let _ = std::fs::remove_dir_all(&base);
+    let _ = std::fs::remove_dir_all(&fresh);
+}
+
 // ---------- the steps, numbered as they run ----------
 
 /// A dual plan runs ten steps in order, the symlink last, and drops

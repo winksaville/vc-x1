@@ -91,6 +91,26 @@ pub(crate) fn detect_target_state(dir: &Path) -> Result<TargetState, Box<dyn std
     )
 }
 
+/// The directory Claude Code keeps in a project, which a session
+/// started in a directory leaves there.
+pub(crate) const CLAUDE_DIR: &str = ".claude";
+
+/// Whether `dir` holds a `.claude/` directory.
+pub(crate) fn holds_claude(dir: &Path) -> bool {
+    dir.join(CLAUDE_DIR).is_dir()
+}
+
+/// Whether `dir` holds a `.claude/` directory and nothing else, as a
+/// directory does when all that happened in it is a Claude Code
+/// session being started. A directory that cannot be read is not one.
+pub(crate) fn holds_only_claude(dir: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    let mut names = entries.flatten().map(|e| e.file_name());
+    holds_claude(dir) && names.all(|name| name == CLAUDE_DIR)
+}
+
 /// Whether `dir` is a git repo with no jj, which adopt colocates
 /// before it grows it.
 pub(crate) fn is_git_only(dir: &Path) -> bool {
