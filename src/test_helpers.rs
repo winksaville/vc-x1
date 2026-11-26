@@ -244,6 +244,7 @@ impl Fixture {
             agent_dir: None,
             agent_repo: None,
             agent_suffix: None,
+            set: crate::init::set::SetOptions::default(),
         };
         let ctx = Context::load().expect("load user config for test fixture");
         let mut params = InitParams::from(&args);
@@ -346,6 +347,7 @@ impl FixturePor {
             agent_dir: None,
             agent_repo: None,
             agent_suffix: None,
+            set: crate::init::set::SetOptions::default(),
         };
         let ctx = Context::load().expect("load user config for POR test fixture");
         let mut params = InitParams::from(&args);

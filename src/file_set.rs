@@ -19,20 +19,21 @@
 //! - `from`: where its text is read in the set, when that is not
 //!   `path`, so a starter's template is not the adopter's own file.
 //!
+//! Before the entries a manifest may hold `gitignore`, a list of the
+//! lines a workspace's `.gitignore` needs for the set, `/custom.md`
+//! for one, which [`add_lines`] gives a file that lacks them.
+//!
 //! [`resolve`] turns an entry's path into the files it stands for
 //! under a root.
+//!
+//! [`files_of`] pairs each file of an entry with where a copy writes
+//! it, and [`copy_file`] copies one, replacing or keeping what is
+//! there as its caller says. What a kind does with those is the
+//! caller's, so the module holds the mechanism alone.
 //!
 //! [`parse`] refuses what it does not know, an unknown key or kind, a
 //! path that leaves the set, and a path listed twice, since a
 //! manifest read loosely copies something other than what it says.
-
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "init --from, the cycle's next rung, is the first caller"
-    )
-)]
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -42,8 +43,11 @@ use toml_edit::{DocumentMut, Item, Table};
 /// The manifest's file name, at the set's root.
 pub const MANIFEST: &str = "file-set.toml";
 
-/// The one top-level key, an array of tables.
+/// The top-level key of the entries, an array of tables.
 const FILE: &str = "file";
+
+/// The top-level key of the `.gitignore` lines, a list of strings.
+const GITIGNORE: &str = "gitignore";
 
 /// What a copy does with an entry.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -99,17 +103,13 @@ impl Entry {
     }
 }
 
-/// A manifest's entries, in the order it lists them.
+/// A manifest: its entries and its `.gitignore` lines, each in the
+/// order it lists them.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FileSet {
     pub entries: Vec<Entry>,
-}
-
-impl FileSet {
-    /// The entries of `kind`, in the manifest's order.
-    pub fn of_kind(&self, kind: Kind) -> impl Iterator<Item = &Entry> {
-        self.entries.iter().filter(move |e| e.kind == kind)
-    }
+    /// The lines a workspace's `.gitignore` needs for the set.
+    pub gitignore: Vec<String>,
 }
 
 /// Read the manifest at `path`. Every error names the file.
@@ -120,17 +120,23 @@ pub fn load(path: &Path) -> Result<FileSet, String> {
 
 /// Parse a manifest's text.
 ///
-/// - The only top-level key is `file`, written as `[[file]]` tables.
+/// - The top-level keys are `file`, written as `[[file]]` tables,
+///   and `gitignore`, a list of lines.
 /// - An entry takes `path` and `kind`, both required, and `from`.
 /// - A manifest with no entry is refused, since it copies nothing.
 pub fn parse(text: &str) -> Result<FileSet, String> {
     let doc: DocumentMut = text.parse().map_err(|e| format!("{e}"))?;
     let mut entries: Vec<Entry> = Vec::new();
+    let mut gitignore = Vec::new();
     let mut seen = BTreeSet::new();
     for (key, item) in doc.as_table().iter() {
+        if key == GITIGNORE {
+            gitignore = parse_lines(item)?;
+            continue;
+        }
         if key != FILE {
             return Err(format!(
-                "unknown key '{key}': a manifest holds [[{FILE}]] tables alone"
+                "unknown key '{key}': a manifest holds '{GITIGNORE}' and [[{FILE}]] tables alone"
             ));
         }
         let Item::ArrayOfTables(tables) = item else {
@@ -149,7 +155,31 @@ pub fn parse(text: &str) -> Result<FileSet, String> {
     if entries.is_empty() {
         return Err(format!("no [[{FILE}]] entry, so the set holds nothing"));
     }
-    Ok(FileSet { entries })
+    Ok(FileSet { entries, gitignore })
+}
+
+/// The `gitignore` list: strings, each one line, none empty, and
+/// none twice.
+fn parse_lines(item: &Item) -> Result<Vec<String>, String> {
+    let array = item
+        .as_array()
+        .ok_or_else(|| format!("'{GITIGNORE}' is not a list of strings"))?;
+    let mut lines: Vec<String> = Vec::new();
+    for value in array.iter() {
+        let line = value
+            .as_str()
+            .ok_or_else(|| format!("'{GITIGNORE}' holds {value}, which is not a string"))?;
+        if line.trim().is_empty() || line.contains('\n') {
+            return Err(format!(
+                "'{GITIGNORE}' holds {line:?}, and each is one line that is not empty"
+            ));
+        }
+        if lines.iter().any(|l| l == line) {
+            return Err(format!("'{GITIGNORE}' holds '{line}' twice"));
+        }
+        lines.push(line.to_string());
+    }
+    Ok(lines)
 }
 
 /// One `[[file]]` table as an entry.
@@ -245,6 +275,121 @@ fn walk(dir: &Path, rel: &str, out: &mut BTreeSet<String>) -> Result<(), String>
     Ok(())
 }
 
+/// Give the file at `path` each of `lines` it lacks, appended in
+/// order, a line there already, whatever its surrounding spaces,
+/// kept as it is. A file that is not there is made. Returns how many
+/// lines were added.
+pub fn add_lines(path: &Path, lines: &[String]) -> Result<usize, String> {
+    let at = |e: std::io::Error| format!("{}: {e}", path.display());
+    let existing = match std::fs::read_to_string(path) {
+        Ok(existing) => existing,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(at(e)),
+    };
+    let missing: Vec<&String> = lines
+        .iter()
+        .filter(|line| !existing.lines().any(|l| l.trim() == line.as_str()))
+        .collect();
+    if missing.is_empty() {
+        return Ok(0);
+    }
+    let sep = if existing.is_empty() || existing.ends_with('\n') {
+        ""
+    } else {
+        "\n"
+    };
+    let added: String = missing.iter().map(|l| format!("{l}\n")).collect();
+    std::fs::write(path, format!("{existing}{sep}{added}")).map_err(at)?;
+    Ok(missing.len())
+}
+
+/// One file of an entry, as a copy takes it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FileOf {
+    /// Where it is read, relative to the set's root.
+    pub from: String,
+    /// Where it is written, relative to the destination's root.
+    pub to: String,
+}
+
+/// The files `entry` stands for in the set at `root`, each with where
+/// a copy writes it: the entry's path, and for a directory the file's
+/// path beneath it. Sorted by where they are read.
+pub fn files_of(root: &Path, entry: &Entry) -> Result<Vec<FileOf>, String> {
+    let source = entry.source();
+    resolve(root, source)?
+        .into_iter()
+        .map(|from| {
+            let beneath = from
+                .strip_prefix(source)
+                .ok_or_else(|| format!("'{from}' is not under '{source}'"))?;
+            Ok(FileOf {
+                to: format!("{}{beneath}", entry.path),
+                from,
+            })
+        })
+        .collect()
+}
+
+/// What became of a file a copy took.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Copied {
+    /// Nothing was there, and it is written.
+    Written,
+    /// A different file was there, and it is replaced.
+    Replaced,
+    /// A different file was there, and it is kept.
+    Kept,
+    /// The same bytes were there already.
+    Same,
+}
+
+/// What a copy does to a file's text before it is compared or
+/// written, a template's placeholders filled.
+pub type Fill<'a> = &'a dyn Fn(&str) -> String;
+
+/// Copy the file `from` to `to`, making the directories `to` needs.
+///
+/// - `replace`: whether a different file at `to` is replaced or kept.
+/// - `fill`: applied to the text before it is compared or written,
+///   for a template's placeholders. A file that is not UTF-8 is
+///   copied as it is.
+/// - The copy has the source's permissions, so a script stays one.
+/// - Anything at `to` but a plain file, a directory or a symlink, is
+///   refused, never written through.
+pub fn copy_file(
+    from: &Path,
+    to: &Path,
+    replace: bool,
+    fill: Option<Fill>,
+) -> Result<Copied, String> {
+    let at = |path: &Path, e: std::io::Error| format!("{}: {e}", path.display());
+    let bytes = std::fs::read(from).map_err(|e| at(from, e))?;
+    let bytes = match (fill, std::str::from_utf8(&bytes)) {
+        (Some(fill), Ok(text)) => fill(text).into_bytes(),
+        _ => bytes,
+    };
+    let outcome = match std::fs::symlink_metadata(to) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Copied::Written,
+        Err(e) => return Err(at(to, e)),
+        Ok(meta) if !meta.is_file() => {
+            return Err(format!("{} is there and is not a plain file", to.display()));
+        }
+        Ok(_) if std::fs::read(to).map_err(|e| at(to, e))? == bytes => return Ok(Copied::Same),
+        Ok(_) if replace => Copied::Replaced,
+        Ok(_) => return Ok(Copied::Kept),
+    };
+    if let Some(parent) = to.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| at(parent, e))?;
+    }
+    std::fs::write(to, &bytes).map_err(|e| at(to, e))?;
+    let permissions = std::fs::metadata(from)
+        .map_err(|e| at(from, e))?
+        .permissions();
+    std::fs::set_permissions(to, permissions).map_err(|e| at(to, e))?;
+    Ok(outcome)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -257,6 +402,8 @@ mod tests {
         let set = parse(
             r#"
 # The set.
+gitignore = ["/tmp", "/custom.md"]
+
 [[file]]
 path = "AGENTS.md"
 kind = "verbatim"
@@ -285,14 +432,132 @@ kind = "optional"
                 ("custom.md", Kind::Optional, "custom.md"),
             ]
         );
-        let starters: Vec<&str> = set
-            .of_kind(Kind::Starter)
-            .map(|e| e.path.as_str())
-            .collect();
-        assert_eq!(starters, ["notes"]);
         for (name, kind) in Kind::ALL {
             assert_eq!(kind.name(), name);
         }
+        assert_eq!(set.gitignore, ["/tmp", "/custom.md"]);
+    }
+
+    /// An entry's files are written at its path, a directory's beneath
+    /// it, wherever in the set they are read.
+    #[test]
+    fn an_entrys_files_are_written_at_its_path() {
+        let root = crate::test_helpers::unique_base("file-set-files-of");
+        for file in ["skel/notes/a.md", "skel/notes/sub/b.md", "LICENSE"] {
+            let path = root.join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, "x").unwrap();
+        }
+        let entry = |path: &str, from: Option<&str>| Entry {
+            path: path.to_string(),
+            kind: Kind::Starter,
+            from: from.map(str::to_string),
+        };
+        let pairs = |e: &Entry| -> Vec<(String, String)> {
+            files_of(&root, e)
+                .unwrap()
+                .into_iter()
+                .map(|f| (f.from, f.to))
+                .collect()
+        };
+        assert_eq!(
+            pairs(&entry("notes", Some("skel/notes"))),
+            [
+                ("skel/notes/a.md".to_string(), "notes/a.md".to_string()),
+                (
+                    "skel/notes/sub/b.md".to_string(),
+                    "notes/sub/b.md".to_string()
+                ),
+            ]
+        );
+        assert_eq!(
+            pairs(&entry("LICENSE", None)),
+            [("LICENSE".to_string(), "LICENSE".to_string())]
+        );
+        assert_eq!(
+            pairs(&entry("README.md", Some("skel/notes/a.md"))),
+            [("skel/notes/a.md".to_string(), "README.md".to_string())]
+        );
+        assert!(pairs(&entry("absent", None)).is_empty());
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// A copy writes what is absent, replaces or keeps what differs as
+    /// it is told, leaves the same bytes alone, fills the text first,
+    /// and refuses a directory where the file goes.
+    #[test]
+    fn a_copy_writes_replaces_or_keeps() {
+        let root = crate::test_helpers::unique_base("file-set-copy");
+        std::fs::create_dir_all(&root).unwrap();
+        let from = root.join("from.md");
+        std::fs::write(&from, "# {name}\n").unwrap();
+        let to = root.join("deep/er/to.md");
+        let read = |p: &Path| std::fs::read_to_string(p).unwrap();
+
+        assert_eq!(copy_file(&from, &to, false, None), Ok(Copied::Written));
+        assert_eq!(read(&to), "# {name}\n");
+        assert_eq!(copy_file(&from, &to, true, None), Ok(Copied::Same));
+
+        std::fs::write(&to, "theirs\n").unwrap();
+        assert_eq!(copy_file(&from, &to, false, None), Ok(Copied::Kept));
+        assert_eq!(read(&to), "theirs\n");
+        assert_eq!(copy_file(&from, &to, true, None), Ok(Copied::Replaced));
+        assert_eq!(read(&to), "# {name}\n");
+
+        let fill = |text: &str| text.replace("{name}", "hello");
+        assert_eq!(
+            copy_file(&from, &to, true, Some(&fill)),
+            Ok(Copied::Replaced)
+        );
+        assert_eq!(read(&to), "# hello\n");
+        assert_eq!(copy_file(&from, &to, true, Some(&fill)), Ok(Copied::Same));
+
+        let err = copy_file(&from, &root.join("deep"), true, None).unwrap_err();
+        assert!(err.contains("not a plain file"), "{err}");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// A file is given the lines it lacks and no other, after a
+    /// newline it lacked, and a file that is not there is made.
+    #[test]
+    fn a_file_is_given_the_lines_it_lacks() {
+        let root = crate::test_helpers::unique_base("file-set-add-lines");
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join(".gitignore");
+        let lines = ["/tmp".to_string(), "/custom.md".to_string()];
+        assert_eq!(add_lines(&path, &lines), Ok(2));
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "/tmp\n/custom.md\n"
+        );
+        assert_eq!(add_lines(&path, &lines), Ok(0));
+
+        std::fs::write(&path, "*.log\n  /tmp  ").unwrap();
+        assert_eq!(add_lines(&path, &lines), Ok(1));
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "*.log\n  /tmp  \n/custom.md\n"
+        );
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// A copy has its source's permissions.
+    #[cfg(unix)]
+    #[test]
+    fn a_copy_keeps_the_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = crate::test_helpers::unique_base("file-set-copy-mode");
+        std::fs::create_dir_all(&root).unwrap();
+        let from = root.join("run.sh");
+        std::fs::write(&from, "#!/bin/sh\n").unwrap();
+        std::fs::set_permissions(&from, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let to = root.join("copy.sh");
+        copy_file(&from, &to, true, None).unwrap();
+        assert_eq!(
+            std::fs::metadata(&to).unwrap().permissions().mode() & 0o777,
+            0o755
+        );
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     /// Each thing a manifest may not hold is refused, the refusal
@@ -338,6 +603,16 @@ kind = "optional"
                 "'a' is listed twice",
             ),
             ("[[file]\n", "TOML parse error"),
+            (
+                "gitignore = \"/tmp\"\n",
+                "'gitignore' is not a list of strings",
+            ),
+            ("gitignore = [1]\n", "which is not a string"),
+            ("gitignore = [\" \"]\n", "one line that is not empty"),
+            (
+                "gitignore = [\"/a\", \"/a\"]\n",
+                "'gitignore' holds '/a' twice",
+            ),
         ];
         for (text, want) in cases {
             let err = parse(text).unwrap_err();
@@ -395,5 +670,9 @@ kind = "optional"
         assert_eq!(kind_of("agent-data"), Some(Kind::Verbatim));
         assert_eq!(kind_of("CONTRIBUTING.md"), Some(Kind::Starter));
         assert_eq!(kind_of("custom.md"), Some(Kind::Optional));
+        assert!(
+            set.gitignore.iter().any(|l| l == "/custom.md"),
+            "custom.md is local, so the set ignores it"
+        );
     }
 }

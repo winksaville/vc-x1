@@ -34,6 +34,8 @@ use crate::options_flags::push_retry::PushRetryOptions;
 ///   `origin` is kept under, None removing it.
 /// - `agent_dir`, `agent_repo`, `agent_suffix`: the `--agent-*`
 ///   flags, None meaning the default (dual only).
+/// - `set`: `--from`, `--file-set`, and `--custom`, the file set
+///   the work repo starts from.
 /// - `create_symlink`: whether `init` should create the
 ///   `~/.claude/projects/` symlink for dual runs (production
 ///   path = true; test fixtures suppress with false).
@@ -54,6 +56,7 @@ pub struct InitParams {
     pub agent_dir: Option<String>,
     pub agent_repo: Option<String>,
     pub agent_suffix: Option<String>,
+    pub set: crate::init::set::SetOptions,
     pub create_symlink: bool,
 }
 
@@ -83,6 +86,7 @@ impl From<&InitArgs> for InitParams {
             agent_dir: a.agent_dir.clone(),
             agent_repo: a.agent_repo.clone(),
             agent_suffix: a.agent_suffix.clone(),
+            set: a.set.clone(),
             create_symlink: true,
         }
     }

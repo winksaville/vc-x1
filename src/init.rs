@@ -1,5 +1,6 @@
 mod adopt;
 mod params;
+pub mod set;
 mod steps;
 pub use params::InitParams;
 
@@ -169,6 +170,11 @@ pub struct InitArgs {
         value_parser = parse_agent_suffix
     )]
     pub agent_suffix: Option<String>,
+
+    /// `--from`, `--file-set`, and `--custom`: flatten of
+    /// [`set::SetOptions`], the file set the work repo starts from.
+    #[command(flatten)]
+    pub set: set::SetOptions,
 }
 
 /// Parse `--agent-dir`: one name inside the project directory.
@@ -586,28 +592,12 @@ fn write_work_config(
 /// inside the work tree, out of the work repo's commits.
 fn write_work_gitignore(dir: &Path, agent_dir: &str) -> Result<(), Box<dyn std::error::Error>> {
     let path = dir.join(".gitignore");
-    let existing = match std::fs::read_to_string(&path) {
-        Ok(existing) => existing,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            return write_file(&path, &render_work_gitignore(agent_dir));
-        }
-        Err(e) => return Err(format!("cannot read '{}': {e}", path.display()).into()),
-    };
-    let agent_line = format!("/{agent_dir}");
-    let missing: Vec<&str> = [agent_line.as_str(), CLAUDE_SETTINGS_LOCAL]
-        .into_iter()
-        .filter(|line| !existing.lines().any(|l| l.trim() == *line))
-        .collect();
-    if missing.is_empty() {
-        return Ok(());
+    if !path.exists() {
+        return write_file(&path, &render_work_gitignore(agent_dir));
     }
-    let sep = if existing.is_empty() || existing.ends_with('\n') {
-        ""
-    } else {
-        "\n"
-    };
-    let lines: String = missing.iter().map(|l| format!("{l}\n")).collect();
-    write_file(&path, &format!("{existing}{sep}{lines}"))
+    let lines = [format!("/{agent_dir}"), CLAUDE_SETTINGS_LOCAL.to_string()];
+    crate::file_set::add_lines(&path, &lines)?;
+    Ok(())
 }
 
 /// Write the dual-mode agent-side `.vc-config.md` and
@@ -1388,6 +1378,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     info!("Preflight checks...");
 
     check_target_state(&plan.project_dir, &state, params.adopt)?;
+    let set = set::SetPlan::new(&params.set, &plan.project_dir)?;
     let adopting_repo = matches!(
         state,
         adopt::TargetState::Por | adopt::TargetState::SingleRepo
@@ -1500,7 +1491,7 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
         "--public"
     };
 
-    let steps = steps::Steps::new(&plan, params, visibility, create_symlink);
+    let steps = steps::Steps::new(&plan, params, set.as_ref(), visibility, create_symlink);
     if params.dry_run {
         if params.adopt {
             info!(
@@ -1512,6 +1503,18 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
             info!("Dry run, would execute:");
         }
         steps.print_all();
+        if let Some(set) = &set {
+            info!("The file set's files, a starter written only where absent:");
+            for line in set.files()? {
+                info!("  {line}");
+            }
+            if !set.gitignore().is_empty() {
+                info!("The lines it adds to .gitignore where lacking:");
+                for line in set.gitignore() {
+                    info!("  {line}");
+                }
+            }
+        }
         return Ok(());
     }
 
@@ -1527,8 +1530,8 @@ pub fn init(ctx: &Context, params: &InitParams) -> Result<(), Box<dyn std::error
     }
 
     match &plan.agent {
-        None => create_por(params, &plan, &steps, visibility),
-        Some(agent) => create_dual(params, &plan, agent, &steps, visibility),
+        None => create_por(params, &plan, set.as_ref(), &steps, visibility),
+        Some(agent) => create_dual(params, &plan, agent, set.as_ref(), &steps, visibility),
     }
 }
 
@@ -1578,7 +1581,8 @@ fn undo_colocation(dir: &Path) {
 /// Composes (in order):
 /// - `prepare_local_repo` -> conditional `.vc-config.md` write
 ///   (gated by `--config`) -> `write_por_gitignore` (always) ->
-///   `write_record_files` -> `commit_initial` (`OchidStrategy::None`).
+///   `write_record_files` -> `set`'s copy, with `--from` ->
+///   `commit_initial` (`OchidStrategy::None`).
 /// - `push_repo` for work side (no `clean_exclude`).
 /// - No cross-reference (no bot repo), no bot push, no symlink.
 ///
@@ -1586,6 +1590,7 @@ fn undo_colocation(dir: &Path) {
 fn create_por(
     params: &InitParams,
     plan: &InitPlan,
+    set: Option<&set::SetPlan>,
     steps: &steps::Steps,
     visibility: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -1601,6 +1606,10 @@ fn create_por(
     }
     write_por_gitignore(&plan.project_dir)?;
     write_record_files(&plan.project_dir)?;
+    if let Some(set) = set {
+        steps.begin(Step::CopySet);
+        set.copy(&plan.project_dir)?;
+    }
     steps.begin(Step::CommitWork);
     let work_chid = commit_initial(
         &plan.project_dir,
@@ -1639,8 +1648,8 @@ fn create_por(
 ///
 /// Composes (in order):
 /// - Work side: `prepare_local_repo` -> `write_work_config` ->
-///   `write_record_files` -> `commit_initial`
-///   (`OchidStrategy::Placeholder`).
+///   `write_record_files` -> `set`'s copy, with `--from` ->
+///   `commit_initial` (`OchidStrategy::Placeholder`).
 /// - Bot side: `prepare_local_repo` -> `write_bot_config`
 ///   -> `commit_initial` (`OchidStrategy::Placeholder`).
 /// - `cross_ref_ochids`: rewrite both initial commits' placeholder
@@ -1652,6 +1661,7 @@ fn create_dual(
     params: &InitParams,
     plan: &InitPlan,
     agent: &AgentPlan,
+    set: Option<&set::SetPlan>,
     steps: &steps::Steps,
     visibility: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -1683,6 +1693,10 @@ fn create_dual(
         write_work_config(&plan.project_dir, &agent.dir, &agent_repo)?;
     }
     write_record_files(&plan.project_dir)?;
+    if let Some(set) = set {
+        steps.begin(Step::CopySet);
+        set.copy(&plan.project_dir)?;
+    }
     steps.begin(Step::CommitWork);
     let work_chid = commit_initial(
         &plan.project_dir,

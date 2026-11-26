@@ -17,6 +17,7 @@ pub(crate) enum Step {
     Colocate,
     PrepareWork,
     ConfigWork,
+    CopySet,
     CommitWork,
     PrepareAgent,
     ConfigAgent,
@@ -38,6 +39,7 @@ impl Steps {
     pub(crate) fn new(
         plan: &InitPlan,
         params: &InitParams,
+        set: Option<&super::set::SetPlan>,
         visibility: &str,
         create_symlink: bool,
     ) -> Self {
@@ -87,6 +89,9 @@ impl Steps {
         };
         let config_work = format!("{config_work}, then TODO.md and zTOC.md where absent");
         list.push((Step::ConfigWork, config_work));
+        if let Some(set) = set {
+            list.push((Step::CopySet, set.title()));
+        }
         let commit_work = match plan.work_start {
             WorkStart::Fresh => "Commit the work repo's initial commit".to_string(),
             WorkStart::Repo { .. } => format!(

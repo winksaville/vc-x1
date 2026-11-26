@@ -11,6 +11,11 @@
 #   - optional: copied only when asked for.
 # - from: where its text is read in the set, when that is not `path`, so a starter's template is
 #   not the adopter's own file.
+#
+# gitignore is the lines a workspace's .gitignore needs for the set, each added where it is
+# lacking: the scratch directories the agent-files name, and custom.md, which is local.
+
+gitignore = ["/tmp", "/tmp-durable", "/custom.md"]
 
 # The agent-files.
 

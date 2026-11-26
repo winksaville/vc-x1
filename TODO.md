@@ -191,6 +191,36 @@ plan, printed by the dry run: verbatim replaced, starters written where absent, 
 The copy is `file_set`'s, over the files `resolve` gives, a directory entry taken at every depth,
 and what each kind does with them is `init`'s.
 
+- The mechanism is `file_set`'s: `files_of` pairs each file of an entry with where a copy writes
+  it, a directory's files beneath the entry's path wherever a `from` reads them, and `copy_file`
+  copies one, told whether a different file there is replaced or kept, given a fill for the text,
+  and keeping the source's permissions, so a script stays one.
+- The policy is `init`'s, `src/init/set.rs`: verbatim is replaced with no fill, a starter is
+  written only when absent with `{name}` filled by the directory's name, and an optional entry is
+  left out, or with `--custom` written as a starter is, so a `custom.md` there is never replaced.
+- The copy is a step of its own, after the config and `init`'s `TODO.md` and `zTOC.md`, before the
+  first commit, so the set is in that commit, a starter of a name `init` writes is kept out, and
+  the dry run prints the step with the set and its manifest.
+- The dry run lists the set's files after the steps (wink, at the review: "can I run some code to
+  see the list?"), one a line, its kind, where it is written, and where it is read when that is
+  another path, so `init <TARGET> --from <SOURCE> --dry-run` shows what a set holds with nothing
+  made.
+- The preflight refuses, with nothing made, a source that is no directory or is the target, a
+  manifest that does not parse, and an entry the copy takes that has no file in the source, since
+  a set listing what it lacks would make a workspace missing it. `resolve` itself stays lenient,
+  for a diff of two copies.
+- A verbatim file only in the destination is left there. `init` deletes nothing, and the delete
+  `agent-files copy` does is the next rung's.
+- The flags are `-s por`'s as much as a dual workspace's, a plain repo taking a set the same way.
+- `-c` is `--custom` (wink, at the review), as `agent-files copy` and `diff` spell it.
+- The source is read as its working copy holds it, with no `--landed` yet, the script's reading of
+  a revision by `git archive`.
+- The manifest holds the set's `.gitignore` lines (wink, at the review): `gitignore`, a list
+  before the entries, vc-x1's `/tmp`, `/tmp-durable`, and `/custom.md`, the script's
+  `gitignore-lines`. The copy step adds each the work `.gitignore` lacks, after the files, so
+  `--custom`'s `custom.md` is ignored before the first commit and stays local. The adding is
+  `file_set::add_lines`, which `init`'s own two lines now go through as well.
+
 ##### feat: agent-files copy and diff read the manifest
 
 `agent-files copy` and `diff` hold the set as constants and list, compare, and copy it by code of

@@ -459,6 +459,7 @@ fn args_for(target: &str) -> InitArgs {
         agent_dir: None,
         agent_repo: None,
         agent_suffix: None,
+        set: super::set::SetOptions::default(),
     }
 }
 
@@ -797,7 +798,7 @@ fn steps_dual_run_in_order() {
     let args = args_for("git@github.com:winksaville/tf1");
     let params = InitParams::from(&args);
     let plan = plan_init(&params, &cfg_empty()).unwrap();
-    let all = Steps::new(&plan, &params, "--public", true);
+    let all = Steps::new(&plan, &params, None, "--public", true);
     assert_eq!(
         all.steps(),
         vec![
@@ -813,7 +814,7 @@ fn steps_dual_run_in_order() {
             Step::Symlink,
         ]
     );
-    let no_symlink = Steps::new(&plan, &params, "--public", false);
+    let no_symlink = Steps::new(&plan, &params, None, "--public", false);
     assert_eq!(no_symlink.steps().len(), 9);
     assert!(!no_symlink.steps().contains(&Step::Symlink));
 }
@@ -828,7 +829,7 @@ fn steps_por_have_no_gaps() {
     let params = InitParams::from(&args);
     let plan = plan_init(&params, &cfg_empty()).unwrap();
     assert_eq!(
-        Steps::new(&plan, &params, "--public", true).steps(),
+        Steps::new(&plan, &params, None, "--public", true).steps(),
         vec![
             Step::PrepareWork,
             Step::ConfigWork,
@@ -836,6 +837,289 @@ fn steps_por_have_no_gaps() {
             Step::PublishWork,
         ]
     );
+}
+
+// ---------- a file set, by --from ----------
+
+/// A set under `base/set`: two verbatim files, one a directory deep,
+/// a starter and an optional one read from templates naming `{name}`,
+/// a starter of a name `init` writes, and its manifest.
+fn a_set(base: &Path) -> PathBuf {
+    let set = base.join("set");
+    for (file, text) in [
+        ("AGENTS.md", "the rules\n"),
+        ("agent-data/jj.md", "jj\n"),
+        ("agent-data/deep/er.md", "deeper\n"),
+        ("skel/CONTRIBUTING.md", "# Contributing to {name}\n"),
+        ("skel/TODO.md", "# The set's Todo\n"),
+        ("skel/custom.md", "# custom.md of {name}\n"),
+        (
+            "file-set.toml",
+            r#"
+gitignore = ["/scratch", "/custom.md"]
+[[file]]
+path = "AGENTS.md"
+kind = "verbatim"
+[[file]]
+path = "agent-data/"
+kind = "verbatim"
+[[file]]
+path = "CONTRIBUTING.md"
+kind = "starter"
+from = "skel/CONTRIBUTING.md"
+[[file]]
+path = "TODO.md"
+kind = "starter"
+from = "skel/TODO.md"
+[[file]]
+path = "custom.md"
+kind = "optional"
+from = "skel/custom.md"
+"#,
+        ),
+    ] {
+        let path = set.join(file);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    }
+    set
+}
+
+/// Init `base/work` from the set `opts` names, with local bares under
+/// `base`, and no symlink.
+fn init_from(
+    base: &Path,
+    opts: super::set::SetOptions,
+    adopt: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut args = args_for(&base.join("work").to_string_lossy());
+    args.repo.value = Some(RepoSelector {
+        category: "local".into(),
+        value: Some(base.to_string_lossy().into_owned()),
+    });
+    args.provision.dry_run.value = false;
+    args.adopt = adopt;
+    args.set = opts;
+    let mut params = InitParams::from(&args);
+    params.create_symlink = false;
+    init(&crate::test_helpers::test_ctx(), &params)
+}
+
+/// `--from` alone names a set.
+fn from(set: &Path) -> super::set::SetOptions {
+    super::set::SetOptions {
+        from: Some(set.to_path_buf()),
+        ..Default::default()
+    }
+}
+
+/// A new workspace made from a set holds its verbatim files as they
+/// are, a directory's at every depth, its starters with the name
+/// filled, `init`'s own `TODO.md` and not the set's, and no optional
+/// file, all in the first commit.
+#[test]
+fn from_copies_the_set_into_the_first_commit() {
+    use crate::test_helpers::jj_ok_at;
+
+    let base = crate::test_helpers::unique_base("init-from");
+    let set = a_set(&base);
+    init_from(&base, from(&set), false).expect("init --from");
+
+    let work = base.join("work");
+    let read = |file: &str| std::fs::read_to_string(work.join(file)).unwrap();
+    assert_eq!(read("AGENTS.md"), "the rules\n");
+    assert_eq!(read("agent-data/jj.md"), "jj\n");
+    assert_eq!(read("agent-data/deep/er.md"), "deeper\n");
+    assert_eq!(read("CONTRIBUTING.md"), "# Contributing to work\n");
+    assert_eq!(
+        read("TODO.md"),
+        crate::cycle::record::TODO_SKELETON,
+        "the record file is init's own"
+    );
+    assert!(!work.join("custom.md").exists(), "optional, and not asked");
+    assert!(!work.join("skel").exists(), "a template is not copied");
+    assert!(!work.join("file-set.toml").exists(), "nor the manifest");
+
+    let files = jj_ok_at(&work, &["file", "list", "-r", "@-"]);
+    for tracked in [
+        "AGENTS.md",
+        "agent-data/jj.md",
+        "agent-data/deep/er.md",
+        "CONTRIBUTING.md",
+        "TODO.md",
+        "zTOC.md",
+    ] {
+        assert!(
+            files.lines().any(|l| l == tracked),
+            "{tracked} tracked: {files}"
+        );
+    }
+    assert!(
+        jj_ok_at(&work, &["diff", "--summary"]).trim().is_empty(),
+        "nothing left uncommitted"
+    );
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+/// Over a directory with files of its own, a verbatim file is
+/// replaced and a starter kept, and `--custom` writes the optional
+/// file, its name filled.
+#[test]
+fn from_replaces_verbatim_and_keeps_a_starter() {
+    let base = crate::test_helpers::unique_base("init-from-adopt");
+    let set = a_set(&base);
+    let work = base.join("work");
+    std::fs::create_dir_all(&work).unwrap();
+    std::fs::write(work.join("AGENTS.md"), "old rules\n").unwrap();
+    std::fs::write(work.join("CONTRIBUTING.md"), "# Ours\n").unwrap();
+
+    let opts = super::set::SetOptions {
+        custom: true,
+        ..from(&set)
+    };
+    init_from(&base, opts, true).expect("init --adopt --from --custom");
+
+    let read = |file: &str| std::fs::read_to_string(work.join(file)).unwrap();
+    assert_eq!(read("AGENTS.md"), "the rules\n", "verbatim, replaced");
+    assert_eq!(read("CONTRIBUTING.md"), "# Ours\n", "a starter, kept");
+    assert_eq!(read("custom.md"), "# custom.md of work\n");
+    let files = crate::test_helpers::jj_ok_at(&work, &["file", "list", "-r", "@-"]);
+    assert!(
+        !files.lines().any(|l| l == "custom.md"),
+        "custom.md is ignored, so it is not committed: {files}"
+    );
+    assert!(
+        read(".gitignore").ends_with("/.claude/settings.local.json\n/scratch\n/custom.md\n"),
+        "the set's lines follow init's own: {}",
+        read(".gitignore")
+    );
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+/// `--file-set` copies the set by another list.
+#[test]
+fn from_takes_another_manifest() {
+    let base = crate::test_helpers::unique_base("init-from-file-set");
+    let set = a_set(&base);
+    let list = base.join("only-the-rules.toml");
+    std::fs::write(
+        &list,
+        "[[file]]\npath = \"AGENTS.md\"\nkind = \"verbatim\"\n",
+    )
+    .unwrap();
+    let opts = super::set::SetOptions {
+        file_set: Some(list),
+        ..from(&set)
+    };
+    init_from(&base, opts, false).expect("init --from --file-set");
+    let work = base.join("work");
+    assert!(work.join("AGENTS.md").exists());
+    assert!(!work.join("agent-data").exists());
+    assert!(!work.join("CONTRIBUTING.md").exists());
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+/// A set that cannot be copied is refused in the preflight, with
+/// nothing made: no directory, no manifest, an entry with no file,
+/// and the target as its own source.
+#[test]
+fn from_refuses_a_set_it_cannot_copy_before_anything_is_made() {
+    let base = crate::test_helpers::unique_base("init-from-refused");
+    let set = a_set(&base);
+    let work = base.join("work");
+    let refused = |opts: super::set::SetOptions, adopt: bool| -> String {
+        let err = init_from(&base, opts, adopt)
+            .expect_err("refused")
+            .to_string();
+        assert!(!work.join(".jj").exists(), "nothing made: {err}");
+        assert!(
+            !base.join("remote-work.git").exists(),
+            "nothing made: {err}"
+        );
+        err
+    };
+
+    let err = refused(from(&base.join("no-such-set")), false);
+    assert!(err.contains("--from: the set's directory"), "{err}");
+
+    let bare = base.join("bare");
+    std::fs::create_dir_all(&bare).unwrap();
+    let err = refused(from(&bare), false);
+    assert!(err.contains("file-set.toml"), "{err}");
+
+    std::fs::remove_file(set.join("skel/CONTRIBUTING.md")).unwrap();
+    let err = refused(from(&set), false);
+    assert!(
+        err.contains("lists 'CONTRIBUTING.md', read from 'skel/CONTRIBUTING.md'"),
+        "{err}"
+    );
+    assert!(!work.exists(), "nothing made");
+
+    std::fs::create_dir_all(&work).unwrap();
+    let err = refused(from(&work), true);
+    assert!(err.contains("is the target itself"), "{err}");
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+/// The set's step runs after the work repo's config and before its
+/// commit, titled with the set and its manifest, and `--file-set` and
+/// `--custom` mean nothing without `--from`.
+#[test]
+fn from_is_a_step_and_its_flags_need_it() {
+    use super::steps::{Step, Steps};
+
+    let base = crate::test_helpers::unique_base("init-from-step");
+    let set = a_set(&base);
+    let args = args_for("git@github.com:winksaville/tf1");
+    let params = InitParams::from(&args);
+    let plan = plan_init(&params, &cfg_empty()).unwrap();
+    let set_plan = super::set::SetPlan::new(&from(&set), &plan.project_dir)
+        .unwrap()
+        .unwrap();
+    let steps = Steps::new(&plan, &params, Some(&set_plan), "--public", false).steps();
+    assert_eq!(
+        steps[..4],
+        [
+            Step::PrepareWork,
+            Step::ConfigWork,
+            Step::CopySet,
+            Step::CommitWork
+        ]
+    );
+    let title = set_plan.title();
+    assert!(title.contains("file-set.toml"), "{title}");
+    assert!(!title.contains("optional"), "{title}");
+    assert_eq!(
+        set_plan.files().unwrap(),
+        [
+            "verbatim  AGENTS.md",
+            "verbatim  agent-data/deep/er.md",
+            "verbatim  agent-data/jj.md",
+            "starter   CONTRIBUTING.md  (from skel/CONTRIBUTING.md)",
+            "starter   TODO.md  (from skel/TODO.md)",
+        ],
+        "the dry run's list, the optional file left out"
+    );
+    assert_eq!(set_plan.gitignore(), ["/scratch", "/custom.md"]);
+    let _ = std::fs::remove_dir_all(&base);
+
+    for flag in [
+        &["--custom"][..],
+        &["-c"][..],
+        &["--file-set", "x.toml"][..],
+    ] {
+        let argv = [&["vc-x1", "init", "tf1"][..], flag].concat();
+        let Err(err) = Cli::try_parse_from(argv) else {
+            panic!("{flag:?} is refused without --from");
+        };
+        let err = err.to_string();
+        assert!(err.contains("--from"), "{err}");
+    }
+    let args = parse(&["vc-x1", "init", "tf1", "--from", "../set", "--custom"]);
+    assert_eq!(args.set.from, Some(PathBuf::from("../set")));
+    assert!(args.set.custom);
+    let args = parse(&["vc-x1", "init", "tf1", "--from", "../set", "-c"]);
+    assert!(args.set.custom, "-c is --custom, as agent-files spells it");
 }
 
 // ---------- adopting a repo ----------
