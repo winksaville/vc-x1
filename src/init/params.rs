@@ -1,13 +1,14 @@
 //! Flat plain-struct input to the init op.
 //!
 //! `InitParams` is the clap-free shape that `pub fn init` reads
-//! from. Built `From<&InitArgs>` at the binary edge (main.rs);
+//! from. Built `From<&InitArgs>` at the binary edge (main.rs), and
 //! callers without clap (tests, future TUI / library embedding)
 //! construct it directly.
 //!
 //! Per `notes/chores/chores-09.md > ## InitParams implementation
 //! (0.44.0)`: domain types pass through (`RepoSelector`,
-//! `ConfigKind`, `PushRetryOptions`); leaf clap wrappers do not.
+//! `ConfigKind`, `PushRetryOptions`), and leaf clap wrappers do
+//! not.
 
 use crate::config::RepoSelector;
 use crate::init::InitArgs;
@@ -38,7 +39,7 @@ use crate::options_flags::push_retry::PushRetryOptions;
 ///   the work repo starts from.
 /// - `create_symlink`: whether `init` should create the
 ///   `~/.claude/projects/` symlink for dual runs (production
-///   path = true; test fixtures suppress with false).
+///   path = true, and test fixtures suppress with false).
 pub struct InitParams {
     pub target: String,
     pub name: Option<String>,

@@ -191,8 +191,8 @@ pub struct WorkspaceAgentFiles {
 
 /// Read the `[agent-files.diff]` and `[agent-files.copy]` tables
 /// of the config at `root`. No config, or no tables, is the
-/// default; a `custom` that is not a bare `true` or `false` is an
-/// error naming the key, since a malformed config is fatal rather
+/// default, and a `custom` that is not a bare `true` or `false` is
+/// an error naming the key, since a malformed config is fatal rather
 /// than silently ignored.
 pub fn config_at(root: &Path) -> Result<WorkspaceAgentFiles, Box<dyn std::error::Error>> {
     let Some(cfg) = crate::config_md::load(root)? else {

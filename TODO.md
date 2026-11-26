@@ -299,6 +299,14 @@ ignored by the work `.gitignore`.
 - With the rung before, a session's directory is refused first for its symlink path, and once
   that is moved aside `init <TARGET>` makes the workspace with no flag.
 
+##### docs: touched files pay their semicolons
+
+A file a cycle edits owes its prose semicolons and untypeable punctuation whole, paid in a rung of
+its own before the closing. Of the eighteen files this cycle touched three owe: `TODO.md`, in two
+other entries' lists and one `...`, and the doc comments of `src/agent_files.rs` and
+`src/init/params.rs`. Each is rejoined by the prose rule, a list as sub-bullets and a pair of
+claims with a comma and a conjunction.
+
 ##### feat: init copies a file set and finishes what it starts closing
 
 Closing out the cycle.
@@ -376,6 +384,25 @@ Entries are in priority order, the first highest, and reprioritizing is moving a
 `###` heading, so a citation is a link to its anchor. Long-tail entries live in
 [todo-backlog.md](notes/todo-backlog.md). Use the [Prose form](agent-data/prose.md#prose-form).
 Deeper detail goes in a `notes/` design file (link via `[N]` ref).
+
+### feat: a workspace made by init --from is a set
+
+(wink + agent, 2026-11-25, from **feat: init copies a file set and finishes what it starts**) A workspace
+made by `init --from <SOURCE>` holds the set's files and not the set: no `file-set.toml`, and none
+of the templates its starters were read from, `scripts/vc-dr-apply-base/work/` in vc-x1. So it
+cannot be the `--from` of another `init`, and `agent-files diff` and `copy` from it fall back to
+the built-in list, where an adopter is meant to carry a copy of the set a new repo can start from.
+
+- **Solution**, open: the manifest and the templates are part of what is copied, the manifest
+  listing itself and its templates as verbatim, the templates then needing a home that is the
+  set's and not vc-x1's `scripts/`, `agent-data/` or a directory of their own.
+- **Acceptance check**: a workspace made by `init --from <vc-x1>` is the `--from` of a second
+  `init`, the second workspace's verbatim files and starters identical to the first's as made,
+  and `agent-files diff` between the two reads the manifest and names no difference.
+- The built-in list in `agent_files::SetPaths` goes once every copy of the set carries a
+  manifest.
+- Bears on **Initialization leaves no bad link**, whose skeleton this makes part of the set, and
+  on how much of `vc-dr-apply.sh` is left.
 
 ### fix: a new workspace's manifest warns of an unused version
 
@@ -490,11 +517,12 @@ flow, plan, rungs, close** lands, `--open` becoming `cycle plan`.
       millisecond of a 53 ms `cycle ladder`, so a cache keyed on the file's time would cost more
       than it saves. What it saves is the agent's reading, the whole of `TODO.md` some 90k
       tokens.
-- **Rungs, provisional**: **feat: vc-x1 bookmark and its subcommands**, `delete-bookmark` and
-  `move-bookmark` replaced; **feat: cycle plan inherits the bookmark on @**, the record's name read
-  by every stage, and the scaffold no longer claiming a `## Todo` entry when there was none;
-  **docs: the bookmark is made first**, Opening, Cycles run on a bookmark and its why, jj.md's
-  Create, and `cycle-model.md`'s Who writes what.
+- **Rungs, provisional**:
+  - **feat: vc-x1 bookmark and its subcommands**, `delete-bookmark` and `move-bookmark` replaced.
+  - **feat: cycle plan inherits the bookmark on @**, the record's name read by every stage, and
+    the scaffold no longer claiming a `## Todo` entry when there was none.
+  - **docs: the bookmark is made first**, Opening, Cycles run on a bookmark and its why, jj.md's
+    Create, and `cycle-model.md`'s Who writes what.
 - **A `bookmark` command, not a provisional `--open`**: making a bookmark is its own command, and
   `cycle plan` inherits it.
   - The state-recording Todo's design, `--open` without `--title`, a `### (untitled)` heading, and a
@@ -671,13 +699,16 @@ version the set's, and writes into this entry, each as a `####` change with its 
   word saying what follows the commit, the body's pointer as the heading's own line, nested
   subcommands allowed with `cycle`'s stages flags for chaining, and `zTOC.md`'s TOC linking the
   todo list.
-- From **feat: one cycle flow, plan, rungs, close**, its docs rung's `v0.3.1-17`: the stages as
-  subcommands, `cycle plan start|commit`, `close`, `squash`, `land`, `push`, `status`, and
-  `ladder`, beside `rung next|stop|commit`; the plan a phase of its own; `(current)` the working
-  copy's alone; `--ver` running the config's bump at a step's start; the shape said by the ending
-  stage, the rules **Shape named, count checked** and **A ladder lands as a trapezoid, never
-  squashed** become **One commit or a ladder**, a squashed ladder's agent side re-pointed; and
-  "Every argument is a flag" gone, a positional allowed where it reads one way.
+- From **feat: one cycle flow, plan, rungs, close**, its docs rung's `v0.3.1-17`:
+  - The stages as subcommands, `cycle plan start|commit`, `close`, `squash`, `land`, `push`,
+    `status`, and `ladder`, beside `rung next|stop|commit`.
+  - The plan a phase of its own.
+  - `(current)` the working copy's alone.
+  - `--ver` running the config's bump at a step's start.
+  - The shape said by the ending stage, the rules **Shape named, count checked** and **A ladder
+    lands as a trapezoid, never squashed** become **One commit or a ladder**, a squashed ladder's
+    agent side re-pointed.
+  - "Every argument is a flag" gone, a positional allowed where it reads one way.
 - **agent-files(proposal): dry runs interleave**, the dry-run convention into `code.md`.
 - **agent-files(proposal): vc-x1 is the interface, jj the engine**, the rule **jj, not git**
   becoming vc-x1 in a cycle, a reach for raw jj a vc-x1 gap.
@@ -1903,7 +1934,7 @@ vc-x1 works from the line's `@-`, `push` moving its bookmark there and `commit -
 (wink + agent, 2026-11-04) The Land of **feat: test repos, vc-dr-apply, and the v0.3.1-(0,1,2)
 agent-files** took three commands, `land`, `push -s b --bookmark main`, and `delete-bookmark`, where
 `land -s b --onto main --push` does all three, and its close-out four more, `commit --closing`,
-`commit -s a --covers`, `trailers --update`, and `push -s b`, where `commit --closing … --land
+`commit -s a --covers`, `trailers --update`, and `push -s b`, where `commit --closing ... --land
 --push` does them and the Land too. The agent followed `jj.md`'s numbered Land list, which names
 `land --push` only as "steps 2 and 3 as one" and not its deleting the topic on `origin`. The
 agent-files draft `v0.3.1-3`, wink's call.

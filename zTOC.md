@@ -10,6 +10,7 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 - 3 (done) [feat: agent-files copy and diff read the manifest](TODO.md#feat-agent-files-copy-and-diff-read-the-manifest)
 - 4 (done) [fix: init refuses a taken symlink path up front](TODO.md#fix-init-refuses-a-taken-symlink-path-up-front)
 - 5 (done) [fix: init adopts a .claude-only directory](TODO.md#fix-init-adopts-a-claude-only-directory)
+- 6 (done) [docs: touched files pay their semicolons](TODO.md#docs-touched-files-pay-their-semicolons)
 - [feat: init copies a file set and finishes what it starts closing](TODO.md#feat-init-copies-a-file-set-and-finishes-what-it-starts-closing)
 
 ## The TOC
