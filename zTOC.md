@@ -4,14 +4,10 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 
 ## Ladder
 
-- 0 (done) [feat: init copies a file set and finishes what it starts opening](TODO.md#feat-init-copies-a-file-set-and-finishes-what-it-starts-opening)
-- 1 (done) [feat: a set lists its files in file-set.toml](TODO.md#feat-a-set-lists-its-files-in-file-settoml)
-- 2 (done) [feat: init --from copies a set by its manifest](TODO.md#feat-init---from-copies-a-set-by-its-manifest)
-- 3 (done) [feat: agent-files copy and diff read the manifest](TODO.md#feat-agent-files-copy-and-diff-read-the-manifest)
-- 4 (done) [fix: init refuses a taken symlink path up front](TODO.md#fix-init-refuses-a-taken-symlink-path-up-front)
-- 5 (done) [fix: init adopts a .claude-only directory](TODO.md#fix-init-adopts-a-claude-only-directory)
-- 6 (done) [docs: touched files pay their semicolons](TODO.md#docs-touched-files-pay-their-semicolons)
-- 7 (done) [feat: init copies a file set and finishes what it starts closing](TODO.md#feat-init-copies-a-file-set-and-finishes-what-it-starts-closing)
+- 0 (done) [feat: a link stays on one line opening](TODO.md#feat-a-link-stays-on-one-line-opening)
+- [feat: check anchors counts a link that spans a line](TODO.md#feat-check-anchors-counts-a-link-that-spans-a-line)
+- [docs: a link stays on one line](TODO.md#docs-a-link-stays-on-one-line)
+- [feat: a link stays on one line closing](TODO.md#feat-a-link-stays-on-one-line-closing)
 
 ## The TOC
 
