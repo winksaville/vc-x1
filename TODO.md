@@ -118,6 +118,17 @@ Todo entry moved into this block.
 `check anchors` sees links a line at a time, so a link wrapped across lines is invisible to it. It
 learns to count them as style sites, reported in its summary and at `-v`, never failing the run.
 
+* A link's end, `](` or `][`, is the one place a wrapped link shows on a single line.
+  - A link spans a line when its end has no `[` of its own before it on the line, the scan back
+    counting each `]` it passes so nested brackets and a `[[N]]` beside it balance.
+  - It counts once, on the line its text ends, however many lines the text took.
+  - Code spans and fences are blanked first, as for every other check, so a quoted `](` is code.
+* The count is a style's, never a finding's.
+  - `Report` carries the lines and `Counts` the number, the summary gaining `N link(s) span a
+    line`, each site printed at `-v`, and the exit status left to the findings.
+  - Over the workspace today: 132, beside the same 4 findings the installed build reports.
+* `README.md`'s **check anchors** says what the count is and what `-v` adds.
+
 ##### docs: a link stays on one line
 
 The rule has no text. `prose.md`'s Line widths gains it, `rationale.md` its why, the agent-files

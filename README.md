@@ -900,6 +900,11 @@ reader. Three checks, all within one file:
 Cross-file targets (`](other.md#slug)`) are counted but not resolved, since resolving one means
 slugging another file. Read-only, and exits non-zero when anything is found.
 
+Beside the checks a style count, never a failure: a link whose text began on an earlier line, a
+`](` or `][` with no `[` of its own before it, which a search for the link's text misses. The rule
+it counts is [Line widths](./agent-data/prose.md#line-widths)', a style to strive for, so the
+summary says how many and `-v` names each.
+
 ```
 # Every markdown record in the workspace
 vc-x1 check anchors
@@ -908,8 +913,9 @@ vc-x1 check anchors
 # since notes/chores/ and notes/done.md are out of the default set
 vc-x1 check anchors --file TODO.md --file notes/bugs.md
 
-# -v adds per-file counts, -vv a line per site (every link with how
-# it resolved, every heading with the slug it produced)
+# -v adds per-file counts and each link that spans a line, -vv a
+# line per site (every link with how it resolved, every heading
+# with the slug it produced)
 vc-x1 -vv check anchors TODO.md
 ```
 

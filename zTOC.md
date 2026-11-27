@@ -5,7 +5,7 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 ## Ladder
 
 - 0 (done) [feat: a link stays on one line opening](TODO.md#feat-a-link-stays-on-one-line-opening)
-- [feat: check anchors counts a link that spans a line](TODO.md#feat-check-anchors-counts-a-link-that-spans-a-line)
+- 1 (done) [feat: check anchors counts a link that spans a line](TODO.md#feat-check-anchors-counts-a-link-that-spans-a-line)
 - [docs: a link stays on one line](TODO.md#docs-a-link-stays-on-one-line)
 - [feat: a link stays on one line closing](TODO.md#feat-a-link-stays-on-one-line-closing)
 

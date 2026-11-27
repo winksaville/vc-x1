@@ -12,6 +12,9 @@
 //!   silently disambiguates, so the second link lands on the first
 //!   heading
 //!
+//! Beside them a style count, never a finding: the links whose text
+//! began on an earlier line, which a search for the text misses.
+//!
 //! Cross-file targets (`](other.md#slug)`, `[N]: /notes/x.md#y`)
 //! are recognized and skipped: resolving one means slugging another
 //! file's headings, which is its own step (see the `## Todo` entry
@@ -324,6 +327,48 @@ fn citations(line: &str) -> Vec<u32> {
     out
 }
 
+/// Whether the link whose `](` or `][` is at `idx` began on an
+/// earlier line: no `[` of its own before it on this line.
+///
+/// Brackets nest, so the scan back counts each `]` it passes and
+/// takes the `[` that balances none of them as the link's own.
+fn link_began_above(line: &str, idx: usize) -> bool {
+    let mut depth = 0usize;
+    for c in line[..idx].chars().rev() {
+        match c {
+            ']' => depth += 1,
+            '[' if depth == 0 => return false,
+            '[' => depth -= 1,
+            _ => {}
+        }
+    }
+    true
+}
+
+/// The 1-based lines holding a link whose text began on an earlier
+/// line, once per link, so a link wrapped over three lines counts
+/// once, on the line its text ends.
+///
+/// A style site, never a finding:
+/// [Line widths](../agent-data/prose.md#line-widths) asks a link to
+/// stay on one line as a style to strive for, not a requirement.
+fn spanning_links(lines: &[String]) -> Vec<usize> {
+    let mut out = Vec::new();
+    for (i, line) in lines.iter().enumerate() {
+        let ends = line
+            .match_indices("](")
+            .chain(line.match_indices("]["))
+            .map(|(idx, _)| idx);
+        for idx in ends {
+            if link_began_above(line, idx) {
+                out.push(i + 1);
+            }
+        }
+    }
+    out.sort();
+    out
+}
+
 /// What one file's check looked at, beside what it found.
 ///
 /// The counts exist so a pass says how much it covered: a file with
@@ -340,6 +385,9 @@ pub struct Counts {
     pub anchors_cross_file: usize,
     pub refs_defined: usize,
     pub refs_cited: usize,
+    /// Links whose text began on an earlier line, a style count that
+    /// never fails the check.
+    pub links_spanning: usize,
 }
 
 /// One thing the check looked at, for `-vv`.
@@ -355,6 +403,8 @@ pub struct Site {
 pub struct Report {
     pub findings: Vec<Finding>,
     pub sites: Vec<Site>,
+    /// The lines of the links that span a line, for `-v`.
+    pub spanning: Vec<usize>,
     pub counts: Counts,
 }
 
@@ -460,11 +510,15 @@ pub fn analyze(content: &str) -> Report {
         }
     }
 
+    let spanning = spanning_links(&lines);
+    counts.links_spanning = spanning.len();
+
     findings.sort_by_key(|f| f.line);
     sites.sort_by_key(|s| s.line);
     Report {
         findings,
         sites,
+        spanning,
         counts,
     }
 }
@@ -544,6 +598,12 @@ pub fn check_anchors(
         for finding in &report.findings {
             warn!("{}:{}: {}", file.display(), finding.line, finding.message);
         }
+        for line in &report.spanning {
+            debug!(
+                "{}:{line}: a link spans a line, its text begun above",
+                file.display()
+            );
+        }
         let c = &report.counts;
         debug!(
             "{}: {} heading(s), {} link(s) checked, {} failed, {} cross-file, {} ref(s) defined, \
@@ -563,6 +623,7 @@ pub fn check_anchors(
         total.anchors_cross_file += c.anchors_cross_file;
         total.refs_defined += c.refs_defined;
         total.refs_cited += c.refs_cited;
+        total.links_spanning += c.links_spanning;
     }
 
     let n = files.len();
@@ -570,10 +631,11 @@ pub fn check_anchors(
     // The link count is the summary's point: it separates a pass
     // that checked something from one that had nothing to check.
     let checked = total.anchors_checked + total.refs_cited;
+    // The spanning count is style, reported and never failed on.
     info!(
         "check anchors: {n} {word}, {checked} link(s) checked, {} failed, {} cross-file \
-         skipped, {} heading(s)",
-        findings, total.anchors_cross_file, total.headings
+         skipped, {} heading(s), {} link(s) span a line",
+        findings, total.anchors_cross_file, total.headings, total.links_spanning
     );
     if findings == 0 {
         debug!("check anchors: exit");
@@ -754,5 +816,32 @@ mod tests {
     fn code_span_citation_is_not_a_citation() {
         let md = "# One\n\nThe token `[[7]]` is literal text.\n";
         assert_eq!(findings(md), vec![]);
+    }
+
+    /// An inline link and a reference link wrapped across lines are
+    /// each counted once, on the line the text ends, and neither is a
+    /// finding, the rule being a style.
+    #[test]
+    fn a_link_that_spans_a_line_is_counted_not_found() {
+        let md = "# One\n\nSee [the\nfirst](#one), then [a\nlonger\nsecond][1].\n\n[1]: #one\n";
+        let report = analyze(md);
+        assert_eq!(report.findings, vec![]);
+        assert_eq!(report.spanning, vec![4, 6]);
+        assert_eq!(report.counts.links_spanning, 2);
+    }
+
+    /// A link on one line counts nothing, nested brackets, a link
+    /// beside a citation, and an image included.
+    #[test]
+    fn a_link_on_one_line_counts_nothing() {
+        let md = "# One\n\n[a [b] c](#one), [[1]][x](#one), ![img](p.png), [r][1].\n\n[1]: #one\n";
+        assert_eq!(analyze(md).spanning, Vec::<usize>::new());
+    }
+
+    /// A wrapped link in a code span or a fence is code, not a link.
+    #[test]
+    fn a_wrapped_link_in_code_counts_nothing() {
+        let md = "# One\n\n`text](#one)` here.\n\n```\nnot](#one)\n```\n";
+        assert_eq!(analyze(md).spanning, Vec::<usize>::new());
     }
 }
