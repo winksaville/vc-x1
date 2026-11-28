@@ -4,10 +4,13 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 
 ## Ladder
 
-- 0 (done) [feat: a link stays on one line opening](TODO.md#feat-a-link-stays-on-one-line-opening)
-- 1 (done) [feat: check anchors counts a link that spans a line](TODO.md#feat-check-anchors-counts-a-link-that-spans-a-line)
-- 2 (done) [docs: a link stays on one line](TODO.md#docs-a-link-stays-on-one-line)
-- 3 (done) [feat: a link stays on one line closing](TODO.md#feat-a-link-stays-on-one-line-closing)
+- 0 (done) [feat: repo rename renames a workspace opening](TODO.md#feat-repo-rename-renames-a-workspace-opening)
+- [feat: repo rename plans a rename](TODO.md#feat-repo-rename-plans-a-rename)
+- [feat: repo rename moves a workspace on this machine](TODO.md#feat-repo-rename-moves-a-workspace-on-this-machine)
+- [feat: repo move moves a workspace to another directory](TODO.md#feat-repo-move-moves-a-workspace-to-another-directory)
+- [feat: repo rename renames the GitHub repos](TODO.md#feat-repo-rename-renames-the-github-repos)
+- [feat: repo rename commits and pushes the config](TODO.md#feat-repo-rename-commits-and-pushes-the-config)
+- [feat: repo rename renames a workspace closing](TODO.md#feat-repo-rename-renames-a-workspace-closing)
 
 ## The TOC
 

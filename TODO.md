@@ -48,7 +48,107 @@ A cycle's record has one home at a time, and while the cycle runs this is it. Th
 the specimen in [cycle-model.md](agent-data/cycle-model.md), and the rules are in [The In Progress
 block](agent-data/notes.md#the-in-progress-block).
 
-_No cycle currently in progress._
+### feat: repo rename renames a workspace
+
+#### Problem
+
+(wink + agent, 2026-11-27, from **Improve init and add rename and delete subcommands**, its part
+`#### rename renames a workspace, its remote included`) A workspace's name is written into its
+work-repo's directory, the two repos on the remote, each repo's `origin` URL, the config's
+`[remote] agent-repo`, and the Claude Code symlink, and nothing renames them together. `repo
+delete` landed first, its plan finding every part of a workspace from its config, so rename, the
+last of the entry's three, has what it reuses.
+
+#### Solution
+
+`vc-x1 repo rename -s b|p [PATH] --to NEW`, the workspace taken whole as `repo delete` takes it,
+its plan printed first, `--dry-run` printing it alone, and `--yes` for a run with no terminal.
+
+- The parts and their new names, found by `repo delete`'s plan, shared rather than copied: the work
+  directory `<parent>/NEW`, the work remote `<owner>/NEW`, the agent remote `NEW<suffix>` when
+  `[remote] agent-repo` is the old name plus a suffix and kept otherwise, an agent directory
+  outside the work-repo renamed the same way, and the symlink made for the new root.
+- What stops it, before anything moves: work nowhere else, as `repo delete` refuses it, a new path
+  or remote name taken, a name GitHub would change, and an `origin` neither GitHub nor a local bare
+  repo. The family's names for it, `[family] member` and the other members' configs, are listed and
+  not changed.
+- The order, the remote first, so a refusal there leaves the machine as it was: the GitHub repos by
+  `gh repo rename` or the local bare repos moved, then both `origin` URLs, the configs, the
+  directories, and the symlink last. A run stopped on the remote is run again and goes on from the
+  name the remote holds, and one stopped at the symlink says `vc-x1 symlink` makes it.
+- The config edits are committed and pushed by the command, the design's, in a rung of their own so
+  the review can drop it and leave them for the usual commit.
+- `vc-x1 repo move -s b|p [PATH] --to DIR` beside it (wink, 2026-11-27): the local half with the
+  name kept, the workspace moved under a new parent, no remote touched. A relative local `origin`
+  is rewritten for the new place, and a move across filesystems is refused, naming it.
+
+#### Acceptance check
+
+In a scratch workspace made by `init --test-repo`, its origins local bare repos: `repo rename -s b
+--to <new> --dry-run` prints the plan and moves nothing, and the run moves the work directory, the
+two bare repos, both `origin` URLs, `[remote] agent-repo`, and the symlink, commits and pushes the
+config, after which `vc-x1 sync -s b --dry-run` from the new directory reports both repos up to
+date and nothing is left under the old names. `repo move -s b --to <dir>` then moves it under
+another parent, a relative bare-repo origin rewritten, and `sync -s b --dry-run` there is clean
+too. The GitHub path is wink's hand test, a `--private`
+workspace renamed outside the agent's sandbox, `gh repo view` naming the new repos.
+
+#### Deliberation
+
+- **Whole workspace** (wink, 2026-11-27), the design's open question: one side alone overlaps
+  **repos.agent becomes repos.agent-dir, and a command brings a config up to date**, and a rename
+  of half a workspace leaves its two halves named apart.
+- **GitHub included** (wink): `gh repo rename` widens the spawn register's entry 3, init's gh
+  provisioning, a forge's API and no version-control operation. GitHub redirects an old name, so the
+  `orepo:` URLs already in history resolve, and nothing rewrites them.
+- **A ladder, the commit and push last** (wink, "multi-step, if that works better"): the remote,
+  the machine, and the commit are each a rung and each reviewed, and the push from inside a command
+  is the one step wink may want left to the usual flow.
+- **The GitHub name check is rename's**: **init refuses a name GitHub would change** is not built,
+  so rename makes the check, `init` adopting it being that entry's.
+- **Not from inside a session**: the session's directory and its symlink are what move, so a rename
+  of the workspace a session runs in is run after it exits, as `repo delete` is. Tested here in a
+  scratch workspace.
+- `.vc-config.toml`, the design's other open question, is not handled: `repo delete` reads
+  `.vc-config.md` alone, and rename refuses a workspace without one.
+
+#### Rungs
+
+The rung subsections, in the ladder's order. The ladder itself is in `zTOC.md > ## Ladder`.
+
+##### feat: repo rename renames a workspace opening
+
+The cycle's first commit, carrying its plan: the bookmark, the last cycle's record deleted, and the
+Todo entry moved into this block.
+
+##### feat: repo rename plans a rename
+
+The command, its arguments, and its plan: the parts `repo delete` finds and their new names, the
+refusals, and the plan printed, `--dry-run` stopping there. Nothing moves yet.
+
+##### feat: repo rename moves a workspace on this machine
+
+The local half: a local bare origin moved, both `origin` URLs, the config edits written, the
+directories, and the symlink, in that order, a failure naming what is left.
+
+##### feat: repo move moves a workspace to another directory
+
+The same local half with the name kept: the workspace under a new parent, a relative local
+`origin` rewritten, no remote touched, and a move across filesystems refused.
+
+##### feat: repo rename renames the GitHub repos
+
+The remote half for a GitHub origin: both repos renamed by `gh repo rename` before anything local,
+a stopped run going on from the name GitHub holds.
+
+##### feat: repo rename commits and pushes the config
+
+The config edits committed in each repo that changed and pushed, so the remote's config names the
+remote it is on. Wink's to keep or drop at its review.
+
+##### feat: repo rename renames a workspace closing
+
+Closing out the cycle.
 
 ## Waiting
 
@@ -5041,123 +5141,6 @@ own directory) are separate traversals over the same three values today, and fou
 
 The last cycle's finished record, moved here whole by its closing commit and deleted by the next
 opening ([Cycle-record](AGENTS.md#cycle-record)).
-
-### feat: a link stays on one line
-
-#### Problem
-
-(wink + agent, 2026-11-25, from **feat: init copies a file set and finishes what it starts**) A
-link's text wraps with the prose around it, `[Working` ending one line and `practices](...)`
-opening the next, as 128 links do today, 65 of them in the agent-files. A search for the link's
-text then misses it, a previewer may not join it, and `check anchors` has a bug of its own for a
-citation after a wrapped code span. Wink read one in `custom.md` and was not sure it was valid.
-
-- **The short lines are a fair trade** (wink, 2026-11-25): a line broken early before a link is
-  ragged in the source alone, never rendered.
-- A prep cycle of **agent-files(proposal): v0.3.1**.
-
-#### Solution
-
-A style to strive for, not a requirement (wink, 2026-11-27): a rule in `prose.md`'s Line widths, a
-count in `check anchors` that never fails it, and the agent-files re-wrapped to it.
-
-- The rule: a link, its text and destination, inline or reference-style, stays on one line. One
-  that does not fit within the width starts the next line, the text after it going on along that
-  line, and one longer than the width alone is the exception, as an URL is. Its why is
-  `rationale.md`'s **Line widths**.
-- The check: `check anchors` counts a link whose text began on an earlier line, a `](` or `][` with
-  no `[` of its own before it, as a style site and never a finding, its summary saying
-  `N link(s) span a line` and `-v` naming each.
-- The sweep: the agent-files' 69 wrapped links, 62 items re-wrapped with the words unchanged, the
-  set reading `0 link(s) span a line`. The other 63 in the workspace re-wrap when a cycle touches
-  their file.
-- The agent-files are the draft `v0.3.1-19`.
-
-#### Acceptance check
-
-`vc-x1-dev check anchors --file` over `AGENTS.md` and each `agent-data/*.md` reports `0 link(s)
-span a line` and passes, a scratch file holding one wrapped inline link and one wrapped reference
-link reports `2 link(s) span a line` and still passes, and the validate task passes.
-
-Passed at the closing: the set reads `0 link(s) span a line` with 0 failed, and the scratch file
-`2 link(s) span a line`, exit 0.
-
-#### Deliberation
-
-- **A count, not a warning per link**: 133 wrapped links today, so a warning each would bury every
-  validate's output until a sweep nobody is asked to make. The summary keeps the number in view and
-  `-v` names the sites.
-- **What follows a moved link** (open in the entry): the agent's reading, the text after the link
-  going on along its line, since a link alone on every line it starts would make the ragged source
-  wink accepted ragged far more often. Taken by wink's go at the plan's review.
-- **Agent-files swept, the rest by touch**: the agent-files are what the proposal hands the family,
-  and the set should show the rule it states. Elsewhere Line widths' "no mass sweeps" holds.
-- **The wrapped code span stays a bug**: **validate-anchors finds a citation that follows a
-  wrapped code span** is a false finding about code spans, not links, so this rule does not close
-  it, where the entry said it would. Whether code spans join the rule was not decided, and the
-  bug's backlog entry stands.
-- **A count in a summary, not in its own line**: `check anchors`' summary gains the count, so a
-  script reading the line sees one more field at its end.
-- **Generated text**: `vc-config.md` is built from the schema and carries one wrapped link, so it
-  re-wraps when its generator is next touched, not by hand.
-
-#### Rungs
-
-The rung subsections, in the ladder's order. The ladder itself is in `zTOC.md > ## Ladder`.
-
-##### feat: a link stays on one line opening
-
-The cycle's first commit, carrying its plan: the bookmark, the last cycle's record deleted, and the
-Todo entry moved into this block.
-
-##### feat: check anchors counts a link that spans a line
-
-`check anchors` sees links a line at a time, so a link wrapped across lines is invisible to it. It
-learns to count them as style sites, reported in its summary and at `-v`, never failing the run.
-
-* A link's end, `](` or `][`, is the one place a wrapped link shows on a single line.
-  - A link spans a line when its end has no `[` of its own before it on the line, the scan back
-    counting each `]` it passes so nested brackets and a `[[N]]` beside it balance.
-  - It counts once, on the line its text ends, however many lines the text took.
-  - Code spans and fences are blanked first, as for every other check, so a quoted `](` is code.
-* The count is a style's, never a finding's.
-  - `Report` carries the lines and `Counts` the number, the summary gaining `N link(s) span a
-    line`, each site printed at `-v`, and the exit status left to the findings.
-  - Over the workspace today: 132, beside the same 4 findings the installed build reports.
-* `README.md`'s **check anchors** says what the count is and what `-v` adds.
-
-##### docs: a link stays on one line
-
-The rule has no text. `prose.md`'s Line widths gains it, `rationale.md` its why, the agent-files
-are re-wrapped to it, and the agent-files version moves to `v0.3.1-19`.
-
-* Line widths says what a wrapped link costs nobody else's rule did.
-  - The rule: a link, inline or reference-style, stays on one line, a style to strive for. One that
-    does not fit starts the next line, the text after it going on along that line, and one longer
-    than the width alone is the exception, as an URL is.
-  - Its why in `rationale.md`'s new **Line widths**: a wrapped link escapes a search and a
-    line-at-a-time check, the ragged source is never rendered, and as a style the check counts and
-    never fails.
-* The agent-files hold the rule they state.
-  - 62 items re-wrapped across `AGENTS.md` and five `agent-data/` files, each to the full width
-    with its links and code spans kept whole, the words unchanged, `check anchors` over the set
-    reading `0 link(s) span a line`.
-  - One fixed by hand: `AGENTS.md`'s acquaint step 1 had a continuation line opening `## Agents`
-    inside its link, which a renderer may read as a heading.
-  - Three links longer than the width stay on lines of their own.
-* `agent-data/agent-files-v0.3.1-19` replaces `-18`, and `CONTRIBUTING.md > ## Agents` records
-  the draft and that the proposal is made formal by one commit once its prep cycles land.
-
-##### feat: a link stays on one line closing
-
-Closing out the cycle.
-
-* The acceptance check passed, recorded above.
-* The record is final: the Problem keeps the entry's paragraph and the fair-trade call, the
-  Solution says what was done, and the open question of what follows a moved link is settled by
-  the go at the plan's review.
-* `notes/agent-files-size.md` gains the row for the draft `v0.3.1-19`, 2067 lines, and its window
-  slides.
 
 # References
 
