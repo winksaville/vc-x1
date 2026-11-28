@@ -186,6 +186,26 @@ work config's `[repos] agent` and the work `.gitignore` line following, its remo
 `init` names it, the work name plus a dot-led directory, with `[remote] agent-repo`, and the
 symlink re-pointed. PATH may name the agent directory itself.
 
+* `-s a` plans the agent side alone, `plan_agent` beside the whole rename's plan, the two carried
+  out by the same steps.
+  - PATH is the workspace's root, or the agent directory itself, which names its root.
+  - `--to` is the agent directory's new name, the directory renamed where it is, inside the
+    work-repo or beside it.
+  - The agent remote follows as `init` names it: a dot-led directory a suffix on the work name,
+    `ws.agent-session` to `ws.agentsession`, any other the whole name, and a remote the old
+    directory does not name kept and listed.
+  - The work config's `[repos] agent` and `[remote] agent-repo` follow, and for a nested agent-repo
+    the work `.gitignore` line naming it, without which the work-repo would track the renamed
+    directory.
+  - The symlink keeps its path and is pointed at the new directory, one pointing elsewhere left.
+  - The refusals are the whole rename's: work nowhere else, the name taken or unchanged, and an
+    origin rename cannot rename.
+* The whole rename's steps skip the work directory's move when it does not move, and a `.gitignore`
+  line is changed whole by `edit_line`, refused when the line is not there.
+* Tested end to end, PATH the agent directory: the directory, the bare origin, both config keys,
+  the `.gitignore` line, and the symlink follow, the work origin is kept, and `sync -s b
+  --dry-run` reports both repos up to date.
+
 ##### feat: repo move moves a workspace to another directory
 
 The same local half with the name kept: the workspace under a new parent, a relative local

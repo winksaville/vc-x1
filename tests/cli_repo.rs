@@ -501,7 +501,7 @@ fn a_rename_moves_every_part_on_this_machine() {
 
 /// A one-side scope is refused by delete, which would otherwise take
 /// it as `-s b` and delete both repos, while rename takes `-s w` as
-/// `-s b` and refuses `-s a` until the agent side alone is built.
+/// `-s b`.
 #[test]
 fn one_side_scopes_mean_what_they_say() {
     let fx = CliFixture::new("repo-scopes");
@@ -525,11 +525,53 @@ fn one_side_scopes_mean_what_they_say() {
         out.contains("ws2.agent-session"),
         "the agent side follows: {out}"
     );
-    let out = text(&run_err(&mut rename(
+    all_there(&ws);
+}
+
+/// `-s a` renames the agent directory in place, named by the root or
+/// by the agent directory itself: the work config's `repos.agent` and
+/// `remote.agent-repo`, the work `.gitignore` line, the bare origin,
+/// its URL, and the symlink all follow, and the workspace syncs after.
+#[test]
+fn a_rename_of_the_agent_side_alone() {
+    let fx = CliFixture::new("rename-agent");
+    let ws = make_ws(&fx);
+    let agent = ws.root.join(".agent-session");
+    let agent_s = agent.to_str().expect("utf-8").to_string();
+
+    let out = text(&run_ok(&mut rename(
         &fx,
         &fx.base,
-        &["-s", "a", "--dry-run", "--to", ".x", root],
+        &["-s", "a", "--dry-run", "--to", ".agentsession", &agent_s],
     )));
-    assert!(out.contains("agent side alone is not built yet"), "{out}");
+    assert!(out.contains("set the line /.agent-session in"), "{out}");
+    assert!(!out.contains("move the work repo"), "{out}");
     all_there(&ws);
+
+    let out = text(&run_ok(&mut rename(
+        &fx,
+        &ws.root,
+        &["-s", "a", "--yes", "--to", ".agentsession"],
+    )));
+    assert!(out.contains("rename: done"), "{out}");
+    let agent_to = ws.root.join(".agentsession");
+    assert!(agent_to.is_dir() && !agent.exists(), "agent dir renamed");
+    assert!(
+        ws.remotes.join("ws.agentsession.git").is_dir(),
+        "agent origin moved"
+    );
+    assert!(ws.remotes.join("ws.git").is_dir(), "work origin kept");
+    let cfg = std::fs::read_to_string(ws.root.join(".vc-config.md")).expect("config");
+    assert!(cfg.contains("agent = \".agentsession\""), "{cfg}");
+    assert!(cfg.contains("agent-repo = \"ws.agentsession\""), "{cfg}");
+    let ignore = std::fs::read_to_string(ws.root.join(".gitignore")).expect("gitignore");
+    assert!(ignore.lines().any(|l| l == "/.agentsession"), "{ignore}");
+    assert_eq!(std::fs::read_link(&ws.link).expect("symlink"), agent_to);
+
+    let out = text(&run_ok(
+        fx.cmd()
+            .args(["sync", "-s", "b", "--dry-run"])
+            .current_dir(&ws.root),
+    ));
+    assert!(out.contains("up to date"), "{out}");
 }

@@ -33,7 +33,8 @@ pub struct RenameArgs {
     #[arg(value_name = "PATH", value_hint = ValueHint::DirPath)]
     pub path: Option<PathBuf>,
 
-    /// The new name, one directory name, and the remote's under it
+    /// The new name, one directory name, and the remote's under it:
+    /// the workspace's, or under `-s a` the agent directory's
     #[arg(long, value_name = "NEW")]
     pub to: String,
 
@@ -43,12 +44,12 @@ pub struct RenameArgs {
 
     /// The workspace's shape, required: `b|both` a dual workspace,
     /// `w|work` the same, its agent side following the work name,
-    /// `p|por` a plain repo
+    /// `a|agent` the agent side alone, `p|por` a plain repo
     #[arg(
         short = 's',
         long,
         value_name = "SCOPE",
-        value_parser = repo_scope_parser(&["both", "work", "por"]),
+        value_parser = repo_scope_parser(&["both", "work", "agent", "por"]),
         required = true
     )]
     pub scope: RepoScope,
@@ -65,6 +66,8 @@ pub struct RenameParams {
     pub to: String,
     pub yes: bool,
     pub dual: bool,
+    /// `-s a`: the agent side alone, its directory named `to`.
+    pub agent_only: bool,
     pub dry_run: bool,
 }
 
@@ -75,6 +78,8 @@ impl From<&RenameArgs> for RenameParams {
             to: a.to.clone(),
             yes: a.yes,
             dual: matches!(a.scope, RepoScope::Sides(_)),
+            agent_only: matches!(&a.scope, RepoScope::Sides(s)
+                if s.0 == [crate::options_flags::scope::Side::Bot]),
             dry_run: a.dry_run.value,
         }
     }
@@ -84,17 +89,8 @@ impl SubcommandRunner for RenameArgs {
     type Params = RenameParams;
 
     /// `-s w` is `-s b`, the agent side following the work name, and
-    /// `-s a`, the agent side alone, is refused until it is built.
+    /// `-s a` is the agent side alone.
     fn to_params(&self) -> Result<Self::Params, String> {
-        if let RepoScope::Sides(s) = &self.scope
-            && s.0 == [crate::options_flags::scope::Side::Bot]
-        {
-            return Err(
-                "repo rename -s a: renaming the agent side alone is not built yet: `-s b` or \
-                 `-s w` renames the workspace whole"
-                    .to_string(),
-            );
-        }
         Ok(RenameParams::from(self))
     }
 
@@ -158,6 +154,9 @@ pub struct Plan {
     /// Where the agent-repo is once renamed, `None` for a plain repo.
     pub agent_to: Option<PathBuf>,
     pub configs: Vec<ConfigEdit>,
+    /// Lines of a `.gitignore` changed whole: the file, the line, and
+    /// what it becomes.
+    pub ignores: Vec<(PathBuf, String, String)>,
     /// What keeps the old name, said and not changed.
     pub kept: Vec<String>,
     /// Each a reason nothing is renamed.
@@ -347,6 +346,9 @@ pub fn plan(
     cwd: &Path,
     projects: &Path,
 ) -> Result<Plan, Box<dyn std::error::Error>> {
+    if params.agent_only {
+        return plan_agent(params, cwd, projects);
+    }
     let new = params.to.as_str();
     if let Some(problem) = dir_name_problem(new) {
         return Err(format!("repo rename --to: {problem}").into());
@@ -537,6 +539,204 @@ pub fn plan(
         link_to,
         agent_to,
         configs,
+        ignores: Vec::new(),
+        kept,
+        refusals,
+    })
+}
+
+/// PATH as `-s a` takes it: the agent directory itself names its
+/// workspace's root, and anything else is PATH as given.
+fn agent_path_to_root(path: Option<&Path>, cwd: &Path) -> Option<PathBuf> {
+    let p = path?;
+    let p = if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        cwd.join(p)
+    };
+    let p = p.canonicalize().ok()?;
+    let root = crate::common::find_workspace_root_from(p.parent()?)?;
+    let agent = crate::common::configured_bot_dir(&root).ok()??;
+    (agent.canonicalize().ok()? == p).then_some(root)
+}
+
+/// The agent remote's new name when its directory is renamed from
+/// `old_dir` to `new_dir`, as `init` names it: a dot-led directory is
+/// a suffix on the work name, any other directory the whole name.
+/// `None` when the old name is not the one the old directory gives.
+fn agent_remote_renamed(old: &str, work: &str, old_dir: &str, new_dir: &str) -> Option<String> {
+    let given = if old_dir.starts_with('.') {
+        format!("{work}{old_dir}")
+    } else {
+        old_dir.to_string()
+    };
+    if old != given {
+        return None;
+    }
+    Some(if new_dir.starts_with('.') {
+        format!("{work}{new_dir}")
+    } else {
+        new_dir.to_string()
+    })
+}
+
+/// Plan `-s a`: the agent directory renamed `params.to` where it is,
+/// the work config's `[repos] agent` and the work `.gitignore` line
+/// following it, the agent remote renamed as `init` names it, and the
+/// symlink pointed at the new directory.
+fn plan_agent(
+    params: &RenameParams,
+    cwd: &Path,
+    projects: &Path,
+) -> Result<Plan, Box<dyn std::error::Error>> {
+    let new = params.to.as_str();
+    if let Some(problem) = dir_name_problem(new) {
+        return Err(format!("repo rename --to: {problem}").into());
+    }
+    let path = agent_path_to_root(params.path.as_deref(), cwd).or_else(|| params.path.clone());
+    let Survey { root, repos, link } =
+        delete::survey("rename", path.as_deref(), true, cwd, projects)?;
+    let mut refusals: Vec<String> = Vec::new();
+    let mut kept: Vec<String> = Vec::new();
+    let mut configs: Vec<ConfigEdit> = Vec::new();
+    let mut ignores: Vec<(PathBuf, String, String)> = Vec::new();
+    for r in &repos {
+        if r.dirty_at && !r.agent {
+            refusals.push(format!(
+                "{}: @ has uncommitted changes: commit them first",
+                r.label
+            ));
+        }
+        if !r.unpushed.is_empty() {
+            refusals.push(format!(
+                "{}: {} commit(s) no remote bookmark reaches, {}: push them first",
+                r.label,
+                r.unpushed.len(),
+                r.unpushed.join(" ")
+            ));
+        }
+    }
+    let a = repos
+        .iter()
+        .find(|r| r.agent)
+        .ok_or("repo rename -s a: the workspace's agent-repo is not there")?;
+    let old_dir = last_name(&a.path);
+    let dir_to = sibling(&a.path, new);
+    if old_dir == new {
+        refusals.push(format!(
+            "the agent directory is named '{new}' already: nothing to rename"
+        ));
+    } else if dir_to.symlink_metadata().is_ok() {
+        refusals.push(format!("{} is there already", dir_to.display()));
+    }
+
+    let work_url = crate::jj::remote_url(&root, "origin")?;
+    let work_name = match &work_url {
+        Some(u) => crate::url::derive_name(u)?,
+        None => last_name(&root),
+    };
+    let configured = crate::common::configured_agent_repo(&root)?;
+    let name_from = match (&configured, crate::jj::remote_url(&a.path, "origin")?) {
+        (Some(n), _) => Some(n.clone()),
+        (None, Some(u)) => Some(crate::url::derive_name(&u)?),
+        (None, None) => None,
+    };
+    let name_to = name_from
+        .as_deref()
+        .and_then(|n| agent_remote_renamed(n, &work_name, &old_dir, new));
+    if let (Some(from), None) = (&name_from, &name_to) {
+        kept.push(format!(
+            "the agent remote '{from}', not the name '{old_dir}' gives"
+        ));
+    }
+    let RemotePlan {
+        url_from,
+        url_to,
+        remote,
+        ..
+    } = plan_remote(a, name_to.as_deref(), &mut refusals)?;
+    if let Remote::LocalBare { from, to } = &remote
+        && from != to
+        && to.symlink_metadata().is_ok()
+    {
+        refusals.push(format!(
+            "{}'s new origin {} is there already",
+            a.label,
+            to.display()
+        ));
+    }
+    if matches!(remote, Remote::GitHub { .. })
+        && let Some(n) = &name_to
+        && let Some(problem) = github_name_problem(n)
+    {
+        refusals.push(format!("--to: the agent remote {problem}"));
+    }
+    if let (Some(from), Some(to)) = (&configured, &name_to) {
+        configs.push(ConfigEdit {
+            dir: root.clone(),
+            key: "remote.agent-repo".to_string(),
+            from: from.clone(),
+            to: to.clone(),
+        });
+    }
+    edit_path_key(&root, "repos.agent", &old_dir, new, &mut configs)?;
+    if !a.outside {
+        let gitignore = root.join(".gitignore");
+        if let Ok(text) = std::fs::read_to_string(&gitignore) {
+            let rel = a
+                .path
+                .strip_prefix(&root)
+                .unwrap_or(&a.path)
+                .to_string_lossy()
+                .into_owned(); // OK: a nested agent-repo is under the root
+            let rel_to = sibling(Path::new(&rel), new).to_string_lossy().into_owned();
+            for form in [
+                format!("/{rel}"),
+                format!("/{rel}/"),
+                rel.clone(),
+                format!("{rel}/"),
+            ] {
+                if text.lines().any(|l| l == form) {
+                    let to = form.replacen(&rel, &rel_to, 1);
+                    ignores.push((gitignore.clone(), form, to));
+                }
+            }
+            if ignores.is_empty() {
+                kept.push(format!(
+                    "{}, which names no '{rel}' line to follow it",
+                    gitignore.display()
+                ));
+            }
+        }
+    }
+    // Ours is re-pointed, an absent one made, and one pointing
+    // elsewhere or Claude Code's own directory left, as listed.
+    let link_to =
+        match &link {
+            Link::Ours(p) => Some(p.clone()),
+            Link::Absent => Some(projects.join(crate::symlink::encode_path(
+                root.to_str().ok_or_else(|| {
+                    format!("repo rename: '{}' is not valid UTF-8", root.display())
+                })?,
+            ))),
+            Link::Elsewhere(..) | Link::NotSymlink(_) => None,
+        };
+    Ok(Plan {
+        root_to: root.clone(),
+        root,
+        repos: vec![RepoPlan {
+            label: a.label.clone(),
+            url_from,
+            url_to,
+            remote,
+            dir: a.path.clone(),
+            dir_to: Some(dir_to.clone()),
+        }],
+        link_to,
+        link,
+        agent_to: Some(dir_to),
+        configs,
+        ignores,
         kept,
         refusals,
     })
@@ -571,11 +771,20 @@ fn edit_path_key(
 impl Plan {
     /// The lines that say what is renamed and what is kept.
     pub fn lines(&self) -> Vec<String> {
-        let mut out = vec![format!(
-            "repo rename: the workspace at '{}', to '{}'",
-            self.root.display(),
-            last_name(&self.root_to)
-        )];
+        let head = match (self.root_to == self.root, self.repos.first()) {
+            (true, Some(a)) => format!(
+                "repo rename: the agent side of the workspace at '{}', '{}' to '{}'",
+                self.root.display(),
+                last_name(&a.dir),
+                a.dir_to.as_deref().map(last_name).unwrap_or_default() // OK: -s a always plans its move
+            ),
+            _ => format!(
+                "repo rename: the workspace at '{}', to '{}'",
+                self.root.display(),
+                last_name(&self.root_to)
+            ),
+        };
+        let mut out = vec![head];
         for p in &self.repos {
             match &p.remote {
                 Remote::None => {
@@ -609,6 +818,12 @@ impl Plan {
                 c.to
             ));
         }
+        for (file, from, to) in &self.ignores {
+            out.push(format!(
+                "  set the line {from} in {} to {to}",
+                file.display()
+            ));
+        }
         for p in &self.repos {
             if let Some(to) = &p.dir_to {
                 out.push(format!(
@@ -619,11 +834,13 @@ impl Plan {
                 ));
             }
         }
-        out.push(format!(
-            "  move the work repo {} to {}",
-            self.root.display(),
-            self.root_to.display()
-        ));
+        if self.root_to != self.root {
+            out.push(format!(
+                "  move the work repo {} to {}",
+                self.root.display(),
+                self.root_to.display()
+            ));
+        }
         match &self.link {
             Link::Ours(p) => out.push(format!("  remove the symlink {}", p.display())),
             Link::Absent => {}
@@ -684,7 +901,12 @@ pub fn rename(
     }
     confirm(params.yes, ctx.stdin_is_tty)?;
     apply(&plan)?;
-    if cwd.starts_with(&plan.root) {
+    let moved = if plan.root_to != plan.root {
+        Some(&plan.root)
+    } else {
+        plan.repos.first().map(|a| &a.dir)
+    };
+    if moved.is_some_and(|m| cwd.starts_with(m)) {
         info!(
             "repo rename: done, the workspace is at {}, and this shell's directory moved with it: \
              `cd` there",
@@ -771,6 +993,12 @@ pub fn apply(plan: &Plan) -> Result<(), Box<dyn std::error::Error>> {
             Box::new(move || edit_config(c)),
         ));
     }
+    for (file, from, to) in &plan.ignores {
+        steps.push((
+            format!("set the line {from} in {} to {to}", file.display()),
+            Box::new(move || edit_line(file, from, to)),
+        ));
+    }
     for p in &plan.repos {
         if let Some(to) = &p.dir_to {
             steps.push((
@@ -784,14 +1012,16 @@ pub fn apply(plan: &Plan) -> Result<(), Box<dyn std::error::Error>> {
             ));
         }
     }
-    steps.push((
-        format!(
-            "move the work repo {} to {}",
-            plan.root.display(),
-            plan.root_to.display()
-        ),
-        Box::new(move || Ok(std::fs::rename(&plan.root, &plan.root_to)?)),
-    ));
+    if plan.root_to != plan.root {
+        steps.push((
+            format!(
+                "move the work repo {} to {}",
+                plan.root.display(),
+                plan.root_to.display()
+            ),
+            Box::new(move || Ok(std::fs::rename(&plan.root, &plan.root_to)?)),
+        ));
+    }
     if let Link::Ours(old) = &plan.link {
         steps.push((
             format!("remove the symlink {}", old.display()),
@@ -823,6 +1053,29 @@ pub fn apply(plan: &Plan) -> Result<(), Box<dyn std::error::Error>> {
         })?;
         info!("repo rename: {name}");
     }
+    Ok(())
+}
+
+/// Change the whole line `from` in `file` to `to`, every other line
+/// as written, refused when no line is `from`.
+fn edit_line(file: &Path, from: &str, to: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let text = std::fs::read_to_string(file)?;
+    let mut found = false;
+    let new: String = text
+        .split_inclusive('\n')
+        .map(|l| {
+            if !found && l.trim_end_matches('\n') == from {
+                found = true;
+                l.replacen(from, to, 1)
+            } else {
+                l.to_string()
+            }
+        })
+        .collect();
+    if !found {
+        return Err(format!("{} has no line {from}", file.display()).into());
+    }
+    std::fs::write(file, new)?;
     Ok(())
 }
 
@@ -934,6 +1187,23 @@ mod tests {
             edit_config_text(text, "remote.agent-repo", "nope", "x"),
             None
         );
+    }
+
+    /// The agent remote follows its directory as `init` names it, and
+    /// a name the old directory does not give is kept.
+    #[test]
+    fn the_agent_remote_follows_its_directory() {
+        let r = |old, dir_from, dir_to| agent_remote_renamed(old, "ws", dir_from, dir_to);
+        assert_eq!(
+            r("ws.agent-session", ".agent-session", ".a"),
+            Some("ws.a".to_string())
+        );
+        assert_eq!(
+            r("ws.agent-session", ".agent-session", "agent"),
+            Some("agent".to_string())
+        );
+        assert_eq!(r("agent", "agent", ".b"), Some("ws.b".to_string()));
+        assert_eq!(r("other", ".agent-session", ".a"), None);
     }
 
     /// A config path keeps everything but its last component.
