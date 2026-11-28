@@ -2,8 +2,8 @@
 
 A cycle's record shown as specimens rather than skeletons: the `config loader` cycle, a ladder
 mid-run, and the `version flag` cycle, a single-step cycle after its closing. Copy the shape, not
-the words. The rules are in [The In Progress block](notes.md#the-in-progress-block) and [Cycle
-shape](../AGENTS.md#cycle-shape).
+the words. The rules are in [The In Progress block](notes.md#the-in-progress-block) and
+[Cycle shape](../AGENTS.md#cycle-shape).
 
 Who writes what:
 

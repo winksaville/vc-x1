@@ -26,8 +26,8 @@ fixed directory.
 - `jj bookmark set <name> -r <rev> -R <repo>`: create the bookmark, or move an existing one, at
   `<rev>`. Moving it backwards needs `--allow-backwards`
 - `jj git push --named <name>=<rev> -R <repo>`: create *and* publish in one step, for a line that is
-  not a cycle's, whose bookmark `vc-x1 cycle plan start` makes ([Cycle
-  bookmarks](#cycle-bookmarks-create-and-land))
+  not a cycle's, whose bookmark `vc-x1 cycle plan start` makes
+  ([Cycle bookmarks](#cycle-bookmarks-create-and-land))
 - In jj, the working copy (@) is always a mutable commit being edited. `jj commit` finalizes it and
   creates a new empty working copy on top.
 - The agent-repo always has uncommitted changes during an active session because session data
@@ -149,11 +149,11 @@ holds the rule and when it applies, and this one holds the commands
 ([why](rationale.md#cycle-bookmarks-create-and-land)).
 
 **Create**, first at the cycle's plan: `vc-x1 cycle plan start --title "<bare cycle title>"` makes
-the bookmark on the work `@`, named by the title's slug (the anchor algorithm in [Markdown anchor
-links](notes.md#markdown-anchor-links)), or `--bookmark <NAME>`, and kept local, then writes the
-cycle's record. It refuses a name in use, locally or on `origin`, and a cycle already in progress,
-`@` holding edits or not. The bookmark follows the change, so `vc-x1 cycle plan commit` commits the
-opening on it, and every later rung advances it and no other.
+the bookmark on the work `@`, named by the title's slug (the anchor algorithm in
+[Markdown anchor links](notes.md#markdown-anchor-links)), or `--bookmark <NAME>`, and kept local,
+then writes the cycle's record. It refuses a name in use, locally or on `origin`, and a cycle
+already in progress, `@` holding edits or not. The bookmark follows the change, so
+`vc-x1 cycle plan commit` commits the opening on it, and every later rung advances it and no other.
 
 **Close**: `vc-x1 cycle close <target> -s b`, from the work `@` on the cycle's tip, makes a ladder's
 closing commit, a merge of the target and the tip, `--linear` a plain closing instead, and `vc-x1
@@ -191,12 +191,13 @@ before it and silence after ([At rest](../AGENTS.md#at-rest)):
   asks for and which lands a tree no rung validated, the closing made again as a trapezoid, its
   merge joining the target where it is, or a rebase by `jj rebase`, every rung then validated again.
 
-**Reshape**, while the bookmark is a draft ([Cycles run on a
-bookmark](../AGENTS.md#cycles-run-on-a-bookmark)):
+**Reshape**, while the bookmark is a draft
+([Cycles run on a bookmark](../AGENTS.md#cycles-run-on-a-bookmark)):
 
 - **Amend content, never re-describe.** Editing `TODO.md` in a rung and amending is not a
-  `jj describe`, so [No re-describe without
-  coordinating](#re-describing-coordinate-first-and-keep-the-trailer) stays intact.
+  `jj describe`, so
+  [No re-describe without coordinating](#re-describing-coordinate-first-and-keep-the-trailer) stays
+  intact.
 - **A topic that was pushed is force-pushed**, under the same approval as any other push.
 
 ## Long-lived bookmarks: merge-only by default, deletable once merged
@@ -336,5 +337,5 @@ agent = "<agent-dir>"    agent = "."
 It stays a placeholder here because naming a directory would trade one project's bias for
 another's, and where the agent-repo sits is exactly what this registry exists to say.
 
-The `ochid:` trailer's bare id does not read this registry ([Cross-repo
-linking](#cross-repo-linking-ochid-trailers)).
+The `ochid:` trailer's bare id does not read this registry
+([Cross-repo linking](#cross-repo-linking-ochid-trailers)).

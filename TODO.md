@@ -134,6 +134,23 @@ learns to count them as style sites, reported in its summary and at `-v`, never 
 The rule has no text. `prose.md`'s Line widths gains it, `rationale.md` its why, the agent-files
 are re-wrapped to it, and the agent-files version moves to `v0.3.1-19`.
 
+* Line widths says what a wrapped link costs nobody else's rule did.
+  - The rule: a link, inline or reference-style, stays on one line, a style to strive for. One that
+    does not fit starts the next line, the text after it going on along that line, and one longer
+    than the width alone is the exception, as an URL is.
+  - Its why in `rationale.md`'s new **Line widths**: a wrapped link escapes a search and a
+    line-at-a-time check, the ragged source is never rendered, and as a style the check counts and
+    never fails.
+* The agent-files hold the rule they state.
+  - 62 items re-wrapped across `AGENTS.md` and five `agent-data/` files, each to the full width
+    with its links and code spans kept whole, the words unchanged, `check anchors` over the set
+    reading `0 link(s) span a line`.
+  - One fixed by hand: `AGENTS.md`'s acquaint step 1 had a continuation line opening `## Agents`
+    inside its link, which a renderer may read as a heading.
+  - Three links longer than the width stay on lines of their own.
+* `agent-data/agent-files-v0.3.1-19` replaces `-18`, and `CONTRIBUTING.md > ## Agents` records
+  the draft and that the proposal is made formal by one commit once its prep cycles land.
+
 ##### feat: a link stays on one line closing
 
 Closing out the cycle.

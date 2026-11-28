@@ -14,17 +14,17 @@ the high-level *what*, sharpened to a *problem statement* where a surface calls 
 numbers and the wrap discipline live in [Line widths](#line-widths) below, their one home. One fact
 per bullet or sub-bullet beats a paragraph packing several. Avoid wall-of-prose paragraphs: they
 hide the structure that bullets make scannable. Punctuation that joins clauses without naming their
-relationship is the same failure at sentence scale. See [Semicolons](#semicolons) and [Typeable
-punctuation only](#typeable-punctuation-only).
+relationship is the same failure at sentence scale. See [Semicolons](#semicolons) and
+[Typeable punctuation only](#typeable-punctuation-only).
 
 Surfaces that use this shape:
 
-- Module / function / struct / field doc comments in `.rs` files. See [Doc
-  comments](code.md#doc-comments-on-every-file-function-and-method).
+- Module / function / struct / field doc comments in `.rs` files. See
+  [Doc comments](code.md#doc-comments-on-every-file-function-and-method).
 - Commit message bodies (both work-repo and agent-repo). The title is the commit-specific add-on.
   See [The per-rung flow](../AGENTS.md#the-per-rung-flow).
-- The cycle-record, `TODO.md > ## In Progress`. See [The In Progress
-  block](notes.md#the-in-progress-block).
+- The cycle-record, `TODO.md > ## In Progress`. See
+  [The In Progress block](notes.md#the-in-progress-block).
 - Todo entries in `TODO.md` when an entry needs more than one line of detail. Pure one-liners are
   still fine.
 
@@ -105,6 +105,12 @@ touched, no mass sweeps. Write to the full width: wrap near the limit rather tha
 narrow wrap of older text, and a line that reads better long stays long (an URL, a literal report
 row, indented code in a comment).
 
+A link stays on one line, its text and destination, inline or reference-style, a style to strive
+for and not a requirement. One that does not fit within the width starts the next line, the text
+after it going on along that line, and one longer than the width alone is the exception, as an URL
+is. `check anchors` counts the links that span a line and fails on none
+([why](rationale.md#line-widths)).
+
 ### Problem-first shape
 
 `## In Progress` cycle blocks, `## Todo` entries, and commit bodies use a sharper form of the same
@@ -113,12 +119,12 @@ shape: a problem, then how it is answered, then the steps that get there.
 - **Problem statement** (the why): one or two sentences. Don't pad with intent, don't restate what
   follows it.
 - **Solution statement** (the what/how): what is done about the problem, in broad terms, answering
-  whatever question the problem statement raises. Surface-specific rules are in [Bullet content
-  differs by surface](#prose-form) above.
+  whatever question the problem statement raises. Surface-specific rules are in
+  [Bullet content differs by surface](#prose-form) above.
 - **Plan bullets** (the what/when), the steps. Formality differs by surface:
-  - In Progress: a committed ladder, one step per commit. See [Conventional-commit
-    shape](#conventional-commit-shape-ladder--commit) for the per-step title + `(current)` /
-    `(done)` form.
+  - In Progress: a committed ladder, one step per commit. See
+    [Conventional-commit shape](#conventional-commit-shape-ladder--commit) for the per-step title +
+    `(current)` / `(done)` form.
   - Todo entries: rough informal bullets, no numbering, formalized only when the entry is picked up
     into a cycle.
 
@@ -199,8 +205,8 @@ usually stands in for a structural decision that was not made. Make the decision
 - **A prose aside** takes a comma, parentheses, or two sentences. Often the aside should just go.
 
 Converting a heading moves its anchor. The em dash strips but the spaces on both sides survive, so
-`## A — B` slugs to `#a--b` while its colon form slugs to `#a-b` (see [Markdown anchor
-links](notes.md#markdown-anchor-links)). Re-point inbound links in the same commit.
+`## A — B` slugs to `#a--b` while its colon form slugs to `#a-b` (see
+[Markdown anchor links](notes.md#markdown-anchor-links)). Re-point inbound links in the same commit.
 
 Scope is the same as [Speculation marker](#speculation-marker), plus commit titles and everything
 under `src/`: doc comments, inline comments, and any user-visible string. Source is the surface a
@@ -212,20 +218,20 @@ names them. A banned character doing a job is a use and converts: `` `.expect(�
 Text quoted from outside this repo's prose (tool output, an error message, an already-published
 commit title) is transcribed, not written, so it keeps its characters, whether or not it sits in a
 code span. It matters most for commit titles: converting one stops it matching `git log --grep` and
-breaks the verbatim identity that [Conventional-commit
-shape](#conventional-commit-shape-ladder--commit) requires between a commit title and its ladder
-rung.
+breaks the verbatim identity that
+[Conventional-commit shape](#conventional-commit-shape-ladder--commit) requires between a commit
+title and its ladder rung.
 
 ### Conventional-commit shape (ladder / commit)
 
 ([why](rationale.md#conventional-commit-shape-ladder--commit))
 
-A ladder step and its commit description share a *title* shape, a [Conventional
-Commits](https://www.conventionalcommits.org/en/v1.0.0/) title (`<type>: <desc>`, an optional
-`(scope)` after the type: `feat(push): ...`) over [Prose form](#prose-form) detail. They differ in
-the title's marker (below) and in bullet *content*: commit bodies take the [Commit-body
-form](#commit-body-form), the ladder's are conceptual (see "Bullet *content* differs by surface"
-above). The shared template:
+A ladder step and its commit description share a *title* shape, a
+[Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) title (`<type>: <desc>`, an
+optional `(scope)` after the type: `feat(push): ...`) over [Prose form](#prose-form) detail. They
+differ in the title's marker (below) and in bullet *content*: commit bodies take the
+[Commit-body form](#commit-body-form), the ladder's are conceptual (see "Bullet *content* differs by
+surface" above). The shared template:
 
 ```
 <title>                          # <title> is the commit's `<type>: <desc>`
@@ -260,27 +266,27 @@ cycle's commits collectable with one `git log --grep`, give the step titles a co
 
 **Cycle bookend titles**: a multi-step cycle's bookend commits are the cycle title plus a suffix, "
 opening" and " closing", or " dead-end closing" for a dead end, whose suffix the title cap does not
-bind, same type (`feat: dynamic warmup opening` / `feat: dynamic warmup closing`), so one `git log
---grep "<cycle title>"` returns the pair that brackets the ladder. The bare cycle title is the
-cycle's *name*: the block's title heading carries it, and no multi-step commit does, which is also
-what keeps the closing rung's subsection anchor clear of the title heading's. A single-step cycle's
-one commit is the cycle and keeps the bare title, in both repos and in its one ladder rung ([Cycle
-shape](../AGENTS.md#cycle-shape)). The type repeats across the pair even though the bookends are
-mostly bookkeeping: identical prefixes make them scannable. Rungs between keep their own titles on
-the stem.
+bind, same type (`feat: dynamic warmup opening` / `feat: dynamic warmup closing`), so one
+`git log --grep "<cycle title>"` returns the pair that brackets the ladder. The bare cycle title is
+the cycle's *name*: the block's title heading carries it, and no multi-step commit does, which is
+also what keeps the closing rung's subsection anchor clear of the title heading's. A single-step
+cycle's one commit is the cycle and keeps the bare title, in both repos and in its one ladder rung
+([Cycle shape](../AGENTS.md#cycle-shape)). The type repeats across the pair even though the bookends
+are mostly bookkeeping: identical prefixes make them scannable. Rungs between keep their own titles
+on the stem.
 
 ### Commit titles and descriptions
 
 ([why](rationale.md#commit-titles-and-descriptions))
 
-The vocabulary over the structure: [Conventional-commit
-shape](#conventional-commit-shape-ladder--commit) holds what a title and body are shaped like, and
-this section holds what may fill them. The title is a [Conventional
-Commit](https://www.conventionalcommits.org/), `<type>: <short description>` with an optional
-`(scope)`, at the width in [Line widths](#line-widths). The body is the [Commit-body
-form](#commit-body-form), wrapped per Line widths, with no version in title or body, no file list,
-and no deliberation. An agent commit takes its work commit's title and body. The trailers end the
-body, stamped by the tool, and a breaking change uses the hyphenated `BREAKING-CHANGE:`
+The vocabulary over the structure:
+[Conventional-commit shape](#conventional-commit-shape-ladder--commit) holds what a title and body
+are shaped like, and this section holds what may fill them. The title is a
+[Conventional Commit](https://www.conventionalcommits.org/), `<type>: <short description>` with an
+optional `(scope)`, at the width in [Line widths](#line-widths). The body is the
+[Commit-body form](#commit-body-form), wrapped per Line widths, with no version in title or body, no
+file list, and no deliberation. An agent commit takes its work commit's title and body. The trailers
+end the body, stamped by the tool, and a breaking change uses the hyphenated `BREAKING-CHANGE:`
 trailer key.
 
 #### Conventional commit types
@@ -304,10 +310,10 @@ slot then carries what the declaration says rather than a component. A project d
 here, in its own copy of this file, and the set declares for itself:
 
 - `agent-files`, the set's own lifecycle: `agent-files(<scope>): vX.Y.Z`, the description being the
-  agent-files version in its `v` spelling ([Agent-files
-  version](versioning.md#agent-files-version)), which keeps the formulaic titles unique and is the
-  one version a title may carry ([Versions live in the version-of-record
-  only](#versions-live-in-the-version-of-record-only)).
+  agent-files version in its `v` spelling
+  ([Agent-files version](versioning.md#agent-files-version)), which keeps the formulaic titles
+  unique and is the one version a title may carry
+  ([Versions live in the version-of-record only](#versions-live-in-the-version-of-record-only)).
   - The two scopes:
     - `proposal`, outbound work for others to adopt. The cycle bumps the agent-files version, and
       the title names the new one.
@@ -333,9 +339,9 @@ the position and then have to be maintained.
 - **Nothing renumbers.** Inserting, reordering or dropping a step edits the ladder list and nothing
   else. On an unlanded topic bookmark the rungs that already committed an older ladder come along.
   See [Cycles run on a bookmark](../AGENTS.md#cycles-run-on-a-bookmark).
-- **`## Todo` is ordered, not numbered**: priority is file order ([Todo
-  format](notes.md#todo-format)), so no rank number exists to be cited (the numbered form retired
-  2026-08-27).
+- **`## Todo` is ordered, not numbered**: priority is file order
+  ([Todo format](notes.md#todo-format)), so no rank number exists to be cited (the numbered form
+  retired 2026-08-27).
 
 ### Versions live in the version-of-record only
 
@@ -343,9 +349,9 @@ No version appears in durable prose: not in a ladder rung, a commit title, or a 
 manifest is the version's only written home (see [versioning.md](versioning.md)), and a commit's
 version is read from that file at that commit
 ([why](rationale.md#versions-live-in-the-version-of-record-only)). The one exception is the set's
-own version in an `agent-files` title, wherever that title appears ([Project-declared
-types](#project-declared-types)): it names an agreed text, not a build, and naming which is the
-title's job.
+own version in an `agent-files` title, wherever that title appears
+([Project-declared types](#project-declared-types)): it names an agreed text, not a build, and
+naming which is the title's job.
 
 **No surface records a version.** Which commit a version names is read from the manifest at that
 commit, and "what shipped in 0.42.0" is answered by `git log` on the manifest, not by a list kept in
@@ -363,8 +369,8 @@ What is barred is an adopter's repo appearing in universal text
 in the records of the project that earned it (the cycle-record, Todo entries), reachable from the
 commit that changed the agent-file. Dates are fine, since a date names a moment, not an adopter. A
 specimen in the scheme's own notation (an example version, an example bookmark name) is a use, not a
-reference, per the same distinction [Versions live in the version-of-record
-only](#versions-live-in-the-version-of-record-only) draws.
+reference, per the same distinction
+[Versions live in the version-of-record only](#versions-live-in-the-version-of-record-only) draws.
 
 ## Speculation marker
 
