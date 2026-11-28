@@ -163,7 +163,7 @@ pub struct Plan {
 /// current directory is in. Refused when there is none, when PATH is
 /// inside a workspace but not its root, and when the root holds the
 /// home directory, since removing it would remove the home.
-pub fn find_root(path: Option<&Path>, cwd: &Path) -> Result<PathBuf, String> {
+pub fn find_root(verb: &str, path: Option<&Path>, cwd: &Path) -> Result<PathBuf, String> {
     let root = match path {
         Some(p) => {
             let p = if p.is_absolute() {
@@ -173,20 +173,20 @@ pub fn find_root(path: Option<&Path>, cwd: &Path) -> Result<PathBuf, String> {
             };
             let p = p
                 .canonicalize()
-                .map_err(|e| format!("repo delete: '{}' cannot be read: {e}", p.display()))?;
+                .map_err(|e| format!("repo {verb}: '{}' cannot be read: {e}", p.display()))?;
             match crate::common::find_workspace_root_from(&p) {
                 Some(r) if r == p => r,
                 Some(r) => {
                     return Err(format!(
-                        "repo delete: '{}' is inside the workspace at '{}', not its root: name the \
-                         root to delete it",
+                        "repo {verb}: '{}' is inside the workspace at '{}', not its root: name the \
+                         root",
                         p.display(),
                         r.display()
                     ));
                 }
                 None => {
                     return Err(format!(
-                        "repo delete: '{}' is no workspace, having no `.vc-config.md`",
+                        "repo {verb}: '{}' is no workspace, having no `.vc-config.md`",
                         p.display()
                     ));
                 }
@@ -194,7 +194,7 @@ pub fn find_root(path: Option<&Path>, cwd: &Path) -> Result<PathBuf, String> {
         }
         None => crate::common::find_workspace_root_from(cwd).ok_or_else(|| {
             format!(
-                "repo delete: '{}' is in no workspace, having no `.vc-config.md` above it: name \
+                "repo {verb}: '{}' is in no workspace, having no `.vc-config.md` above it: name \
                  the workspace's root",
                 cwd.display()
             )
@@ -205,7 +205,7 @@ pub fn find_root(path: Option<&Path>, cwd: &Path) -> Result<PathBuf, String> {
         && home.starts_with(&root)
     {
         return Err(format!(
-            "repo delete: the workspace at '{}' holds the home directory '{}', and is not removed",
+            "repo {verb}: the workspace at '{}' holds the home directory '{}', and is left alone",
             root.display(),
             home.display()
         ));
@@ -280,7 +280,7 @@ fn read_repo(
 pub fn link_of(root: &Path, agent: Option<&Path>, projects: &Path) -> Result<Link, String> {
     let name = crate::symlink::encode_path(
         root.to_str()
-            .ok_or_else(|| format!("repo delete: '{}' is not valid UTF-8", root.display()))?,
+            .ok_or_else(|| format!("repo: '{}' is not valid UTF-8", root.display()))?,
     );
     let path = projects.join(name);
     let Ok(meta) = path.symlink_metadata() else {
@@ -289,12 +289,8 @@ pub fn link_of(root: &Path, agent: Option<&Path>, projects: &Path) -> Result<Lin
     if !meta.is_symlink() {
         return Ok(Link::NotSymlink(path));
     }
-    let target = std::fs::read_link(&path).map_err(|e| {
-        format!(
-            "repo delete: cannot read the symlink '{}': {e}",
-            path.display()
-        )
-    })?;
+    let target = std::fs::read_link(&path)
+        .map_err(|e| format!("repo: cannot read the symlink '{}': {e}", path.display()))?;
     let resolved = target.canonicalize().unwrap_or_else(|_| target.clone()); // OK: a dangling link compares as written
     let ours = agent.is_some_and(|a| a.canonicalize().map(|a| a == resolved).unwrap_or(false)); // OK: an agent-repo gone is not this link's
     Ok(if ours {
@@ -304,26 +300,40 @@ pub fn link_of(root: &Path, agent: Option<&Path>, projects: &Path) -> Result<Lin
     })
 }
 
-/// Find the workspace and plan what `delete` removes, removing
-/// nothing.
-pub fn plan(
-    params: &DeleteParams,
+/// A workspace's parts as found, before any verb acts on them.
+#[derive(Debug, Clone)]
+pub struct Survey {
+    pub root: PathBuf,
+    /// The work-repo first, then the agent-repo of a dual workspace.
+    pub repos: Vec<Repo>,
+    pub link: Link,
+}
+
+/// Find the workspace at `path`, or the one `cwd` is in, and read its
+/// parts, changing nothing: the shared first step of `repo delete`,
+/// `rename`, and `move`, `verb` naming the command in its messages.
+/// `dual` is the `-s` the caller was given, refused when the workspace
+/// is the other shape.
+pub fn survey(
+    verb: &str,
+    path: Option<&Path>,
+    dual: bool,
     cwd: &Path,
     projects: &Path,
-) -> Result<Plan, Box<dyn std::error::Error>> {
-    let root = find_root(params.path.as_deref(), cwd)?;
+) -> Result<Survey, Box<dyn std::error::Error>> {
+    let root = find_root(verb, path, cwd)?;
     let agent = crate::common::configured_bot_dir(&root)?;
-    match (params.dual, agent.is_some()) {
+    match (dual, agent.is_some()) {
         (true, false) => {
             return Err(format!(
-                "repo delete -s b: the workspace at '{}' is a plain repo: `-s p` deletes it",
+                "repo {verb} -s b: the workspace at '{}' is a plain repo: `-s p` takes it",
                 root.display()
             )
             .into());
         }
         (false, true) => {
             return Err(format!(
-                "repo delete -s p: the workspace at '{}' is a dual workspace: `-s b` deletes it",
+                "repo {verb} -s p: the workspace at '{}' is a dual workspace: `-s b` takes it",
                 root.display()
             )
             .into());
@@ -339,8 +349,8 @@ pub fn plan(
             repos.extend(read_repo(&label_of(&agent), true, &agent, false)?);
         } else if agent.starts_with(&root) || root.starts_with(&agent) {
             return Err(format!(
-                "repo delete: the agent-repo '{}' and the work-repo '{}' hold each other, which no \
-                 workspace vc-x1 makes does: nothing is removed",
+                "repo {verb}: the agent-repo '{}' and the work-repo '{}' hold each other, which no \
+                 workspace vc-x1 makes does: nothing is changed",
                 agent.display(),
                 root.display()
             )
@@ -350,6 +360,18 @@ pub fn plan(
         }
     }
     let link = link_of(&root, agent.as_deref(), projects)?;
+    Ok(Survey { root, repos, link })
+}
+
+/// Find the workspace and plan what `delete` removes, removing
+/// nothing.
+pub fn plan(
+    params: &DeleteParams,
+    cwd: &Path,
+    projects: &Path,
+) -> Result<Plan, Box<dyn std::error::Error>> {
+    let Survey { root, repos, link } =
+        survey("delete", params.path.as_deref(), params.dual, cwd, projects)?;
     Ok(Plan {
         root,
         repos,

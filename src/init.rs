@@ -1261,7 +1261,7 @@ fn resolve_path_target(p: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> 
 
 /// Extract the `owner/name` slug from a GitHub URL (any of the
 /// supported forms: SSH scp-like, `ssh://`, `https://`).
-fn github_slug_from_url(url: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) fn github_slug_from_url(url: &str) -> Result<String, Box<dyn std::error::Error>> {
     let stem = url.strip_suffix(".git").unwrap_or(url);
     // The slug is the last two path components, `owner/name`.
     if let Some(path) = stem

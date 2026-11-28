@@ -1,8 +1,10 @@
 //! `vc-x1 repo`: what is done to a workspace's repos as a whole, a
 //! noun and its verbs as `cycle` and `rung` are. `delete` removes a
-//! workspace from this machine, and `rename` and `move` are to join it.
+//! workspace from this machine, `rename` gives it a new name, and
+//! `move` is to join them.
 
 pub mod delete;
+pub mod rename;
 
 use std::process::ExitCode;
 
@@ -31,6 +33,19 @@ pub enum RepoCommand {
         printed first, and --dry-run prints it alone."
     )]
     Delete(delete::DeleteArgs),
+    /// Give a workspace a new name, its remote included
+    #[command(
+        hide = true,
+        long_about = "Give a workspace a new name, its remote included: the work repo's \
+        directory, its origin's last segment, the agent remote when its name is the old one plus \
+        a suffix, an agent directory outside the work repo the same way, both origin URLs, the \
+        config's names for them, and the Claude Code symlink. What keeps the old name, the \
+        family's names for it among them, is listed. Uncommitted or unpushed work, a new name \
+        taken, a name GitHub would change, and an origin neither GitHub nor a bare repo here \
+        refuse it before anything changes. The plan is printed first, and --dry-run prints it \
+        alone."
+    )]
+    Rename(rename::RenameArgs),
 }
 
 impl RepoArgs {
@@ -38,6 +53,7 @@ impl RepoArgs {
     pub fn dispatch(&self, ctx: &mut Context) -> ExitCode {
         match &self.command {
             RepoCommand::Delete(args) => args.dispatch(ctx),
+            RepoCommand::Rename(args) => args.dispatch(ctx),
         }
     }
 }

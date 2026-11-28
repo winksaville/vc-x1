@@ -123,7 +123,7 @@ fn the_wrong_scope_and_a_non_root_are_refused() {
         &["-s", "p", "--dry-run", root],
     )));
     assert!(
-        out.contains("is a dual workspace: `-s b` deletes it"),
+        out.contains("is a dual workspace: `-s b` takes it"),
         "{out}"
     );
 
@@ -341,4 +341,103 @@ fn a_second_run_finishes_what_a_first_left() {
         !ws.remotes.join("ws.agent-session.git").exists(),
         "agent origin removed"
     );
+}
+
+/// `vc-x1 repo rename <args>` from `dir`.
+fn rename(fx: &CliFixture, dir: &Path, args: &[&str]) -> std::process::Command {
+    let mut c = fx.cmd();
+    c.args(["repo", "rename"]).args(args).current_dir(dir);
+    c
+}
+
+/// A dry run names every part and its new name, the bare origins, both
+/// URLs, the config's agent-repo, the work repo, and the symlink, and
+/// renames nothing.
+#[test]
+fn a_rename_dry_run_names_every_part_and_renames_nothing() {
+    let fx = CliFixture::new("rename-dry-run");
+    let ws = make_ws(&fx);
+    let root = ws.root.to_str().expect("utf-8");
+
+    let out = text(&run_ok(&mut rename(
+        &fx,
+        &fx.base,
+        &["-s", "b", "--dry-run", "--to", "ws2", root],
+    )));
+    let remotes = ws.remotes.canonicalize().expect("remotes");
+    assert!(
+        out.contains(&format!(
+            "move work's origin {} to {}",
+            remotes.join("ws.git").display(),
+            remotes.join("ws2.git").display()
+        )),
+        "{out}"
+    );
+    assert!(
+        out.contains("ws2.agent-session.git"),
+        "the agent origin follows: {out}"
+    );
+    assert!(out.contains("set work's origin URL"), "{out}");
+    assert!(
+        out.contains("set remote.agent-repo in") && out.contains("to \"ws2.agent-session\""),
+        "{out}"
+    );
+    let root_to = ws.root.with_file_name("ws2");
+    assert!(
+        out.contains(&format!(
+            "move the work repo {root} to {}",
+            root_to.display()
+        )),
+        "{out}"
+    );
+    assert!(
+        out.contains(&format!("remove the symlink {}", ws.link.display())),
+        "{out}"
+    );
+    assert!(out.contains("make the symlink"), "{out}");
+    assert!(out.contains("nothing is renamed"), "{out}");
+    all_there(&ws);
+    assert!(!root_to.exists(), "nothing made under the new name");
+}
+
+/// What would stop a rename refuses it before anything changes: work
+/// nowhere else, a new name taken, a name that is no directory name,
+/// and the name it has already.
+#[test]
+fn a_rename_is_refused_before_anything_changes() {
+    let fx = CliFixture::new("rename-refusals");
+    let ws = make_ws(&fx);
+    let root = ws.root.to_str().expect("utf-8");
+
+    let out = text(&run_err(&mut rename(
+        &fx,
+        &fx.base,
+        &["-s", "b", "--dry-run", "--to", "a/b", root],
+    )));
+    assert!(out.contains("`repo move` changes where"), "{out}");
+
+    let out = text(&run_err(&mut rename(
+        &fx,
+        &fx.base,
+        &["-s", "b", "--dry-run", "--to", "ws", root],
+    )));
+    assert!(out.contains("named 'ws' already"), "{out}");
+
+    std::fs::create_dir(ws.root.with_file_name("taken")).expect("mkdir");
+    let out = text(&run_err(&mut rename(
+        &fx,
+        &fx.base,
+        &["-s", "b", "--dry-run", "--to", "taken", root],
+    )));
+    assert!(out.contains("is there already"), "{out}");
+
+    std::fs::write(ws.root.join("new.txt"), "new\n").expect("write");
+    let out = text(&run_err(&mut rename(
+        &fx,
+        &fx.base,
+        &["-s", "b", "--dry-run", "--to", "ws2", root],
+    )));
+    assert!(out.contains("work: @ has uncommitted changes"), "{out}");
+    assert!(out.contains("nothing is renamed"), "{out}");
+    all_there(&ws);
 }

@@ -109,6 +109,9 @@ workspace renamed outside the agent's sandbox, `gh repo view` naming the new rep
 - **Not from inside a session**: the session's directory and its symlink are what move, so a rename
   of the workspace a session runs in is run after it exits, as `repo delete` is. Tested here in a
   scratch workspace.
+- **One name, hidden until complete** (wink, 2026-11-27): a name per rung would rewrite tests and
+  messages each rung for commits no one outside the cycle runs, so `rename` and `move` are hidden
+  from `repo --help` until the closing unhides them.
 - `.vc-config.toml`, the design's other open question, is not handled: `repo delete` reads
   `.vc-config.md` alone, and rename refuses a workspace without one.
 
@@ -125,6 +128,27 @@ Todo entry moved into this block.
 
 The command, its arguments, and its plan: the parts `repo delete` finds and their new names, the
 refusals, and the plan printed, `--dry-run` stopping there. Nothing moves yet.
+
+* `repo delete`'s discovery is shared rather than copied.
+  - `delete::survey` finds the root, checks `-s` against the workspace, and reads each repo and the
+    symlink, `delete::plan` now its caller, each message naming the verb that ran it.
+* `vc-x1 repo rename -s b|p [PATH] --to NEW` plans, in `src/repo/rename.rs`.
+  - The new names: the work directory a sibling named `NEW`, each `origin` URL's last segment
+    replaced, the agent remote `NEW<suffix>` when `[remote] agent-repo` is the old name plus a
+    suffix, an outside agent directory the same way with the configs' `repos.agent` and
+    `repos.work` following, and the symlink path for the new root.
+  - What each remote becomes: a local bare repo moved to the new URL's path, a GitHub repo renamed
+    `owner/old` to `owner/NEW`, no `origin` skipped, and anything else refused.
+  - The refusals, all found first: uncommitted work and unpushed commits, as `repo delete` reads
+    them, a new directory, bare repo, or symlink already there, `NEW` no single directory name or
+    the name the workspace has, and a name GitHub would change when a remote is GitHub's.
+  - The GitHub check, `github_name_problem`, is the one **init refuses a name GitHub would change**
+    wants, said with what GitHub would make of the name.
+  - Kept and listed: an agent name that is not the old one plus a suffix, and `[family] member`.
+* Without `--dry-run` it refuses, the moves being the next rungs'. `--yes` arrives with them.
+* Hidden from `repo --help` until the closing (wink, 2026-11-27): the name is kept through the
+  ladder, each rung refusing what is not built yet, and the closing unhides it with its README
+  section, when the name is true.
 
 ##### feat: repo rename moves a workspace on this machine
 

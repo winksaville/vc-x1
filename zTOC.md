@@ -5,7 +5,7 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 ## Ladder
 
 - 0 (done) [feat: repo rename renames a workspace opening](TODO.md#feat-repo-rename-renames-a-workspace-opening)
-- [feat: repo rename plans a rename](TODO.md#feat-repo-rename-plans-a-rename)
+- 1 (done) [feat: repo rename plans a rename](TODO.md#feat-repo-rename-plans-a-rename)
 - [feat: repo rename moves a workspace on this machine](TODO.md#feat-repo-rename-moves-a-workspace-on-this-machine)
 - [feat: repo move moves a workspace to another directory](TODO.md#feat-repo-move-moves-a-workspace-to-another-directory)
 - [feat: repo rename renames the GitHub repos](TODO.md#feat-repo-rename-renames-the-github-repos)
