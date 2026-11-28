@@ -42,6 +42,11 @@ pub struct RenameArgs {
     #[arg(long)]
     pub yes: bool,
 
+    /// Commit the config edits and keep them on this machine, rather
+    /// than pushing them
+    #[arg(long)]
+    pub local: bool,
+
     /// The workspace's shape, required: `b|both` a dual workspace,
     /// `w|work` the same, its agent side following the work name,
     /// `a|agent` the agent side alone, `p|por` a plain repo
@@ -65,6 +70,8 @@ pub struct RenameParams {
     pub path: Option<PathBuf>,
     pub to: String,
     pub yes: bool,
+    /// Commit the edits and do not push them.
+    pub local: bool,
     pub dual: bool,
     /// `-s a`: the agent side alone, its directory named `to`.
     pub agent_only: bool,
@@ -77,6 +84,7 @@ impl From<&RenameArgs> for RenameParams {
             path: Some(a.current.clone()),
             to: a.to.clone(),
             yes: a.yes,
+            local: a.local,
             dual: matches!(a.scope, RepoScope::Sides(_)),
             agent_only: matches!(&a.scope, RepoScope::Sides(s)
                 if s.0 == [crate::options_flags::scope::Side::Bot]),
@@ -165,6 +173,9 @@ pub struct Plan {
     pub ignores: Vec<(PathBuf, String, String)>,
     /// What keeps the old name, said and not changed.
     pub kept: Vec<String>,
+    /// The edits' commit: `None` for no commit, `Some(push)` for one,
+    /// pushed when `push`.
+    pub commit: Option<bool>,
     /// Each a reason nothing is renamed.
     pub refusals: Vec<String>,
 }
@@ -437,6 +448,10 @@ pub fn plan(
         plan_whole(params, cwd, projects)?
     };
     check_github(&mut plan, forge)?;
+    if !plan.configs.is_empty() || !plan.ignores.is_empty() {
+        let origin = plan.repos.iter().any(|p| p.url_from.is_some());
+        plan.commit = Some(origin && !params.local);
+    }
     Ok(plan)
 }
 
@@ -638,6 +653,7 @@ fn plan_whole(
         configs,
         ignores: Vec::new(),
         kept,
+        commit: None,
         refusals,
     })
 }
@@ -835,6 +851,7 @@ fn plan_agent(
         configs,
         ignores,
         kept,
+        commit: None,
         refusals,
     })
 }
@@ -960,6 +977,15 @@ impl Plan {
         if let Some(to) = &self.link_to {
             out.push(format!("  make the symlink {}", to.display()));
         }
+        match self.commit {
+            Some(true) => {
+                out.push("  commit the edits in the workspace's repos, and push them".into())
+            }
+            Some(false) => {
+                out.push("  commit the edits in the workspace's repos, kept on this machine".into())
+            }
+            None => {}
+        }
         for k in &self.kept {
             out.push(format!("  keep {k}"));
         }
@@ -993,6 +1019,9 @@ pub fn rename(
     }
     confirm("rename", params.yes, ctx.stdin_is_tty)?;
     apply("rename", &plan, forge)?;
+    if let Some(push) = plan.commit {
+        commit_edits(ctx, &plan, params, push)?;
+    }
     let moved = if plan.root_to != plan.root {
         Some(&plan.root)
     } else {
@@ -1010,6 +1039,68 @@ pub fn rename(
             plan.root_to.display()
         );
     }
+    Ok(())
+}
+
+/// Commit the rename's edits in the renamed workspace, as `vc-x1
+/// commit` would, `-s b` a pair and `-s p` the one repo, and push them
+/// when `push`. The work `@` held nothing before the rename, which
+/// refused otherwise, so the commit is the edits alone, and the agent
+/// `@`'s session data goes with its half as any pair's does. The
+/// version's line is not the rename's, so its check is waived.
+fn commit_edits(
+    ctx: &mut Context,
+    plan: &Plan,
+    params: &RenameParams,
+    push: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let new = &params.to;
+    let (title, body) = if params.agent_only {
+        (
+            format!("chore: rename the agent directory to {new}"),
+            format!(
+                "The agent directory is renamed to {new} by vc-x1 repo rename -s a,\nand the \
+                 config and .gitignore follow it."
+            ),
+        )
+    } else {
+        (
+            format!("chore: rename the workspace to {new}"),
+            format!(
+                "The workspace is renamed to {new} by vc-x1 repo rename, and the\nconfig \
+                 names its remotes by their new names."
+            ),
+        )
+    };
+    let target = if params.dual {
+        crate::commit::Target::Pair {
+            pair: crate::pair::resolve_pair(Some(&plan.root_to))?,
+            agent_now: true,
+        }
+    } else {
+        crate::commit::Target::Por(plan.root_to.clone())
+    };
+    let cp = crate::commit::CommitParams {
+        target,
+        title: Some(title),
+        body: Some(body),
+        advance: crate::commit::Advance::Line,
+        push,
+        no_url_trailer: false,
+        dry_run: false,
+        rev: None,
+        covers: None,
+        allow_empty: false,
+        same_version: true,
+        land_follows: false,
+    };
+    crate::commit::commit(ctx, &cp).map_err(|e| {
+        format!(
+            "repo rename: renamed, but the edits' commit failed: {e}. They are in the working \
+             copy of {}, for `vc-x1 commit`",
+            plan.root_to.display()
+        )
+    })?;
     Ok(())
 }
 
@@ -1387,6 +1478,7 @@ mod tests {
             configs: Vec::new(),
             ignores: Vec::new(),
             kept: Vec::new(),
+            commit: None,
             refusals: Vec::new(),
         }
     }

@@ -489,6 +489,14 @@ fn a_rename_moves_every_part_on_this_machine() {
     );
     let cfg = std::fs::read_to_string(root_to.join(".vc-config.md")).expect("config");
     assert!(cfg.contains("agent-repo = \"ws2.agent-session\""), "{cfg}");
+    let out = text(&run_ok(
+        fx.cmd().args(["status", "-s", "b"]).current_dir(&root_to),
+    ));
+    assert!(out.contains("status: clean"), "committed: {out}");
+    assert!(
+        out.contains("main | chore: rename the workspace to ws2"),
+        "{out}"
+    );
 
     let out = text(&run_ok(
         fx.cmd()
@@ -566,6 +574,27 @@ fn a_rename_of_the_agent_side_alone() {
     let ignore = std::fs::read_to_string(ws.root.join(".gitignore")).expect("gitignore");
     assert!(ignore.lines().any(|l| l == "/.agentsession"), "{ignore}");
     assert_eq!(std::fs::read_link(&ws.link).expect("symlink"), agent_to);
+    let out = text(&run_ok(
+        fx.cmd().args(["status", "-s", "b"]).current_dir(&ws.root),
+    ));
+    assert!(out.contains("status: clean"), "committed and pushed: {out}");
+
+    let out = text(&run_ok(&mut rename(
+        &fx,
+        &ws.root,
+        &["-s", "a", "--yes", "--local", ".", ".agent-session"],
+    )));
+    assert!(out.contains("kept on this machine"), "{out}");
+    let out = text(&run_ok(
+        fx.cmd().args(["status", "-s", "b"]).current_dir(&ws.root),
+    ));
+    assert!(out.contains("status: clean"), "--local commits: {out}");
+    let out = text(&run_ok(
+        fx.cmd()
+            .args(["sync", "-s", "b", "--dry-run"])
+            .current_dir(&ws.root),
+    ));
+    assert!(out.contains("ahead"), "--local pushes nothing: {out}");
 
     let out = text(&run_ok(
         fx.cmd()

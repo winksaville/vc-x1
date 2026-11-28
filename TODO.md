@@ -252,6 +252,34 @@ a stopped run going on from the name GitHub holds.
 The config edits committed in each repo that changed and pushed, so the remote's config names the
 remote it is on. Wink's to keep or drop at its review.
 
+* The edits are committed in the renamed workspace by `commit`'s own code, a pair under `-s b`,
+  `-s w`, and `-s a`, the one repo under `-s p`, and pushed when there is an origin.
+  - Titled `chore: rename the workspace to NEW`, or `chore: rename the agent directory to NEW`, the
+    version check waived, the version's line not being the rename's.
+  - The work `@` was empty before, rename refusing otherwise, so the commit is the edits alone, the
+    agent `@`'s session data going with its half as any pair's does.
+  - `--local` commits and pushes nothing, and a rename with no edit, as a workspace whose config
+    names no remote, commits nothing.
+  - A commit that fails leaves the edits in the working copy and says `vc-x1 commit` takes them, the
+    rename itself done.
+  - The plan's last line says which: `commit the edits in the workspace's repos, and push them`, or
+    `kept on this machine`.
+* Tested end to end, `-s b` and `-s a`: `status -s b` clean after, its `@-` the rename's commit on
+  `main`, and with `--local` `sync -s b --dry-run` saying the repos are ahead. And by hand in
+  `~/tmp` with the sandbox off: `init --test-repo ~/tmp/remotes`, a rename, and `sync` reporting both
+  repos up to date with their renamed remotes.
+* On GitHub, run by the agent at wink's go (2026-11-28), the repos left for him: a public and a
+  private workspace by `init https://github.com/winksaville/<name>.git`, `--private` the second.
+  - A dry run onto the other's name refused it, GitHub's two names among the four refusals.
+  - The public one renamed `t31-gh-pub` to `t31-gh-pub2`, both repos renamed and still public, the
+    old name redirecting to the new, and the commit pushed to the new URL, `sync` up to date and
+    `status` clean after.
+  - The private one with its work repo renamed on GitHub by hand first, as a run stopped after its
+    first step leaves it: the plan said that repo was renamed already, the run renamed the agent's
+    alone and went on, both still private.
+  - Then `-s a .agent-session .agentsession` on it: the GitHub repo `t31-gh-priv2.agentsession`,
+    the configs, the `.gitignore`, and the symlink, `sync` up to date and `status` clean.
+
 ##### feat: repo rename renames a workspace closing
 
 Closing out the cycle.

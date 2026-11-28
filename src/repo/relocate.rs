@@ -237,6 +237,7 @@ pub fn plan(
         configs: Vec::new(),
         ignores: Vec::new(),
         kept: Vec::new(),
+        commit: None,
         refusals,
     })
 }

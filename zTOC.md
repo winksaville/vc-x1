@@ -10,7 +10,7 @@ The workspace's index, in [zTOC format](agent-data/notes.md#ztoc-format).
 - 3 (done) [feat: repo rename -s a renames the agent side](TODO.md#feat-repo-rename--s-a-renames-the-agent-side)
 - 4 (done) [feat: repo move moves a workspace to another directory](TODO.md#feat-repo-move-moves-a-workspace-to-another-directory)
 - 5 (done) [feat: repo rename renames the GitHub repos](TODO.md#feat-repo-rename-renames-the-github-repos)
-- [feat: repo rename commits and pushes the config](TODO.md#feat-repo-rename-commits-and-pushes-the-config)
+- 6 (done) [feat: repo rename commits and pushes the config](TODO.md#feat-repo-rename-commits-and-pushes-the-config)
 - [feat: repo rename renames a workspace closing](TODO.md#feat-repo-rename-renames-a-workspace-closing)
 
 ## The TOC
