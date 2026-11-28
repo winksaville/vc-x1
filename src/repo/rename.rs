@@ -99,7 +99,7 @@ impl SubcommandRunner for RenameArgs {
         debug!("repo rename: enter {params:?}");
         let cwd = std::env::current_dir()?;
         let projects = crate::symlink::default_symlink_dir()?;
-        rename(ctx, params, &cwd, &projects)
+        rename(ctx, params, &cwd, &projects, &Gh)
     }
 }
 
@@ -110,8 +110,14 @@ pub enum Remote {
     None,
     /// A bare repo on this machine, moved to its new path.
     LocalBare { from: PathBuf, to: PathBuf },
-    /// A GitHub repo, renamed there, `owner/name` each.
-    GitHub { from: String, to: String },
+    /// A GitHub repo, renamed there, `owner/name` each, `done` when
+    /// GitHub has it under the new name already, as a stopped run
+    /// leaves it.
+    GitHub {
+        from: String,
+        to: String,
+        done: bool,
+    },
     /// The name is kept, not being the old one's.
     Kept,
 }
@@ -161,6 +167,83 @@ pub struct Plan {
     pub kept: Vec<String>,
     /// Each a reason nothing is renamed.
     pub refusals: Vec<String>,
+}
+
+/// What rename asks of GitHub, so a test can answer in its place.
+pub trait Forge {
+    /// The `owner/name` the repo `slug` is now, GitHub following a
+    /// rename's redirect, or `None` when there is no such repo.
+    fn resolve(&self, slug: &str) -> Result<Option<String>, Box<dyn std::error::Error>>;
+    /// Rename the repo `slug` to `name`, its owner kept.
+    fn rename(&self, slug: &str, name: &str) -> Result<(), Box<dyn std::error::Error>>;
+}
+
+/// GitHub by `gh`, register entry 3.
+pub struct Gh;
+
+impl Forge for Gh {
+    fn resolve(&self, slug: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
+        let args = [
+            "repo",
+            "view",
+            slug,
+            "--json",
+            "nameWithOwner",
+            "-q",
+            ".nameWithOwner",
+        ];
+        match crate::init::gh(&args, Path::new(".")) {
+            Ok(name) => Ok(Some(name)),
+            Err(e) if e.to_string().contains("Could not resolve") => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    fn rename(&self, slug: &str, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+        crate::init::gh(
+            &["repo", "rename", name, "--repo", slug, "--yes"],
+            Path::new("."),
+        )?;
+        Ok(())
+    }
+}
+
+/// Ask GitHub about each GitHub remote the plan renames: one already
+/// under its new name, as a stopped run leaves it, is marked done, a
+/// new name another repo holds is refused, as is an old name GitHub
+/// does not know. GitHub's names are compared without case, as it
+/// compares them.
+fn check_github(plan: &mut Plan, forge: &dyn Forge) -> Result<(), Box<dyn std::error::Error>> {
+    let same = |a: &str, b: &str| a.eq_ignore_ascii_case(b);
+    for p in &mut plan.repos {
+        let Remote::GitHub { from, to, done } = &mut p.remote else {
+            continue;
+        };
+        match forge.resolve(from)? {
+            Some(now) if same(&now, to) => *done = true,
+            Some(now) if same(&now, from) => {
+                if let Some(other) = forge.resolve(to)? {
+                    plan.refusals.push(format!(
+                        "{}'s new GitHub name {to} is taken, by {other}",
+                        p.label
+                    ));
+                }
+            }
+            Some(now) => plan.refusals.push(format!(
+                "{}'s GitHub repo {from} is {now} now, renamed outside this command: set the \
+                 origin to it first",
+                p.label
+            )),
+            None => match forge.resolve(to)? {
+                Some(_) => *done = true,
+                None => plan.refusals.push(format!(
+                    "{}'s GitHub repo {from} is not found, nor {to}",
+                    p.label
+                )),
+            },
+        }
+    }
+    Ok(())
 }
 
 /// Why `name` cannot be a directory name, or `None` when it can.
@@ -306,6 +389,7 @@ fn plan_remote(
         Origin::Url(u) if crate::init::is_github_url(u) => Remote::GitHub {
             from: crate::init::github_slug_from_url(u)?,
             to: crate::init::github_slug_from_url(&url_to)?,
+            done: false,
         },
         Origin::Url(u) => {
             refusals.push(format!(
@@ -345,10 +429,23 @@ pub fn plan(
     params: &RenameParams,
     cwd: &Path,
     projects: &Path,
+    forge: &dyn Forge,
 ) -> Result<Plan, Box<dyn std::error::Error>> {
-    if params.agent_only {
-        return plan_agent(params, cwd, projects);
-    }
+    let mut plan = if params.agent_only {
+        plan_agent(params, cwd, projects)?
+    } else {
+        plan_whole(params, cwd, projects)?
+    };
+    check_github(&mut plan, forge)?;
+    Ok(plan)
+}
+
+/// Plan the whole workspace's rename, `-s b`, `-s w`, or `-s p`.
+fn plan_whole(
+    params: &RenameParams,
+    cwd: &Path,
+    projects: &Path,
+) -> Result<Plan, Box<dyn std::error::Error>> {
     let new = params.to.as_str();
     if let Some(problem) = dir_name_problem(new) {
         return Err(format!("repo rename NEW: {problem}").into());
@@ -797,9 +894,15 @@ impl Plan {
                     from.display(),
                     to.display()
                 )),
-                Remote::GitHub { from, to } => {
-                    out.push(format!("  rename {}'s GitHub repo {from} to {to}", p.label))
-                }
+                Remote::GitHub {
+                    from,
+                    to,
+                    done: false,
+                } => out.push(format!("  rename {}'s GitHub repo {from} to {to}", p.label)),
+                Remote::GitHub { to, done: true, .. } => out.push(format!(
+                    "  {}'s GitHub repo is {to} already, a run before this one having renamed it",
+                    p.label
+                )),
             }
         }
         for p in &self.repos {
@@ -871,8 +974,9 @@ pub fn rename(
     params: &RenameParams,
     cwd: &Path,
     projects: &Path,
+    forge: &dyn Forge,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let plan = plan(params, cwd, projects)?;
+    let plan = plan(params, cwd, projects, forge)?;
     for line in plan.lines() {
         info!("{line}");
     }
@@ -887,20 +991,8 @@ pub fn rename(
         info!("repo rename: [dry-run] nothing is renamed");
         return Ok(());
     }
-    if let Some(p) = plan
-        .repos
-        .iter()
-        .find(|p| matches!(p.remote, Remote::GitHub { .. }))
-    {
-        return Err(format!(
-            "repo rename: {}'s origin is on GitHub, and renaming a GitHub repo is not built yet: \
-             nothing is renamed",
-            p.label
-        )
-        .into());
-    }
     confirm("rename", params.yes, ctx.stdin_is_tty)?;
-    apply("rename", &plan)?;
+    apply("rename", &plan, forge)?;
     let moved = if plan.root_to != plan.root {
         Some(&plan.root)
     } else {
@@ -960,8 +1052,22 @@ type Step<'a> = (
 /// URLs, the configs, the directories, and the symlink last, so a run
 /// that stops leaves a workspace its own commands still find. A
 /// failure names the step and what is left.
-pub fn apply(verb: &str, plan: &Plan) -> Result<(), Box<dyn std::error::Error>> {
+pub fn apply(verb: &str, plan: &Plan, forge: &dyn Forge) -> Result<(), Box<dyn std::error::Error>> {
     let mut steps: Vec<Step> = Vec::new();
+    for p in &plan.repos {
+        if let Remote::GitHub {
+            from,
+            to,
+            done: false,
+        } = &p.remote
+        {
+            let name = to.rsplit('/').next().unwrap_or(to); // OK: a slug is owner/name
+            steps.push((
+                format!("rename {}'s GitHub repo {from} to {to}", p.label),
+                Box::new(move || forge.rename(from, name)),
+            ));
+        }
+    }
     for p in &plan.repos {
         if let Remote::LocalBare { from, to } = &p.remote
             && from != to
@@ -1226,6 +1332,104 @@ mod tests {
         assert_eq!(
             path_value_renamed("../ws", "ws", "ws2"),
             Some("../ws2".to_string())
+        );
+    }
+
+    /// A GitHub that answers from a table and records its renames.
+    struct Fake {
+        repos: Vec<(&'static str, &'static str)>,
+        renamed: std::cell::RefCell<Vec<(String, String)>>,
+    }
+
+    impl Forge for Fake {
+        fn resolve(&self, slug: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
+            Ok(self
+                .repos
+                .iter()
+                .find(|(s, _)| s.eq_ignore_ascii_case(slug))
+                .map(|(_, now)| now.to_string()))
+        }
+        fn rename(&self, slug: &str, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+            self.renamed
+                .borrow_mut()
+                .push((slug.to_string(), name.to_string()));
+            Ok(())
+        }
+    }
+
+    fn fake(repos: Vec<(&'static str, &'static str)>) -> Fake {
+        Fake {
+            repos,
+            renamed: std::cell::RefCell::new(Vec::new()),
+        }
+    }
+
+    /// A plan of one GitHub remote, `o/ws` to `o/ws2`, nothing local.
+    fn github_plan() -> Plan {
+        Plan {
+            root: PathBuf::from("/w/ws"),
+            root_to: PathBuf::from("/w/ws"),
+            repos: vec![RepoPlan {
+                label: "work".to_string(),
+                url_from: None,
+                url_to: None,
+                remote: Remote::GitHub {
+                    from: "o/ws".to_string(),
+                    to: "o/ws2".to_string(),
+                    done: false,
+                },
+                dir: PathBuf::from("/w/ws"),
+                dir_to: None,
+            }],
+            link: Link::Absent,
+            link_to: None,
+            agent_to: None,
+            configs: Vec::new(),
+            ignores: Vec::new(),
+            kept: Vec::new(),
+            refusals: Vec::new(),
+        }
+    }
+
+    /// GitHub is asked before anything: a repo under its old name is
+    /// renamed, one already under its new name, a stopped run's, is
+    /// done, a new name another repo holds and an old one GitHub does
+    /// not know are refused.
+    #[test]
+    fn github_is_asked_before_anything_changes() {
+        let mut plan = github_plan();
+        let f = fake(vec![("o/ws", "o/ws")]);
+        check_github(&mut plan, &f).expect("asked");
+        assert!(plan.refusals.is_empty(), "{:?}", plan.refusals);
+        apply("rename", &plan, &f).expect("applied");
+        assert_eq!(
+            *f.renamed.borrow(),
+            vec![("o/ws".to_string(), "ws2".to_string())]
+        );
+
+        let mut plan = github_plan();
+        let f = fake(vec![("o/ws", "o/WS2"), ("o/ws2", "o/WS2")]);
+        check_github(&mut plan, &f).expect("asked");
+        assert!(matches!(
+            plan.repos[0].remote,
+            Remote::GitHub { done: true, .. }
+        ));
+        apply("rename", &plan, &f).expect("applied");
+        assert!(
+            f.renamed.borrow().is_empty(),
+            "a done rename is not made again"
+        );
+
+        let mut plan = github_plan();
+        check_github(&mut plan, &fake(vec![("o/ws", "o/ws"), ("o/ws2", "o/ws2")])).expect("asked");
+        assert!(plan.refusals[0].contains("is taken"), "{:?}", plan.refusals);
+
+        let mut plan = github_plan();
+        check_github(&mut plan, &fake(vec![])).expect("asked");
+        assert!(
+            plan.refusals[0].contains("not found"),
+            "{:?}",
+            plan.refusals
         );
     }
 }

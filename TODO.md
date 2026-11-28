@@ -232,6 +232,21 @@ The same local half with the name kept: the workspace under a new parent, a rela
 The remote half for a GitHub origin: both repos renamed by `gh repo rename` before anything local,
 a stopped run going on from the name GitHub holds.
 
+* GitHub is asked while the plan is made, dry run included, through a `Forge` trait, `Gh` its `gh`
+  and a test's fake its other.
+  - Each GitHub remote's old name is resolved, GitHub following a rename's redirect: still the old
+    name, the new one is asked for and refused when another repo holds it, already the new one,
+    as a stopped run leaves it, the step is marked done and said so, anything else refused naming
+    it, and an old name GitHub does not know refused unless the new one is there.
+  - Names compare without case, as GitHub's do.
+* The rename is the first step of all, `gh repo rename NAME --repo OWNER/OLD --yes`, so a refusal
+  there leaves the machine as it was, and a done one is skipped. The `origin` URLs, the configs, the
+  directories, and the symlink follow as before.
+* The register's entry 3 is widened to rename's `gh repo view` and `gh repo rename` in
+  `clippy.toml`, `init::gh` the one helper both commands call.
+* Tested with the fake: a rename made, a done one not made again, a taken name refused, and a repo
+  not found refused. A real GitHub rename is wink's hand test, outside the agent's sandbox.
+
 ##### feat: repo rename commits and pushes the config
 
 The config edits committed in each repo that changed and pushed, so the remote's config names the

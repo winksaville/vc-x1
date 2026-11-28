@@ -304,7 +304,7 @@ pub fn relocate(
         return Ok(());
     }
     rename::confirm("move", params.yes, ctx.stdin_is_tty)?;
-    rename::apply("move", &plan)?;
+    rename::apply("move", &plan, &rename::Gh)?;
     if cwd.starts_with(&plan.root) {
         info!(
             "repo move: done, the workspace is at {}, and this shell's directory moved with it: \

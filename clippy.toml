@@ -15,10 +15,13 @@
 #    push's message stage, since `commit` carries the description
 #    and push publishes what was reviewed. The number stays so the
 #    later entries keep theirs.
-# 3. Init's gh provisioning (src/init.rs): `gh auth status`,
-#    `gh repo view`, `gh repo create`. Creating a repo on GitHub is
-#    the forge's REST API, not a version-control operation, and no jj or
-#    git library can do it, and gh is GitHub's authenticated client.
+# 3. The gh provisioning (src/init.rs, `gh`): init's `gh auth
+#    status`, `gh repo view`, `gh repo create`, and repo rename's
+#    `gh repo view` and `gh repo rename` (src/repo/rename.rs), widened
+#    2026-11-27 (wink) by the "feat: repo rename renames a workspace"
+#    cycle. Creating or renaming a repo on GitHub is the forge's REST
+#    API, not a version-control operation, and no jj or git library
+#    can do it, and gh is GitHub's authenticated client.
 # 4. Test helpers (src/test_helpers.rs and tests/common/mod.rs):
 #    real-jj/git fixture setup and interop verification, kept
 #    deliberately independent of the facade under test, and never a
