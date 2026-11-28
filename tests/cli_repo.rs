@@ -362,7 +362,7 @@ fn a_rename_dry_run_names_every_part_and_renames_nothing() {
     let out = text(&run_ok(&mut rename(
         &fx,
         &fx.base,
-        &["-s", "b", "--dry-run", "--to", "ws2", root],
+        &["-s", "b", "--dry-run", root, "ws2"],
     )));
     let remotes = ws.remotes.canonicalize().expect("remotes");
     assert!(
@@ -412,14 +412,14 @@ fn a_rename_is_refused_before_anything_changes() {
     let out = text(&run_err(&mut rename(
         &fx,
         &fx.base,
-        &["-s", "b", "--dry-run", "--to", "a/b", root],
+        &["-s", "b", "--dry-run", root, "a/b"],
     )));
     assert!(out.contains("`repo move` changes where"), "{out}");
 
     let out = text(&run_err(&mut rename(
         &fx,
         &fx.base,
-        &["-s", "b", "--dry-run", "--to", "ws", root],
+        &["-s", "b", "--dry-run", root, "ws"],
     )));
     assert!(out.contains("named 'ws' already"), "{out}");
 
@@ -427,7 +427,7 @@ fn a_rename_is_refused_before_anything_changes() {
     let out = text(&run_err(&mut rename(
         &fx,
         &fx.base,
-        &["-s", "b", "--dry-run", "--to", "taken", root],
+        &["-s", "b", "--dry-run", root, "taken"],
     )));
     assert!(out.contains("is there already"), "{out}");
 
@@ -435,7 +435,7 @@ fn a_rename_is_refused_before_anything_changes() {
     let out = text(&run_err(&mut rename(
         &fx,
         &fx.base,
-        &["-s", "b", "--dry-run", "--to", "ws2", root],
+        &["-s", "b", "--dry-run", root, "ws2"],
     )));
     assert!(out.contains("work: @ has uncommitted changes"), "{out}");
     assert!(out.contains("nothing is renamed"), "{out}");
@@ -454,8 +454,7 @@ fn a_rename_moves_every_part_on_this_machine() {
     let root = ws.root.to_str().expect("utf-8").to_string();
 
     let out = text(&run_err(
-        rename(&fx, &fx.base, &["-s", "b", "--to", "ws2", &root])
-            .stdin(std::process::Stdio::null()),
+        rename(&fx, &fx.base, &["-s", "b", &root, "ws2"]).stdin(std::process::Stdio::null()),
     ));
     assert!(out.contains("asking requires a terminal"), "{out}");
     all_there(&ws);
@@ -463,7 +462,7 @@ fn a_rename_moves_every_part_on_this_machine() {
     let out = text(&run_ok(&mut rename(
         &fx,
         &fx.base,
-        &["-s", "b", "--yes", "--to", "ws2", &root],
+        &["-s", "b", "--yes", &root, "ws2"],
     )));
     assert!(out.contains("rename: done"), "{out}");
     let root_to = ws.root.with_file_name("ws2");
@@ -519,7 +518,7 @@ fn one_side_scopes_mean_what_they_say() {
     let out = text(&run_ok(&mut rename(
         &fx,
         &fx.base,
-        &["-s", "w", "--dry-run", "--to", "ws2", root],
+        &["-s", "w", "--dry-run", root, "ws2"],
     )));
     assert!(
         out.contains("ws2.agent-session"),
@@ -542,7 +541,7 @@ fn a_rename_of_the_agent_side_alone() {
     let out = text(&run_ok(&mut rename(
         &fx,
         &fx.base,
-        &["-s", "a", "--dry-run", "--to", ".agentsession", &agent_s],
+        &["-s", "a", "--dry-run", &agent_s, ".agentsession"],
     )));
     assert!(out.contains("set the line /.agent-session in"), "{out}");
     assert!(!out.contains("move the work repo"), "{out}");
@@ -551,7 +550,7 @@ fn a_rename_of_the_agent_side_alone() {
     let out = text(&run_ok(&mut rename(
         &fx,
         &ws.root,
-        &["-s", "a", "--yes", "--to", ".agentsession"],
+        &["-s", "a", "--yes", ".", ".agentsession"],
     )));
     assert!(out.contains("rename: done"), "{out}");
     let agent_to = ws.root.join(".agentsession");
@@ -572,6 +571,113 @@ fn a_rename_of_the_agent_side_alone() {
         fx.cmd()
             .args(["sync", "-s", "b", "--dry-run"])
             .current_dir(&ws.root),
+    ));
+    assert!(out.contains("up to date"), "{out}");
+}
+
+/// `vc-x1 repo move <args>` from `dir`.
+fn relocate(fx: &CliFixture, dir: &Path, args: &[&str]) -> std::process::Command {
+    let mut c = fx.cmd();
+    c.args(["repo", "move"]).args(args).current_dir(dir);
+    c
+}
+
+/// Point `repo`'s origin at `url` in its git config, as a hand edit
+/// would.
+fn set_origin(repo: &Path, url: &str) {
+    let cfg = repo.join(".git").join("config");
+    let text = std::fs::read_to_string(&cfg).expect("git config");
+    let mut out = String::new();
+    let mut in_origin = false;
+    for line in text.lines() {
+        if line.trim_start().starts_with('[') {
+            in_origin = line.trim() == "[remote \"origin\"]";
+        }
+        if in_origin && line.trim_start().starts_with("url = ") {
+            out.push_str(&format!("\turl = {url}\n"));
+        } else {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+    std::fs::write(&cfg, out).expect("write git config");
+}
+
+/// A move puts the workspace under DIR with its name, rewrites a
+/// relative origin for the new place and keeps an absolute one, makes
+/// the symlink for the new root, and the workspace syncs from there.
+/// DIR missing and DIR inside the workspace are refused first.
+#[test]
+fn a_move_puts_the_workspace_in_another_directory() {
+    let fx = CliFixture::new("move");
+    let ws = make_ws(&fx);
+    let root = ws.root.to_str().expect("utf-8").to_string();
+    set_origin(&ws.root, "../remotes/ws.git");
+
+    let out = text(&run_err(&mut relocate(
+        &fx,
+        &fx.base,
+        &["-s", "b", "--dry-run", &root, "nowhere"],
+    )));
+    assert!(out.contains("make it first"), "{out}");
+    let inside = ws.root.join("sub");
+    std::fs::create_dir(&inside).expect("mkdir");
+    let out = text(&run_err(&mut relocate(
+        &fx,
+        &fx.base,
+        &[
+            "-s",
+            "b",
+            "--dry-run",
+            &root,
+            inside.to_str().expect("utf-8"),
+        ],
+    )));
+    assert!(out.contains("inside the workspace"), "{out}");
+    std::fs::remove_dir(&inside).expect("rmdir");
+
+    let dest = fx.path("deeper").join("place");
+    std::fs::create_dir_all(&dest).expect("mkdir");
+    let dest_s = dest.to_str().expect("utf-8").to_string();
+    let out = text(&run_ok(&mut relocate(
+        &fx,
+        &fx.base,
+        &["-s", "b", "--yes", &root, &dest_s],
+    )));
+    assert!(out.contains("move: done"), "{out}");
+    let root_to = dest.canonicalize().expect("dest").join("ws");
+    assert!(!ws.root.exists(), "the old place is empty");
+    assert!(
+        root_to.join(".agent-session").is_dir(),
+        "agent repo moved with it"
+    );
+    let git_cfg = std::fs::read_to_string(root_to.join(".git").join("config")).expect("config");
+    assert!(
+        git_cfg.contains("url = ../../../remotes/ws.git"),
+        "{git_cfg}"
+    );
+    let agent_cfg =
+        std::fs::read_to_string(root_to.join(".agent-session").join(".git").join("config"))
+            .expect("agent config");
+    assert!(
+        agent_cfg.contains("ws.agent-session.git"),
+        "absolute kept: {agent_cfg}"
+    );
+    assert!(ws.link.symlink_metadata().is_err(), "old symlink removed");
+    let links: Vec<PathBuf> = std::fs::read_dir(ws.link.parent().expect("projects"))
+        .expect("projects")
+        .map(|e| e.expect("entry").path())
+        .collect();
+    assert_eq!(links.len(), 1, "{links:?}");
+    assert_eq!(
+        std::fs::read_link(&links[0]).expect("a symlink"),
+        root_to.join(".agent-session")
+    );
+
+    let out = text(&run_ok(
+        fx.cmd()
+            .args(["sync", "-s", "b", "--dry-run"])
+            .current_dir(&root_to),
     ));
     assert!(out.contains("up to date"), "{out}");
 }

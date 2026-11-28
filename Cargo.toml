@@ -1,6 +1,6 @@
 [package]
 name = "vc-x1"
-version = "0.85.31-3"
+version = "0.85.31-4"
 edition = "2024"
 default-run = "vc-x1"
 

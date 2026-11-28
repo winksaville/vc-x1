@@ -28,14 +28,14 @@ use crate::subcommand::SubcommandRunner;
 /// Give a workspace a new name.
 #[derive(Args, Debug)]
 pub struct RenameArgs {
-    /// The workspace's root [default: the workspace the current
-    /// directory is in]
-    #[arg(value_name = "PATH", value_hint = ValueHint::DirPath)]
-    pub path: Option<PathBuf>,
+    /// The workspace's root, `.` the one the current directory is,
+    /// or under `-s a` its agent directory
+    #[arg(value_name = "CURRENT", value_hint = ValueHint::DirPath)]
+    pub current: PathBuf,
 
     /// The new name, one directory name, and the remote's under it:
     /// the workspace's, or under `-s a` the agent directory's
-    #[arg(long, value_name = "NEW")]
+    #[arg(value_name = "NEW")]
     pub to: String,
 
     /// Rename without asking, for a run with no terminal
@@ -74,7 +74,7 @@ pub struct RenameParams {
 impl From<&RenameArgs> for RenameParams {
     fn from(a: &RenameArgs) -> Self {
         RenameParams {
-            path: a.path.clone(),
+            path: Some(a.current.clone()),
             to: a.to.clone(),
             yes: a.yes,
             dual: matches!(a.scope, RepoScope::Sides(_)),
@@ -351,7 +351,7 @@ pub fn plan(
     }
     let new = params.to.as_str();
     if let Some(problem) = dir_name_problem(new) {
-        return Err(format!("repo rename --to: {problem}").into());
+        return Err(format!("repo rename NEW: {problem}").into());
     }
     let Survey { root, repos, link } =
         delete::survey("rename", params.path.as_deref(), params.dual, cwd, projects)?;
@@ -465,7 +465,7 @@ pub fn plan(
         .any(|p| matches!(p.remote, Remote::GitHub { .. }))
         && let Some(problem) = github_name_problem(new)
     {
-        refusals.push(format!("--to: {problem}"));
+        refusals.push(format!("NEW: {problem}"));
     }
     if root_to == root {
         refusals.push(format!(
@@ -591,7 +591,7 @@ fn plan_agent(
 ) -> Result<Plan, Box<dyn std::error::Error>> {
     let new = params.to.as_str();
     if let Some(problem) = dir_name_problem(new) {
-        return Err(format!("repo rename --to: {problem}").into());
+        return Err(format!("repo rename NEW: {problem}").into());
     }
     let path = agent_path_to_root(params.path.as_deref(), cwd).or_else(|| params.path.clone());
     let Survey { root, repos, link } =
@@ -669,7 +669,7 @@ fn plan_agent(
         && let Some(n) = &name_to
         && let Some(problem) = github_name_problem(n)
     {
-        refusals.push(format!("--to: the agent remote {problem}"));
+        refusals.push(format!("NEW: the agent remote {problem}"));
     }
     if let (Some(from), Some(to)) = (&configured, &name_to) {
         configs.push(ConfigEdit {
@@ -899,8 +899,8 @@ pub fn rename(
         )
         .into());
     }
-    confirm(params.yes, ctx.stdin_is_tty)?;
-    apply(&plan)?;
+    confirm("rename", params.yes, ctx.stdin_is_tty)?;
+    apply("rename", &plan)?;
     let moved = if plan.root_to != plan.root {
         Some(&plan.root)
     } else {
@@ -921,25 +921,30 @@ pub fn rename(
     Ok(())
 }
 
-/// Ask before renaming, unless `--yes`. With no terminal to ask, the
-/// run is refused rather than hung, and a declined answer is an error,
-/// so a script learns nothing was renamed.
-fn confirm(yes: bool, stdin_is_tty: bool) -> Result<(), Box<dyn std::error::Error>> {
+/// Ask before acting, unless `--yes`, `verb` naming the command and
+/// what it does, `rename` or `move`. With no terminal to ask, the run
+/// is refused rather than hung, and a declined answer is an error, so
+/// a script learns nothing changed.
+pub(super) fn confirm(
+    verb: &str,
+    yes: bool,
+    stdin_is_tty: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     if yes {
-        debug!("repo rename: --yes, not asked");
+        debug!("repo {verb}: --yes, not asked");
         return Ok(());
     }
     if !stdin_is_tty {
-        return Err(
-            "repo rename: asking requires a terminal (stdin is not interactive): --yes renames \
-             without asking, nothing is renamed"
-                .into(),
-        );
+        return Err(format!(
+            "repo {verb}: asking requires a terminal (stdin is not interactive): --yes goes on \
+             without asking, nothing is changed"
+        )
+        .into());
     }
-    let answer = crate::common::prompt("repo rename: rename these? [y/N] ")?;
+    let answer = crate::common::prompt(&format!("repo {verb}: go on? [y/N] "))?;
     let answer = answer.trim().to_ascii_lowercase();
     if answer != "y" && answer != "yes" {
-        return Err(format!("repo rename: declined (got {answer:?}), nothing is renamed").into());
+        return Err(format!("repo {verb}: declined (got {answer:?}), nothing is changed").into());
     }
     Ok(())
 }
@@ -955,7 +960,7 @@ type Step<'a> = (
 /// URLs, the configs, the directories, and the symlink last, so a run
 /// that stops leaves a workspace its own commands still find. A
 /// failure names the step and what is left.
-pub fn apply(plan: &Plan) -> Result<(), Box<dyn std::error::Error>> {
+pub fn apply(verb: &str, plan: &Plan) -> Result<(), Box<dyn std::error::Error>> {
     let mut steps: Vec<Step> = Vec::new();
     for p in &plan.repos {
         if let Remote::LocalBare { from, to } = &p.remote
@@ -1047,11 +1052,11 @@ pub fn apply(plan: &Plan) -> Result<(), Box<dyn std::error::Error>> {
                 "each is the plan's, to finish by hand".to_string()
             };
             format!(
-                "repo rename: cannot {name}: {e}. Left: {}. {how}",
+                "repo {verb}: cannot {name}: {e}. Left: {}. {how}",
                 left.join(", ")
             )
         })?;
-        info!("repo rename: {name}");
+        info!("repo {verb}: {name}");
     }
     Ok(())
 }

@@ -1,9 +1,10 @@
 //! `vc-x1 repo`: what is done to a workspace's repos as a whole, a
 //! noun and its verbs as `cycle` and `rung` are. `delete` removes a
 //! workspace from this machine, `rename` gives it a new name, and
-//! `move` is to join them.
+//! `move` puts it in another directory.
 
 pub mod delete;
+pub mod relocate;
 pub mod rename;
 
 use std::process::ExitCode;
@@ -46,6 +47,17 @@ pub enum RepoCommand {
         alone."
     )]
     Rename(rename::RenameArgs),
+    /// Move a workspace to another directory, its name kept
+    #[command(
+        hide = true,
+        long_about = "Move a workspace into DIR, its name kept: the work repo's directory \
+        with the agent repo inside it, an origin that is a relative path rewritten for the new \
+        place, and the Claude Code symlink made for the new root. No remote is touched. DIR \
+        missing, the workspace there already, another filesystem, and an agent repo outside the \
+        work repo refuse it before anything moves. The plan is printed first, and --dry-run \
+        prints it alone."
+    )]
+    Move(relocate::MoveArgs),
 }
 
 impl RepoArgs {
@@ -54,6 +66,7 @@ impl RepoArgs {
         match &self.command {
             RepoCommand::Delete(args) => args.dispatch(ctx),
             RepoCommand::Rename(args) => args.dispatch(ctx),
+            RepoCommand::Move(args) => args.dispatch(ctx),
         }
     }
 }

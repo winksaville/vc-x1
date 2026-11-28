@@ -211,6 +211,22 @@ symlink re-pointed. PATH may name the agent directory itself.
 The same local half with the name kept: the workspace under a new parent, a relative local
 `origin` rewritten, no remote touched, and a move across filesystems refused.
 
+* `vc-x1 repo move -s b|w|p CURRENT DIR`, in `src/repo/relocate.rs`, hidden until the closing.
+  - The workspace moves into DIR with its name, a nested agent-repo inside it, by `rename`'s steps,
+    `rename::apply` and `confirm` now naming the verb that runs them.
+  - An `origin` that is a `./` or `../` path is rewritten as the path from the new place, an
+    absolute one or a URL kept, so no remote and no config changes.
+  - The symlink is made for the new root and the old one removed.
+  - Refused first: DIR missing or no directory, DIR inside the workspace, the workspace there
+    already, a name taken in DIR, another filesystem, and an agent-repo outside the work-repo.
+  - `-s w` is `-s b`, and `-s a` is refused, the agent-repo moving with the workspace.
+* Positionals, as wink asked at the `-s a` rung's review: `repo rename -s ... CURRENT NEW` in place
+  of `[PATH] --to NEW`, `.` the workspace the current directory is in, and `repo move` the same
+  shape, `--to` gone without a refusal, never having been published.
+* Tested end to end: a relative origin rewritten for a directory two levels down, an absolute one
+  kept, the symlink remade, and `sync -s b --dry-run` from the new root reporting both repos up to
+  date.
+
 ##### feat: repo rename renames the GitHub repos
 
 The remote half for a GitHub origin: both repos renamed by `gh repo rename` before anything local,
