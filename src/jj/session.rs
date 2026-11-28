@@ -1371,6 +1371,15 @@ impl RepoSession {
         self.finish_tx(tx, &format!("add git remote {name}"))
     }
 
+    /// Point git remote `name` at `url`, its remote bookmarks kept
+    /// (`jj git remote set-url <name> <url>`). A config edit alone,
+    /// so no snapshot and no operation.
+    pub fn set_git_remote_url(&self, name: &str, url: &str) -> Result<()> {
+        use jj_lib::ref_name::RemoteName;
+        git::set_remote_urls(self.repo.store(), RemoteName::new(name), Some(url), None)?;
+        Ok(())
+    }
+
     /// Remove git remote `name` and its remote bookmarks (`jj git
     /// remote remove <name>`).
     pub fn remove_git_remote(&mut self, name: &str) -> Result<()> {

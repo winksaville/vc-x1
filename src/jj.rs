@@ -189,6 +189,13 @@ pub fn git_remote_remove(repo: &Path, name: &str) -> Result<()> {
     session::RepoSession::open(repo)?.remove_git_remote(name)
 }
 
+/// One-shot `RepoSession::set_git_remote_url`: point git remote
+/// `name` at `url`, its remote bookmarks kept (`jj git remote
+/// set-url <name> <url>`).
+pub fn git_remote_set_url(repo: &Path, name: &str, url: &str) -> Result<()> {
+    session::RepoSession::open(repo)?.set_git_remote_url(name, url)
+}
+
 /// One-shot `RepoSession::rename_git_remote`: rename git remote
 /// `old` to `new` (`jj git remote rename <old> <new>`).
 pub fn git_remote_rename(repo: &Path, old: &str, new: &str) -> Result<()> {

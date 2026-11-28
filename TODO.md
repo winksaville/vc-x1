@@ -10,14 +10,19 @@ The other files are listed in [zTOC.md](zTOC.md).
 Where the agent was, for the agent that comes next. Ephemeral, never a record, read first at
 acquaint, acted on, and reset to `_None._` by the reader.
 
-- **feat: a link stays on one line** closes as a trapezoid on `main`. Check where it stands by
-  `vc-x1 sync -s b --dry-run`: `main` at its landmark, landed and published or not as wink said at
-  the close-out, and `vc-x1 -V` naming `0.85.30` once the release is installed.
-- The messages: the commit `m-13 m-14 m-15` in `../vc-x1-messages`, our `m-13-3`, `m-14-1`, and
-  `m-15-1`, was approved for a push and kept local so no review request followed a push. Check
-  `main@origin` there and push it if it is not. `m-15-1` owes a line giving the sha-link of
-  **feat: a clone per member, the remote as the mutex** once this cycle is published, and `m-13`
-  is io-uring-x1's to close.
+- **feat: repo rename renames a workspace** closes as a trapezoid on `main`, on top of **feat: a
+  link stays on one line**'s Land, which was local and unpublished when this cycle opened. Check
+  where both stand by `vc-x1 sync -s b --dry-run`: `main` at this cycle's landmark, landed and
+  published or not as wink said at its close-out, and `vc-x1 -V` naming `0.85.31` once the release
+  is installed.
+- The messages were pushed (2026-11-27), our `m-13-3`, `m-14-1`, and `m-15-1`. `m-15-1` owes a line
+  giving the sha-link of **feat: a clone per member, the remote as the mutex** once the link
+  cycle's Land, which filed it, is published, and `m-13` is io-uring-x1's to close.
+- The rename cycle's test workspaces, left for wink (2026-11-28): on GitHub `winksaville/t31-gh-pub2`
+  and `t31-gh-pub2.agent-session`, public, and `t31-gh-priv2` and `t31-gh-priv2.agentsession`,
+  private, with `~/tmp/t31-gh-pub2` and `~/tmp/t31-gh-priv2`, and `~/tmp/t31-6-b` with its bare repos
+  in `~/tmp/remotes`. `repo delete -s b --local-repos --yes` removes the last, and the GitHub ones
+  are `gh repo delete`'s, delete never touching a URL remote.
 - Toward **agent-files(proposal): v0.3.1** (wink, 2026-11-27): the prep cycles first, each its own
   cycle under a Conventional title, then the proposal as one commit. The ones named:
   **feat: a workspace made by init --from is a set**, `custom.md` committed, vc-x1 the default and
@@ -2955,6 +2960,8 @@ an empty public repo there and a local workspace with no remote.
 - No silent rename: taking GitHub's version of the name would work, and the directory and the
   remote would then carry different names nobody chose.
 - A local-only name is left alone, since the name is a fine directory.
+- The check is written: `repo::rename::github_name_problem`, made by **feat: repo rename renames a
+  workspace**, which says what GitHub would make of a name, and init's preflight calls it.
 - A push that fails with "not found" is not retried, as the five attempts here were.
 - `init` has no undo, so a late failure leaves the earlier steps' work behind. The preflight check
   avoids this case and not the general one, which is its own entry if it is wanted.
@@ -2969,23 +2976,8 @@ an empty public repo there and a local workspace with no remote.
 
 #### rename renames a workspace, its remote included
 
-- It renames the repos on the remote too. The remote cannot be lost by it: the remote's rename
-  happens or is refused, so the repo is under the old name or the new one.
-- The remote goes first, so a refusal (the name taken, no permission) leaves the local side as it
-  was. The order after it: both `origin` URLs, the configs, a commit and push in both repos, the
-  directory, the symlink.
-- The new name is checked as [init refuses a name GitHub would
-  change](#init-refuses-a-name-github-would-change) checks one, so the URL written is the name
-  the remote took.
-- A run that stopped between the two repos is run again: it finds which repo has the new name
-  and goes on from there.
-- A workspace with no remote skips the remote steps. A remote that is not GitHub's is refused.
-- Left out, and listed by the command: the name as the family's other repos hold it, the
-  template, the messages, and the other members' configs.
-- Open: whether it takes the workspace whole or one side at a time. One side alone overlaps
-  [repos.agent becomes repos.agent-dir, and a command brings a config up to
-  date](#reposagent-becomes-reposagent-dir-and-a-command-brings-a-config-up-to-date).
-- Open: whether `.vc-config.toml` is still a form the commands handle.
+- Done by **feat: repo rename renames a workspace** (2026-11-28), `repo rename` and `repo move`
+  beside `repo delete`, found by `git log --grep` on its title.
 
 #### What stops delete and rename
 
@@ -5042,122 +5034,260 @@ own directory) are separate traversals over the same three values today, and fou
 The last cycle's finished record, moved here whole by its closing commit and deleted by the next
 opening ([Cycle-record](AGENTS.md#cycle-record)).
 
-### feat: a link stays on one line
+### feat: repo rename renames a workspace
 
 #### Problem
 
-(wink + agent, 2026-11-25, from **feat: init copies a file set and finishes what it starts**) A
-link's text wraps with the prose around it, `[Working` ending one line and `practices](...)`
-opening the next, as 128 links do today, 65 of them in the agent-files. A search for the link's
-text then misses it, a previewer may not join it, and `check anchors` has a bug of its own for a
-citation after a wrapped code span. Wink read one in `custom.md` and was not sure it was valid.
-
-- **The short lines are a fair trade** (wink, 2026-11-25): a line broken early before a link is
-  ragged in the source alone, never rendered.
-- A prep cycle of **agent-files(proposal): v0.3.1**.
+(wink + agent, 2026-11-27, from **Improve init and add rename and delete subcommands**, its part
+`#### rename renames a workspace, its remote included`) A workspace's name is written into its
+work-repo's directory, the two repos on the remote, each repo's `origin` URL, the config's
+`[remote] agent-repo`, and the Claude Code symlink, and nothing renames them together. `repo
+delete` landed first, its plan finding every part of a workspace from its config, so rename, the
+last of the entry's three, has what it reuses.
 
 #### Solution
 
-A style to strive for, not a requirement (wink, 2026-11-27): a rule in `prose.md`'s Line widths, a
-count in `check anchors` that never fails it, and the agent-files re-wrapped to it.
+`vc-x1 repo rename` and `vc-x1 repo move`, beside `repo delete` under `vc-x1 repo`, each taking the
+workspace as `delete` does, by its shared `survey`, printing its plan first, `--dry-run` stopping
+there, and asking unless `--yes`.
 
-- The rule: a link, its text and destination, inline or reference-style, stays on one line. One
-  that does not fit within the width starts the next line, the text after it going on along that
-  line, and one longer than the width alone is the exception, as an URL is. Its why is
-  `rationale.md`'s **Line widths**.
-- The check: `check anchors` counts a link whose text began on an earlier line, a `](` or `][` with
-  no `[` of its own before it, as a style site and never a finding, its summary saying
-  `N link(s) span a line` and `-v` naming each.
-- The sweep: the agent-files' 69 wrapped links, 62 items re-wrapped with the words unchanged, the
-  set reading `0 link(s) span a line`. The other 63 in the workspace re-wrap when a cycle touches
-  their file.
-- The agent-files are the draft `v0.3.1-19`.
+- `repo rename -s b|w|p CURRENT NEW`, `-s w` the same as `-s b`: the work directory, each
+  `origin`'s last segment, the agent remote when it is the old name plus a suffix, an outside agent
+  directory the same way, both `origin` URLs, the configs, and the symlink.
+- `repo rename -s a CURRENT NEW`, CURRENT the root or the agent directory: the agent directory
+  renamed where it is, its remote as `init` names it, the work config's `[repos] agent` and
+  `[remote] agent-repo`, the work `.gitignore` line, and the symlink.
+- The remotes: a GitHub repo renamed by `gh repo rename`, GitHub asked while planning, a taken name
+  refused and one already renamed, as a stopped run leaves it, marked done. A local bare repo moved.
+  No `origin` skipped, anything else refused.
+- The edits committed in the renamed workspace by `commit`'s code and pushed when there is an
+  origin, `--local` keeping them on the machine.
+- `repo move -s b|w|p CURRENT DIR`: the workspace into DIR with its name, a relative `origin`
+  rewritten, no remote or config touched, another filesystem and an outside agent-repo refused.
+- `repo delete` refuses `-s w` and `-s a`, which it had taken as `-s b`.
 
 #### Acceptance check
 
-`vc-x1-dev check anchors --file` over `AGENTS.md` and each `agent-data/*.md` reports `0 link(s)
-span a line` and passes, a scratch file holding one wrapped inline link and one wrapped reference
-link reports `2 link(s) span a line` and still passes, and the validate task passes.
+In a scratch workspace made by `init --test-repo`, its origins local bare repos: `repo rename -s b
+--to <new> --dry-run` prints the plan and moves nothing, and the run moves the work directory, the
+two bare repos, both `origin` URLs, `[remote] agent-repo`, and the symlink, commits and pushes the
+config, after which `vc-x1 sync -s b --dry-run` from the new directory reports both repos up to
+date and nothing is left under the old names. `repo move -s b --to <dir>` then moves it under
+another parent, a relative bare-repo origin rewritten, and `sync -s b --dry-run` there is clean
+too. The GitHub path is a public and a private workspace renamed on GitHub, `gh repo view`
+naming the new repos. The forms are the ones the cycle ends with, `CURRENT NEW` positionals.
 
-Passed at the closing: the set reads `0 link(s) span a line` with 0 failed, and the scratch file
-`2 link(s) span a line`, exit 0.
+Passed. `tests/cli_repo.rs`'s 17 tests at the closing, the rename, the `-s a` rename, the move, and
+the refusals among them, and by hand with the sandbox off: in `~/tmp` with `--test-repo
+~/tmp/remotes`, and on GitHub, a public and a private workspace renamed, the private one from a
+stopped run, and its agent side by `-s a`, `sync` up to date and `status` clean after each.
 
 #### Deliberation
 
-- **A count, not a warning per link**: 133 wrapped links today, so a warning each would bury every
-  validate's output until a sweep nobody is asked to make. The summary keeps the number in view and
-  `-v` names the sites.
-- **What follows a moved link** (open in the entry): the agent's reading, the text after the link
-  going on along its line, since a link alone on every line it starts would make the ragged source
-  wink accepted ragged far more often. Taken by wink's go at the plan's review.
-- **Agent-files swept, the rest by touch**: the agent-files are what the proposal hands the family,
-  and the set should show the rule it states. Elsewhere Line widths' "no mass sweeps" holds.
-- **The wrapped code span stays a bug**: **validate-anchors finds a citation that follows a
-  wrapped code span** is a false finding about code spans, not links, so this rule does not close
-  it, where the entry said it would. Whether code spans join the rule was not decided, and the
-  bug's backlog entry stands.
-- **A count in a summary, not in its own line**: `check anchors`' summary gains the count, so a
-  script reading the line sees one more field at its end.
-- **Generated text**: `vc-config.md` is built from the schema and carries one wrapped link, so it
-  re-wraps when its generator is next touched, not by hand.
+- **Whole workspace** (wink, 2026-11-27), the design's open question: one side alone overlaps
+  **repos.agent becomes repos.agent-dir, and a command brings a config up to date**, and a rename
+  of half a workspace leaves its two halves named apart.
+- **GitHub included** (wink): `gh repo rename` widens the spawn register's entry 3, init's gh
+  provisioning, a forge's API and no version-control operation. GitHub redirects an old name, so the
+  `orepo:` URLs already in history resolve, and nothing rewrites them.
+- **A ladder, the commit and push last** (wink, "multi-step, if that works better"): the remote,
+  the machine, and the commit are each a rung and each reviewed, and the push from inside a command
+  is the one step wink may want left to the usual flow.
+- **The GitHub name check is rename's**: **init refuses a name GitHub would change** is not built,
+  so rename makes the check, `init` adopting it being that entry's.
+- **Not from inside a session**: the session's directory and its symlink are what move, so a rename
+  of the workspace a session runs in is run after it exits, as `repo delete` is. Tested here in a
+  scratch workspace.
+- **One name, hidden until complete** (wink, 2026-11-27): a name per rung would rewrite tests and
+  messages each rung for commits no one outside the cycle runs, so `rename` and `move` are hidden
+  from `repo --help` until the closing unhides them.
+- **A scope means what it says** (wink's hand test): `repo_scope_parser` hides an unoffered scope
+  and still accepts it, which made `delete -s w` delete both repos, so each command checks its
+  scope itself. `rename -s w` is `-s b` by wink's word, the agent side following the work name.
+- **Positionals** (wink, at the `-s a` rung's review): `CURRENT NEW` and `CURRENT DIR` read one
+  way, as `mv`'s do, so `--to` went, never published.
+- **Move refuses an outside agent-repo**: its config path may be relative or absolute, and moving
+  it is a choice of where it goes, left to the hand that made it.
+- `.vc-config.toml`, the design's other open question, is not handled: `repo delete` reads
+  `.vc-config.md` alone, and rename refuses a workspace without one.
 
 #### Rungs
 
 The rung subsections, in the ladder's order. The ladder itself is in `zTOC.md > ## Ladder`.
 
-##### feat: a link stays on one line opening
+##### feat: repo rename renames a workspace opening
 
 The cycle's first commit, carrying its plan: the bookmark, the last cycle's record deleted, and the
 Todo entry moved into this block.
 
-##### feat: check anchors counts a link that spans a line
+##### feat: repo rename plans a rename
 
-`check anchors` sees links a line at a time, so a link wrapped across lines is invisible to it. It
-learns to count them as style sites, reported in its summary and at `-v`, never failing the run.
+The command, its arguments, and its plan: the parts `repo delete` finds and their new names, the
+refusals, and the plan printed, `--dry-run` stopping there. Nothing moves yet.
 
-* A link's end, `](` or `][`, is the one place a wrapped link shows on a single line.
-  - A link spans a line when its end has no `[` of its own before it on the line, the scan back
-    counting each `]` it passes so nested brackets and a `[[N]]` beside it balance.
-  - It counts once, on the line its text ends, however many lines the text took.
-  - Code spans and fences are blanked first, as for every other check, so a quoted `](` is code.
-* The count is a style's, never a finding's.
-  - `Report` carries the lines and `Counts` the number, the summary gaining `N link(s) span a
-    line`, each site printed at `-v`, and the exit status left to the findings.
-  - Over the workspace today: 132, beside the same 4 findings the installed build reports.
-* `README.md`'s **check anchors** says what the count is and what `-v` adds.
+* `repo delete`'s discovery is shared rather than copied.
+  - `delete::survey` finds the root, checks `-s` against the workspace, and reads each repo and the
+    symlink, `delete::plan` now its caller, each message naming the verb that ran it.
+* `vc-x1 repo rename -s b|p [PATH] --to NEW` plans, in `src/repo/rename.rs`.
+  - The new names: the work directory a sibling named `NEW`, each `origin` URL's last segment
+    replaced, the agent remote `NEW<suffix>` when `[remote] agent-repo` is the old name plus a
+    suffix, an outside agent directory the same way with the configs' `repos.agent` and
+    `repos.work` following, and the symlink path for the new root.
+  - What each remote becomes: a local bare repo moved to the new URL's path, a GitHub repo renamed
+    `owner/old` to `owner/NEW`, no `origin` skipped, and anything else refused.
+  - The refusals, all found first: uncommitted work and unpushed commits, as `repo delete` reads
+    them, a new directory, bare repo, or symlink already there, `NEW` no single directory name or
+    the name the workspace has, and a name GitHub would change when a remote is GitHub's.
+  - The GitHub check, `github_name_problem`, is the one **init refuses a name GitHub would change**
+    wants, said with what GitHub would make of the name.
+  - Kept and listed: an agent name that is not the old one plus a suffix, and `[family] member`.
+* Without `--dry-run` it refuses, the moves being the next rungs'. `--yes` arrives with them.
+* Hidden from `repo --help` until the closing (wink, 2026-11-27): the name is kept through the
+  ladder, each rung refusing what is not built yet, and the closing unhides it with its README
+  section, when the name is true.
 
-##### docs: a link stays on one line
+##### feat: repo rename moves a workspace on this machine
 
-The rule has no text. `prose.md`'s Line widths gains it, `rationale.md` its why, the agent-files
-are re-wrapped to it, and the agent-files version moves to `v0.3.1-19`.
+The local half: a local bare origin moved, both `origin` URLs, the config edits written, the
+directories, and the symlink, in that order, a failure naming what is left.
 
-* Line widths says what a wrapped link costs nobody else's rule did.
-  - The rule: a link, inline or reference-style, stays on one line, a style to strive for. One that
-    does not fit starts the next line, the text after it going on along that line, and one longer
-    than the width alone is the exception, as an URL is.
-  - Its why in `rationale.md`'s new **Line widths**: a wrapped link escapes a search and a
-    line-at-a-time check, the ragged source is never rendered, and as a style the check counts and
-    never fails.
-* The agent-files hold the rule they state.
-  - 62 items re-wrapped across `AGENTS.md` and five `agent-data/` files, each to the full width
-    with its links and code spans kept whole, the words unchanged, `check anchors` over the set
-    reading `0 link(s) span a line`.
-  - One fixed by hand: `AGENTS.md`'s acquaint step 1 had a continuation line opening `## Agents`
-    inside its link, which a renderer may read as a heading.
-  - Three links longer than the width stay on lines of their own.
-* `agent-data/agent-files-v0.3.1-19` replaces `-18`, and `CONTRIBUTING.md > ## Agents` records
-  the draft and that the proposal is made formal by one commit once its prep cycles land.
+* The plan is carried out, asked first unless `--yes`, refused with no terminal to ask.
+  - The steps in order: each local bare origin moved, each `origin` URL set, each config edit made,
+    an outside agent directory moved, the work directory moved with a nested agent-repo inside it,
+    the old symlink removed, and the new one made to the agent-repo's new path.
+  - A failure names the step and every step left, and a failure at the symlink, the last step, says
+    `vc-x1 symlink` in the new root makes it.
+  - A GitHub origin is refused before anything changes, its rename being the GitHub rung's.
+* An `origin` URL is set in place, its remote bookmarks kept.
+  - `jj::git_remote_set_url`, by jj-lib's `set_remote_urls`, where a remove and an add would have
+    dropped `main@origin` and left every commit unpushed.
+* A config edit changes one line.
+  - In the `toml` fences of `.vc-config.md`, the line setting the key in its table to the quoted old
+    value, everything else as written, and a config that no longer says the old value is refused.
+  - The edit is left uncommitted, for **feat: repo rename commits and pushes the config**.
+* A scope means what it says (wink's hand test, 2026-11-28, `-s a` taken as `-s b`).
+  - `repo_scope_parser` hides an unoffered scope from the help and still accepts it, so `rename -s
+    w` and `-s a`, and `delete -s w` and `-s a`, each ran as `-s b`, `delete` taking both repos.
+  - `delete` refuses a one-side scope, a workspace being deleted whole.
+  - `rename` takes `-s w` as `-s b` (wink: "-sb == -sw"), the agent side following the work name,
+    and refuses `-s a` until **feat: repo rename -s a renames the agent side**.
+* Tested end to end in a workspace `init --test-repo` made: the bare repos, both URLs, the config,
+  the directories, and the symlink under the new name, nothing under the old, and `sync -s b
+  --dry-run` from the new root reporting both repos up to date.
 
-##### feat: a link stays on one line closing
+##### feat: repo rename -s a renames the agent side
+
+The agent side alone (wink, 2026-11-28, from his hand test): its directory renamed in place, the
+work config's `[repos] agent` and the work `.gitignore` line following, its remote renamed as
+`init` names it, the work name plus a dot-led directory, with `[remote] agent-repo`, and the
+symlink re-pointed. PATH may name the agent directory itself.
+
+* `-s a` plans the agent side alone, `plan_agent` beside the whole rename's plan, the two carried
+  out by the same steps.
+  - PATH is the workspace's root, or the agent directory itself, which names its root.
+  - `--to` is the agent directory's new name, the directory renamed where it is, inside the
+    work-repo or beside it.
+  - The agent remote follows as `init` names it: a dot-led directory a suffix on the work name,
+    `ws.agent-session` to `ws.agentsession`, any other the whole name, and a remote the old
+    directory does not name kept and listed.
+  - The work config's `[repos] agent` and `[remote] agent-repo` follow, and for a nested agent-repo
+    the work `.gitignore` line naming it, without which the work-repo would track the renamed
+    directory.
+  - The symlink keeps its path and is pointed at the new directory, one pointing elsewhere left.
+  - The refusals are the whole rename's: work nowhere else, the name taken or unchanged, and an
+    origin rename cannot rename.
+* The whole rename's steps skip the work directory's move when it does not move, and a `.gitignore`
+  line is changed whole by `edit_line`, refused when the line is not there.
+* Tested end to end, PATH the agent directory: the directory, the bare origin, both config keys,
+  the `.gitignore` line, and the symlink follow, the work origin is kept, and `sync -s b
+  --dry-run` reports both repos up to date.
+
+##### feat: repo move moves a workspace to another directory
+
+The same local half with the name kept: the workspace under a new parent, a relative local
+`origin` rewritten, no remote touched, and a move across filesystems refused.
+
+* `vc-x1 repo move -s b|w|p CURRENT DIR`, in `src/repo/relocate.rs`, hidden until the closing.
+  - The workspace moves into DIR with its name, a nested agent-repo inside it, by `rename`'s steps,
+    `rename::apply` and `confirm` now naming the verb that runs them.
+  - An `origin` that is a `./` or `../` path is rewritten as the path from the new place, an
+    absolute one or a URL kept, so no remote and no config changes.
+  - The symlink is made for the new root and the old one removed.
+  - Refused first: DIR missing or no directory, DIR inside the workspace, the workspace there
+    already, a name taken in DIR, another filesystem, and an agent-repo outside the work-repo.
+  - `-s w` is `-s b`, and `-s a` is refused, the agent-repo moving with the workspace.
+* Positionals, as wink asked at the `-s a` rung's review: `repo rename -s ... CURRENT NEW` in place
+  of `[PATH] --to NEW`, `.` the workspace the current directory is in, and `repo move` the same
+  shape, `--to` gone without a refusal, never having been published.
+* Tested end to end: a relative origin rewritten for a directory two levels down, an absolute one
+  kept, the symlink remade, and `sync -s b --dry-run` from the new root reporting both repos up to
+  date.
+
+##### feat: repo rename renames the GitHub repos
+
+The remote half for a GitHub origin: both repos renamed by `gh repo rename` before anything local,
+a stopped run going on from the name GitHub holds.
+
+* GitHub is asked while the plan is made, dry run included, through a `Forge` trait, `Gh` its `gh`
+  and a test's fake its other.
+  - Each GitHub remote's old name is resolved, GitHub following a rename's redirect: still the old
+    name, the new one is asked for and refused when another repo holds it, already the new one,
+    as a stopped run leaves it, the step is marked done and said so, anything else refused naming
+    it, and an old name GitHub does not know refused unless the new one is there.
+  - Names compare without case, as GitHub's do.
+* The rename is the first step of all, `gh repo rename NAME --repo OWNER/OLD --yes`, so a refusal
+  there leaves the machine as it was, and a done one is skipped. The `origin` URLs, the configs, the
+  directories, and the symlink follow as before.
+* The register's entry 3 is widened to rename's `gh repo view` and `gh repo rename` in
+  `clippy.toml`, `init::gh` the one helper both commands call.
+* Tested with the fake: a rename made, a done one not made again, a taken name refused, and a repo
+  not found refused. A real GitHub rename is wink's hand test, outside the agent's sandbox.
+
+##### feat: repo rename commits and pushes the config
+
+The config edits committed in each repo that changed and pushed, so the remote's config names the
+remote it is on. Wink's to keep or drop at its review.
+
+* The edits are committed in the renamed workspace by `commit`'s own code, a pair under `-s b`,
+  `-s w`, and `-s a`, the one repo under `-s p`, and pushed when there is an origin.
+  - Titled `chore: rename the workspace to NEW`, or `chore: rename the agent directory to NEW`, the
+    version check waived, the version's line not being the rename's.
+  - The work `@` was empty before, rename refusing otherwise, so the commit is the edits alone, the
+    agent `@`'s session data going with its half as any pair's does.
+  - `--local` commits and pushes nothing, and a rename with no edit, as a workspace whose config
+    names no remote, commits nothing.
+  - A commit that fails leaves the edits in the working copy and says `vc-x1 commit` takes them, the
+    rename itself done.
+  - The plan's last line says which: `commit the edits in the workspace's repos, and push them`, or
+    `kept on this machine`.
+* Tested end to end, `-s b` and `-s a`: `status -s b` clean after, its `@-` the rename's commit on
+  `main`, and with `--local` `sync -s b --dry-run` saying the repos are ahead. And by hand in
+  `~/tmp` with the sandbox off: `init --test-repo ~/tmp/remotes`, a rename, and `sync` reporting both
+  repos up to date with their renamed remotes.
+* On GitHub, run by the agent at wink's go (2026-11-28), the repos left for him: a public and a
+  private workspace by `init https://github.com/winksaville/<name>.git`, `--private` the second.
+  - A dry run onto the other's name refused it, GitHub's two names among the four refusals.
+  - The public one renamed `t31-gh-pub` to `t31-gh-pub2`, both repos renamed and still public, the
+    old name redirecting to the new, and the commit pushed to the new URL, `sync` up to date and
+    `status` clean after.
+  - The private one with its work repo renamed on GitHub by hand first, as a run stopped after its
+    first step leaves it: the plan said that repo was renamed already, the run renamed the agent's
+    alone and went on, both still private.
+  - Then `-s a .agent-session .agentsession` on it: the GitHub repo `t31-gh-priv2.agentsession`,
+    the configs, the `.gitignore`, and the symlink, `sync` up to date and `status` clean.
+
+##### feat: repo rename renames a workspace closing
 
 Closing out the cycle.
 
 * The acceptance check passed, recorded above.
-* The record is final: the Problem keeps the entry's paragraph and the fair-trade call, the
-  Solution says what was done, and the open question of what follows a moved link is settled by
-  the go at the plan's review.
-* `notes/agent-files-size.md` gains the row for the draft `v0.3.1-19`, 2067 lines, and its window
-  slides.
+* `rename` and `move` are unhidden, and the README gains **repo rename** and **repo move** beside
+  **repo delete**, which says `-s w` and `-s a` are refused. The three join the README's contents
+  and its command list, where `repo delete` was missing.
+* The record is final: the Solution says what was done, in the forms the cycle ends with, and the
+  Deliberation gains the scope finding, the positionals, and move's outside agent-repo.
+* **Improve init and add rename and delete subcommands** loses its `#### rename` part, done here,
+  and its `init` part names `github_name_problem` for **init refuses a name GitHub would change**.
 
 # References
 

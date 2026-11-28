@@ -22,6 +22,9 @@
   - [clone](#clone)
   - [init](#init)
   - [symlink](#symlink)
+  - [repo delete](#repo-delete)
+  - [repo rename](#repo-rename)
+  - [repo move](#repo-move)
   - [sync](#sync)
   - [squash-push](#squash-push)
   - [push](#push)
@@ -151,6 +154,7 @@ vc-x1 config [OPTS]                       # Print the settable config keys
 vc-x1 clone --from URL [--name N] [OPTS]  # Clone a project, dual or with -s por plain
 vc-x1 init T [OPTS]                        # Create a project, dual or with -s por plain
 vc-x1 symlink [--target P] [OPTS]         # Create Claude Code project symlink
+vc-x1 repo delete|rename|move -s b ...    # Remove, rename, or move a workspace whole
 vc-x1 sync [OPTS]                          # Fetch + sync a repo, or both, to its remote
 vc-x1 squash-push -s a [--bookmark NAME]  # Squash @ into @-, advance a bookmark, push
 vc-x1 commit -s b --title T --body B       # Commit both working copies as a rung's pair
@@ -1479,7 +1483,7 @@ vc-x1 symlink -l
 ### repo delete
 
 `vc-x1 repo` holds what is done to a workspace's repos as a whole, a noun and its verbs as `cycle`
-and `rung` are: `delete` today, `rename` and `move` to come.
+and `rung` are: `delete`, [`rename`](#repo-rename), and [`move`](#repo-move).
 
 Remove a workspace from this machine, the cleanup a test workspace made by `init --test-repo`
 needs. The workspace is found by its `.vc-config.md`: PATH is its root, or the current directory is
@@ -1516,6 +1520,74 @@ vc-x1 repo delete -s b --local-repos --yes ~/tmp/my-test
 | `--local-repos` | Also remove the bare repos the `origin`s are, paths on this machine |
 | `--yes` | Remove without asking |
 | `--dry-run` | Print the plan and remove nothing |
+
+`-s w` and `-s a` are refused, a workspace being deleted whole.
+
+### repo rename
+
+Give a workspace a new name, its remote included, or under `-s a` its agent directory alone. The
+workspace is found as `repo delete` finds it, CURRENT its root, `.` the one the current directory is
+in, and under `-s a` its agent directory names it too.
+
+```
+# See what would change, changing nothing
+vc-x1 repo rename -s b --dry-run ~/tmp/my-test my-test2
+
+# Rename it, its GitHub repos or bare remotes included, without asking
+vc-x1 repo rename -s b --yes ~/tmp/my-test my-test2
+
+# Rename the agent directory, and its remote with it
+vc-x1 repo rename -s a --yes .agent-session .agentsession
+```
+
+- What is renamed: the work-repo's directory, the last segment of each `origin`, the agent remote
+  when its name is the old one plus a suffix, `my-test.agent-session` becoming
+  `my-test2.agent-session`, an agent directory outside the work-repo the same way, both `origin`
+  URLs, the config's `[remote] agent-repo` and `[repos]` paths, and the Claude Code symlink, made for
+  the new root.
+- `-s a` renames the agent directory where it is, its remote following as `init` names it, a
+  dot-led directory a suffix on the work name, and the work config's `[repos] agent`, the work
+  `.gitignore` line naming it, and the symlink with it.
+- The remotes: a GitHub repo is renamed by `gh repo rename`, GitHub redirecting the old name, so
+  URLs already in published history still resolve. A bare repo on this machine is moved. A
+  workspace with no `origin` skips the step, and any other remote is refused.
+- The edits are committed in the renamed workspace, `chore: rename the workspace to NEW`, and
+  pushed when there is an origin. `--local` commits and pushes nothing.
+- What stops it, before anything changes: uncommitted work or commits no remote bookmark reaches, a
+  new directory, bare repo, GitHub name, or symlink already taken, a name GitHub would change, and
+  an `origin` it cannot rename. What keeps the old name, the family's names for the workspace and an
+  agent remote not named after it, is listed.
+- The order is the remotes first, so a refusal there leaves the machine as it was, then the URLs,
+  the configs, the directories, and the symlink, then the commit. A run stopped after a GitHub
+  rename is run again: the plan says which repo GitHub has under the new name already, and goes on.
+- A session's own workspace is renamed after the session exits, its directory and symlink being
+  what move.
+
+| Flag | Description |
+|------|-------------|
+| `-s, --scope <SCOPE>` | `b` or `w` the workspace whole, `a` the agent directory alone, `p` a plain repo, required |
+| `--yes` | Rename without asking |
+| `--local` | Commit the edits and push nothing |
+| `--dry-run` | Print the plan and change nothing |
+
+### repo move
+
+Move a workspace into another directory, its name kept.
+
+```
+# Move it under ~/work, asking first
+vc-x1 repo move -s b ~/tmp/my-test ~/work
+```
+
+- What moves: the work-repo's directory, with the agent-repo inside it, and the Claude Code symlink,
+  made for the new root. No remote is touched and no config changes.
+- An `origin` that is a `./` or `../` path is rewritten as the path from the new place, and an
+  absolute path or a URL is kept.
+- What stops it: DIR missing or no directory, DIR inside the workspace, the workspace in DIR
+  already or its name taken there, DIR on another filesystem, and an agent-repo outside the
+  work-repo, which is moved by hand.
+- `-s w` is `-s b`, and `-s a` is refused, the agent-repo moving with the workspace. The flags are
+  `rename`'s, `--local` aside.
 
 ### sync
 

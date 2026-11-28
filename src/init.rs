@@ -250,18 +250,19 @@ pub(crate) const DEFAULT_AGENT_DIR: &str = ".agent-session";
 pub(crate) const DEFAULT_AGENT_SUFFIX: &str = ".agent-session";
 
 /// Run `gh <args>`, returning trimmed stdout on success and the
-/// stderr-carrying error on failure. The GhCreate path's one spawn
-/// helper: `gh auth status`, `gh repo view`, `gh repo create`.
+/// stderr-carrying error on failure. The one spawn helper of the
+/// forge's API: init's `gh auth status`, `gh repo view`, and `gh repo
+/// create`, and `repo rename`'s `gh repo view` and `gh repo rename`.
 ///
 /// Logs the command and its streams at `debug!`, the shape the
 /// retired `common::run` gave these callers.
-fn gh(args: &[&str], cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) fn gh(args: &[&str], cwd: &Path) -> Result<String, Box<dyn std::error::Error>> {
     let args_str = args.join(" ");
     debug!("$ gh {args_str}");
-    // Register entry 3 (clippy.toml): init's gh provisioning.
-    // Creating a repo on GitHub is the forge's REST API, not a
-    // version-control operation, and gh is its authenticated
-    // client.
+    // Register entry 3 (clippy.toml): the gh provisioning of init
+    // and repo rename. Creating or renaming a repo on GitHub is the
+    // forge's REST API, not a version-control operation, and gh is
+    // its authenticated client.
     #[allow(clippy::disallowed_methods)]
     let output = std::process::Command::new("gh")
         .args(args)
@@ -1261,7 +1262,7 @@ fn resolve_path_target(p: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> 
 
 /// Extract the `owner/name` slug from a GitHub URL (any of the
 /// supported forms: SSH scp-like, `ssh://`, `https://`).
-fn github_slug_from_url(url: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) fn github_slug_from_url(url: &str) -> Result<String, Box<dyn std::error::Error>> {
     let stem = url.strip_suffix(".git").unwrap_or(url);
     // The slug is the last two path components, `owner/name`.
     if let Some(path) = stem
