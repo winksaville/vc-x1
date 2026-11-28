@@ -10,43 +10,37 @@ The other files are listed in [zTOC.md](zTOC.md).
 Where the agent was, for the agent that comes next. Ephemeral, never a record, read first at
 acquaint, acted on, and reset to `_None._` by the reader.
 
-- **feat: init copies a file set and finishes what it starts** closes as a trapezoid on `main`,
-  landed locally by its closing's `cycle close main -s b --land` and not pushed (wink, 2026-11-25:
-  "close, land on main and I'll review"). Check where it stands, `vc-x1 sync -s b --dry-run`:
-  `main` at the landmark and ahead of `main@origin` until wink publishes, by `vc-x1 squash-push -s
-  b` or his own, the bookmark `feat-init-copies-a-file-set-and-finishes-what-it-starts` gone
-  locally and never on `origin`, and whether `vc-x1 -V` names the landmark at `0.85.29`.
-- The release install is wink's and two landmarks behind: `vc-x1 -V` read `0.85.27` when this
-  cycle closed. Until `cargo xtask install --release` runs the installed `vc-x1` has the old forms,
-  `cycle squash` and `--trapezoid`, and no `init --from`, and `vc-x1-dev` the new, so a cycle's
-  stages run by `vc-x1-dev`.
-- The closing was not reviewed before its commit, by wink's word, so his review of it, the
-  `README.md` sections **The file set** and **A directory a Claude Code session was started in**
-  among it, comes after the Land, and a fix is a cycle on top.
-- The next cycle is **agent-files(proposal): v0.3.1**, carrying this one, the three before it, and
-  **agent-files(proposal): a link stays on one line** (wink, 2026-11-25). The top of `## Todo`,
-  **feat: a workspace made by init --from is a set**, was filed first at this cycle's close.
-- Wink's hand test of this cycle, outside the agent's sandbox: `vc-x1-dev init ../hello`, with
+- **feat: a link stays on one line** closes as a trapezoid on `main`. Check where it stands by
+  `vc-x1 sync -s b --dry-run`: `main` at its landmark, landed and published or not as wink said at
+  the close-out, and `vc-x1 -V` naming `0.85.30` once the release is installed.
+- The messages: the commit `m-13 m-14 m-15` in `../vc-x1-messages`, our `m-13-3`, `m-14-1`, and
+  `m-15-1`, was approved for a push and kept local so no review request followed a push. Check
+  `main@origin` there and push it if it is not. `m-15-1` owes a line giving the sha-link of
+  **feat: a clone per member, the remote as the mutex** once this cycle is published, and `m-13`
+  is io-uring-x1's to close.
+- Toward **agent-files(proposal): v0.3.1** (wink, 2026-11-27): the prep cycles first, each its own
+  cycle under a Conventional title, then the proposal as one commit. The ones named:
+  **feat: a workspace made by init --from is a set**, `custom.md` committed, vc-x1 the default and
+  jj when needed, and the entry's **dry runs interleave** and **dogfood** items.
+- **feat: init copies a file set and finishes what it starts**'s closing was not reviewed before
+  its commit, by wink's word, so his review of it, the `README.md` sections **The file set** and
+  **A directory a Claude Code session was started in** among it, comes after the Land, and a fix
+  is a cycle on top.
+- Wink's hand test of that cycle, outside the agent's sandbox: `vc-x1-dev init ../hello`, with
   `--test-repo` and then to GitHub with `--private`, in a directory a Claude Code session was
   started in. The preflight refuses first, naming `~/.claude/projects/<mangled-path>`, and with
   that directory moved aside init needs no `--adopt` and commits nothing of `.claude/`.
-- The messages: `m-14` (`cycle land` tags the version) and `m-15` (a clone per member) are pending
-  for us, unanswered, and `m-13` is complete, its close owed, with our `m-13-1` owing a line
-  linking the fix **feat: one cycle flow, plan, rungs, close** landed, its sha-link that
-  landmark's. The clone `../vc-x1-messages` has its working copy on an August commit under the
-  v0.1.0 README, while `main` is at v0.3.3: a write needs `@` moved to `main` first, wink's to say
-  how.
 - A scratch home for a rehearsal or an `init` in the agent's sandbox: `HOME` and `XDG_CONFIG_HOME`
   at a directory holding a jj user (`[user] name` and `email` in `.config/jj/config.toml`), so
   `init`'s symlink lands there: `HOME=<scratch>/home XDG_CONFIG_HOME=<scratch>/home/.config
   scripts/cycle-rehearsal.sh <scratch>/run`.
 - **vc-x2 is seeded from vc-x1**'s `## Waiting` condition looks met and is wink's to promote or
-  not, asked at this cycle's opening and not answered (2026-11-25).
+  not, asked at two openings and not answered (2026-11-25, 2026-11-27).
 - Wink's test workspaces `~/tmp/tv-0-85-25-5-1ead2` and `~/tmp/tv0-85-26-9-37bc`, with their
   symlinks in `~/.claude/projects/` and bare repos in `~/tmp/remotes`, are **feat: the new cycle
   flow**'s hand test, wink's to run outside the agent's sandbox: `vc-x1-dev repo delete -s b
-  --dry-run <dir>`, then `--local-repos --yes`. `~/tmp/t29-3-8c8d` is this cycle's, made at the
-  `agent-files` rung's review.
+  --dry-run <dir>`, then `--local-repos --yes`. `~/tmp/t29-3-8c8d` is **feat: init copies a file
+  set and finishes what it starts**'s, made at its `agent-files` rung's review.
 
 ## In Progress
 
@@ -388,31 +382,24 @@ up that way, wink asking the agent for the commands. A fresh `vc-x1 clone` leave
   committed, its `continue` fetching a `wip/` ref, and **clone takes -b for the work-repo's
   bookmark** the same for a clone. The three may be one cycle.
 
-### agent-files(proposal): a link stays on one line
+### feat: a clone per member, the remote as the mutex
 
-(wink + agent, 2026-11-25, from **feat: init copies a file set and finishes what it starts**) A
-link's text wraps with the prose around it, `[Working` ending one line and `practices](...)`
-opening the next, as 128 links do today, 65 of them in the agent-files. A search for the link's
-text then misses it, a previewer may not join it, and `check anchors` has a bug of its own for a
-citation after a wrapped code span. Wink read one in `custom.md` and was not sure it was valid.
+(wink + agent, 2026-11-27, from zc-ring-x1's `m-15`, accepted at `m-15-1`) Every member shares
+one clone of the messages repo, `../vc-x1-messages`, whose ids are allocated under the `owner`
+mutex, so a member needs that sibling directory, a session that dies holding the mutex needs a
+human, and no second machine can take part.
 
-- **Solution**: a rule in `prose.md`'s Line widths, a check, and a sweep.
-  - A link, text and destination, is never split across lines.
-  - A link that does not fit the line within the prose width starts the next line.
-  - A link longer than the width alone is the exception to it, as a URL is already.
-  - `check anchors` refuses a link that spans a line.
-- **Acceptance check**: `check anchors` over the agent-files reports no link spanning a line, and
-  refuses a file given one.
-- **The short lines are a fair trade** (wink, 2026-11-25): a line broken early before a link is
-  ragged in the source alone, never rendered.
-- **What follows a moved link**, open: the agent reads the rule as letting the text after a link
-  go on along its line while it fits, the line after taking it only when the link fills its own.
-  Wink's "on the next line by itself" may mean a moved link is always alone on its line.
-- **The sweep**: the agent-files by the cycle that makes the rule, `TODO.md` (32), `notes/` (16),
-  `README.md` (11), and the skeleton's templates (2) as a cycle touches each or by a sweep of its
-  own, as the semicolons went. `custom.md`'s one was joined by hand, the file being local.
-- Closes **validate-anchors finds a citation that follows a wrapped code span** by rule.
-- To be carried by **agent-files(proposal): v0.3.1**.
+- **Solution**, provisional, `m-15-0`'s: each member clones the messages repo into its workspace
+  at `.family-messages`, and the remote allocates the ids. A write fetches, moves to the remote's
+  `main`, reads messages, appends, commits, and pushes, and a rejected push drops the commit and
+  writes again. `owner` and the shared clone retire, a version bump of the protocol.
+- **Acceptance check**, provisional: two workspaces' clones write a line to one thread at once,
+  one push refused, and the retry lands both lines numbered in order with no conflict.
+- **Open**, from `m-15-0`: a `vc-x1` subcommand for the loop, whether `vc-x1 init` makes the clone,
+  git or jj-colocated, and each write a push, so each member's `custom.md` needs a standing
+  permission for them.
+- The body: `../vc-x1-messages/open/m-15-0.md`. A line in `m-15` gives this entry's sha-link once
+  it is pushed.
 
 ### agent-files(proposal): v0.3.1
 
@@ -485,6 +472,18 @@ starts**'s, the cycle before. Left for the cycle after: `xtask copy` in the same
 Left for a later proposal: **Durable messaging between projects**, the family's protocol and not
 the set's, and **The family leaves the committed config**, **init and clone take --custom**, and
 **Every repo's .gitignore ignores .claude**, each shaped by those.
+
+Decided at the acquaint of 2026-11-27 (wink):
+
+- The proposal is one commit, the bare `v0.3.1` and this entry's `####` changes with their whys,
+  and every rule change it carries lands first as a cycle of its own, under a Conventional title,
+  each bumping the draft. So a prep entry titled `agent-files(proposal): ...` takes its
+  Conventional title when its cycle opens, as **feat: a link stays on one line** did.
+- `custom.md` is committed: the bullet above holds, and vc-x1's own, gitignored today, is
+  committed by a prep cycle, `AGENTS.md > custom.md` no longer calling it one machine's.
+- vc-x1 is the default and jj is used when needed: **agent-files(proposal): vc-x1 is the
+  interface, jj the engine** is a prep cycle of this proposal, its open question answered, raw jj
+  allowed where vc-x1 has no command.
 
 #### Never rename
 
@@ -5043,313 +5042,122 @@ own directory) are separate traversals over the same three values today, and fou
 The last cycle's finished record, moved here whole by its closing commit and deleted by the next
 opening ([Cycle-record](AGENTS.md#cycle-record)).
 
-### feat: init copies a file set and finishes what it starts
+### feat: a link stays on one line
 
 #### Problem
 
-(wink + agent, 2026-11-21, from **feat: one cycle flow, plan, rungs, close**, gathered from
-**Initialization leaves no bad link** and **agent-files(proposal): v0.3.1**) A new workspace gets
-its files from `scripts/vc-dr-apply.sh`, and what a set holds is restated in `AGENTS.md`'s
-Terminology, `src/agent_files/`, and the script, so no command makes a whole workspace and no one
-list says what a set is. And `init` in a directory a Claude Code session was started in fails at
-its last step, after the push, the symlink path already a real directory.
+(wink + agent, 2026-11-25, from **feat: init copies a file set and finishes what it starts**) A
+link's text wraps with the prose around it, `[Working` ending one line and `practices](...)`
+opening the next, as 128 links do today, 65 of them in the agent-files. A search for the link's
+text then misses it, a previewer may not join it, and `check anchors` has a bug of its own for a
+citation after a wrapped code span. Wink read one in `custom.md` and was not sure it was valid.
+
+- **The short lines are a fair trade** (wink, 2026-11-25): a line broken early before a link is
+  ragged in the source alone, never rendered.
+- A prep cycle of **agent-files(proposal): v0.3.1**.
 
 #### Solution
 
-A set declares itself in `file-set.toml` at its root: each entry a path, a kind, verbatim,
-starter, or optional, and where its text is read when that is not its path, with the `.gitignore`
-lines the set needs. `vc-x1 init <TARGET> --from <SOURCE>` copies a set by it into the work repo
-before its first commit, `-c` taking the source's own `custom.md`, and `agent-files copy` and
-`diff` read the same list. One module, `file_set`, declares, resolves, compares, and copies a
-list of files, a directory at every depth. `init` refuses a taken symlink path in its preflight,
-adopts a directory holding only `.claude/` with no flag, and keeps an adopted directory's
-`.claude/` out of the first commit.
+A style to strive for, not a requirement (wink, 2026-11-27): a rule in `prose.md`'s Line widths, a
+count in `check anchors` that never fails it, and the agent-files re-wrapped to it.
 
-A workspace so made is not yet a set itself, holding neither the manifest nor the templates, the
-Todo **feat: a workspace made by init --from is a set**. `scripts/vc-dr-apply.sh` stays, working,
-and the agent-files' own text is the next cycle's.
+- The rule: a link, its text and destination, inline or reference-style, stays on one line. One
+  that does not fit within the width starts the next line, the text after it going on along that
+  line, and one longer than the width alone is the exception, as an URL is. Its why is
+  `rationale.md`'s **Line widths**.
+- The check: `check anchors` counts a link whose text began on an earlier line, a `](` or `][` with
+  no `[` of its own before it, as a style site and never a finding, its summary saying
+  `N link(s) span a line` and `-v` naming each.
+- The sweep: the agent-files' 69 wrapped links, 62 items re-wrapped with the words unchanged, the
+  set reading `0 link(s) span a line`. The other 63 in the workspace re-wrap when a cycle touches
+  their file.
+- The agent-files are the draft `v0.3.1-19`.
 
 #### Acceptance check
 
-Passed at the closing, 2026-11-25, in the agent's sandbox with the dev build of the last rung's
-commit, in a scratch home, as one script that fails on any step:
+`vc-x1-dev check anchors --file` over `AGENTS.md` and each `agent-data/*.md` reports `0 link(s)
+span a line` and passes, a scratch file holding one wrapped inline link and one wrapped reference
+link reports `2 link(s) span a line` and still passes, and the validate task passes.
 
-- Passed: a workspace made by `vc-x1-dev init <TARGET> --test-repo <REMOTES> --from <vc-x1's
-  work-repo>` holds the source's verbatim files identical, `agent-files diff` against the source
-  reading 0 of 15 differ, its starters written with `{name}` filled, `init`'s own `TODO.md` and
-  `zTOC.md`, no `custom.md`, and a clean working copy: 23 written, 2 kept, 3 `.gitignore` lines.
-- Passed: in that workspace `cycle plan start` and `cycle plan commit -s b` plan a cycle, with no
-  file made by hand, and `cycle status` shows its opening done.
-- Changed, then passed: the check read "a second `init --adopt --from` over it, a starter edited
-  first, leaves the starter as edited", which cannot run, a dual workspace being refused as
-  having nothing to adopt. What it meant to ask is asked of a plain directory holding its own
-  `CONTRIBUTING.md` and an old `AGENTS.md`: adopted with `--from`, the starter is kept and the
-  verbatim file replaced.
-- Passed: a directory holding only `.claude/`, its `~/.claude/projects/<mangled-path>` a real
-  directory, is refused by `init` with nothing made, the refusal naming the path, and with that
-  directory moved aside becomes a dual workspace with no flag, nothing of `.claude/` committed,
-  all of it on disk, and the symlink made.
-- Not run: wink's, outside the sandbox, `vc-x1-dev init ../hello`, with `--test-repo` and then to
-  GitHub with `--private`, in a directory a session was started in. It is in the continuation
-  notes.
+Passed at the closing: the set reads `0 link(s) span a line` with 0 failed, and the scratch file
+`2 link(s) span a line`, exit 0.
 
 #### Deliberation
 
-- The kinds (wink, 2026-11-21, `verbatim` where it was "set"): an entry is one of three.
-  - verbatim: kept identical, diffed, and replaced on copy, `AGENTS.md` and `agent-data/`.
-  - starter: written only when absent, `{name}` filled, never replaced, its shape the set's and
-    its content the project's, `CONTRIBUTING.md`, `notes/`, `LICENSE-*`, `TODO.md`, and `zTOC.md`.
-  - optional: copied only when asked, `custom.md`.
-- The record files are `init`'s own (wink, 2026-11-21): `init` writes an empty `TODO.md` and
-  `zTOC.md`, so the manifest's starters of those names find them there and are skipped, and every
-  new workspace starts with no Todo and no ladder.
-- The manifest `init` reads (wink, 2026-11-21): `SOURCE/file-set.toml` by default, at the set's
-  root and not in `agent-data/`, and `--file-set PATH` names another, so a set can be copied by a
-  list other than its own.
-- The shape (wink + agent, 2026-11-25): `vc-x1 init <TARGET> [--from <SOURCE>]`, the source a flag
-  since it is optional and two positionals read like `cp`, easy to swap.
-- The list is the manifest's (wink, 2026-11-21, settled at the plan's review): not hard-coded,
-  and not the table in `.vc-config.md` wink first suggested, since the list describes the set and
-  not one workspace, data that travels with the set, a `.vc-config.md` table only narrowing it.
-- One module for a list of files (wink + agent, 2026-11-25, at the first rung's review): a list
-  of files under a root is a common need, met twice already, by `agent_files::diff::set_files`
-  and `xtask_cmd::files`, so `file_set` is the one module for it, in three layers.
-  - Declare: a list of path entries, each a relative path inside the root.
-  - Resolve: the entries against a root, as the set of files there, a missing file simply absent.
-  - Compare and copy: two roots by a resolved set.
-  - Mechanism is the module's and policy the caller's: what a kind means, replace, write when
-    absent, or only when asked, stays with `init` and `agent-files`.
-  - The module depends on `std` and `toml_edit` alone, its errors strings, so it lifts into a crate
-    of the workspace when a second package, xtask for one, needs it.
-  - Moving `xtask copy` onto it is out of this cycle, the Todo **refactor: xtask copy lists its
-    files by file_set**.
-- A directory entry is recursive (wink, 2026-11-25): it stands for every file beneath it, at any
-  depth, where `set_files` took the plain files directly under `agent-data/`, since `notes/` and
-  `xtask/` need the depth and `agent-data/` holds no directory.
-- A starter's text is read at its `from` (settled at the plan's review): an adopter's own `CONTRIBUTING.md` and `notes/` hold
-  its project's content, so a starter cannot be copied from the path it is written to.
-  - An entry may name a `from`, the template's path in the set, and the
-    templates stay where they are, `scripts/vc-dr-apply-base/work/`, until the script retires. A
-    starter with no `from`, `LICENSE-*`, is copied from its own path.
-- The agent side is out of this cycle (settled at the plan's review): the script also gives the new agent-repo the source agent-repo's
-  `LICENSE-*`, `README.md`, and `memory/MEMORY.md`.
-  - The manifest lists the work side alone, since the agent-repo's files are not the set's.
-- `agent-files copy` and `diff` read the manifest in this cycle (settled at the plan's review).
-  - It is a rung, their verbatim and optional entries replacing the constants
-    in `src/agent_files/diff.rs`, since "no one list says what a set is" is the problem.
-- None of `vc-dr-apply.sh` retires here (settled at the plan's review): its base skeleton,
-  `--lang`, and `xtask copy`.
-  - The script stays, working, for **Initialization leaves no bad
-    link**, and `--lang` and `xtask copy` have no place in a manifest of kinds.
-- The agent-files' own text is the next cycle's (settled at the plan's review): `AGENTS.md`'s
-  Terminology names `scripts/vc-dr-apply.sh` as what applies a set.
-  - It is left to **agent-files(proposal): v0.3.1**, the next cycle, which carries
-    this one, so this cycle bumps no agent-files version. `file-set.toml` is not an agent-file.
-- The symlink path is refused, not cleared (settled at the plan's review): preflight refuses a
-  real directory there with nothing made, where `init` might have moved that directory's
-  transcripts into the new agent-repo and replaced it with the symlink.
-  - The evidence (wink + agent, 2026-11-19): in `../help`, a directory a session was started in,
-    `init --adopt --test-repo <REMOTES> --dry-run` planned all ten steps and found none of what
-    would stop it.
-  - It refuses, naming the path and what clears it, since the session whose
-    transcripts they are may be running, and a move is the follow-up when the refusal proves a
-    nuisance.
-- `.claude/` stays out of the initial commit: the work `.gitignore` ignores only
-  `/.claude/settings.local.json`, so an adopted `.claude/.cc-writes/` is committed and pushed. The
-  wider rule is **Every repo's .gitignore ignores .claude, and settings stay out of agent-repos**,
-  and this cycle keeps the adopted directory's `.claude/` out and no more.
-- A directory holding only `.claude/` is adopted without `--adopt`, since a session started there
-  leaves it and the directory is otherwise empty.
-- The title is kept (wink, 2026-11-25, at the last rung): the cycle title is 56 characters, over
-  the 50 a title keeps to, as `plan start` warned, its bookmark the slug, and the bookends carry
-  it, a rename after the opening leaving the pair unlike.
-- The shape is a trapezoid on `main`, landed locally in the closing's own invocation and not
-  pushed (wink, 2026-11-25: "keep the title, trapezoid", then "go, close, land on main and I'll
-  review").
-- The closing's review is waived to after the Land (wink, the same word). The waiver covers the
-  closing commit's work review and the local Land. It covers no push, each still wink's to
-  approve, and no release install.
-- Related and not taken: **init defaults to --local**, a bare `init` publishing a public GitHub
-  repo today.
+- **A count, not a warning per link**: 133 wrapped links today, so a warning each would bury every
+  validate's output until a sweep nobody is asked to make. The summary keeps the number in view and
+  `-v` names the sites.
+- **What follows a moved link** (open in the entry): the agent's reading, the text after the link
+  going on along its line, since a link alone on every line it starts would make the ragged source
+  wink accepted ragged far more often. Taken by wink's go at the plan's review.
+- **Agent-files swept, the rest by touch**: the agent-files are what the proposal hands the family,
+  and the set should show the rule it states. Elsewhere Line widths' "no mass sweeps" holds.
+- **The wrapped code span stays a bug**: **validate-anchors finds a citation that follows a
+  wrapped code span** is a false finding about code spans, not links, so this rule does not close
+  it, where the entry said it would. Whether code spans join the rule was not decided, and the
+  bug's backlog entry stands.
+- **A count in a summary, not in its own line**: `check anchors`' summary gains the count, so a
+  script reading the line sees one more field at its end.
+- **Generated text**: `vc-config.md` is built from the schema and carries one wrapped link, so it
+  re-wraps when its generator is next touched, not by hand.
 
 #### Rungs
 
 The rung subsections, in the ladder's order. The ladder itself is in `zTOC.md > ## Ladder`.
 
-##### feat: init copies a file set and finishes what it starts opening
+##### feat: a link stays on one line opening
 
 The cycle's first commit, carrying its plan: the bookmark, the last cycle's record deleted, and the
 Todo entry moved into this block.
 
-##### feat: a set lists its files in file-set.toml
+##### feat: check anchors counts a link that spans a line
 
-Nothing says what a set is but code and a script. A `file_set` module reads `file-set.toml`, each
-entry a path, a kind, and an optional `from`, refusing an unknown kind or a path leaving the set,
-and vc-x1's own `file-set.toml` is written, a test holding every path it names to exist. An
-entry's path is resolved against a root into the files it stands for, a directory recursively.
+`check anchors` sees links a line at a time, so a link wrapped across lines is invisible to it. It
+learns to count them as style sites, reported in its summary and at `-v`, never failing the run.
 
-- The format is `[[file]]` tables, read by `toml_edit`, already a dependency, since `toml_simple`
-  reads flat keys alone.
-- A manifest is read strictly: an unknown key or kind, a path that is absolute or holds `.` or
-  `..`, a path listed twice, and a manifest with no entry are each refused, naming the file and
-  the entry.
-- A directory entry is recursive: `file_set::resolve` gives a file as itself and a directory as
-  every file beneath it, at any depth, each relative to the root, sorted. A path that is not
-  there gives nothing, so a set missing a file is a smaller set, and a symlink is taken as a file
-  and never followed, so the walk stays under the root.
-- The module holds the first two layers the deliberation names, declare and resolve, and nothing
-  of vc-x1's own but the kinds. Compare and copy are the next rung's.
-- `README.md` is a starter beside the Todo's list, since the script writes one, and the skeleton's
-  `version.toml` is not listed, a workspace's version being its build's.
-- `custom.md` is read from the skeleton's template, not the adopter's own, which is local to its
-  workspace and gitignored. `agent-files copy -c`, which copies the adopter's, is the rung **feat:
-  agent-files copy and diff read the manifest**'s to reconcile.
-- Nothing calls the module yet, so it carries an `expect(dead_code)` the next rung's first call
-  makes clippy refuse, and so remove.
+* A link's end, `](` or `][`, is the one place a wrapped link shows on a single line.
+  - A link spans a line when its end has no `[` of its own before it on the line, the scan back
+    counting each `]` it passes so nested brackets and a `[[N]]` beside it balance.
+  - It counts once, on the line its text ends, however many lines the text took.
+  - Code spans and fences are blanked first, as for every other check, so a quoted `](` is code.
+* The count is a style's, never a finding's.
+  - `Report` carries the lines and `Counts` the number, the summary gaining `N link(s) span a
+    line`, each site printed at `-v`, and the exit status left to the findings.
+  - Over the workspace today: 132, beside the same 4 findings the installed build reports.
+* `README.md`'s **check anchors** says what the count is and what `-v` adds.
 
-##### feat: init --from copies a set by its manifest
+##### docs: a link stays on one line
 
-A new workspace gets no rules from `init`. `init --from <SOURCE>`, with `--file-set PATH` and
-`--custom`, copies the set into the work-repo before its initial commit, as one more step of the
-plan, printed by the dry run: verbatim replaced, starters written where absent, `{name}` filled.
-The copy is `file_set`'s, over the files `resolve` gives, a directory entry taken at every depth,
-and what each kind does with them is `init`'s.
+The rule has no text. `prose.md`'s Line widths gains it, `rationale.md` its why, the agent-files
+are re-wrapped to it, and the agent-files version moves to `v0.3.1-19`.
 
-- The mechanism is `file_set`'s: `files_of` pairs each file of an entry with where a copy writes
-  it, a directory's files beneath the entry's path wherever a `from` reads them, and `copy_file`
-  copies one, told whether a different file there is replaced or kept, given a fill for the text,
-  and keeping the source's permissions, so a script stays one.
-- The policy is `init`'s, `src/init/set.rs`: verbatim is replaced with no fill, a starter is
-  written only when absent with `{name}` filled by the directory's name, and an optional entry is
-  left out, or with `--custom` written as a starter is, so a `custom.md` there is never replaced.
-- The copy is a step of its own, after the config and `init`'s `TODO.md` and `zTOC.md`, before the
-  first commit, so the set is in that commit, a starter of a name `init` writes is kept out, and
-  the dry run prints the step with the set and its manifest.
-- The dry run lists the set's files after the steps (wink, at the review: "can I run some code to
-  see the list?"), one a line, its kind, where it is written, and where it is read when that is
-  another path, so `init <TARGET> --from <SOURCE> --dry-run` shows what a set holds with nothing
-  made.
-- The preflight refuses, with nothing made, a source that is no directory or is the target, a
-  manifest that does not parse, and an entry the copy takes that has no file in the source, since
-  a set listing what it lacks would make a workspace missing it. `resolve` itself stays lenient,
-  for a diff of two copies.
-- A verbatim file only in the destination is left there. `init` deletes nothing, and the delete
-  `agent-files copy` does is the next rung's.
-- The flags are `-s por`'s as much as a dual workspace's, a plain repo taking a set the same way.
-- `-c` is `--custom` (wink, at the review), as `agent-files copy` and `diff` spell it.
-- The source is read as its working copy holds it, with no `--landed` yet, the script's reading of
-  a revision by `git archive`.
-- The manifest holds the set's `.gitignore` lines (wink, at the review): `gitignore`, a list
-  before the entries, vc-x1's `/tmp`, `/tmp-durable`, and `/custom.md`, the script's
-  `gitignore-lines`. The copy step adds each the work `.gitignore` lacks, after the files, so
-  `--custom`'s `custom.md` is ignored before the first commit and stays local. The adding is
-  `file_set::add_lines`, which `init`'s own two lines now go through as well.
+* Line widths says what a wrapped link costs nobody else's rule did.
+  - The rule: a link, inline or reference-style, stays on one line, a style to strive for. One that
+    does not fit starts the next line, the text after it going on along that line, and one longer
+    than the width alone is the exception, as an URL is.
+  - Its why in `rationale.md`'s new **Line widths**: a wrapped link escapes a search and a
+    line-at-a-time check, the ragged source is never rendered, and as a style the check counts and
+    never fails.
+* The agent-files hold the rule they state.
+  - 62 items re-wrapped across `AGENTS.md` and five `agent-data/` files, each to the full width
+    with its links and code spans kept whole, the words unchanged, `check anchors` over the set
+    reading `0 link(s) span a line`.
+  - One fixed by hand: `AGENTS.md`'s acquaint step 1 had a continuation line opening `## Agents`
+    inside its link, which a renderer may read as a heading.
+  - Three links longer than the width stay on lines of their own.
+* `agent-data/agent-files-v0.3.1-19` replaces `-18`, and `CONTRIBUTING.md > ## Agents` records
+  the draft and that the proposal is made formal by one commit once its prep cycles land.
 
-##### feat: agent-files copy and diff read the manifest
-
-`agent-files copy` and `diff` hold the set as constants and list, compare, and copy it by code of
-their own. They read the source's `file-set.toml`, its verbatim entries the set and its optional
-ones `--custom`'s, falling back to the constants for a copy of the set that has none, and
-`set_files`, `compare`, and the copy move onto `file_set`, so the set is listed by one module.
-
-- The set `diff` and `copy` take is `SetPaths`, read from the source's `file-set.toml`, a diff's
-  `--from` side: its verbatim entries, and its optional ones with `-c`. A source with no manifest
-  is the built-in set, `AGENTS.md`, `agent-data/`, and `custom.md` on request, as before, so an
-  older copy of the set still diffs, and a manifest that does not parse is an error, never the
-  built-in set in its place. Each command says which it read.
-- A path is read at itself on both sides, never at an entry's `from`. That settles the first
-  rung's open point: `from` names the template a new workspace starts from, `init`'s, and two
-  copies of a set share the file at its path, so `agent-files copy -c` still copies the adopter's
-  own `custom.md`.
-- With `--from`, `custom.md` is the source's own (wink, at the review: "with --from means get it
-  from --from"). `init --from <SOURCE> -c` wrote the skeleton's stub where `agent-files diff -c`
-  compared the source's own `custom.md`, so a workspace just made differed from its source by the
-  whole file. The manifest's `custom.md` entry loses its `from`, and `init` writes an optional
-  file as the source holds it, nothing filled, and only when none is there. This revises the two
-  rungs before, which read the template and filled `{name}`.
-  - A source with no `custom.md` refuses `-c` in the preflight, as any entry with no file does.
-  - The manifest's own test asks no optional file to be in the tree, `custom.md` being gitignored
-    and so absent from a clone.
-  - `-c` with no `--from` stays refused by the parser, naming `--from`, there being no set to
-    take a `custom.md` from.
-- A starter is no part of a diff or a copy, its content each project's own, so `CONTRIBUTING.md`
-  and `notes/` are never compared, as they never were.
-- `agent-data/` is now taken at every depth, where `set_files` took the plain files directly under
-  it. It holds no directory today, so nothing changes for a set as it is.
-- The third layer is in `file_set`: `compare` gives how the files a list of paths stands for
-  differ between two roots, and `covers` whether a path is one of them, which the copy's
-  dirty-working-copy guard asks. `diff::compare` maps that onto its states and adds the project
-  layer's rows, and `copy::apply` copies by `file_set::copy_file`. `set_files` and `in_set` are
-  gone.
-- Left: `agent-files size` lists the set by code of its own, `AGENTS.md`, `custom.md`, and the
-  plain files of `agent-data/`, its table's columns bound to those names. **feat:
-  agent-files-size should exclude custom.md** is the entry that reworks it.
-
-##### fix: init refuses a taken symlink path up front
-
-A real directory at `~/.claude/projects/<mangled-path>` stops `init` at its last step, after the
-push. The preflight checks the path and refuses with nothing made.
-
-- The check is `symlink::check`, the path `install` would take, probed the same way: anything
-  there that is no symlink is refused, and a symlink, whatever it points at, is left to `install`,
-  which keeps or replaces it as before.
-- The refusal names the path once, says a session started in the target made it, and says what
-  clears it: exit the session, move the directory aside, run `init` again. It was first written
-  with the `mv` command spelled out, the mangled path three times over, and shortened at the
-  review (wink). `init` moves nothing itself, the session whose directory it is perhaps still
-  running.
-- It runs only when `init` would make the symlink, a dual workspace from the command line, so
-  `-s por` and the test fixtures, which make none, are not asked.
-- Left: `clone` installs the same symlink as its last step and is not given the check here.
-
-##### fix: init adopts a .claude-only directory
-
-A directory a session was started in holds `.claude/`, so `init` refuses it without `--adopt` and
-commits `.claude/.cc-writes/` with it. Such a directory is taken as empty, and its `.claude/` is
-ignored by the work `.gitignore`.
-
-- A directory holding `.claude/` and nothing else is adopted without `--adopt`, since that is what
-  a session started in an empty directory leaves. One holding anything more still needs the flag,
-  its content being someone's to hand over, and `-s por`, which takes no `--adopt`, takes no such
-  directory either.
-- A plain directory holding `.claude/`, adopted either way, has `/.claude` added to the work
-  `.gitignore`, so nothing of it is in the first commit and all of it stays on disk. A repo that
-  is adopted keeps its own choice, its `.claude/` tracked or not as its history has it.
-- A fresh workspace is unchanged, ignoring `/.claude/settings.local.json` alone, the rest of a
-  `.claude/` made later being the project's to commit. The wider rule, **Every repo's .gitignore
-  ignores .claude, and settings stay out of agent-repos**, stays a Todo.
-- The dry run says so: the header reads "adopting", and the config step ends "its .claude/
-  ignored".
-- With the rung before, a session's directory is refused first for its symlink path, and once
-  that is moved aside `init <TARGET>` makes the workspace with no flag.
-
-##### docs: touched files pay their semicolons
-
-A file a cycle edits owes its prose semicolons and untypeable punctuation whole, paid in a rung of
-its own before the closing. Of the eighteen files this cycle touched three owe: `TODO.md`, in two
-other entries' lists and one `...`, and the doc comments of `src/agent_files.rs` and
-`src/init/params.rs`. Each is rejoined by the prose rule, a list as sub-bullets and a pair of
-claims with a comma and a conjunction.
-
-##### feat: init copies a file set and finishes what it starts closing
+##### feat: a link stays on one line closing
 
 Closing out the cycle.
 
-- An acceptance check is tried when it is written. One of this cycle's five could not run, an
-  `init --adopt` over a dual workspace, and it stood in the record from the opening to the
-  closing, through five reviews. A check the opening states is run then, or as soon as the rung
-  it needs lands, in a form that fails, as this one now is, a script whose every step exits.
-- What a flag reads is asked at the rung that adds it. `-c` took the template under `init` and
-  the source's own file under `agent-files`, each deliberate and the pair a surprise, found by
-  wink's hand test two rungs on. The second rung's review listed the choice, and a line in the
-  dry run naming where each file is read would have shown it sooner, which the list now does.
-- `README.md` was owed by the rungs that changed what `init` and `agent-files` do, and was paid
-  here, in the closing, with its own semicolons: **The file set** and **A directory a Claude Code
-  session was started in** under `### init`, the flags' rows, and the manifest's paragraph under
-  `### agent-files`. A rung that changes a command's surface carries its `README.md`.
-- A made workspace is not a set, the cycle's largest gap, found at the third rung's trial and
-  filed first in `## Todo`.
-- No agent-file changed, so `notes/agent-files-size.md` gets no row.
+* The acceptance check passed, recorded above.
+* The record is final: the Problem keeps the entry's paragraph and the fair-trade call, the
+  Solution says what was done, and the open question of what follows a moved link is settled by
+  the go at the plan's review.
+* `notes/agent-files-size.md` gains the row for the draft `v0.3.1-19`, 2067 lines, and its window
+  slides.
 
 # References
 

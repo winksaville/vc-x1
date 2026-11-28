@@ -1,18 +1,19 @@
 # Versioning
 
 How this project versions its commits and the running artifact. The scheme, meaning the cycle suffix
-spelling and the unique-per-commit aim, is generic and shared across projects, with [Recording the
-version-of-record](#recording-the-version-of-record) covering each medium by conditional rather than
-per-project edits.
+spelling and the unique-per-commit aim, is generic and shared across projects, with
+[Recording the version-of-record](#recording-the-version-of-record) covering each medium by
+conditional rather than per-project edits.
 
 ## Terms
 
 Three names, used as defined here across [AGENTS.md](../AGENTS.md) and the notes files:
 
 - **version**: the per-commit version (e.g. `0.3.0-5.3.0`). It lives in the manifest. No ladder,
-  todo entry, commit title, or commit body writes one (see [Versions live in the version-of-record
-  only](prose.md#versions-live-in-the-version-of-record-only)), and its suffix encodes the cycle
-  phase for whoever inspects the manifest (see [Suffix scheme](#suffix-scheme)).
+  todo entry, commit title, or commit body writes one (see
+  [Versions live in the version-of-record only](prose.md#versions-live-in-the-version-of-record-only)),
+  and its suffix encodes the cycle phase for whoever inspects the manifest (see
+  [Suffix scheme](#suffix-scheme)).
 - **version-of-record**: the authoritative stored copy of the version, in the project's manifest
   (see [Recording the version-of-record](#recording-the-version-of-record)). A built or running
   artifact derives from it.
@@ -21,10 +22,10 @@ Three names, used as defined here across [AGENTS.md](../AGENTS.md) and the notes
 ## A stamp, not a name
 
 The version answers "which commit produced this artifact". It is not a name for a step: a step is
-named by its title and located by its position in the ladder list (see [Steps are named, not
-numbered](prose.md#steps-are-named-not-numbered)). So the suffix below is the only number in the
-system, and since nothing dereferences it, reordering or inserting a step leaves the versions
-already committed alone.
+named by its title and located by its position in the ladder list (see
+[Steps are named, not numbered](prose.md#steps-are-named-not-numbered)). So the suffix below is the
+only number in the system, and since nothing dereferences it, reordering or inserting a step leaves
+the versions already committed alone.
 
 ## Advancing X.Y.Z: patch by default
 
@@ -95,9 +96,9 @@ case that fits your medium:
 - **Reporter**, how a built artifact surfaces the version-of-record:
   - if a CLI app, `<cli-app> -V`
   - if a TUI/GUI, add to Help/About or display on the title
-- **Cadence**, how often to bump: see [Unique per
-  commit](#unique-per-commit-preference-not-requirement). This project follows the per-commit
-  preference.
+- **Cadence**, how often to bump: see
+  [Unique per commit](#unique-per-commit-preference-not-requirement). This project follows the
+  per-commit preference.
 
 ## Dev artifact name
 
@@ -108,8 +109,8 @@ clobbers the binary consumers are running. The package keeps its plain name thro
 - **Name**: `<name>-dev`, installed by the project's install task beside `<name>`, the task
   [CONTRIBUTING.md > ## Tasks](../CONTRIBUTING.md#tasks) names.
 - **When**: before a rung's review, from the working copy, so the review runs the code under review,
-  and again after its commit, so the next rung runs the committed tree ([The per-rung
-  flow](../AGENTS.md#the-per-rung-flow)).
+  and again after its commit, so the next rung runs the committed tree
+  ([The per-rung flow](../AGENTS.md#the-per-rung-flow)).
 - **Which build runs**: for this project's artifact or another project's tool the session runs,
   `vc-x1` the common one, acquaint reports `<tool> -V` and `<tool>-dev -V`. A dev build newer than
   the plain name is the user's to choose, and the choice holds for the session, since the
@@ -127,8 +128,8 @@ Our general notion is that the version-of-record should change on **every commit
 running artifact identifies the exact commit it came from.
 
 - This is a preference, **not** a hard requirement. A project following the cycle protocol may bump
-  less often: once per cycle, only at release, and so on. Record the choice in [Recording the
-  version-of-record](#recording-the-version-of-record) if it differs.
+  less often: once per cycle, only at release, and so on. Record the choice in
+  [Recording the version-of-record](#recording-the-version-of-record) if it differs.
 - It is achievable because the cycle's versions (below) are **pre-assignable**, unlike the git SHA,
   which a commit cannot contain.
 
@@ -187,10 +188,10 @@ unique by construction ([Project-declared types](prose.md#project-declared-types
   `v` is the name-plus-version pair as cargo prints it (`bar v1.0.0`), and a tool's own banner stays
   bare (`vc-x1 0.82.0`), so a `v` number is the set's and a bare one the artifact's.
 - **Proposals bump, adoptions copy**: a proposal cycle bumps it at the opening, advancing per
-  [Advancing X.Y.Z](#advancing-xyz-patch-by-default), and its rungs walk the [Suffix
-  scheme](#suffix-scheme) beside the artifact's version, `-0`, `-1`, then bare at the close-out, so
-  a set copied from a draft bookmark says on its face that it is unfinished. An adoption copies the
-  source's bare file and bumps nothing.
+  [Advancing X.Y.Z](#advancing-xyz-patch-by-default), and its rungs walk the
+  [Suffix scheme](#suffix-scheme) beside the artifact's version, `-0`, `-1`, then bare at the
+  close-out, so a set copied from a draft bookmark says on its face that it is unfinished. An
+  adoption copies the source's bare file and bumps nothing.
 - **An adoption is a copy and a check**: `vc-x1 agent-files copy --from <src>` takes the set, and
   `vc-x1 agent-files diff --from <src>` is the adoption's last act, exiting zero when the two copies
   are the same and printing the differences the acceptance agreed to when they are not.

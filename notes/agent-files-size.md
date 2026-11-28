@@ -57,6 +57,7 @@ since its note is prose.
 | 2026-11-16 | docs: CONTRIBUTING.md names the project's tasks | 10 | 2018 | the draft `v0.3.1-15`: `AGENTS.md` gains `## CONTRIBUTING.md`, required, with its rule, its Terminology lines, and the acquaint's link, 16 lines, and `custom.md` gives the project's items to `CONTRIBUTING.md` and drops its long-output list, 14 fewer |
 | 2026-11-23 | feat: one cycle flow, plan, rungs, close | 10 | 2066 | the draft `v0.3.1-17`: the per-rung flow starts a rung by `rung next` and ends it by `rung commit`, the shape is said by the stage that ends the cycle, the plan is started and committed, and every stage is a subcommand, `AGENTS.md` 13 lines more, `cycle-model.md` 3, and `jj.md` 2, from the last column's 2034; `custom.md` is local and untracked, so its 24 where that column read 10 is this machine's copy, no cycle's change |
 | 2026-11-25 | feat: the new cycle flow | 10 | 2072 | the draft `v0.3.1-18`: `cycle close` says the shape, a trapezoid on a named target by default, `--linear`, or `--squash`, a closed draft converted, a single-step the plan, one rung, and `close --squash`, and informal commits a run on one bookmark, `AGENTS.md` 5 lines more and `jj.md` 1, from the last column's 2066 |
+| 2026-11-27 | feat: a link stays on one line | 10 | 2067 | the draft `v0.3.1-19`: a link stays on one line, a style, `prose.md` 6 lines more and the set re-wrapped to it, `AGENTS.md`, `jj.md`, `notes.md`, and `versioning.md` 1 each; `custom.md`'s 9 where the last column read 24 is this machine's local cleanup at acquaint, no cycle's change, so the set less `custom.md` is 10 more, 2058 from 2048 |
 
 Per file for the three most recent rows, newest on the left, the window sliding at each close-out
 so the earlier history is in the commits. A column is labeled by the set version it carries, the
@@ -65,17 +66,17 @@ landings before the set was versioned relative to the first version (`- v0.1.0` 
 its own row above. A cell in angle brackets, `<543>`, is a file the total leaves out, shown so a
 reader sees what it costs, and an empty cell is a file that was not in the set that landing.
 
-| File | feat: the new cycle flow | feat: one cycle flow, plan, rungs, close | feat: the project's tasks move to cargo xtask |
+| File | feat: a link stays on one line | feat: the new cycle flow | feat: one cycle flow, plan, rungs, close |
 |---|---:|---:|---:|
-| AGENTS.md | 608 | 603 | 590 |
-| custom.md | 24 | 24 | 10 |
+| AGENTS.md | 609 | 608 | 603 |
+| custom.md | 9 | 24 | 24 |
 | agent-data/code.md | 90 | 90 | 90 |
 | agent-data/commit-model.md | 41 | 41 | 41 |
-| agent-data/cycle-model.md | 144 | 144 | 141 |
-| agent-data/jj.md | 340 | 339 | 337 |
-| agent-data/notes.md | 192 | 192 | 192 |
-| agent-data/prose.md | 389 | 389 | 389 |
-| agent-data/rationale.md | <885> | <868> | <837> |
+| agent-data/cycle-model.md | 144 | 144 | 144 |
+| agent-data/jj.md | 341 | 340 | 339 |
+| agent-data/notes.md | 193 | 192 | 192 |
+| agent-data/prose.md | 395 | 389 | 389 |
+| agent-data/rationale.md | <895> | <885> | <868> |
 | agent-data/session-lock.md | 43 | 43 | 43 |
-| agent-data/versioning.md | 201 | 201 | 201 |
-| total | 2072 | 2066 | 2034 |
+| agent-data/versioning.md | 202 | 201 | 201 |
+| total | 2067 | 2072 | 2066 |

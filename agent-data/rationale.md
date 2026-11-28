@@ -20,8 +20,9 @@ not know its cost.
 - **A boundary sentence is not rationale.** A sentence saying what a rule does not cover is the
   rule, and stays in AGENTS.md. What moves here is argument: why the rule exists, what it cost to
   learn, what the alternatives were.
-- **Speculation is marked** as everywhere else ("We think ...", prose.md's [Speculation
-  marker](prose.md#speculation-marker)), so a reader can tell the measured from the inferred.
+- **Speculation is marked** as everywhere else ("We think ...", prose.md's
+  [Speculation marker](prose.md#speculation-marker)), so a reader can tell the measured from the
+  inferred.
 
 ## Rules
 
@@ -46,12 +47,13 @@ differently next time.
 ## Terminology
 
 **Retired names.** "Bot repo" (2026-08-21), when the code respelled the side `agent`. "Instruction
-files", an earlier name for the agent-files. "Ladder (sub-cycle)" for a local ladder, under [Local
-ladders](#local-ladders). "Project layer" (2026-10-18), the project's own agent-files, retired when
-the one file it named became local ([custom.md](#custommd)). "Trunk" (2026-11-10), the one bookmark
-every cycle was assumed to land on, `[cycle] trunk` else `main`, retired for the target, named on
-the command each time. "`--onto`" (2026-11-11), the closing's flag for the target, retired with
-`commit --closing` for `cycle close <target>`, a trapezoid's, and `cycle land <target>`.
+files", an earlier name for the agent-files. "Ladder (sub-cycle)" for a local ladder, under
+[Local ladders](#local-ladders). "Project layer" (2026-10-18), the project's own agent-files,
+retired when the one file it named became local ([custom.md](#custommd)). "Trunk" (2026-11-10), the
+one bookmark every cycle was assumed to land on, `[cycle] trunk` else `main`, retired for the
+target, named on the command each time. "`--onto`" (2026-11-11), the closing's flag for the target,
+retired with `commit --closing` for `cycle close <target>`, a trapezoid's, and
+`cycle land <target>`.
 
 **No target is assumed** (wink, 2026-11-10) because a bookmark made is likely, not certainly, the
 one a cycle lands on, and a release branch is a target as much as `main` is. A default would guess,
@@ -162,8 +164,8 @@ sometimes cheat, and the rule is still the rule.
 
 Pushing to the bookmark makes the work durable and visible, but landing on `main` is publication,
 and that is the line the rules divide at. The series is kept self-consistent before landing so the
-branch reads as one coherent ladder. Amending content rather than re-describing keeps [No
-re-describe without coordinating](jj.md#re-describing-coordinate-first-and-keep-the-trailer)
+branch reads as one coherent ladder. Amending content rather than re-describing keeps
+[No re-describe without coordinating](jj.md#re-describing-coordinate-first-and-keep-the-trailer)
 intact and lets the `ochid:` trailers ride along: they carry change ids, which survive a rewrite.
 
 ### Cycle shape
@@ -230,11 +232,11 @@ on one.
 ### Unplanned work
 
 The docs interlude, a commit landed on `main`'s line between cycles, is retired (2026-08-27). A
-single-step cycle is the same one commit with a bookmark, a record, and a landing, and the five
-docs commits that went to `main` as interludes are the case against the exception ([Cycles run on
-a bookmark](#cycles-run-on-a-bookmark)). The choice between a rung and an entry is the user's
-because it depends on what they want from the running cycle at that moment, which no rule can
-know.
+single-step cycle is the same one commit with a bookmark, a record, and a landing, and the five docs
+commits that went to `main` as interludes are the case against the exception
+([Cycles run on a bookmark](#cycles-run-on-a-bookmark)). The choice between a rung and an entry is
+the user's because it depends on what they want from the running cycle at that moment, which no rule
+can know.
 
 The set-aside sentence (2026-09-05, a patch then, a jj commit since a cleanup of `tmp/` lost two patches): a rename arrived while the working copy held the next rung's
 guide edit, and the inserted rung would have carried both. Setting the edit aside as a patch and
@@ -293,11 +295,11 @@ the opening's push publishes it, a rung's push.
 pass while its banner claim is false: a seven-cycle program opened against "end subprocess spawning"
 and its close-out claimed the goal met, with about twenty spawn sites surviving, two inside the
 facade the program built (found 2026-08-06 at the 0.78.3 review, and retired by the 0.79.0 cycle,
-chores-17's [refactor: retire the remaining jj
-spawns](https://github.com/winksaville/vc-x1/blob/2dc8d969c3f3/notes/chores/chores-17.md#refactor-retire-the-remaining-jj-spawns)).
-Being provisional,
-the check can also be revised *toward* what was achieved, which is the same failure by a slower
-route, so a changed check is one of the things the deliberation exists to justify.
+chores-17's
+[refactor: retire the remaining jj spawns](https://github.com/winksaville/vc-x1/blob/2dc8d969c3f3/notes/chores/chores-17.md#refactor-retire-the-remaining-jj-spawns)).
+Being provisional, the check can also be revised *toward* what was achieved, which is the same
+failure by a slower route, so a changed check is one of the things the deliberation exists to
+justify.
 
 **Deliberation comes before the opening commit** (wink, 2026-11-11), so the opening carries the
 plan and its review is of the plan, before any work. The cost is a working copy uncommitted while
@@ -622,9 +624,8 @@ restated it seven times, and the two files without one never missed it.
 
 Until v0.3.0 this section also made a correction a direct edit of the payload, an agent-file change
 its own commit, convention work its own cycle, and a rule adopted ahead a resident of its agent-file
-rather than a holding file (measured 2026-08-19 to 2026-08-21, chores-17's [docs: empty
-custom-family into the pinned set and
-config](https://github.com/winksaville/vc-x1/blob/2dc8d969c3f3/notes/chores/chores-17.md#docs-empty-custom-family-into-the-pinned-set-and-config)).
+rather than a holding file (measured 2026-08-19 to 2026-08-21, chores-17's
+[docs: empty custom-family into the pinned set and config](https://github.com/winksaville/vc-x1/blob/2dc8d969c3f3/notes/chores/chores-17.md#docs-empty-custom-family-into-the-pinned-set-and-config)).
 The cycle **agent-files(proposal): v0.3.0** retired them, the proposal bullet covering what they
 guarded (wink, 2026-10-18).
 
@@ -738,6 +739,15 @@ The rule widened from typeable punctuation to the whole of prose form (2026-08-2
   a reader a judgment call and buys nothing.
 - Bullet form (wink, 2026-08-27): sentence bullets and thing-list bullets read differently, and a
   list that mixes them makes the reader decide which each one is.
+
+### Line widths
+
+A link stays on one line (wink, 2026-11-25, a style 2026-11-27) because a wrapped link is found by
+neither a search for its text nor a check reading a line at a time, and a reader cannot tell at a
+glance that `[Working` and `practices](...)` are one link. The early break is ragged in the source
+alone, never rendered, a fair trade. It is a style and not a requirement, so `check anchors` counts
+the links and fails on none, the count keeping the number in view while older text re-wraps as it
+is touched.
 
 ### Semicolons
 
@@ -855,10 +865,10 @@ output set the rule that keeps it one spelling: bare for a program's own banner 
 version is always the pair.
 
 **The suffix walks in the file name and never in a title** because a rung's title is its ladder
-line, which carries no version ([Steps are named, not
-numbered](prose.md#steps-are-named-not-numbered)), so a proposal cycle's rungs are told apart by
-the bookends while the file says at every commit whether the set is mid-cycle, which is what a copy
-taken from a draft bookmark needs to say on its face.
+line, which carries no version
+([Steps are named, not numbered](prose.md#steps-are-named-not-numbered)), so a proposal cycle's
+rungs are told apart by the bookends while the file says at every commit whether the set is
+mid-cycle, which is what a copy taken from a draft bookmark needs to say on its face.
 
 **Proposals bump and adoptions copy** because a proposal is the diff, and the bump is part of it,
 while an adoption takes a text that already has its number: the same title in two repos then reads
@@ -868,8 +878,8 @@ as the copy and its origin.
 the copy is whole, and it fails on a file an adopter edited after copying. Until v0.3.0 the copy
 took the adopters' shared project layer too, under `-c`, and it stopped when that layer became local
 ([custom.md](#custommd)). Since v0.3.0 the diff may be non-empty and still pass the adoption,
-printing the differences, because acceptance may differ from the proposal ([Changing the
-agent-files](../AGENTS.md#changing-the-agent-files)).
+printing the differences, because acceptance may differ from the proposal
+([Changing the agent-files](../AGENTS.md#changing-the-agent-files)).
 
 **A version names the text as proposed** (wink, 2026-10-18) because a number that named what each
 adopter agreed to would name a different text in each repo once acceptance may differ from the
