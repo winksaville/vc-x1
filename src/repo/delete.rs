@@ -89,7 +89,18 @@ impl From<&DeleteArgs> for DeleteParams {
 impl SubcommandRunner for DeleteArgs {
     type Params = DeleteParams;
 
+    /// Refuse a one-side scope, which would otherwise read as `-s b`
+    /// and delete both repos, then convert.
     fn to_params(&self) -> Result<Self::Params, String> {
+        if let RepoScope::Sides(s) = &self.scope
+            && s.0.len() == 1
+        {
+            return Err(
+                "repo delete: -s takes `b|both` or `p|por`: a workspace is deleted whole, not one \
+                 side"
+                    .to_string(),
+            );
+        }
         Ok(DeleteParams::from(self))
     }
 

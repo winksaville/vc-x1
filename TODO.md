@@ -155,6 +155,37 @@ refusals, and the plan printed, `--dry-run` stopping there. Nothing moves yet.
 The local half: a local bare origin moved, both `origin` URLs, the config edits written, the
 directories, and the symlink, in that order, a failure naming what is left.
 
+* The plan is carried out, asked first unless `--yes`, refused with no terminal to ask.
+  - The steps in order: each local bare origin moved, each `origin` URL set, each config edit made,
+    an outside agent directory moved, the work directory moved with a nested agent-repo inside it,
+    the old symlink removed, and the new one made to the agent-repo's new path.
+  - A failure names the step and every step left, and a failure at the symlink, the last step, says
+    `vc-x1 symlink` in the new root makes it.
+  - A GitHub origin is refused before anything changes, its rename being the GitHub rung's.
+* An `origin` URL is set in place, its remote bookmarks kept.
+  - `jj::git_remote_set_url`, by jj-lib's `set_remote_urls`, where a remove and an add would have
+    dropped `main@origin` and left every commit unpushed.
+* A config edit changes one line.
+  - In the `toml` fences of `.vc-config.md`, the line setting the key in its table to the quoted old
+    value, everything else as written, and a config that no longer says the old value is refused.
+  - The edit is left uncommitted, for **feat: repo rename commits and pushes the config**.
+* A scope means what it says (wink's hand test, 2026-11-28, `-s a` taken as `-s b`).
+  - `repo_scope_parser` hides an unoffered scope from the help and still accepts it, so `rename -s
+    w` and `-s a`, and `delete -s w` and `-s a`, each ran as `-s b`, `delete` taking both repos.
+  - `delete` refuses a one-side scope, a workspace being deleted whole.
+  - `rename` takes `-s w` as `-s b` (wink: "-sb == -sw"), the agent side following the work name,
+    and refuses `-s a` until **feat: repo rename -s a renames the agent side**.
+* Tested end to end in a workspace `init --test-repo` made: the bare repos, both URLs, the config,
+  the directories, and the symlink under the new name, nothing under the old, and `sync -s b
+  --dry-run` from the new root reporting both repos up to date.
+
+##### feat: repo rename -s a renames the agent side
+
+The agent side alone (wink, 2026-11-28, from his hand test): its directory renamed in place, the
+work config's `[repos] agent` and the work `.gitignore` line following, its remote renamed as
+`init` names it, the work name plus a dot-led directory, with `[remote] agent-repo`, and the
+symlink re-pointed. PATH may name the agent directory itself.
+
 ##### feat: repo move moves a workspace to another directory
 
 The same local half with the name kept: the workspace under a new parent, a relative local

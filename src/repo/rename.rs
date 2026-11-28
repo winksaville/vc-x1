@@ -37,13 +37,18 @@ pub struct RenameArgs {
     #[arg(long, value_name = "NEW")]
     pub to: String,
 
+    /// Rename without asking, for a run with no terminal
+    #[arg(long)]
+    pub yes: bool,
+
     /// The workspace's shape, required: `b|both` a dual workspace,
+    /// `w|work` the same, its agent side following the work name,
     /// `p|por` a plain repo
     #[arg(
         short = 's',
         long,
         value_name = "SCOPE",
-        value_parser = repo_scope_parser(&["both", "por"]),
+        value_parser = repo_scope_parser(&["both", "work", "por"]),
         required = true
     )]
     pub scope: RepoScope,
@@ -58,6 +63,7 @@ pub struct RenameArgs {
 pub struct RenameParams {
     pub path: Option<PathBuf>,
     pub to: String,
+    pub yes: bool,
     pub dual: bool,
     pub dry_run: bool,
 }
@@ -67,6 +73,7 @@ impl From<&RenameArgs> for RenameParams {
         RenameParams {
             path: a.path.clone(),
             to: a.to.clone(),
+            yes: a.yes,
             dual: matches!(a.scope, RepoScope::Sides(_)),
             dry_run: a.dry_run.value,
         }
@@ -76,7 +83,18 @@ impl From<&RenameArgs> for RenameParams {
 impl SubcommandRunner for RenameArgs {
     type Params = RenameParams;
 
+    /// `-s w` is `-s b`, the agent side following the work name, and
+    /// `-s a`, the agent side alone, is refused until it is built.
     fn to_params(&self) -> Result<Self::Params, String> {
+        if let RepoScope::Sides(s) = &self.scope
+            && s.0 == [crate::options_flags::scope::Side::Bot]
+        {
+            return Err(
+                "repo rename -s a: renaming the agent side alone is not built yet: `-s b` or \
+                 `-s w` renames the workspace whole"
+                    .to_string(),
+            );
+        }
         Ok(RenameParams::from(self))
     }
 
@@ -137,6 +155,8 @@ pub struct Plan {
     pub link: Link,
     /// The symlink's path for the new root, `None` for a plain repo.
     pub link_to: Option<PathBuf>,
+    /// Where the agent-repo is once renamed, `None` for a plain repo.
+    pub agent_to: Option<PathBuf>,
     pub configs: Vec<ConfigEdit>,
     /// What keeps the old name, said and not changed.
     pub kept: Vec<String>,
@@ -471,6 +491,18 @@ pub fn plan(
         }
     }
 
+    let agent_to = repos.iter().find(|r| r.agent).map(|a| {
+        match plans
+            .iter()
+            .find(|p| p.dir == a.path)
+            .and_then(|p| p.dir_to.clone())
+        {
+            Some(to) => to,
+            None if a.outside => a.path.clone(),
+            None => root_to.join(a.path.strip_prefix(&root).unwrap_or(&a.path)), // OK: a nested agent-repo is under the root
+        }
+    });
+
     let link_to = if params.dual {
         let name =
             crate::symlink::encode_path(root_to.to_str().ok_or_else(|| {
@@ -503,6 +535,7 @@ pub fn plan(
         repos: plans,
         link,
         link_to,
+        agent_to,
         configs,
         kept,
         refusals,
@@ -617,7 +650,7 @@ impl Plan {
 /// Find the workspace, plan, and print the plan, refusing what would
 /// stop it.
 pub fn rename(
-    _ctx: &mut Context,
+    ctx: &mut Context,
     params: &RenameParams,
     cwd: &Path,
     projects: &Path,
@@ -637,7 +670,215 @@ pub fn rename(
         info!("repo rename: [dry-run] nothing is renamed");
         return Ok(());
     }
-    Err("repo rename: only the plan is built so far: --dry-run prints it".into())
+    if let Some(p) = plan
+        .repos
+        .iter()
+        .find(|p| matches!(p.remote, Remote::GitHub { .. }))
+    {
+        return Err(format!(
+            "repo rename: {}'s origin is on GitHub, and renaming a GitHub repo is not built yet: \
+             nothing is renamed",
+            p.label
+        )
+        .into());
+    }
+    confirm(params.yes, ctx.stdin_is_tty)?;
+    apply(&plan)?;
+    if cwd.starts_with(&plan.root) {
+        info!(
+            "repo rename: done, the workspace is at {}, and this shell's directory moved with it: \
+             `cd` there",
+            plan.root_to.display()
+        );
+    } else {
+        info!(
+            "repo rename: done, the workspace is at {}",
+            plan.root_to.display()
+        );
+    }
+    Ok(())
+}
+
+/// Ask before renaming, unless `--yes`. With no terminal to ask, the
+/// run is refused rather than hung, and a declined answer is an error,
+/// so a script learns nothing was renamed.
+fn confirm(yes: bool, stdin_is_tty: bool) -> Result<(), Box<dyn std::error::Error>> {
+    if yes {
+        debug!("repo rename: --yes, not asked");
+        return Ok(());
+    }
+    if !stdin_is_tty {
+        return Err(
+            "repo rename: asking requires a terminal (stdin is not interactive): --yes renames \
+             without asking, nothing is renamed"
+                .into(),
+        );
+    }
+    let answer = crate::common::prompt("repo rename: rename these? [y/N] ")?;
+    let answer = answer.trim().to_ascii_lowercase();
+    if answer != "y" && answer != "yes" {
+        return Err(format!("repo rename: declined (got {answer:?}), nothing is renamed").into());
+    }
+    Ok(())
+}
+
+/// One step of a rename: what it is called and how it is done.
+type Step<'a> = (
+    String,
+    Box<dyn Fn() -> Result<(), Box<dyn std::error::Error>> + 'a>,
+);
+
+/// Make the plan's changes in its order: the remotes first, so a
+/// refusal there leaves the machine as it was, then the `origin`
+/// URLs, the configs, the directories, and the symlink last, so a run
+/// that stops leaves a workspace its own commands still find. A
+/// failure names the step and what is left.
+pub fn apply(plan: &Plan) -> Result<(), Box<dyn std::error::Error>> {
+    let mut steps: Vec<Step> = Vec::new();
+    for p in &plan.repos {
+        if let Remote::LocalBare { from, to } = &p.remote
+            && from != to
+        {
+            steps.push((
+                format!(
+                    "move {}'s origin {} to {}",
+                    p.label,
+                    from.display(),
+                    to.display()
+                ),
+                Box::new(move || Ok(std::fs::rename(from, to)?)),
+            ));
+        }
+    }
+    for p in &plan.repos {
+        if let (Some(from), Some(to)) = (&p.url_from, &p.url_to)
+            && from != to
+        {
+            steps.push((
+                format!("set {}'s origin URL to {to}", p.label),
+                Box::new(move || crate::jj::git_remote_set_url(&p.dir, "origin", to)),
+            ));
+        }
+    }
+    for c in &plan.configs {
+        steps.push((
+            format!(
+                "set {} in {}/.vc-config.md to \"{}\"",
+                c.key,
+                c.dir.display(),
+                c.to
+            ),
+            Box::new(move || edit_config(c)),
+        ));
+    }
+    for p in &plan.repos {
+        if let Some(to) = &p.dir_to {
+            steps.push((
+                format!(
+                    "move the {} repo {} to {}",
+                    p.label,
+                    p.dir.display(),
+                    to.display()
+                ),
+                Box::new(move || Ok(std::fs::rename(&p.dir, to)?)),
+            ));
+        }
+    }
+    steps.push((
+        format!(
+            "move the work repo {} to {}",
+            plan.root.display(),
+            plan.root_to.display()
+        ),
+        Box::new(move || Ok(std::fs::rename(&plan.root, &plan.root_to)?)),
+    ));
+    if let Link::Ours(old) = &plan.link {
+        steps.push((
+            format!("remove the symlink {}", old.display()),
+            Box::new(move || Ok(std::fs::remove_file(old)?)),
+        ));
+    }
+    if let (Some(link_to), Some(agent_to)) = (&plan.link_to, &plan.agent_to) {
+        let dir = link_to.parent().map(Path::to_path_buf).unwrap_or_default(); // OK: a symlink path has a parent
+        steps.push((
+            format!("make the symlink {}", link_to.display()),
+            Box::new(move || {
+                crate::symlink::SymLink::new(&plan.root_to, agent_to, &dir)?.create(false)?;
+                Ok(())
+            }),
+        ));
+    }
+    for (i, (name, step)) in steps.iter().enumerate() {
+        step().map_err(|e| {
+            let left: Vec<&str> = steps[i..].iter().map(|(n, _)| n.as_str()).collect();
+            let how = if i + 1 == steps.len() {
+                format!("`vc-x1 symlink` in {} makes it", plan.root_to.display())
+            } else {
+                "each is the plan's, to finish by hand".to_string()
+            };
+            format!(
+                "repo rename: cannot {name}: {e}. Left: {}. {how}",
+                left.join(", ")
+            )
+        })?;
+        info!("repo rename: {name}");
+    }
+    Ok(())
+}
+
+/// Make one config edit: in the toml fences of `.vc-config.md`, the
+/// line setting `key` in its table to the quoted `from` is set to
+/// `to`, everything else kept as written. An edit that finds no such
+/// line is refused, so a config hand-edited since the plan is not
+/// guessed at.
+fn edit_config(edit: &ConfigEdit) -> Result<(), Box<dyn std::error::Error>> {
+    let path = crate::config_md::vc_config_path(&edit.dir)?
+        .ok_or_else(|| format!("no .vc-config.md in {}", edit.dir.display()))?;
+    let text = std::fs::read_to_string(&path)?;
+    let new = edit_config_text(&text, &edit.key, &edit.from, &edit.to).ok_or_else(|| {
+        format!(
+            "{} sets no {} to \"{}\"",
+            path.display(),
+            edit.key,
+            edit.from
+        )
+    })?;
+    std::fs::write(&path, new)?;
+    Ok(())
+}
+
+/// `text` with the toml line setting `key`, `table.name`, to the
+/// quoted `from` set to `to`, or `None` when no line does.
+fn edit_config_text(text: &str, key: &str, from: &str, to: &str) -> Option<String> {
+    let (table, name) = key.rsplit_once('.')?;
+    let mut in_toml = false;
+    let mut current = String::new();
+    let mut found = false;
+    let mut out: Vec<String> = Vec::new();
+    for line in text.split_inclusive('\n') {
+        let trimmed = line.trim();
+        if trimmed.starts_with("```") {
+            in_toml = !in_toml && trimmed.trim_start_matches('`').trim() == "toml";
+            out.push(line.to_string());
+            continue;
+        }
+        if in_toml {
+            if let Some(t) = trimmed.strip_prefix('[').and_then(|t| t.strip_suffix(']')) {
+                current = t.trim().to_string();
+            } else if !found
+                && current == table
+                && let Some((k, v)) = trimmed.split_once('=')
+                && k.trim() == name
+                && v.trim() == format!("\"{from}\"")
+            {
+                out.push(line.replacen(&format!("\"{from}\""), &format!("\"{to}\""), 1));
+                found = true;
+                continue;
+            }
+        }
+        out.push(line.to_string());
+    }
+    found.then(|| out.concat())
 }
 
 #[cfg(test)]
@@ -676,6 +917,23 @@ mod tests {
         );
         assert_eq!(renamed_with_suffix("ws", "ws", "ws2"), None);
         assert_eq!(renamed_with_suffix("other.claude", "ws", "ws2"), None);
+    }
+
+    /// A config edit changes the one line in its table and fence, and
+    /// a key in another table, or outside a fence, is left.
+    #[test]
+    fn a_config_edit_changes_its_line_alone() {
+        let text = "# c\n\nagent-repo = \"ws.a\"\n\n```toml\n[other]\nagent-repo = \"ws.a\"\n```\n\n```toml\n[remote]\nagent-repo = \"ws.a\"\n```\n";
+        let new = edit_config_text(text, "remote.agent-repo", "ws.a", "ws2.a").expect("edited");
+        assert_eq!(new.matches("\"ws2.a\"").count(), 1, "{new}");
+        assert!(
+            new.ends_with("[remote]\nagent-repo = \"ws2.a\"\n```\n"),
+            "{new}"
+        );
+        assert_eq!(
+            edit_config_text(text, "remote.agent-repo", "nope", "x"),
+            None
+        );
     }
 
     /// A config path keeps everything but its last component.

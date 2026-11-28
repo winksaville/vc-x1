@@ -441,3 +441,95 @@ fn a_rename_is_refused_before_anything_changes() {
     assert!(out.contains("nothing is renamed"), "{out}");
     all_there(&ws);
 }
+
+/// A rename with `--yes` moves the bare origins, sets both URLs and
+/// the config's agent-repo, moves the work repo with its agent repo,
+/// and remakes the symlink, after which the workspace syncs from its
+/// new place and nothing is left under the old names. Without `--yes`
+/// and a terminal it renames nothing.
+#[test]
+fn a_rename_moves_every_part_on_this_machine() {
+    let fx = CliFixture::new("rename-moves");
+    let ws = make_ws(&fx);
+    let root = ws.root.to_str().expect("utf-8").to_string();
+
+    let out = text(&run_err(
+        rename(&fx, &fx.base, &["-s", "b", "--to", "ws2", &root])
+            .stdin(std::process::Stdio::null()),
+    ));
+    assert!(out.contains("asking requires a terminal"), "{out}");
+    all_there(&ws);
+
+    let out = text(&run_ok(&mut rename(
+        &fx,
+        &fx.base,
+        &["-s", "b", "--yes", "--to", "ws2", &root],
+    )));
+    assert!(out.contains("rename: done"), "{out}");
+    let root_to = ws.root.with_file_name("ws2");
+    assert!(!ws.root.exists(), "the old work repo is gone");
+    assert!(
+        root_to.join(".agent-session").is_dir(),
+        "agent repo moved with it"
+    );
+    assert!(!ws.remotes.join("ws.git").exists(), "old work origin gone");
+    assert!(ws.remotes.join("ws2.git").is_dir(), "work origin moved");
+    assert!(
+        ws.remotes.join("ws2.agent-session.git").is_dir(),
+        "agent origin moved"
+    );
+    assert!(ws.link.symlink_metadata().is_err(), "old symlink removed");
+    let links: Vec<PathBuf> = std::fs::read_dir(ws.link.parent().expect("projects"))
+        .expect("projects")
+        .map(|e| e.expect("entry").path())
+        .collect();
+    assert_eq!(links.len(), 1, "{links:?}");
+    assert_eq!(
+        std::fs::read_link(&links[0]).expect("a symlink"),
+        root_to.join(".agent-session"),
+    );
+    let cfg = std::fs::read_to_string(root_to.join(".vc-config.md")).expect("config");
+    assert!(cfg.contains("agent-repo = \"ws2.agent-session\""), "{cfg}");
+
+    let out = text(&run_ok(
+        fx.cmd()
+            .args(["sync", "-s", "b", "--dry-run"])
+            .current_dir(&root_to),
+    ));
+    assert!(out.contains("up to date"), "{out}");
+}
+
+/// A one-side scope is refused by delete, which would otherwise take
+/// it as `-s b` and delete both repos, while rename takes `-s w` as
+/// `-s b` and refuses `-s a` until the agent side alone is built.
+#[test]
+fn one_side_scopes_mean_what_they_say() {
+    let fx = CliFixture::new("repo-scopes");
+    let ws = make_ws(&fx);
+    let root = ws.root.to_str().expect("utf-8");
+
+    for s in ["w", "a"] {
+        let out = text(&run_err(&mut delete(
+            &fx,
+            &fx.base,
+            &["-s", s, "--dry-run", root],
+        )));
+        assert!(out.contains("deleted whole, not one side"), "{out}");
+    }
+    let out = text(&run_ok(&mut rename(
+        &fx,
+        &fx.base,
+        &["-s", "w", "--dry-run", "--to", "ws2", root],
+    )));
+    assert!(
+        out.contains("ws2.agent-session"),
+        "the agent side follows: {out}"
+    );
+    let out = text(&run_err(&mut rename(
+        &fx,
+        &fx.base,
+        &["-s", "a", "--dry-run", "--to", ".x", root],
+    )));
+    assert!(out.contains("agent side alone is not built yet"), "{out}");
+    all_there(&ws);
+}
